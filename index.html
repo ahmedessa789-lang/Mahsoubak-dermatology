@@ -2100,94 +2100,67 @@ render=function(){renderBeforeCashFlowV24();renderCashFlow();}
 const renderReportsBeforeCashFlowV24=renderReports;
 renderReports=function(){renderReportsBeforeCashFlowV24();let el=document.getElementById('view-reports');if(el&&can('cashflow','view'))el.insertAdjacentHTML('beforeend',`<div class="card"><h3>Cash Flow</h3>${cashFlowSourceTable(cashFlowData().bySource)}</div>`)}
 
-/* ===== v25 Shared online database sync ===== */
-let remoteDbReady=false,remoteDbBooted=false,remoteDbSaving=false,remoteDbTimer=null;
+/* ===== v27 Supabase shared online database sync ===== */
+const SUPABASE_URL='https://fkksydpbfqkctvlkoaom.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY='sb_publishable_gq0JyUXR5M57OZAaOd6eEg_6WyzVx9D';
+const SUPABASE_TABLE='mahsoubak_db';
+const SUPABASE_ROW_ID='main';
+let remoteDbReady=false,remoteDbBooted=false,remoteDbSaving=false,remoteDbTimer=null,remoteDbPulling=false;
 function onlineBackendEnabled(){return location.protocol==='http:'||location.protocol==='https:'}
 function syncStatus(text){let el=document.getElementById('status');if(el)el.textContent=text}
-function scheduleRemoteSave(){if(!remoteDbReady||!onlineBackendEnabled())return;clearTimeout(remoteDbTimer);remoteDbTimer=setTimeout(pushRemoteDb,650)}
+function supabaseHeaders(extra={}){return Object.assign({'apikey':SUPABASE_PUBLISHABLE_KEY,'Authorization':'Bearer '+SUPABASE_PUBLISHABLE_KEY,'Content-Type':'application/json'},extra)}
+function supabaseEndpoint(){return SUPABASE_URL.replace(/\/$/,'')+'/rest/v1/'+SUPABASE_TABLE}
+function dbLooksUsable(x){return x&&typeof x==='object'&&Array.isArray(x.products)&&Array.isArray(x.customers)&&Array.isArray(x.sales)&&Array.isArray(x.users)}
+function scheduleRemoteSave(){if(!remoteDbReady||remoteDbPulling||!onlineBackendEnabled())return;clearTimeout(remoteDbTimer);remoteDbTimer=setTimeout(pushRemoteDb,650)}
 async function pushRemoteDb(){
-  if(remoteDbSaving||!remoteDbReady||!onlineBackendEnabled())return;
+  if(remoteDbSaving||remoteDbPulling||!remoteDbReady||!onlineBackendEnabled())return;
   remoteDbSaving=true;
   try{
-    let res=await fetch('/api/db',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({db})});
-    if(!res.ok)throw new Error('save failed');
-    syncStatus(lang==='ar'?'Online: تم حفظ البيانات على السيرفر':'Online: saved to server');
+    let res=await fetch(supabaseEndpoint()+'?id=eq.'+encodeURIComponent(SUPABASE_ROW_ID),{method:'PATCH',headers:supabaseHeaders({'Prefer':'return=minimal'}),body:JSON.stringify({data:db,updated_at:new Date().toISOString()})});
+    if(!res.ok){
+      res=await fetch(supabaseEndpoint(),{method:'POST',headers:supabaseHeaders({'Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify({id:SUPABASE_ROW_ID,data:db,updated_at:new Date().toISOString()})});
+    }
+    if(!res.ok)throw new Error('Supabase save failed');
+    syncStatus(lang==='ar'?'Online: تم حفظ البيانات على Supabase':'Online: saved to Supabase');
   }catch(e){
-    syncStatus(lang==='ar'?'Online: تعذر الحفظ على السيرفر - تم الحفظ محليًا':'Online: server save failed - saved locally');
+    console.error(e);
+    syncStatus(lang==='ar'?'Online: تعذر الحفظ على Supabase - تم الحفظ محليًا':'Online: Supabase save failed - saved locally');
   }finally{remoteDbSaving=false}
 }
 async function pullRemoteDb(){
   if(remoteDbBooted||!onlineBackendEnabled())return;
-  remoteDbBooted=true;
+  remoteDbBooted=true;remoteDbPulling=true;
   try{
-    let res=await fetch('/api/db',{cache:'no-store'});
-    if(!res.ok)throw new Error('load failed');
-    let payload=await res.json();
+    let res=await fetch(supabaseEndpoint()+'?id=eq.'+encodeURIComponent(SUPABASE_ROW_ID)+'&select=data',{method:'GET',headers:supabaseHeaders(),cache:'no-store'});
+    if(!res.ok)throw new Error('Supabase load failed');
+    let rows=await res.json();
+    let remoteData=rows&&rows[0]&&rows[0].data;
     remoteDbReady=true;
-    if(payload&&payload.db&&typeof payload.db==='object'){
-      db=payload.db;
+    if(dbLooksUsable(remoteData)){
+      db=remoteData;
       localStorage.setItem(KEY,JSON.stringify(db));
-      syncStatus(lang==='ar'?'Online: تم تحميل البيانات المشتركة':'Online: shared data loaded');
-      render();
+      syncStatus(lang==='ar'?'Online: تم تحميل البيانات المشتركة من Supabase':'Online: shared data loaded from Supabase');
     }else{
+      syncStatus(lang==='ar'?'Online: قاعدة Supabase فارغة - جاري رفع النسخة الحالية':'Online: Supabase is empty - uploading current data');
+      remoteDbPulling=false;
       await pushRemoteDb();
+      remoteDbPulling=true;
     }
+    render();
   }catch(e){
+    console.error(e);
     remoteDbReady=false;
-    syncStatus(lang==='ar'?'Offline: السيرفر غير متاح والبيانات محلية':'Offline: server unavailable, local data only');
-  }
+    syncStatus(lang==='ar'?'Offline: تعذر الاتصال بـ Supabase والبيانات محلية':'Offline: Supabase unavailable, local data only');
+  }finally{remoteDbPulling=false}
 }
-const saveBeforeRemoteSyncV25=save;
+const saveBeforeSupabaseSyncV27=save;
 save=function(){
   localStorage.setItem(KEY,JSON.stringify(db));
-  syncStatus(remoteDbReady?(lang==='ar'?'Online: جاري حفظ البيانات على السيرفر':'Online: saving to server'):(lang==='ar'?'Offline: محفوظ محليًا':'Offline: saved locally'));
+  syncStatus(remoteDbReady?(lang==='ar'?'Online: جاري حفظ البيانات على Supabase':'Online: saving to Supabase'):(lang==='ar'?'Offline: محفوظ محليًا':'Offline: saved locally'));
   scheduleRemoteSave();
 }
 setTimeout(pullRemoteDb,300);
 
-/* ===== v26 PHP shared hosting sync fallback ===== */
-const REMOTE_DB_ENDPOINTS=['/api/db','/api.php'];
-async function fetchFirstWorkingEndpoint(options){
-  let lastError=null;
-  for(let url of REMOTE_DB_ENDPOINTS){
-    try{
-      let res=await fetch(url,options);
-      if(res.ok)return res;
-      lastError=new Error(url+' failed');
-    }catch(e){lastError=e}
-  }
-  throw lastError||new Error('No backend endpoint available');
-}
-pushRemoteDb=async function(){
-  if(remoteDbSaving||!remoteDbReady||!onlineBackendEnabled())return;
-  remoteDbSaving=true;
-  try{
-    await fetchFirstWorkingEndpoint({method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({db})});
-    syncStatus(lang==='ar'?'Online: تم حفظ البيانات المشتركة':'Online: shared data saved');
-  }catch(e){
-    syncStatus(lang==='ar'?'Online: تعذر حفظ البيانات المشتركة - تم الحفظ محليًا':'Online: shared save failed - saved locally');
-  }finally{remoteDbSaving=false}
-}
-pullRemoteDb=async function(){
-  if(remoteDbBooted||!onlineBackendEnabled())return;
-  remoteDbBooted=true;
-  try{
-    let res=await fetchFirstWorkingEndpoint({cache:'no-store'});
-    let payload=await res.json();
-    remoteDbReady=true;
-    if(payload&&payload.db&&typeof payload.db==='object'){
-      db=payload.db;
-      localStorage.setItem(KEY,JSON.stringify(db));
-      syncStatus(lang==='ar'?'Online: تم تحميل البيانات المشتركة':'Online: shared data loaded');
-      render();
-    }else{
-      await pushRemoteDb();
-    }
-  }catch(e){
-    remoteDbReady=false;
-    syncStatus(lang==='ar'?'Offline: لا يوجد Backend متاح والبيانات محلية':'Offline: no backend available, local data only');
-  }
-}
 render();
 </script>
 
