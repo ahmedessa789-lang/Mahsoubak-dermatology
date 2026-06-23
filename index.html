@@ -1663,6 +1663,60 @@ renderUsers=function(){
   let u=db.users.find(x=>x.id===selectedPermissionUserId)||db.users[0];
   el.innerHTML=`<div class="perm-hero"><div><h3>${lang==='ar'?'المستخدمين والصلاحيات':'Users & permissions'}</h3><p>${lang==='ar'?'أضف المستخدم بإيميله وباسورده وحدد دوره وصلاحياته داخل كل موديول.':'Add each user with email, password, role and module permissions.'}</p></div><span class="badge blue">${db.users.length} ${lang==='ar'?'مستخدم':'users'}</span></div><div class="perm-grid"><div><div class="card"><h3>${lang==='ar'?'إضافة مستخدم':'Add user'}</h3><div class="grid grid2"><div><label>${T('name')}</label><input id="user_name"></div><div><label>${lang==='ar'?'الإيميل':'Email'}</label><input id="user_email" type="email"></div><div><label>${lang==='ar'?'الباسورد':'Password'}</label><input id="user_password" type="password"></div><div><label>${lang==='ar'?'الدور':'Role'}</label><select id="user_role">${roleOptions('sales_rep')}</select></div><div style="display:flex;align-items:end"><button class="btn ok" onclick="addUser()">${T('add')}</button></div></div></div><div class="card"><h3>${lang==='ar'?'قائمة المستخدمين':'Users list'}</h3><div class="perm-user-list">${db.users.map(x=>`<div class="perm-user-card ${u.id===x.id?'active':''}" onclick="selectPermissionUser('${x.id}')"><div><b>${esc(x.name)}</b><span>${esc(x.email||'')} · ${roleLabel(x.role)} · ${x.active!==false?(lang==='ar'?'نشط':'Active'):(lang==='ar'?'موقوف':'Inactive')}</span></div><div class="actions"><button class="btn small blue" onclick="event.stopPropagation();selectPermissionUser('${x.id}');document.getElementById('selectedUserPermissions')?.scrollIntoView({behavior:'smooth',block:'start'});">${lang==='ar'?'تعديل الصلاحيات':'Edit permissions'}</button><button class="btn small secondary" onclick="event.stopPropagation();toggleUserActive('${x.id}')">${x.active!==false?(lang==='ar'?'إيقاف':'Disable'):(lang==='ar'?'تشغيل':'Enable')}</button><button class="btn small danger" onclick="event.stopPropagation();deleteUser('${x.id}')">${T('delete')}</button></div></div>`).join('')}</div></div></div><div class="card" id="selectedUserPermissions"><div class="section-title"><h3>${lang==='ar'?'بيانات وصلاحيات':'User data & permissions'}: ${esc(u.name)}</h3><span class="role-chip">${roleLabel(u.role)}</span></div><div class="grid grid4" style="margin-bottom:16px"><div><label>${T('name')}</label><input value="${esc(u.name)}" onchange="updateUserField('${u.id}','name',this.value)"></div><div><label>${lang==='ar'?'الإيميل':'Email'}</label><input type="email" value="${esc(u.email||'')}" onchange="updateUserField('${u.id}','email',this.value)"></div><div><label>${lang==='ar'?'الباسورد':'Password'}</label><input class="password-mask" type="password" value="${esc(u.password||'')}" onchange="updateUserField('${u.id}','password',this.value)"></div><div><label>${lang==='ar'?'الدور':'Role'}</label><select onchange="updateUserField('${u.id}','role',this.value)">${roleOptions(u.role)}</select></div></div>${renderPermissionMatrix(u)}</div></div>`;
 }
+
+
+/* ===== v30 Stable permissions matrix fix =====
+   - Permissions are edited only for non operations-manager users.
+   - View controls add/edit/delete to avoid inconsistent permissions.
+   - The matrix re-renders after every change so the saved state is always clear.
+*/
+function permissionsLockedForUser(u){return !u||normalizeRole(u.role)==='operations_manager'}
+function normalizeUserPermissions(u){
+  if(!u)return;
+  u.permissions=u.permissions||defaultPermissions(u.role);
+  permissionModules().forEach(m=>{
+    u.permissions[m]=u.permissions[m]||{view:false,add:false,edit:false,delete:false};
+    PERMISSION_ACTIONS.forEach(a=>{u.permissions[m][a]=u.permissions[m][a]===true});
+    if(!u.permissions[m].view){u.permissions[m].add=false;u.permissions[m].edit=false;u.permissions[m].delete=false;}
+    if(u.permissions[m].add||u.permissions[m].edit||u.permissions[m].delete)u.permissions[m].view=true;
+  });
+}
+setPermission=function(userId,module,action,value){
+  if(!isAdmin())return permissionAlert();
+  let u=db.users.find(x=>x.id===userId);if(!u)return;
+  if(permissionsLockedForUser(u))return alert(lang==='ar'?'صلاحيات مدير التشغيل ثابتة ولا يتم تعديلها':'Operations manager permissions are fixed');
+  normalizeUserPermissions(u);
+  u.permissions[module]=u.permissions[module]||{view:false,add:false,edit:false,delete:false};
+  u.permissions[module][action]=!!value;
+  if(action==='view'&&!value){u.permissions[module].add=false;u.permissions[module].edit=false;u.permissions[module].delete=false;}
+  if(action!=='view'&&value)u.permissions[module].view=true;
+  normalizeUserPermissions(u);
+  save();
+  renderUsers();
+  applyPermissionsUI();
+}
+renderPermissionMatrix=function(u){
+  normalizeUserPermissions(u);
+  let locked=permissionsLockedForUser(u);
+  return `<div class="perm-matrix"><table><tr><th>${lang==='ar'?'الموديول':'Module'}</th>${PERMISSION_ACTIONS.map(a=>`<th>${permissionActionLabel(a)}</th>`).join('')}</tr>${permissionModules().map(m=>`<tr><td><b>${icons[m]||''} ${T(m)}</b></td>${PERMISSION_ACTIONS.map(a=>`<td><input class="perm-check" type="checkbox" ${locked?'disabled':''} ${u.permissions&&u.permissions[m]&&u.permissions[m][a]?'checked':''} onchange="setPermission('${u.id}','${m}','${a}',this.checked)"></td>`).join('')}</tr>`).join('')}</table>${locked?`<div class="hint" style="margin-top:10px">${lang==='ar'?'مدير التشغيل له كل الصلاحيات بشكل ثابت.':'Operations manager always has all permissions.'}</div>`:''}</div>`
+}
+const updateUserFieldBeforeV30=updateUserField;
+updateUserField=function(id,field,val){
+  if(!isAdmin())return permissionAlert();
+  let u=db.users.find(x=>x.id===id);if(!u)return;
+  if(field==='role'){
+    let nextRole=normalizeRole(val);
+    if(normalizeRole(u.role)==='operations_manager')return alert(lang==='ar'?'لا يمكن تغيير دور مدير التشغيل الأساسي':'Cannot change the main operations manager role');
+    if(nextRole!==normalizeRole(u.role)){
+      u.role=nextRole;
+      u.permissions=defaultPermissions(nextRole);
+      normalizeUserPermissions(u);
+      save();render();return;
+    }
+  }
+  updateUserFieldBeforeV30(id,field,val);
+}
+
 const renderBeforeLoginV10=render;
 render=function(){ensureUsers();if(!currentUser()){renderLoginScreen();save();return}let login=document.getElementById('loginScreen');if(login)login.remove();ensureAllowedCurrent();renderBeforeLoginV10();renderUsers();applyPermissionsUI();save()};
 
