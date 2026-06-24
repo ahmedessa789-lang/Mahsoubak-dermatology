@@ -2270,6 +2270,576 @@ render=function(){
   save();
 };
 
+
+/* ===== v45 Sales reps Excel distribution manager - safe additive update ===== */
+document.head.insertAdjacentHTML('beforeend',`<style>
+.rep-split-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:10px 0 14px}
+.rep-split-note{background:#ecfeff;border:1px solid #a5f3fc;color:#155e75;border-radius:14px;padding:10px 12px;font-size:12px;font-weight:900;line-height:1.8}
+.rep-split-warning{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:14px;padding:10px 12px;font-size:12px;font-weight:900;line-height:1.8}
+.rep-split-table input,.rep-split-table select{min-width:120px}
+.rep-split-ok{background:#dcfce7;color:#166534}
+.rep-split-bad{background:#fee2e2;color:#991b1b}
+</style>`);
+
+TR.ar.regionCode='المنطقة / الكود';
+TR.en.regionCode='Region code';
+TR.ar.customerRepSplits='توزيع العملاء على المناديب';
+TR.en.customerRepSplits='Customer rep split';
+TR.ar.clinicName='اسم العيادة';
+TR.en.clinicName='Clinic name';
+TR.ar.percentage='النسبة %';
+TR.en.percentage='Percentage %';
+TR.ar.importExcelReps='استيراد بيانات إكسيل المناديب';
+TR.en.importExcelReps='Import reps Excel data';
+TR.ar.importDone='تم استيراد بيانات المناديب والتوزيعات بدون حذف البيانات القديمة';
+TR.en.importDone='Reps and split data imported without deleting old data';
+
+const SALES_REP_DEFAULTS_V45=[
+ {source_key:'rep_west_1',region_code:'West 1',name:'مارينا',area:'زايد - أكتوبر - حدائق الأهرام - فيصل - الهرم',group_name:'West Total'},
+ {source_key:'rep_west_2',region_code:'West 2',name:'عماد',area:'الدقي - المهندسين - المعادي - الزمالك - المنيل',group_name:'West Total'},
+ {source_key:'rep_east_1',region_code:'East 1',name:'سيف',area:'التجمع - الرحاب',group_name:'East Total'},
+ {source_key:'rep_east_2',region_code:'East 2',name:'ماهينور',area:'التجمع - مدينتي',group_name:'East Total'},
+ {source_key:'rep_heliopolis',region_code:'Heliopolis',name:'نوران',area:'مصر الجديدة - مدينة نصر - العبور',group_name:'East Total'},
+ {source_key:'rep_salma',region_code:'Salma',name:'سلمى',area:'التجمع - مصر الجديدة - مدينة نصر - العبور',group_name:'East Total',notes:'كان مكتوب Hacker في شيت المناطق و Salma في شيت توزيع العملاء'},
+ {source_key:'rep_alex',region_code:'Alex',name:'يحي فتحي',area:'إسكندرية - رشيد - دمنهور',group_name:'Alex'},
+ {source_key:'rep_delta',region_code:'Delta',name:'منى',area:'طنطا - المنصورة - المنوفية',group_name:'Delta'}
+];
+
+const CUSTOMER_SPLIT_DEFAULTS_V45=[
+ {customer_name:'أحمد سامي',clinic_name:'Sami',region_code:'East 2',percentage:50},
+ {customer_name:'أحمد سامي',clinic_name:'Sami',region_code:'West 2',percentage:50},
+ {customer_name:'محمود سباتان',clinic_name:'Sapatan',region_code:'East 2',percentage:50},
+ {customer_name:'محمود سباتان',clinic_name:'Sapatan',region_code:'West 2',percentage:50},
+ {customer_name:'أحمد بدر',clinic_name:'AL Zahar',region_code:'East 2',percentage:50},
+ {customer_name:'أحمد بدر',clinic_name:'AL Zahar',region_code:'West 1',percentage:25},
+ {customer_name:'أحمد بدر',clinic_name:'AL Zahar',region_code:'West 2',percentage:25},
+ {customer_name:'مريم علاء',clinic_name:'Glow',region_code:'East 2',percentage:50},
+ {customer_name:'مريم علاء',clinic_name:'Glow',region_code:'Heliopolis',percentage:50},
+ {customer_name:'مارينا جمال',clinic_name:'Klinik',region_code:'East 2',percentage:50},
+ {customer_name:'مارينا جمال',clinic_name:'Klinik',region_code:'Heliopolis',percentage:50},
+ {customer_name:'هايدي',clinic_name:'Be Happy',region_code:'East 2',percentage:50},
+ {customer_name:'هايدي',clinic_name:'Be Happy',region_code:'Heliopolis',percentage:50},
+ {customer_name:'محمد جمال',clinic_name:'Equlizer',region_code:'East 1',percentage:25},
+ {customer_name:'محمد جمال',clinic_name:'Equlizer',region_code:'Heliopolis',percentage:25},
+ {customer_name:'محمد جمال',clinic_name:'Equlizer',region_code:'West 2',percentage:50},
+ {customer_name:'عبد الرحمن رمضان الدقي',clinic_name:'Derma',region_code:'West 2',percentage:100},
+ {customer_name:'عبد الرحمن رمضان زايد',clinic_name:'Derma',region_code:'West 1',percentage:100},
+ {customer_name:'عبد الرحمن رمضان التجمع',clinic_name:'Derma',region_code:'East 2',percentage:100},
+ {customer_name:'حاتم سعيد',clinic_name:'in',region_code:'East 1',percentage:60},
+ {customer_name:'حاتم سعيد',clinic_name:'in',region_code:'West 1',percentage:40},
+ {customer_name:'سعيد راشد',clinic_name:'Prof',region_code:'East 1',percentage:30},
+ {customer_name:'سعيد راشد',clinic_name:'Prof',region_code:'East 2',percentage:30},
+ {customer_name:'سعيد راشد',clinic_name:'Prof',region_code:'West 1',percentage:20},
+ {customer_name:'سعيد راشد',clinic_name:'Prof',region_code:'West 2',percentage:20},
+ {customer_name:'أحمد عبد المعطي',clinic_name:'Beaute',region_code:'East 2',percentage:60},
+ {customer_name:'أحمد عبد المعطي',clinic_name:'Beaute',region_code:'West 1',percentage:40},
+ {customer_name:'محمد عبد الباسط',clinic_name:'Boss',region_code:'East 1',percentage:50},
+ {customer_name:'محمد عبد الباسط',clinic_name:'Boss',region_code:'West 2',percentage:50},
+ {customer_name:'محمد مراد',clinic_name:'De CELL',region_code:'East 2',percentage:50},
+ {customer_name:'محمد مراد',clinic_name:'De CELL',region_code:'West 1',percentage:50},
+ {customer_name:'رحاب فتحي',clinic_name:'CHANGE ME',region_code:'East 1',percentage:40},
+ {customer_name:'رحاب فتحي',clinic_name:'CHANGE ME',region_code:'West 2',percentage:60},
+ {customer_name:'أحمد صبحي',clinic_name:'Ahmed Sopehy',region_code:'East 2',percentage:50},
+ {customer_name:'أحمد صبحي',clinic_name:'Ahmed Sopehy',region_code:'West 2',percentage:50},
+ {customer_name:'شيرين رضا',clinic_name:'El Gamila',region_code:'Heliopolis',percentage:20},
+ {customer_name:'شيرين رضا',clinic_name:'El Gamila',region_code:'West 1',percentage:40},
+ {customer_name:'شيرين رضا',clinic_name:'El Gamila',region_code:'West 2',percentage:40},
+ {customer_name:'يحي فتحي',clinic_name:'New Look',region_code:'Salma',percentage:50},
+ {customer_name:'يحي فتحي',clinic_name:'New Look',region_code:'West 1',percentage:25},
+ {customer_name:'يحي فتحي',clinic_name:'New Look',region_code:'West 2',percentage:25},
+ {customer_name:'عماد سلطان',clinic_name:'Soltana',region_code:'East 1',percentage:20},
+ {customer_name:'عماد سلطان',clinic_name:'Soltana',region_code:'East 2',percentage:20},
+ {customer_name:'عماد سلطان',clinic_name:'Soltana',region_code:'Heliopolis',percentage:10},
+ {customer_name:'عماد سلطان',clinic_name:'Soltana',region_code:'West 1',percentage:25},
+ {customer_name:'عماد سلطان',clinic_name:'Soltana',region_code:'West 2',percentage:25}
+].map((x,i)=>Object.assign({source_key:'split_'+String(i+1).padStart(3,'0')},x));
+
+function ensureCustomerRepModuleV45(){
+  if(!db || typeof db!=='object')return;
+  if(!Array.isArray(db.customerRepSplits))db.customerRepSplits=[];
+  if(!Array.isArray(db.reps))db.reps=[];
+  db.reps.forEach(r=>{if(r.region_code===undefined)r.region_code=''; if(r.group_name===undefined)r.group_name='';});
+  db.customerRepSplits.forEach(s=>{if(s.percentage===undefined)s.percentage=0;});
+}
+function repRegionOptionsV45(selected){
+  let regions=[...new Set([...(db.reps||[]).map(r=>r.region_code||r.area||r.name),...SALES_REP_DEFAULTS_V45.map(r=>r.region_code)].filter(Boolean))];
+  return regions.map(x=>`<option value="${esc(x)}" ${x===selected?'selected':''}>${esc(x)}</option>`).join('');
+}
+function importSalesRepExcelDataV45(){
+  ensureCustomerRepModuleV45();
+  if(!confirm(lang==='ar'?'سيتم إضافة بيانات إكسيل المناديب والتوزيعات بدون حذف أي بيانات قديمة. هل تريد المتابعة؟':'This will add Excel reps and splits without deleting old data. Continue?'))return;
+  SALES_REP_DEFAULTS_V45.forEach(src=>{
+    let r=db.reps.find(x=>x.source_key===src.source_key || (x.region_code&&x.region_code.toLowerCase()===src.region_code.toLowerCase()));
+    if(!r){r={id:uid(),phone:'',target:0,notes:''};db.reps.push(r);}
+    r.source_key=src.source_key;
+    r.region_code=src.region_code;
+    r.name=src.name;
+    r.area=src.area;
+    r.group_name=src.group_name||'';
+    if(src.notes && !String(r.notes||'').includes(src.notes))r.notes=(r.notes?String(r.notes)+' | ':'')+src.notes;
+  });
+  CUSTOMER_SPLIT_DEFAULTS_V45.forEach(src=>{
+    let s=db.customerRepSplits.find(x=>x.source_key===src.source_key);
+    if(!s){
+      db.customerRepSplits.push(Object.assign({id:uid(),notes:'مستورد من إكسيل المناديب'},src));
+    }else{
+      Object.assign(s,src);
+    }
+  });
+  save();
+  render();
+  alert(T('importDone'));
+}
+const addSimpleBeforeRepV45=addSimple;
+addSimple=function(table){
+  if(table==='reps'){
+    ensureCustomerRepModuleV45();
+    let row={id:uid(),
+      region_code:(document.getElementById('reps_region_code')||{}).value||'',
+      name:(document.getElementById('reps_name')||{}).value||'',
+      phone:(document.getElementById('reps_phone')||{}).value||'',
+      area:(document.getElementById('reps_area')||{}).value||'',
+      target:n((document.getElementById('reps_target')||{}).value),
+      notes:(document.getElementById('reps_notes')||{}).value||''
+    };
+    if(!row.name)return alert(T('name'));
+    db.reps.unshift(row);
+    render();
+    return;
+  }
+  return addSimpleBeforeRepV45(table);
+}
+function addCustomerRepSplitV45(){
+  ensureCustomerRepModuleV45();
+  let row={id:uid(),
+    customer_name:(document.getElementById('split_customer_name')||{}).value||'',
+    clinic_name:(document.getElementById('split_clinic_name')||{}).value||'',
+    region_code:(document.getElementById('split_region_code')||{}).value||'',
+    percentage:n((document.getElementById('split_percentage')||{}).value),
+    notes:(document.getElementById('split_notes')||{}).value||''
+  };
+  if(!row.customer_name)return alert(T('customer'));
+  if(!row.region_code)return alert(T('regionCode'));
+  db.customerRepSplits.unshift(row);
+  render();
+}
+function editCustomerRepSplitV45(id,field,val,num){
+  ensureCustomerRepModuleV45();
+  let r=db.customerRepSplits.find(x=>x.id===id);
+  if(!r)return;
+  r[field]=num?n(val):val;
+  save();
+  renderDashboard();
+}
+function deleteCustomerRepSplitV45(id){
+  if(!confirm(T('delete')+'?'))return;
+  ensureCustomerRepModuleV45();
+  db.customerRepSplits=db.customerRepSplits.filter(x=>x.id!==id);
+  render();
+}
+function customerSplitSummaryV45(){
+  ensureCustomerRepModuleV45();
+  let map={};
+  db.customerRepSplits.forEach(s=>{
+    let key=(s.customer_name||'')+' | '+(s.clinic_name||'');
+    if(!map[key])map[key]={customer_name:s.customer_name,clinic_name:s.clinic_name,total:0,count:0};
+    map[key].total+=n(s.percentage);map[key].count++;
+  });
+  let arr=Object.values(map);
+  if(!arr.length)return `<div class="empty">${T('empty')}</div>`;
+  return `<table><tr><th>${T('customer')}</th><th>${T('clinicName')}</th><th>${lang==='ar'?'عدد التوزيعات':'Split rows'}</th><th>${lang==='ar'?'إجمالي النسب':'Total %'}</th><th>${T('status')}</th></tr>${arr.map(x=>{let ok=Math.round(x.total)===100;return `<tr><td>${esc(x.customer_name)}</td><td>${esc(x.clinic_name)}</td><td>${x.count}</td><td>${x.total}%</td><td><span class="badge ${ok?'ok':'low'}">${ok?(lang==='ar'?'مكتمل 100%':'Complete 100%'):(lang==='ar'?'راجع النسبة':'Check %')}</span></td></tr>`}).join('')}</table>`;
+}
+function customerRepSplitTableV45(){
+  ensureCustomerRepModuleV45();
+  if(!db.customerRepSplits.length)return `<div class="empty">${T('empty')}</div>`;
+  return `<table class="rep-split-table"><tr><th>${T('customer')}</th><th>${T('clinicName')}</th><th>${T('regionCode')}</th><th>${T('percentage')}</th><th>${T('notes')}</th><th></th></tr>${db.customerRepSplits.map(s=>`<tr>
+    <td><input value="${esc(s.customer_name||'')}" onchange="editCustomerRepSplitV45('${s.id}','customer_name',this.value,false)"></td>
+    <td><input value="${esc(s.clinic_name||'')}" onchange="editCustomerRepSplitV45('${s.id}','clinic_name',this.value,false)"></td>
+    <td><select onchange="editCustomerRepSplitV45('${s.id}','region_code',this.value,false)">${repRegionOptionsV45(s.region_code||'')}</select></td>
+    <td><input type="number" min="0" max="100" step="0.01" value="${esc(s.percentage||0)}" onchange="editCustomerRepSplitV45('${s.id}','percentage',this.value,true)"></td>
+    <td><input value="${esc(s.notes||'')}" onchange="editCustomerRepSplitV45('${s.id}','notes',this.value,false)"></td>
+    <td><button class="btn small danger" onclick="deleteCustomerRepSplitV45('${s.id}')">${T('delete')}</button></td>
+  </tr>`).join('')}</table>`;
+}
+function customerRepSplitManagerV45(){
+  ensureCustomerRepModuleV45();
+  return `<div class="card"><div class="section-title"><h3>${T('customerRepSplits')}</h3><span class="badge blue">${db.customerRepSplits.length} ${lang==='ar'?'توزيع':'rows'}</span></div>
+    <div class="rep-split-note">${lang==='ar'?'هذه الإضافة منفصلة وآمنة: لا تحذف العملاء أو المبيعات القديمة، وتقدر تعدل أو تمسح أي توزيع من الجدول.':'This is a safe separate addition: it does not delete old customers or sales, and every split row can be edited or deleted.'}</div>
+    <div class="rep-split-toolbar"><button class="btn blue" onclick="importSalesRepExcelDataV45()">${T('importExcelReps')}</button><span class="hint">${lang==='ar'?'اضغطها مرة واحدة بعد التأكد من الباك أب. لو اتضغطت تاني لن تكرر نفس بيانات الإكسيل.':'Press once after backup. Pressing again will not duplicate the Excel rows.'}</span></div>
+    <div class="grid grid5"><div><label>${T('customer')}</label><input id="split_customer_name"></div><div><label>${T('clinicName')}</label><input id="split_clinic_name"></div><div><label>${T('regionCode')}</label><select id="split_region_code">${repRegionOptionsV45('')}</select></div><div><label>${T('percentage')}</label><input id="split_percentage" type="number" min="0" max="100" step="0.01" value="100"></div><div><label>${T('notes')}</label><input id="split_notes"></div><div style="display:flex;align-items:end"><button class="btn ok" onclick="addCustomerRepSplitV45()">${T('add')}</button></div></div>
+    <div style="margin-top:14px">${customerRepSplitTableV45()}</div>
+  </div>
+  <div class="card"><h3>${lang==='ar'?'مراجعة إجمالي نسب كل عميل':'Customer split total check'}</h3>${customerSplitSummaryV45()}</div>`;
+}
+const renderRepsBeforeV45=renderReps;
+renderReps=function(){
+  ensureCustomerRepModuleV45();
+  document.getElementById('view-reps').innerHTML=`${simplePage('reps',[['region_code','regionCode'],['name','name'],['phone','phone'],['area','area'],['target','target',1],['notes','notes']],T('newRep'))}<div class="card"><h3>${T('achievement')}</h3>${repTargetTable()}</div><div class="card"><h3>${T('stockAvailability')}</h3>${stockAvailabilityTable()}</div>${customerRepSplitManagerV45()}`;
+}
+const saveBeforeRepV45=save;
+save=function(){
+  ensureCustomerRepModuleV45();
+  saveBeforeRepV45();
+}
+
+/* ===== v46 Customer screen: official customer name + editable reps/regions percentages ===== */
+document.head.insertAdjacentHTML('beforeend', `<style>
+.customer-rep-cell{min-width:260px}.customer-rep-cell textarea{min-height:54px}.customer-split-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:9px;font-size:12px;line-height:1.7}.split-chip{display:inline-flex;align-items:center;gap:5px;border-radius:999px;background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;padding:4px 8px;margin:2px;font-weight:900}.split-tools{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.wide-customer-table{overflow:auto}.wide-customer-table table{min-width:1250px}.customer-import-note{background:#ecfeff;border:1px solid #99f6e4;color:#115e59;border-radius:12px;padding:10px 12px;font-size:12px;font-weight:800;margin:10px 0}.split-select{min-width:170px}
+</style>`);
+
+TR.ar.customerOfficialName='اسم العميل';
+TR.en.customerOfficialName='Customer name';
+TR.ar.customerDisplayName='اسم العيادة / الحساب';
+TR.en.customerDisplayName='Clinic / account name';
+TR.ar.customerRepDistribution='بيانات البياعين والنسب والمناطق';
+TR.en.customerRepDistribution='Sales reps, percentages and regions';
+TR.ar.autoSplitFromSheet='توزيع الشيت';
+TR.en.autoSplitFromSheet='Sheet split';
+TR.ar.linkedCustomer='ربط بالعميل';
+TR.en.linkedCustomer='Linked customer';
+TR.ar.createCustomersFromSheet='إضافة عملاء الشيت لشاشة العملاء';
+TR.en.createCustomersFromSheet='Add sheet customers to Customers screen';
+TR.ar.customersImported='تم إضافة/تحديث عملاء الشيت بدون حذف أي عميل قديم';
+TR.en.customersImported='Sheet customers added/updated without deleting old customers';
+
+function ensureCustomerFieldsV46(){
+  if(!db || typeof db!=='object')return;
+  if(!Array.isArray(db.customers))db.customers=[];
+  ensureCustomerRepModuleV45();
+  db.customers.forEach(c=>{
+    if(c.customer_name===undefined)c.customer_name='';
+    if(c.clinic_name===undefined)c.clinic_name=c.name||'';
+    if(c.customer_rep_distribution===undefined)c.customer_rep_distribution='';
+  });
+  db.customerRepSplits.forEach(s=>{if(s.customer_id===undefined)s.customer_id='';});
+}
+function findCustomerBySheetV46(customerName,clinicName){
+  ensureCustomerFieldsV46();
+  let cn=String(customerName||'').trim().toLowerCase(), cl=String(clinicName||'').trim().toLowerCase();
+  return db.customers.find(c=>String(c.customer_name||'').trim().toLowerCase()===cn && String(c.name||c.clinic_name||'').trim().toLowerCase()===cl)
+      || db.customers.find(c=>String(c.name||'').trim().toLowerCase()===cl && (!cn || String(c.customer_name||'').trim().toLowerCase()===cn))
+      || null;
+}
+function repByRegionV46(regionCode){
+  let code=String(regionCode||'').trim().toLowerCase();
+  return (db.reps||[]).find(r=>String(r.region_code||r.area||'').trim().toLowerCase()===code) || null;
+}
+function splitRepLabelV46(split){
+  let r=repByRegionV46(split.region_code);
+  return `${split.region_code||''}${r&&r.name?' - '+r.name:''} (${n(split.percentage)}%)`;
+}
+function customerSplitsForV46(c){
+  ensureCustomerFieldsV46();
+  let id=c&&c.id, cn=String(c&&c.customer_name||'').trim().toLowerCase(), nm=String(c&&c.name||'').trim().toLowerCase(), cl=String(c&&c.clinic_name||c&&c.name||'').trim().toLowerCase();
+  return db.customerRepSplits.filter(s=>
+    (id && s.customer_id===id) ||
+    (cn && String(s.customer_name||'').trim().toLowerCase()===cn && (String(s.clinic_name||'').trim().toLowerCase()===cl || String(s.clinic_name||'').trim().toLowerCase()===nm)) ||
+    (!cn && nm && String(s.clinic_name||'').trim().toLowerCase()===nm)
+  );
+}
+function customerSplitAutoTextV46(c){
+  let arr=customerSplitsForV46(c);
+  if(!arr.length)return '';
+  return arr.map(splitRepLabelV46).join(' | ');
+}
+function customerOptionListV46(selected){
+  ensureCustomerFieldsV46();
+  return `<option value="">${lang==='ar'?'بدون ربط':'No link'}</option>`+db.customers.map(c=>`<option value="${c.id}" ${c.id===selected?'selected':''}>${esc((c.customer_name?c.customer_name+' - ':'')+(c.name||c.clinic_name||''))}</option>`).join('');
+}
+function buildCustomerRepManualTextV46(c){
+  let auto=customerSplitAutoTextV46(c);
+  return c.customer_rep_distribution || auto || '';
+}
+function refreshCustomerRepTextV46(customerId){
+  ensureCustomerFieldsV46();
+  let c=db.customers.find(x=>x.id===customerId);
+  if(!c)return;
+  c.customer_rep_distribution=customerSplitAutoTextV46(c);
+  save();
+  renderCustomers();
+}
+function customerEditRowV46(c){
+  let auto=customerSplitAutoTextV46(c), manual=buildCustomerRepManualTextV46(c);
+  return `<tr>
+    <td><input value="${esc(c.customer_name||'')}" onchange="editCell('customers','${c.id}','customer_name',this.value,false)"></td>
+    <td><input value="${esc(c.name||'')}" onchange="editCustomerClinicNameV46('${c.id}',this.value)"></td>
+    <td><input value="${esc(c.type||'')}" onchange="editCell('customers','${c.id}','type',this.value,false)"></td>
+    <td><input value="${esc(c.phone||'')}" onchange="editCell('customers','${c.id}','phone',this.value,false)"></td>
+    <td><input value="${esc(c.area||'')}" onchange="editCell('customers','${c.id}','area',this.value,false)"></td>
+    <td><input value="${esc(c.address||'')}" onchange="editCell('customers','${c.id}','address',this.value,false)"></td>
+    <td><input type="number" value="${esc(c.balance||0)}" onchange="editCell('customers','${c.id}','balance',this.value,true)"></td>
+    <td class="customer-rep-cell"><textarea onchange="editCell('customers','${c.id}','customer_rep_distribution',this.value,false)">${esc(manual)}</textarea>${auto?`<div class="hint">${T('autoSplitFromSheet')}: ${esc(auto)}</div>`:''}<button class="btn small secondary" onclick="refreshCustomerRepTextV46('${c.id}')">${lang==='ar'?'تحديث من التوزيعات':'Refresh from splits'}</button></td>
+    <td><input value="${esc(c.notes||'')}" onchange="editCell('customers','${c.id}','notes',this.value,false)"></td>
+    <td><button class="btn small danger" onclick="del('customers','${c.id}')">${T('delete')}</button></td>
+  </tr>`;
+}
+function editCustomerClinicNameV46(id,val){
+  let c=db.customers.find(x=>x.id===id);if(!c)return;
+  c.name=val;c.clinic_name=val;
+  db.customerRepSplits.forEach(s=>{if(s.customer_id===id)s.clinic_name=val;});
+  save();renderDashboard();
+}
+function customersTableV46(){
+  ensureCustomerFieldsV46();
+  if(!db.customers.length)return `<div class="empty">${T('empty')}</div>`;
+  return `<div class="wide-customer-table"><table><tr><th>${T('customerOfficialName')}</th><th>${T('customerDisplayName')}</th><th>${T('type')}</th><th>${T('phone')}</th><th>${T('area')}</th><th>${T('address')}</th><th>${T('balance')}</th><th>${T('customerRepDistribution')}</th><th>${T('notes')}</th><th></th></tr>${db.customers.map(customerEditRowV46).join('')}</table></div>`;
+}
+function customerFormV46(){
+  return `<div class="card"><h3>${T('newCustomer')}</h3><div class="grid grid4">
+    <div><label>${T('customerOfficialName')}</label><input id="customers_customer_name"></div>
+    <div><label>${T('customerDisplayName')}</label><input id="customers_name"></div>
+    <div><label>${T('type')}</label><input id="customers_type"></div>
+    <div><label>${T('phone')}</label><input id="customers_phone"></div>
+    <div><label>${T('area')}</label><input id="customers_area"></div>
+    <div><label>${T('address')}</label><input id="customers_address"></div>
+    <div><label>${T('balance')}</label><input id="customers_balance" type="number" value="0"></div>
+    <div><label>${T('notes')}</label><input id="customers_notes"></div>
+    <div style="grid-column:1/-1"><label>${T('customerRepDistribution')}</label><textarea id="customers_customer_rep_distribution" placeholder="East 2 - ماهينور 50% | West 2 - عماد 50%"></textarea></div>
+    <div style="display:flex;align-items:end"><button class="btn ok" onclick="addSimple('customers')">${T('add')}</button></div>
+  </div></div>`;
+}
+const addSimpleBeforeCustomersV46=addSimple;
+addSimple=function(table){
+  if(table==='customers'){
+    ensureCustomerFieldsV46();
+    let row={id:uid(),
+      customer_name:(document.getElementById('customers_customer_name')||{}).value||'',
+      name:(document.getElementById('customers_name')||{}).value||'',
+      clinic_name:(document.getElementById('customers_name')||{}).value||'',
+      type:(document.getElementById('customers_type')||{}).value||'',
+      phone:(document.getElementById('customers_phone')||{}).value||'',
+      area:(document.getElementById('customers_area')||{}).value||'',
+      address:(document.getElementById('customers_address')||{}).value||'',
+      balance:n((document.getElementById('customers_balance')||{}).value),
+      notes:(document.getElementById('customers_notes')||{}).value||'',
+      customer_rep_distribution:(document.getElementById('customers_customer_rep_distribution')||{}).value||''
+    };
+    if(!row.name && row.customer_name)row.name=row.customer_name;
+    if(!row.name)return alert(T('customerDisplayName'));
+    db.customers.unshift(row);render();return;
+  }
+  return addSimpleBeforeCustomersV46(table);
+}
+function importCustomersFromSheetV46(){
+  ensureCustomerFieldsV46();
+  if(!confirm(lang==='ar'?'سيتم إضافة عملاء الشيت وتوزيعاتهم بدون حذف أو تعديل بيانات العملاء القديمة إلا إذا كان نفس العميل موجود. هل تريد المتابعة؟':'This will add sheet customers and splits without deleting old data. Continue?'))return;
+  importSalesRepExcelDataV45(false);
+  CUSTOMER_SPLIT_DEFAULTS_V45.forEach(src=>{
+    let c=findCustomerBySheetV46(src.customer_name,src.clinic_name);
+    if(!c){
+      c={id:uid(),customer_name:src.customer_name||'',name:src.clinic_name||src.customer_name||'',clinic_name:src.clinic_name||'',type:'Clinic',phone:'',area:src.region_code||'',address:'',balance:0,notes:'مستورد من شيت المناديب',customer_rep_distribution:''};
+      db.customers.push(c);
+    }else{
+      if(!c.customer_name)c.customer_name=src.customer_name||'';
+      if(!c.clinic_name)c.clinic_name=c.name||src.clinic_name||'';
+    }
+  });
+  db.customerRepSplits.forEach(s=>{
+    let c=findCustomerBySheetV46(s.customer_name,s.clinic_name);
+    if(c){s.customer_id=c.id;c.customer_rep_distribution=customerSplitAutoTextV46(c);}
+  });
+  save();render();alert(T('customersImported'));
+}
+function addCustomerRepSplitV45(){
+  ensureCustomerFieldsV46();
+  let customerId=(document.getElementById('split_customer_id')||{}).value||'';
+  let c=customerId?db.customers.find(x=>x.id===customerId):null;
+  let row={id:uid(),customer_id:customerId,
+    customer_name:(document.getElementById('split_customer_name')||{}).value || (c?c.customer_name||c.name:''),
+    clinic_name:(document.getElementById('split_clinic_name')||{}).value || (c?c.name||c.clinic_name:''),
+    region_code:(document.getElementById('split_region_code')||{}).value||'',
+    percentage:n((document.getElementById('split_percentage')||{}).value),
+    notes:(document.getElementById('split_notes')||{}).value||''
+  };
+  if(!row.customer_name && !row.clinic_name)return alert(T('customer'));
+  if(!row.region_code)return alert(T('regionCode'));
+  db.customerRepSplits.unshift(row);
+  if(c)c.customer_rep_distribution=customerSplitAutoTextV46(c);
+  render();
+}
+function setSplitCustomerV46(id,customerId){
+  ensureCustomerFieldsV46();
+  let s=db.customerRepSplits.find(x=>x.id===id),c=db.customers.find(x=>x.id===customerId);
+  if(!s)return;
+  s.customer_id=customerId||'';
+  if(c){s.customer_name=c.customer_name||c.name||'';s.clinic_name=c.name||c.clinic_name||'';c.customer_rep_distribution=customerSplitAutoTextV46(c);}
+  save();renderCustomers();
+}
+function editCustomerRepSplitV45(id,field,val,num){
+  ensureCustomerFieldsV46();
+  let r=db.customerRepSplits.find(x=>x.id===id);if(!r)return;
+  r[field]=num?n(val):val;
+  let c=r.customer_id?db.customers.find(x=>x.id===r.customer_id):findCustomerBySheetV46(r.customer_name,r.clinic_name);
+  if(c)c.customer_rep_distribution=customerSplitAutoTextV46(c);
+  save();renderDashboard();
+}
+function deleteCustomerRepSplitV45(id){
+  if(!confirm(T('delete')+'?'))return;
+  ensureCustomerFieldsV46();
+  let old=db.customerRepSplits.find(x=>x.id===id);
+  db.customerRepSplits=db.customerRepSplits.filter(x=>x.id!==id);
+  if(old){let c=old.customer_id?db.customers.find(x=>x.id===old.customer_id):findCustomerBySheetV46(old.customer_name,old.clinic_name);if(c)c.customer_rep_distribution=customerSplitAutoTextV46(c);}
+  render();
+}
+function customerRepSplitTableV45(){
+  ensureCustomerFieldsV46();
+  if(!db.customerRepSplits.length)return `<div class="empty">${T('empty')}</div>`;
+  return `<table class="rep-split-table"><tr><th>${T('linkedCustomer')}</th><th>${T('customerOfficialName')}</th><th>${T('clinicName')}</th><th>${T('regionCode')}</th><th>${T('rep')}</th><th>${T('percentage')}</th><th>${T('notes')}</th><th></th></tr>${db.customerRepSplits.map(s=>{let rep=repByRegionV46(s.region_code);return `<tr>
+    <td><select class="split-select" onchange="setSplitCustomerV46('${s.id}',this.value)">${customerOptionListV46(s.customer_id||'')}</select></td>
+    <td><input value="${esc(s.customer_name||'')}" onchange="editCustomerRepSplitV45('${s.id}','customer_name',this.value,false)"></td>
+    <td><input value="${esc(s.clinic_name||'')}" onchange="editCustomerRepSplitV45('${s.id}','clinic_name',this.value,false)"></td>
+    <td><select onchange="editCustomerRepSplitV45('${s.id}','region_code',this.value,false)">${repRegionOptionsV45(s.region_code||'')}</select></td>
+    <td>${esc(rep?rep.name:'-')}</td>
+    <td><input type="number" min="0" max="100" step="0.01" value="${esc(s.percentage||0)}" onchange="editCustomerRepSplitV45('${s.id}','percentage',this.value,true)"></td>
+    <td><input value="${esc(s.notes||'')}" onchange="editCustomerRepSplitV45('${s.id}','notes',this.value,false)"></td>
+    <td><button class="btn small danger" onclick="deleteCustomerRepSplitV45('${s.id}')">${T('delete')}</button></td>
+  </tr>`}).join('')}</table>`;
+}
+function customerRepSplitManagerV45(){
+  ensureCustomerFieldsV46();
+  return `<div class="card"><div class="section-title"><h3>${T('customerRepSplits')}</h3><span class="badge blue">${db.customerRepSplits.length} ${lang==='ar'?'توزيع':'rows'}</span></div>
+    <div class="customer-import-note">${lang==='ar'?'التعديل ده آمن ومنفصل: يضيف اسم العميل، اسم العيادة، المنطقة، اسم المندوب والنسبة. الحذف والتعديل متاحين من نفس الجدول، ولا يتم حذف العملاء أو المبيعات القديمة.':'Safe separate module: adds customer name, clinic, region, rep and percentage. You can edit/delete every row without deleting old customers or sales.'}</div>
+    <div class="split-tools"><button class="btn blue" onclick="importSalesRepExcelDataV45()">${T('importExcelReps')}</button><button class="btn ok" onclick="importCustomersFromSheetV46()">${T('createCustomersFromSheet')}</button></div>
+    <div class="grid grid5"><div><label>${T('linkedCustomer')}</label><select id="split_customer_id" onchange="let c=db.customers.find(x=>x.id===this.value);if(c){split_customer_name.value=c.customer_name||c.name||'';split_clinic_name.value=c.name||c.clinic_name||''}">${customerOptionListV46('')}</select></div><div><label>${T('customerOfficialName')}</label><input id="split_customer_name"></div><div><label>${T('clinicName')}</label><input id="split_clinic_name"></div><div><label>${T('regionCode')}</label><select id="split_region_code">${repRegionOptionsV45('')}</select></div><div><label>${T('percentage')}</label><input id="split_percentage" type="number" min="0" max="100" step="0.01" value="100"></div><div><label>${T('notes')}</label><input id="split_notes"></div><div style="display:flex;align-items:end"><button class="btn ok" onclick="addCustomerRepSplitV45()">${T('add')}</button></div></div>
+    <div style="margin-top:14px">${customerRepSplitTableV45()}</div>
+  </div>
+  <div class="card"><h3>${lang==='ar'?'مراجعة إجمالي نسب كل عميل':'Customer split total check'}</h3>${customerSplitSummaryV45()}</div>`;
+}
+function importSalesRepExcelDataV45(showAlert=true){
+  ensureCustomerFieldsV46();
+  if(showAlert && !confirm(lang==='ar'?'سيتم إضافة بيانات إكسيل المناديب والتوزيعات بدون حذف أي بيانات قديمة. هل تريد المتابعة؟':'This will add Excel reps and splits without deleting old data. Continue?'))return;
+  SALES_REP_DEFAULTS_V45.forEach(src=>{
+    let r=db.reps.find(x=>x.source_key===src.source_key || (x.region_code&&x.region_code.toLowerCase()===src.region_code.toLowerCase()));
+    if(!r){r={id:uid(),phone:'',target:0,notes:''};db.reps.push(r);}
+    r.source_key=src.source_key;r.region_code=src.region_code;r.name=src.name;r.area=src.area;r.group_name=src.group_name||'';
+    if(src.notes && !String(r.notes||'').includes(src.notes))r.notes=(r.notes?String(r.notes)+' | ':'')+src.notes;
+  });
+  CUSTOMER_SPLIT_DEFAULTS_V45.forEach(src=>{
+    let s=db.customerRepSplits.find(x=>x.source_key===src.source_key);
+    if(!s){s=Object.assign({id:uid(),notes:'مستورد من إكسيل المناديب',customer_id:''},src);db.customerRepSplits.push(s);}else{Object.assign(s,src);}
+    let c=findCustomerBySheetV46(s.customer_name,s.clinic_name);if(c){s.customer_id=c.id;c.customer_rep_distribution=customerSplitAutoTextV46(c);}
+  });
+  save();render();if(showAlert)alert(T('importDone'));
+}
+function renderCustomers(){
+  ensureCustomerFieldsV46();
+  document.getElementById('view-customers').innerHTML=`${customerFormV46()}<div class="card"><div class="section-title"><h3>${T('customerList')}</h3><button class="btn ok" onclick="importCustomersFromSheetV46()">${T('createCustomersFromSheet')}</button></div>${customersTableV46()}</div>${customerRepSplitManagerV45()}`;
+}
+const renderBeforeCustomersV46=render;
+render=function(){ensureCustomerFieldsV46();renderBeforeCustomersV46();}
+const saveBeforeCustomersV46=save;
+save=function(){ensureCustomerFieldsV46();saveBeforeCustomersV46();}
+
+/* ===== v47 Sales order rep percentage from customer/region split ===== */
+TR.ar.orderRepPercentage='نسبة البياع من العميل / المنطقة';
+TR.en.orderRepPercentage='Sales rep % from customer/region';
+TR.ar.repPercentage='نسبة';
+TR.en.repPercentage='Percentage';
+
+function repPercentLabelV47(v){
+  if(v===undefined||v===null||String(v).trim()==='')return '-';
+  let num=n(v);
+  return (num||String(v)==='0')?num+'%':esc(v);
+}
+function matchSplitToRepV47(split,rep){
+  if(!split||!rep)return false;
+  let code=String(split.region_code||'').trim().toLowerCase();
+  let repCodes=[rep.region_code,rep.area,rep.name,rep.source_key].map(x=>String(x||'').trim().toLowerCase()).filter(Boolean);
+  if(repCodes.includes(code))return true;
+  let linked=repByRegionV46?repByRegionV46(split.region_code):null;
+  return !!linked && (linked.id===rep.id || String(linked.name||'').trim().toLowerCase()===String(rep.name||'').trim().toLowerCase());
+}
+function getOrderRepPercentageV47(customerId,repId){
+  ensureCustomerFieldsV46&&ensureCustomerFieldsV46();
+  let c=db.customers.find(x=>x.id===customerId), r=db.reps.find(x=>x.id===repId);
+  if(!c)return '';
+  let splits=(typeof customerSplitsForV46==='function'?customerSplitsForV46(c):[]).filter(Boolean);
+  if(!splits.length)return '';
+  if(r){
+    let m=splits.find(s=>matchSplitToRepV47(s,r));
+    if(m)return n(m.percentage);
+  }
+  if(splits.length===1)return n(splits[0].percentage);
+  return '';
+}
+function updateSalesOrderPercentageV47(force=true){
+  let el=document.getElementById('sa_rep_percentage');
+  if(!el)return;
+  let c=(document.getElementById('sa_customer')||{}).value||'';
+  let r=(document.getElementById('sa_rep')||{}).value||'';
+  let pct=getOrderRepPercentageV47(c,r);
+  if(force || !String(el.value||'').trim())el.value=(pct!==''?pct:'');
+  let hint=document.getElementById('sa_rep_percentage_hint');
+  if(hint)hint.textContent=pct!==''?(lang==='ar'?'تم جلب النسبة من توزيع العميل في الشيت':'Percentage loaded from customer split sheet'):(lang==='ar'?'اكتب النسبة يدويًا لو العميل أو المنطقة غير موجودين في الشيت':'Type the percentage manually if the customer/region is not in the sheet');
+}
+function salesOrderPercentValueV47(){
+  let el=document.getElementById('sa_rep_percentage');
+  let val=el?String(el.value||'').trim():'';
+  if(val===''){
+    let c=(document.getElementById('sa_customer')||{}).value||'';
+    let r=(document.getElementById('sa_rep')||{}).value||'';
+    val=getOrderRepPercentageV47(c,r);
+  }
+  return val===''?'':n(val);
+}
+function injectSalesOrderPercentageFieldV47(){
+  let grid=document.querySelector('#view-sales .card .grid');
+  if(!grid||document.getElementById('sa_rep_percentage'))return;
+  grid.insertAdjacentHTML('beforeend',`<div><label>${T('orderRepPercentage')}</label><input id="sa_rep_percentage" type="number" min="0" max="100" step="0.01" placeholder="50"><div class="hint" id="sa_rep_percentage_hint"></div></div>`);
+  let c=document.getElementById('sa_customer'), r=document.getElementById('sa_rep');
+  if(c)c.addEventListener('change',()=>setTimeout(()=>updateSalesOrderPercentageV47(true),20));
+  if(r)r.addEventListener('change',()=>updateSalesOrderPercentageV47(true));
+  setTimeout(()=>updateSalesOrderPercentageV47(false),40);
+}
+const renderSalesBeforeRepPercentV47=renderSales;
+renderSales=function(){
+  renderSalesBeforeRepPercentV47();
+  injectSalesOrderPercentageFieldV47();
+}
+
+const createApprovedSaleFromOrderBeforeRepPercentV47=createApprovedSaleFromOrder;
+createApprovedSaleFromOrder=function(order){
+  let beforeCount=db.sales.length;
+  let ok=createApprovedSaleFromOrderBeforeRepPercentV47(order);
+  if(ok&&db.sales.length>beforeCount&&db.sales[0]&&db.sales[0].order_id===order.id){
+    db.sales[0].rep_percentage=order.rep_percentage!==undefined?order.rep_percentage:'';
+  }
+  return ok;
+}
+
+addSale=function(){
+  if(!can('sales','add'))return permissionAlert();
+  let c=db.customers.find(x=>x.id===sa_customer.value),p=db.products.find(x=>x.id===sa_product.value),r=db.reps.find(x=>x.id===sa_rep.value),u=currentUser()||{};
+  if(!c||!p)return;
+  let region=customerRegionSnapshot(c),qty=n(sa_qty.value),price=n(sa_price.value||p.sale),paid=n(sa_paid.value),total=qty*price,rem=total-paid,idv=uid();
+  if(qty<=0)return alert(T('qty'));
+  ensureSalesOrders();
+  db.sales_orders.unshift({id:idv,date:today(),customer_id:c.id,customer_name:c.name,region_id:region.id,region_name:region.name,rep_id:r?r.id:'',rep_name:r?r.name:'',rep_percentage:salesOrderPercentValueV47(),product_id:p.id,product_name:p.name,product_expiry:p.expiry||'',qty,price,total,paid,remaining:rem,status:'pending',approval_status:'pending',created_by:u.name||'',created_by_id:u.id||'',created_by_email:u.email||''});
+  alert(lang==='ar'?'تم إرسال الـ Order للموافقة. لن يتحول إلى Sold إلا بعد الموافقة.':'Order sent for approval. It will not become Sold until approved.');
+  render();
+}
+
+pendingSalesOrdersTable=function(){
+  ensureSalesOrders();
+  let rows=db.sales_orders.filter(o=>o.status==='pending'&&orderVisibleToCurrent(o));
+  if(!rows.length)return `<div class="empty">${isSalesManager()?(lang==='ar'?'لا توجد Orders منتظرة موافقة':'No orders pending approval'):(lang==='ar'?'لا توجد Orders منتظرة لك':'No pending orders for you')}</div>`;
+  return `<table><tr><th>${T('date')}</th><th>${T('customer')}</th><th>${T('rep')}</th><th>${T('repPercentage')}</th><th>${T('product')}</th><th>${T('qty')}</th><th>${T('total')}</th><th>${T('status')}</th><th>${lang==='ar'?'منشئ الـ Order':'Created by'}</th><th>${lang==='ar'?'القرار':'Decision'}</th></tr>${rows.map(o=>`<tr><td>${esc(o.date)}</td><td>${esc(o.customer_name)}</td><td>${esc(o.rep_name||'')}</td><td>${repPercentLabelV47(o.rep_percentage)}</td><td>${esc(o.product_name)}</td><td>${n(o.qty)}</td><td>${money(o.total)}</td><td><span class="badge pending-approval">${T('pending_approval')}</span></td><td>${esc(o.created_by||o.created_by_email||'')}</td><td><div class="actions">${salesOrderDecisionCell(o)}</div></td></tr>`).join('')}</table>`;
+}
+
+salesOrdersHistoryTable=function(){
+  ensureSalesOrders();
+  let rows=db.sales_orders.filter(o=>o.status!=='pending'&&orderVisibleToCurrent(o)).slice(0,80);if(!rows.length)return `<div class="empty">${T('empty')}</div>`;
+  return `<table><tr><th>${T('date')}</th><th>${T('customer')}</th><th>${T('rep')}</th><th>${T('repPercentage')}</th><th>${T('product')}</th><th>${T('total')}</th><th>${T('status')}</th><th>${lang==='ar'?'بواسطة':'By'}</th></tr>${rows.map(o=>`<tr><td>${esc(o.date)}</td><td>${esc(o.customer_name)}</td><td>${esc(o.rep_name||'')}</td><td>${repPercentLabelV47(o.rep_percentage)}</td><td>${esc(o.product_name)}</td><td>${money(o.total)}</td><td><span class="badge ${o.status==='approved'?'ok':'rejected'}">${o.status==='approved'?T('sold'):T('rejected')}</span></td><td>${esc(o.approved_by||o.rejected_by||'')}</td></tr>`).join('')}</table>`;
+}
+
+const salesTableBeforeRepPercentV47=salesTable;
+salesTable=function(){
+  let rows=visibleSalesRows?visibleSalesRows():db.sales;if(!rows.length)return `<div class="empty">${T('empty')}</div>`;
+  return `<table><tr><th>${T('date')}</th><th>${T('customer')}</th><th>${lang==='ar'?'المنطقة':'Region'}</th><th>${T('rep')}</th><th>${T('repPercentage')}</th><th>${T('product')}</th><th>${T('expiry')}</th><th>${T('qty')}</th><th>${T('total')}</th><th>${T('paid')}</th><th>${T('remaining')}</th><th>${T('status')}</th><th>${lang==='ar'?'مستندات':'Documents'}</th></tr>${rows.map(s=>`<tr><td>${esc(s.date)}</td><td>${esc(s.customer_name)}</td><td><span class="transaction-region">${esc(transactionRegionName(s))}</span></td><td>${esc(s.rep_name)}</td><td>${repPercentLabelV47(s.rep_percentage)}</td><td>${esc(s.product_name)}</td><td>${esc(s.product_expiry||'')}</td><td>${n(s.qty)}</td><td>${money(s.total)}</td><td>${money(s.paid)}</td><td>${money(s.remaining)}</td><td><span class="badge ${saleStatusBadge(s)}">${saleStatusLabel(s)}</span></td><td><div class="actions"><button class="btn small blue" onclick="printSaleDocument('${s.id}','invoice')">${lang==='ar'?'فاتورة':'Invoice'}</button><button class="btn small ok" onclick="printSaleDocument('${s.id}','delivery')">${lang==='ar'?'إذن تسليم':'Delivery'}</button><button class="btn small secondary" onclick="waSale('${s.id}')">${T('whatsapp')}</button></div></td></tr>`).join('')}</table>`;
+}
+
+
+
 setTimeout(pullRemoteDb,300);
 
 render();
