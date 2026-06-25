@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -174,6 +175,16 @@ table{box-shadow:0 12px 35px rgba(15,23,42,.06);border:1px solid #e6eef6}th{back
 @keyframes softFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
 .tile-icon{animation:softFloat 4.8s ease-in-out infinite}.module-tile:nth-child(2) .tile-icon{animation-delay:.4s}.module-tile:nth-child(3) .tile-icon{animation-delay:.8s}.module-tile:nth-child(4) .tile-icon{animation-delay:1.2s}.module-tile:nth-child(5) .tile-icon{animation-delay:1.6s}.module-tile:nth-child(6) .tile-icon{animation-delay:2s}
 @media(max-width:760px){.main{padding-top:16px!important}.exec-stat strong{font-size:22px!important}.module-tile{min-height:auto!important}}
+
+
+
+/* ===== v53 Fix: keep Sales Orders add form interactive even when user has no edit permission ===== */
+body.no-edit #view-sales .card:first-child input,
+body.no-edit #view-sales .card:first-child select,
+body.no-edit #view-sales .card:first-child textarea{
+  pointer-events:auto!important;
+  opacity:1!important;
+}
 
 </style>
 </head>
@@ -2838,6 +2849,159 @@ salesTable=function(){
   return `<table><tr><th>${T('date')}</th><th>${T('customer')}</th><th>${lang==='ar'?'المنطقة':'Region'}</th><th>${T('rep')}</th><th>${T('repPercentage')}</th><th>${T('product')}</th><th>${T('expiry')}</th><th>${T('qty')}</th><th>${T('total')}</th><th>${T('paid')}</th><th>${T('remaining')}</th><th>${T('status')}</th><th>${lang==='ar'?'مستندات':'Documents'}</th></tr>${rows.map(s=>`<tr><td>${esc(s.date)}</td><td>${esc(s.customer_name)}</td><td><span class="transaction-region">${esc(transactionRegionName(s))}</span></td><td>${esc(s.rep_name)}</td><td>${repPercentLabelV47(s.rep_percentage)}</td><td>${esc(s.product_name)}</td><td>${esc(s.product_expiry||'')}</td><td>${n(s.qty)}</td><td>${money(s.total)}</td><td>${money(s.paid)}</td><td>${money(s.remaining)}</td><td><span class="badge ${saleStatusBadge(s)}">${saleStatusLabel(s)}</span></td><td><div class="actions"><button class="btn small blue" onclick="printSaleDocument('${s.id}','invoice')">${lang==='ar'?'فاتورة':'Invoice'}</button><button class="btn small ok" onclick="printSaleDocument('${s.id}','delivery')">${lang==='ar'?'إذن تسليم':'Delivery'}</button><button class="btn small secondary" onclick="waSale('${s.id}')">${T('whatsapp')}</button></div></td></tr>`).join('')}</table>`;
 }
 
+
+
+
+/* ===== v52 Safe Sales Allocation Report - no order/core changes ===== */
+TR.ar.salesAllocationReport='توزيع المبيعات على المناطق والبياعين';
+TR.en.salesAllocationReport='Sales allocation by region and reps';
+TR.ar.regionManager='مدير المنطقة';
+TR.en.regionManager='Region manager';
+TR.ar.allocatedQty='الكمية الموزعة';
+TR.en.allocatedQty='Allocated qty';
+TR.ar.allocatedAmount='قيمة البيع الموزعة';
+TR.en.allocatedAmount='Allocated amount';
+TR.ar.rebuildAllocation='تحديث تقرير التوزيع';
+TR.en.rebuildAllocation='Refresh allocation report';
+
+function ensureAllocationFieldsV52(){
+  if(!db || typeof db!=='object')return;
+  if(!Array.isArray(db.sales_allocations))db.sales_allocations=[];
+  if(!Array.isArray(db.reps))db.reps=[];
+  db.reps.forEach(r=>{
+    if(r.manager_name===undefined)r.manager_name=r.manager||r.group_name||'';
+    if(r.region_code===undefined)r.region_code=r.area||'';
+  });
+}
+function editRepManagerV52(id,val){
+  ensureAllocationFieldsV52();
+  let r=db.reps.find(x=>x.id===id);
+  if(!r)return;
+  r.manager_name=val||'';
+  save();
+  if(current==='reps')renderReps();
+}
+function editRepRegionV52(id,val){
+  ensureAllocationFieldsV52();
+  let r=db.reps.find(x=>x.id===id);
+  if(!r)return;
+  r.region_code=val||'';
+  save();
+  if(current==='reps')renderReps();
+}
+function repManagerTableV52(){
+  ensureAllocationFieldsV52();
+  if(!db.reps.length)return `<div class="empty">${T('empty')}</div>`;
+  return `<table><tr><th>${T('rep')}</th><th>${T('regionCode')||'Region'}</th><th>${T('regionManager')}</th><th>${T('area')}</th></tr>${db.reps.map(r=>`<tr>
+    <td>${esc(r.name||'')}</td>
+    <td><input value="${esc(r.region_code||'')}" onchange="editRepRegionV52('${r.id}',this.value)"></td>
+    <td><input value="${esc(r.manager_name||'')}" placeholder="${T('regionManager')}" onchange="editRepManagerV52('${r.id}',this.value)"></td>
+    <td>${esc(r.area||'')}</td>
+  </tr>`).join('')}</table>`;
+}
+function salesAllocationRepBySplitV52(split){
+  if(typeof repByRegionV46==='function'){
+    let r=repByRegionV46(split.region_code);
+    if(r)return r;
+  }
+  let code=String(split&&split.region_code||'').trim().toLowerCase();
+  return (db.reps||[]).find(r=>[r.region_code,r.area,r.name,r.source_key].map(x=>String(x||'').trim().toLowerCase()).includes(code))||null;
+}
+function salesAllocationSplitsForSaleV52(sale){
+  ensureCustomerFieldsV46&&ensureCustomerFieldsV46();
+  let c=(db.customers||[]).find(x=>x.id===sale.customer_id)
+       || (db.customers||[]).find(x=>String(x.name||'').trim().toLowerCase()===String(sale.customer_name||'').trim().toLowerCase())
+       || null;
+  let splits=c && typeof customerSplitsForV46==='function' ? customerSplitsForV46(c) : [];
+  if(splits && splits.length)return splits;
+  let rep=(db.reps||[]).find(r=>r.id===sale.rep_id)||null;
+  return [{id:'fallback_'+(sale.id||uid()),customer_id:sale.customer_id||'',customer_name:sale.customer_name||'',clinic_name:sale.customer_name||'',region_code:sale.region_name||sale.rep_name||'',percentage:100,_fallback:true,_rep:rep}];
+}
+function salesAllocationRowsV52(){
+  ensureAllocationFieldsV52();
+  let sales=(typeof visibleSalesRows==='function'?visibleSalesRows():db.sales)||[];
+  let rows=[];
+  sales.forEach(s=>{
+    let splits=salesAllocationSplitsForSaleV52(s);
+    splits.forEach(sp=>{
+      let pct=n(sp.percentage);
+      if(!pct)return;
+      let rep=sp._rep||salesAllocationRepBySplitV52(sp)||{};
+      rows.push({
+        id:(s.id||'')+'_'+(sp.id||sp.region_code||Math.random()),
+        sale_id:s.id||'',
+        date:s.date||'',
+        customer_name:s.customer_name||sp.customer_name||'',
+        clinic_name:sp.clinic_name||s.customer_name||'',
+        product_name:s.product_name||'',
+        region_code:sp.region_code||rep.region_code||rep.area||'',
+        rep_id:rep.id||'',
+        rep_name:rep.name||s.rep_name||'',
+        manager_name:rep.manager_name||rep.manager||rep.group_name||sp.manager_name||'',
+        percentage:pct,
+        total_qty:n(s.qty),
+        total_amount:n(s.total),
+        allocated_qty:n(s.qty)*pct/100,
+        allocated_amount:n(s.total)*pct/100,
+        paid:n(s.paid)*pct/100,
+        remaining:n(s.remaining)*pct/100
+      });
+    });
+  });
+  return rows;
+}
+function rebuildSalesAllocationsV52(){
+  ensureAllocationFieldsV52();
+  db.sales_allocations=salesAllocationRowsV52();
+  save();
+  alert(lang==='ar'?'تم تحديث تقرير توزيع المبيعات بدون تغيير المخزون أو الأوردرات':'Sales allocation report refreshed without changing stock or orders');
+  if(current==='reports')renderReports();
+}
+function salesAllocationSummaryV52(rows,key,label){
+  let map={};
+  rows.forEach(r=>{
+    let k=r[key]||'-';
+    if(!map[k])map[k]={label:k,qty:0,amount:0,count:0};
+    map[k].qty+=n(r.allocated_qty);map[k].amount+=n(r.allocated_amount);map[k].count++;
+  });
+  let arr=Object.values(map).sort((a,b)=>b.amount-a.amount);
+  if(!arr.length)return `<div class="empty">${T('empty')}</div>`;
+  return `<table><tr><th>${label}</th><th>${T('allocatedQty')}</th><th>${T('allocatedAmount')}</th><th>${lang==='ar'?'عدد الحركات':'Rows'}</th></tr>${arr.map(x=>`<tr><td>${esc(x.label)}</td><td>${Number(x.qty.toFixed(2))}</td><td>${money(x.amount)}</td><td>${x.count}</td></tr>`).join('')}</table>`;
+}
+function salesAllocationDetailsTableV52(rows){
+  if(!rows.length)return `<div class="empty">${T('empty')}</div>`;
+  return `<table><tr><th>${T('date')}</th><th>${T('customer')}</th><th>${T('product')}</th><th>${T('regionCode')||'Region'}</th><th>${T('rep')}</th><th>${T('regionManager')}</th><th>${T('percentage')}</th><th>${T('qty')}</th><th>${T('allocatedQty')}</th><th>${T('total')}</th><th>${T('allocatedAmount')}</th></tr>${rows.map(r=>`<tr><td>${esc(r.date)}</td><td>${esc(r.customer_name)}</td><td>${esc(r.product_name)}</td><td>${esc(r.region_code)}</td><td>${esc(r.rep_name)}</td><td>${esc(r.manager_name)}</td><td>${n(r.percentage)}%</td><td>${n(r.total_qty)}</td><td>${Number(n(r.allocated_qty).toFixed(2))}</td><td>${money(r.total_amount)}</td><td>${money(r.allocated_amount)}</td></tr>`).join('')}</table>`;
+}
+function salesAllocationReportV52(){
+  let rows=salesAllocationRowsV52();
+  return `<div class="card"><div class="section-title"><div><h3>${T('salesAllocationReport')}</h3><p class="hint">${lang==='ar'?'التقرير يقسم كمية وقيمة البيع حسب نسب العميل على المناطق والبياعين. المخزون يظل مخصومًا مرة واحدة فقط من البيع الأصلي.':'This report splits sale quantity and value by customer percentages. Stock remains deducted once from the original sale only.'}</p></div><button class="btn blue" onclick="rebuildSalesAllocationsV52()">${T('rebuildAllocation')}</button></div>
+    <div class="grid grid3" style="margin:12px 0">
+      <div><h3>${T('rep')}</h3>${salesAllocationSummaryV52(rows,'rep_name',T('rep'))}</div>
+      <div><h3>${T('regionCode')||'Region'}</h3>${salesAllocationSummaryV52(rows,'region_code',T('regionCode')||'Region')}</div>
+      <div><h3>${T('regionManager')}</h3>${salesAllocationSummaryV52(rows,'manager_name',T('regionManager'))}</div>
+    </div>
+    <div style="margin-top:14px"><h3>${lang==='ar'?'تفاصيل التوزيع':'Allocation details'}</h3>${salesAllocationDetailsTableV52(rows)}</div>
+  </div>`;
+}
+const renderReportsBeforeSalesAllocationV52=renderReports;
+renderReports=function(){
+  renderReportsBeforeSalesAllocationV52();
+  let v=document.getElementById('view-reports');
+  if(v && !document.getElementById('sales_allocation_v52_marker')){
+    v.insertAdjacentHTML('beforeend',`<div id="sales_allocation_v52_marker">${salesAllocationReportV52()}</div>`);
+  }
+}
+const renderRepsBeforeManagerV52=renderReps;
+renderReps=function(){
+  renderRepsBeforeManagerV52();
+  ensureAllocationFieldsV52();
+  let v=document.getElementById('view-reps');
+  if(v && !document.getElementById('rep_manager_v52_marker')){
+    v.insertAdjacentHTML('beforeend',`<div class="card" id="rep_manager_v52_marker"><h3>${T('regionManager')}</h3><p class="hint">${lang==='ar'?'اكتب مدير كل منطقة هنا، وسيظهر في تقرير توزيع المبيعات. هذا لا يغير المبيعات أو المخزون.':'Set each region manager here; it appears in the sales allocation report. This does not change sales or stock.'}</p>${repManagerTableV52()}</div>`);
+  }
+}
+const saveBeforeAllocationV52=save;
+save=function(){ensureAllocationFieldsV52();saveBeforeAllocationV52();}
 
 
 setTimeout(pullRemoteDb,300);
