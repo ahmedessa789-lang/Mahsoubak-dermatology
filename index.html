@@ -3389,6 +3389,52 @@ render();
   setTimeout(function(){try{if(typeof window.updateNotificationsV61==='function') window.updateNotificationsV61()}catch(e){}},250);
 })();
 </script>
+
+
+<!-- ===== v72 Safe invoice print override - based on v69 stable ===== -->
+<script>
+(function(){
+  function safeText(v){
+    try{return (typeof esc==='function') ? esc(v||'') : String(v||'').replace(/[&<>"']/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]});}
+    catch(e){return String(v||'');}
+  }
+  function safeNum(v){try{return (typeof n==='function') ? n(v) : Number(v||0);}catch(e){return Number(v||0)||0;}}
+  function safeMoney(v){try{return (typeof money==='function') ? money(v) : ('EGP '+safeNum(v).toLocaleString());}catch(e){return 'EGP '+safeNum(v).toLocaleString();}}
+  function safeTitle(type){try{return (typeof saleDocumentTitle==='function') ? saleDocumentTitle(type) : (type==='invoice'?'فاتورة بيع':'إذن تسليم');}catch(e){return type==='invoice'?'فاتورة بيع':'إذن تسليم';}}
+  window.saleDocumentHTML=function(s,type){
+    var c=(db.customers||[]).find(function(x){return x.id===s.customer_id;})||{};
+    var r=(db.reps||[]).find(function(x){return x.id===s.rep_id;})||{};
+    var docNo=(type==='delivery'?'DN-':'INV-')+String(s.id||'').slice(-6).toUpperCase();
+    var isAr=(lang==='ar');
+    var dir=isAr?'rtl':'ltr';
+    var alignLeft=isAr?'left':'right';
+    var title=safeTitle(type);
+    var company=(db.settings&&db.settings.company)||'Mahsoubak Business';
+    var subtitle=(db.settings&&db.settings.subtitle)||'Dermatology Distribution System';
+    var deliveredText=isAr?'تم تسليم الكمية المذكورة أعلاه للعميل.':'The above quantity has been delivered to the customer.';
+    var html='';
+    html+='<!DOCTYPE html><html lang="'+safeText(lang)+'" dir="'+dir+'"><head><meta charset="UTF-8"><title>'+safeText(title)+'</title>';
+    html+='<style>'+
+      '*{box-sizing:border-box}html,body{margin:0;padding:0}body{font-family:Tahoma,Arial,sans-serif;background:#f3f6fb;color:#111827;padding:24px}.doc-actions{max-width:900px;margin:0 auto 12px;display:flex;gap:10px;justify-content:flex-start}.doc-actions button{border:0;border-radius:10px;padding:10px 18px;font-weight:900;cursor:pointer}.print-btn{background:#2563eb;color:#fff}.close-btn{background:#e5e7eb;color:#111827}.invoice-page{width:900px;max-width:100%;margin:0 auto;background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:26px 30px;box-shadow:0 18px 45px rgba(15,23,42,.10)}.invoice-head{display:flex;justify-content:space-between;gap:18px;border-bottom:3px solid #0f766e;padding-bottom:16px;margin-bottom:20px}.invoice-head h1{margin:0 0 6px;font-size:34px;color:#111827}.invoice-head p{margin:4px 0;color:#475569;font-size:15px}.doc-info{text-align:'+alignLeft+';font-size:15px;color:#374151}.doc-info b{color:#111827}.info-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}.info-box{border:1px solid #e5e7eb;background:#f9fafb;border-radius:14px;padding:12px;min-height:74px}.info-box span{display:block;color:#6b7280;font-size:12px;margin-bottom:6px}.info-box b{display:block;color:#111827;font-size:15px}table.invoice-table{width:100%;min-width:0!important;border-collapse:separate;border-spacing:0;margin:18px 0;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;background:#fff}table.invoice-table th,table.invoice-table td{padding:13px 12px;border-bottom:1px solid #e5e7eb;text-align:right;white-space:normal;color:#111827;background:#fff;font-size:14px}table.invoice-table th{background:#f3f4f6;color:#374151;font-weight:900}table.invoice-table tr:last-child td{border-bottom:0}.totals-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px}.total-box{border:1px solid #e5e7eb;background:#f9fafb;border-radius:14px;padding:12px}.total-box span{display:block;color:#6b7280;font-size:12px;margin-bottom:5px}.total-box b{font-size:18px;color:#111827}.delivery-note{margin-top:16px;padding:14px;border-radius:14px;background:#ecfdf5;color:#065f46;font-weight:900;text-align:center}.signatures{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:40px}.sign{border-top:1px dashed #6b7280;padding-top:10px;text-align:center;color:#374151;font-weight:900}.footer{text-align:center;margin-top:26px;color:#6b7280;font-size:13px}@media(max-width:700px){body{padding:10px}.invoice-page{padding:18px}.invoice-head,.info-grid,.totals-grid,.signatures{grid-template-columns:1fr;display:grid}.doc-info{text-align:right}.doc-actions{padding:0 10px}}@media print{body{background:#fff;padding:0}.doc-actions{display:none}.invoice-page{width:100%;border:0;border-radius:0;box-shadow:none;padding:18mm}table.invoice-table th,table.invoice-table td{font-size:12px}.invoice-head h1{font-size:28px}}'+
+      '</style></head><body>';
+    html+='<div class="doc-actions"><button class="print-btn" onclick="window.print()">'+safeText(isAr?'طباعة':'Print')+'</button><button class="close-btn" onclick="window.close()">'+safeText(isAr?'إغلاق':'Close')+'</button></div>';
+    html+='<div class="invoice-page">';
+    html+='<div class="invoice-head"><div><h1>'+safeText(title)+'</h1><p>'+safeText(company)+'</p><p>'+safeText(subtitle)+'</p></div><div class="doc-info"><p><b>'+safeText(isAr?'رقم المستند':'Document no.')+':</b> '+safeText(docNo)+'</p><p><b>'+safeText(isAr?'التاريخ':'Date')+':</b> '+safeText(s.date)+'</p><p><b>'+safeText(isAr?'نوع المستند':'Type')+':</b> '+safeText(title)+'</p></div></div>';
+    html+='<div class="info-grid"><div class="info-box"><span>'+safeText(isAr?'العميل':'Customer')+'</span><b>'+safeText(s.customer_name)+'</b><small>'+safeText(c.phone||'')+'</small></div><div class="info-box"><span>'+safeText(isAr?'العنوان':'Address')+'</span><b>'+safeText(c.address||c.area||'-')+'</b></div><div class="info-box"><span>'+safeText(isAr?'البياع':'Rep')+'</span><b>'+safeText(s.rep_name||'-')+'</b><small>'+safeText(r.phone||'')+'</small></div></div>';
+    html+='<table class="invoice-table"><tr><th>'+safeText(isAr?'المنتج':'Product')+'</th><th>'+safeText(isAr?'تاريخ الصلاحية':'Expiry')+'</th><th>'+safeText(isAr?'الكمية':'Qty')+'</th><th>'+safeText(isAr?'السعر':'Price')+'</th><th>'+safeText(isAr?'الإجمالي':'Total')+'</th></tr>';
+    html+='<tr><td><b>'+safeText(s.product_name)+'</b></td><td>'+safeText(s.product_expiry||'-')+'</td><td>'+safeNum(s.qty)+'</td><td>'+safeMoney(s.price)+'</td><td><b>'+safeMoney(s.total)+'</b></td></tr></table>';
+    if(type==='invoice'){
+      html+='<div class="totals-grid"><div class="total-box"><span>'+safeText(isAr?'المدفوع':'Paid')+'</span><b>'+safeMoney(s.paid)+'</b></div><div class="total-box"><span>'+safeText(isAr?'المتبقي':'Remaining')+'</span><b>'+safeMoney(s.remaining)+'</b></div><div class="total-box"><span>'+safeText(isAr?'الإجمالي':'Total')+'</span><b>'+safeMoney(s.total)+'</b></div></div>';
+    }else{
+      html+='<div class="delivery-note">'+safeText(deliveredText)+'</div>';
+    }
+    html+='<div class="signatures"><div class="sign">'+safeText(isAr?'توقيع المخزن':'Warehouse signature')+'</div><div class="sign">'+safeText(isAr?'توقيع المندوب':'Rep signature')+'</div><div class="sign">'+safeText(isAr?'توقيع العميل':'Customer signature')+'</div></div>';
+    html+='<div class="footer">'+safeText(isAr?'تم إنشاء المستند من نظام محسوبك Business':'Document generated by Mahsoubak Business')+'</div>';
+    html+='</div></body></html>';
+    return html;
+  };
+})();
+</script>
 </body>
 </html>
 
