@@ -3389,52 +3389,6 @@ render();
   setTimeout(function(){try{if(typeof window.updateNotificationsV61==='function') window.updateNotificationsV61()}catch(e){}},250);
 })();
 </script>
-
-
-<!-- ===== v72 Safe invoice print override - based on v69 stable ===== -->
-<script>
-(function(){
-  function safeText(v){
-    try{return (typeof esc==='function') ? esc(v||'') : String(v||'').replace(/[&<>"']/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]});}
-    catch(e){return String(v||'');}
-  }
-  function safeNum(v){try{return (typeof n==='function') ? n(v) : Number(v||0);}catch(e){return Number(v||0)||0;}}
-  function safeMoney(v){try{return (typeof money==='function') ? money(v) : ('EGP '+safeNum(v).toLocaleString());}catch(e){return 'EGP '+safeNum(v).toLocaleString();}}
-  function safeTitle(type){try{return (typeof saleDocumentTitle==='function') ? saleDocumentTitle(type) : (type==='invoice'?'فاتورة بيع':'إذن تسليم');}catch(e){return type==='invoice'?'فاتورة بيع':'إذن تسليم';}}
-  window.saleDocumentHTML=function(s,type){
-    var c=(db.customers||[]).find(function(x){return x.id===s.customer_id;})||{};
-    var r=(db.reps||[]).find(function(x){return x.id===s.rep_id;})||{};
-    var docNo=(type==='delivery'?'DN-':'INV-')+String(s.id||'').slice(-6).toUpperCase();
-    var isAr=(lang==='ar');
-    var dir=isAr?'rtl':'ltr';
-    var alignLeft=isAr?'left':'right';
-    var title=safeTitle(type);
-    var company=(db.settings&&db.settings.company)||'Mahsoubak Business';
-    var subtitle=(db.settings&&db.settings.subtitle)||'Dermatology Distribution System';
-    var deliveredText=isAr?'تم تسليم الكمية المذكورة أعلاه للعميل.':'The above quantity has been delivered to the customer.';
-    var html='';
-    html+='<!DOCTYPE html><html lang="'+safeText(lang)+'" dir="'+dir+'"><head><meta charset="UTF-8"><title>'+safeText(title)+'</title>';
-    html+='<style>'+
-      '*{box-sizing:border-box}html,body{margin:0;padding:0}body{font-family:Tahoma,Arial,sans-serif;background:#f3f6fb;color:#111827;padding:24px}.doc-actions{max-width:900px;margin:0 auto 12px;display:flex;gap:10px;justify-content:flex-start}.doc-actions button{border:0;border-radius:10px;padding:10px 18px;font-weight:900;cursor:pointer}.print-btn{background:#2563eb;color:#fff}.close-btn{background:#e5e7eb;color:#111827}.invoice-page{width:900px;max-width:100%;margin:0 auto;background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:26px 30px;box-shadow:0 18px 45px rgba(15,23,42,.10)}.invoice-head{display:flex;justify-content:space-between;gap:18px;border-bottom:3px solid #0f766e;padding-bottom:16px;margin-bottom:20px}.invoice-head h1{margin:0 0 6px;font-size:34px;color:#111827}.invoice-head p{margin:4px 0;color:#475569;font-size:15px}.doc-info{text-align:'+alignLeft+';font-size:15px;color:#374151}.doc-info b{color:#111827}.info-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}.info-box{border:1px solid #e5e7eb;background:#f9fafb;border-radius:14px;padding:12px;min-height:74px}.info-box span{display:block;color:#6b7280;font-size:12px;margin-bottom:6px}.info-box b{display:block;color:#111827;font-size:15px}table.invoice-table{width:100%;min-width:0!important;border-collapse:separate;border-spacing:0;margin:18px 0;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;background:#fff}table.invoice-table th,table.invoice-table td{padding:13px 12px;border-bottom:1px solid #e5e7eb;text-align:right;white-space:normal;color:#111827;background:#fff;font-size:14px}table.invoice-table th{background:#f3f4f6;color:#374151;font-weight:900}table.invoice-table tr:last-child td{border-bottom:0}.totals-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px}.total-box{border:1px solid #e5e7eb;background:#f9fafb;border-radius:14px;padding:12px}.total-box span{display:block;color:#6b7280;font-size:12px;margin-bottom:5px}.total-box b{font-size:18px;color:#111827}.delivery-note{margin-top:16px;padding:14px;border-radius:14px;background:#ecfdf5;color:#065f46;font-weight:900;text-align:center}.signatures{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:40px}.sign{border-top:1px dashed #6b7280;padding-top:10px;text-align:center;color:#374151;font-weight:900}.footer{text-align:center;margin-top:26px;color:#6b7280;font-size:13px}@media(max-width:700px){body{padding:10px}.invoice-page{padding:18px}.invoice-head,.info-grid,.totals-grid,.signatures{grid-template-columns:1fr;display:grid}.doc-info{text-align:right}.doc-actions{padding:0 10px}}@media print{body{background:#fff;padding:0}.doc-actions{display:none}.invoice-page{width:100%;border:0;border-radius:0;box-shadow:none;padding:18mm}table.invoice-table th,table.invoice-table td{font-size:12px}.invoice-head h1{font-size:28px}}'+
-      '</style></head><body>';
-    html+='<div class="doc-actions"><button class="print-btn" onclick="window.print()">'+safeText(isAr?'طباعة':'Print')+'</button><button class="close-btn" onclick="window.close()">'+safeText(isAr?'إغلاق':'Close')+'</button></div>';
-    html+='<div class="invoice-page">';
-    html+='<div class="invoice-head"><div><h1>'+safeText(title)+'</h1><p>'+safeText(company)+'</p><p>'+safeText(subtitle)+'</p></div><div class="doc-info"><p><b>'+safeText(isAr?'رقم المستند':'Document no.')+':</b> '+safeText(docNo)+'</p><p><b>'+safeText(isAr?'التاريخ':'Date')+':</b> '+safeText(s.date)+'</p><p><b>'+safeText(isAr?'نوع المستند':'Type')+':</b> '+safeText(title)+'</p></div></div>';
-    html+='<div class="info-grid"><div class="info-box"><span>'+safeText(isAr?'العميل':'Customer')+'</span><b>'+safeText(s.customer_name)+'</b><small>'+safeText(c.phone||'')+'</small></div><div class="info-box"><span>'+safeText(isAr?'العنوان':'Address')+'</span><b>'+safeText(c.address||c.area||'-')+'</b></div><div class="info-box"><span>'+safeText(isAr?'البياع':'Rep')+'</span><b>'+safeText(s.rep_name||'-')+'</b><small>'+safeText(r.phone||'')+'</small></div></div>';
-    html+='<table class="invoice-table"><tr><th>'+safeText(isAr?'المنتج':'Product')+'</th><th>'+safeText(isAr?'تاريخ الصلاحية':'Expiry')+'</th><th>'+safeText(isAr?'الكمية':'Qty')+'</th><th>'+safeText(isAr?'السعر':'Price')+'</th><th>'+safeText(isAr?'الإجمالي':'Total')+'</th></tr>';
-    html+='<tr><td><b>'+safeText(s.product_name)+'</b></td><td>'+safeText(s.product_expiry||'-')+'</td><td>'+safeNum(s.qty)+'</td><td>'+safeMoney(s.price)+'</td><td><b>'+safeMoney(s.total)+'</b></td></tr></table>';
-    if(type==='invoice'){
-      html+='<div class="totals-grid"><div class="total-box"><span>'+safeText(isAr?'المدفوع':'Paid')+'</span><b>'+safeMoney(s.paid)+'</b></div><div class="total-box"><span>'+safeText(isAr?'المتبقي':'Remaining')+'</span><b>'+safeMoney(s.remaining)+'</b></div><div class="total-box"><span>'+safeText(isAr?'الإجمالي':'Total')+'</span><b>'+safeMoney(s.total)+'</b></div></div>';
-    }else{
-      html+='<div class="delivery-note">'+safeText(deliveredText)+'</div>';
-    }
-    html+='<div class="signatures"><div class="sign">'+safeText(isAr?'توقيع المخزن':'Warehouse signature')+'</div><div class="sign">'+safeText(isAr?'توقيع المندوب':'Rep signature')+'</div><div class="sign">'+safeText(isAr?'توقيع العميل':'Customer signature')+'</div></div>';
-    html+='<div class="footer">'+safeText(isAr?'تم إنشاء المستند من نظام محسوبك Business':'Document generated by Mahsoubak Business')+'</div>';
-    html+='</div></body></html>';
-    return html;
-  };
-})();
-</script>
 </body>
 </html>
 
@@ -3875,5 +3829,211 @@ render();
       return r;
     };
   }
+})();
+</script>
+
+<script>
+/* ===== v73 Emergency workflow repair: accounts + sales manager approvals + operations dispatch ===== */
+(function(){
+  if(window.__mb_v73_emergency_repair) return;
+  window.__mb_v73_emergency_repair=true;
+
+  document.head.insertAdjacentHTML('beforeend',`<style id="mb-v73-style">
+    .mb-v73-alert{background:#fff7ed!important;border:1px solid #fed7aa!important;color:#9a3412!important;border-radius:14px!important;padding:12px 14px!important;font-weight:900!important;line-height:1.7;margin-bottom:12px}
+    .mb-v73-card{border:2px solid rgba(20,184,166,.35)!important;box-shadow:0 0 0 1px rgba(20,184,166,.12),0 18px 45px rgba(20,184,166,.08)!important}
+    .mb-v73-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.mb-v73-note{font-size:12px;color:#94a3b8;line-height:1.7;margin-top:6px}
+    .mb-v73-status{display:inline-flex;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:900;background:#fef3c7;color:#92400e}.mb-v73-status.ready{background:#dbeafe;color:#1d4ed8}.mb-v73-status.done{background:#dcfce7;color:#166534}
+    .mb-v73-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}.mb-v73-toolbar h3{margin:0!important;border:0!important;padding:0!important}
+  </style>`);
+
+  function safeArr(x){return Array.isArray(x)?x:[]}
+  function currentRoleV73(){try{let u=currentUser&&currentUser();return String((u&&u.role)||'').trim()}catch(e){return ''}}
+  function roleNameV73(){try{let u=currentUser&&currentUser();return String((u&&(u.name||u.email||u.username))||'').trim()}catch(e){return ''}}
+  function isSalesManagerV73(){
+    let r=currentRoleV73();
+    return r==='sales_manager'||/sales[_\s-]*manager|مدير\s*المبيعات/i.test(r+' '+roleNameV73());
+  }
+  window.isSalesManager=function(){return isSalesManagerV73()};
+
+  // Give newly-created / role-changed users the practical permissions of their role by default.
+  const addUserBeforeV73=window.addUser;
+  if(typeof addUserBeforeV73==='function'){
+    window.addUser=function(){
+      let before=safeArr(db.users).length;
+      let r=addUserBeforeV73.apply(this,arguments);
+      try{
+        if(safeArr(db.users).length>before){
+          let u=db.users[0];
+          if(u&&typeof defaultPermissions==='function') u.permissions=defaultPermissions(u.role);
+          save();
+        }
+      }catch(e){}
+      return r;
+    };
+  }
+  const saveUserDataBeforeV73=window.saveUserDataV32;
+  if(typeof saveUserDataBeforeV73==='function'){
+    window.saveUserDataV32=function(id){
+      let u=safeArr(db.users).find(x=>x.id===id), oldRole=u&&u.role;
+      let r=saveUserDataBeforeV73.apply(this,arguments);
+      try{
+        u=safeArr(db.users).find(x=>x.id===id);
+        if(u&&oldRole!==u.role&&typeof defaultPermissions==='function'){
+          u.permissions=defaultPermissions(u.role);
+          save();
+          alert(lang==='ar'?'تم تطبيق صلاحيات الدور الجديد تلقائيًا. يمكنك تعديلها من الصلاحيات ثم الضغط على تسجيل الصلاحيات.':'Default permissions for the new role were applied. You can still edit and save permissions.');
+          render();
+        }
+      }catch(e){}
+      return r;
+    };
+  }
+
+  // Make sure sales manager can see all pending orders even if manual permission checks are not perfect.
+  window.orderVisibleToCurrent=function(o){
+    if(isSalesManagerV73()) return true;
+    try{return !!(typeof orderCreatedByCurrent==='function'&&orderCreatedByCurrent(o));}catch(e){return false;}
+  };
+  window.canDecideSalesOrder=function(order){
+    if(!isSalesManagerV73()) return false;
+    try{ if(typeof orderCreatedByCurrent==='function' && orderCreatedByCurrent(order)) return false; }catch(e){}
+    return true;
+  };
+
+  // New approval flow: sales manager approves, then Operations dispatches from warehouse.
+  window.approveSalesOrder=function(id){
+    try{ensureSalesOrders&&ensureSalesOrders()}catch(e){db.sales_orders=db.sales_orders||[]}
+    let o=safeArr(db.sales_orders).find(x=>x.id===id);
+    if(!o||o.status!=='pending') return;
+    if(!isSalesManagerV73()) return (typeof permissionAlert==='function'?permissionAlert():alert(T('noPermission')));
+    try{ if(typeof orderCreatedByCurrent==='function' && orderCreatedByCurrent(o)) return alert(lang==='ar'?'لا يمكنك الموافقة على Order أنت أنشأته. ادخل بمستخدم مدير مبيعات مختلف.':'You cannot approve your own order. Use a different sales manager user.'); }catch(e){}
+    o.status='approved';
+    o.approval_status='approved';
+    o.operation_status='pending_dispatch';
+    o.approved_by=roleNameV73();
+    o.approved_date=(typeof today==='function'?today():new Date().toISOString().slice(0,10));
+    if(typeof save==='function') save();
+    alert(lang==='ar'?'تمت الموافقة. الأوردر انتقل إلى Operations لتنفيذ خروج المخزن.':'Approved. The order moved to Operations for warehouse dispatch.');
+    if(typeof render==='function') render();
+  };
+  window.rejectSalesOrder=function(id){
+    try{ensureSalesOrders&&ensureSalesOrders()}catch(e){db.sales_orders=db.sales_orders||[]}
+    let o=safeArr(db.sales_orders).find(x=>x.id===id);
+    if(!o||o.status!=='pending') return;
+    if(!isSalesManagerV73()) return (typeof permissionAlert==='function'?permissionAlert():alert(T('noPermission')));
+    o.status='rejected';o.approval_status='rejected';o.operation_status='rejected';o.rejected_by=roleNameV73();o.rejected_date=(typeof today==='function'?today():new Date().toISOString().slice(0,10));
+    if(typeof save==='function') save();
+    if(typeof render==='function') render();
+  };
+
+  function orderStatusTextV73(o){
+    if(o.status==='pending') return lang==='ar'?'منتظر موافقة مدير المبيعات':'Waiting sales manager approval';
+    if(o.status==='rejected') return lang==='ar'?'مرفوض':'Rejected';
+    if(o.operation_status==='dispatched') return lang==='ar'?'تم خروج المخزن وتحويله لمبيعات':'Dispatched and converted to sale';
+    if(o.status==='approved') return lang==='ar'?'موافق عليه - منتظر Operations':'Approved - waiting Operations';
+    return String(o.status||'');
+  }
+  function decisionCellV73(o){
+    if(o.status==='pending'){
+      if(window.canDecideSalesOrder(o)) return `<button class="btn small ok" onclick="approveSalesOrder('${o.id}')">${lang==='ar'?'موافقة':'Approve'}</button><button class="btn small danger" onclick="rejectSalesOrder('${o.id}')">${lang==='ar'?'رفض':'Reject'}</button>`;
+      try{if(typeof orderCreatedByCurrent==='function'&&orderCreatedByCurrent(o)) return `<span class="mb-v73-status">${lang==='ar'?'منتظر مدير المبيعات':'Waiting manager'}</span>`;}catch(e){}
+      return `<span class="mb-v73-status">${lang==='ar'?'متابعة فقط':'View only'}</span>`;
+    }
+    if(o.status==='approved'&&o.operation_status!=='dispatched') return `<span class="mb-v73-status ready">${lang==='ar'?'انتقل إلى Operations':'Moved to Operations'}</span>`;
+    if(o.operation_status==='dispatched') return `<span class="mb-v73-status done">${lang==='ar'?'تم التنفيذ':'Done'}</span>`;
+    return `<span class="mb-v73-status">${esc(orderStatusTextV73(o))}</span>`;
+  }
+  window.pendingSalesOrdersTable=function(){
+    try{ensureSalesOrders&&ensureSalesOrders()}catch(e){db.sales_orders=db.sales_orders||[]}
+    let rows=safeArr(db.sales_orders).filter(o=>o.status==='pending'&&window.orderVisibleToCurrent(o));
+    if(!rows.length)return `<div class="empty">${isSalesManagerV73()?(lang==='ar'?'لا توجد Orders منتظرة موافقة':'No orders pending approval'):(lang==='ar'?'لا توجد Orders منتظرة لك':'No pending orders for you')}</div>`;
+    return `<table><tr><th>${T('date')}</th><th>${T('customer')}</th><th>${T('rep')}</th><th>${T('product')}</th><th>${T('qty')}</th><th>${T('total')}</th><th>${T('status')}</th><th>${lang==='ar'?'منشئ الـ Order':'Created by'}</th><th>${lang==='ar'?'القرار':'Decision'}</th></tr>${rows.map(o=>`<tr><td>${esc(o.date||'')}</td><td>${esc(o.customer_name||'')}</td><td>${esc(o.rep_name||'')}</td><td>${esc(o.product_name||'')}</td><td>${n(o.qty)}</td><td>${money(o.total)}</td><td><span class="badge pending-approval">${T('pending_approval')}</span></td><td>${esc(o.created_by||o.created_by_email||'')}</td><td><div class="actions">${decisionCellV73(o)}</div></td></tr>`).join('')}</table>`;
+  };
+  window.salesOrdersHistoryTable=function(){
+    try{ensureSalesOrders&&ensureSalesOrders()}catch(e){db.sales_orders=db.sales_orders||[]}
+    let rows=safeArr(db.sales_orders).filter(o=>o.status!=='pending'&&window.orderVisibleToCurrent(o)).slice(0,100);
+    if(!rows.length)return `<div class="empty">${T('empty')}</div>`;
+    return `<table><tr><th>${T('date')}</th><th>${T('customer')}</th><th>${T('rep')}</th><th>${T('product')}</th><th>${T('qty')}</th><th>${T('total')}</th><th>${T('status')}</th><th>${lang==='ar'?'بواسطة':'By'}</th></tr>${rows.map(o=>`<tr><td>${esc(o.date||'')}</td><td>${esc(o.customer_name||'')}</td><td>${esc(o.rep_name||'')}</td><td>${esc(o.product_name||'')}</td><td>${n(o.qty)}</td><td>${money(o.total)}</td><td>${decisionCellV73(o)}</td><td>${esc(o.approved_by||o.rejected_by||'')}</td></tr>`).join('')}</table>`;
+  };
+  window.salesOrdersWorkspace=function(){
+    try{ensureSalesOrders&&ensureSalesOrders()}catch(e){db.sales_orders=db.sales_orders||[]}
+    let pending=safeArr(db.sales_orders).filter(o=>o.status==='pending'&&window.orderVisibleToCurrent(o)).length;
+    let waitingOps=safeArr(db.sales_orders).filter(o=>o.status==='approved'&&o.operation_status!=='dispatched').length;
+    let decided=safeArr(db.sales_orders).filter(o=>o.status!=='pending'&&window.orderVisibleToCurrent(o)).length;
+    let title=isSalesManagerV73()?(lang==='ar'?'موافقات مدير المبيعات':'Sales manager approvals'):(lang==='ar'?'Orders الخاصة بي':'My orders');
+    return `<div class="perm-hero"><div><h3>${title}</h3><p>${lang==='ar'?'أي Order جديد يظهر هنا لمدير المبيعات، وبعد الموافقة ينتقل إلى Operations لتنفيذ خروج المخزن.':'New orders appear here for approval, then move to Operations for warehouse dispatch.'}</p></div><span class="badge pending-approval">${pending} ${lang==='ar'?'منتظر':'pending'}</span></div><div class="grid grid3"><div class="stat"><span>${lang==='ar'?'منتظر موافقة':'Pending approval'}</span><strong>${pending}</strong></div><div class="stat"><span>${lang==='ar'?'منتظر Operations':'Waiting Operations'}</span><strong>${waitingOps}</strong></div><div class="stat"><span>${lang==='ar'?'سجل القرارات':'Decision history'}</span><strong>${decided}</strong></div></div><div class="card approval-card"><h3>${lang==='ar'?'مطلوب موافقة أو رفض':'Needs approval or rejection'}</h3>${pendingSalesOrdersTable()}</div><div class="card"><h3>${lang==='ar'?'سجل sales orders':'Sales orders history'}</h3>${salesOrdersHistoryTable()}</div>`;
+  };
+
+  function waitingOperationsRowsV73(){
+    try{ensureSalesOrders&&ensureSalesOrders()}catch(e){db.sales_orders=db.sales_orders||[]}
+    return safeArr(db.sales_orders).filter(o=>o.status==='approved'&&o.operation_status!=='dispatched');
+  }
+  window.dispatchSalesOrderV73=function(id){
+    try{ensureSalesOrders&&ensureSalesOrders()}catch(e){db.sales_orders=db.sales_orders||[]}
+    let o=safeArr(db.sales_orders).find(x=>x.id===id);
+    if(!o||o.status!=='approved'||o.operation_status==='dispatched') return;
+    if(!(typeof can==='function'?can('operations','edit')||can('operations','add'):true) && currentRoleV73()!=='operations_manager' && currentRoleV73()!=='warehouse_manager') return (typeof permissionAlert==='function'?permissionAlert():alert(T('noPermission')));
+    if(!confirm(lang==='ar'?'تنفيذ خروج المخزن وتحويل الأوردر إلى مبيعات فعلية؟':'Dispatch from warehouse and convert this order to an actual sale?')) return;
+    if(typeof createApprovedSaleFromOrder==='function'){
+      let ok=createApprovedSaleFromOrder(o);
+      if(!ok) return;
+    }else{
+      return alert(lang==='ar'?'تعذر تنفيذ الخروج: دالة البيع غير موجودة':'Cannot dispatch: sale function missing');
+    }
+    o.operation_status='dispatched';
+    o.dispatched_by=roleNameV73();
+    o.dispatched_date=(typeof today==='function'?today():new Date().toISOString().slice(0,10));
+    if(typeof save==='function') save();
+    alert(lang==='ar'?'تم خروج الأوردر من المخزن وتسجيل البيع وخصم المخزون.':'Order dispatched, sale registered, and stock deducted.');
+    if(typeof render==='function') render();
+  };
+  function operationsOrdersHTMLV73(){
+    let rows=waitingOperationsRowsV73();
+    let body=rows.length?`<table><tr><th>${T('date')}</th><th>${T('customer')}</th><th>${T('rep')}</th><th>${T('product')}</th><th>${T('qty')}</th><th>${T('total')}</th><th>${lang==='ar'?'اعتمده':'Approved by'}</th><th>${lang==='ar'?'تنفيذ':'Action'}</th></tr>${rows.map(o=>`<tr><td>${esc(o.date||'')}</td><td>${esc(o.customer_name||'')}</td><td>${esc(o.rep_name||'')}</td><td>${esc(o.product_name||'')}</td><td>${n(o.qty)}</td><td>${money(o.total)}</td><td>${esc(o.approved_by||'')}</td><td><button class="btn small ok" onclick="dispatchSalesOrderV73('${o.id}')">${lang==='ar'?'خروج من المخزن':'Dispatch'}</button></td></tr>`).join('')}</table>`:`<div class="empty">${lang==='ar'?'لا توجد Orders معتمدة منتظرة خروج مخزن':'No approved orders waiting for dispatch'}</div>`;
+    return `<div class="card mb-v73-card" id="operations_orders_v73"><div class="mb-v73-toolbar"><div><h3>${lang==='ar'?'Orders جاهزة للخروج من المخزن':'Orders ready for warehouse dispatch'}</h3><div class="mb-v73-note">${lang==='ar'?'الأوردر يظهر هنا بعد موافقة مدير المبيعات، ولا يتم خصم المخزون ولا تسجيل البيع إلا عند الضغط على خروج من المخزن.':'Orders appear here after sales manager approval. Stock is deducted and sale is registered only when Dispatch is clicked.'}</div></div><span class="badge blue">${rows.length}</span></div>${body}</div>`;
+  }
+  function injectOperationsOrdersV73(){
+    let v=document.getElementById('view-operations'); if(!v) return;
+    let old=document.getElementById('operations_orders_v73'); if(old) old.remove();
+    v.insertAdjacentHTML('afterbegin',operationsOrdersHTMLV73());
+  }
+  const renderOperationsBeforeV73=window.renderOperations;
+  if(typeof renderOperationsBeforeV73==='function'){
+    window.renderOperations=function(){renderOperationsBeforeV73.apply(this,arguments);injectOperationsOrdersV73();};
+  }
+
+  // Accounts/Chart of Accounts rescue inside Finance.
+  window.openChartAccountsV73=function(){
+    try{ensureAccounting&&ensureAccounting()}catch(e){}
+    let h=document.getElementById('mb_v60_home_accounts'),d=document.getElementById('mb_v60_detail_accounts');
+    if(h)h.style.display='none';
+    if(!d){let v=document.getElementById('view-accounts');if(v)v.insertAdjacentHTML('beforeend','<div class="mb-v60-detail" id="mb_v60_detail_accounts"></div>');d=document.getElementById('mb_v60_detail_accounts')}
+    let accounts=(typeof accountsTable==='function'?accountsTable():`<div class="empty">${T('empty')}</div>`);
+    let journal=(typeof journalTable==='function'?journalTable():`<div class="empty">${T('empty')}</div>`);
+    if(d){d.innerHTML=`<div class="mb-v60-detail-head"><h3>${lang==='ar'?'شجرة الحسابات والقيود اليومية':'Chart of Accounts & Journal'}</h3><button class="btn secondary mb-v60-back" onclick="showModuleHomeV60('accounts')">${lang==='ar'?'← رجوع للأيقونات':'← Back to cards'}</button></div><div class="card"><h3>${lang==='ar'?'شجرة الحسابات':'Chart of accounts'}</h3>${accounts}</div><div class="card"><h3>${lang==='ar'?'القيود اليومية':'Journal entries'}</h3>${journal}</div>`;d.classList.add('show');d.scrollIntoView({behavior:'smooth',block:'start'});}
+  };
+  function injectAccountsTileV73(){
+    let grid=document.querySelector('#mb_v60_home_accounts .mb-v60-grid'); if(!grid||grid.querySelector('[data-v73-chart-accounts]')) return;
+    grid.insertAdjacentHTML('afterbegin',`<div class="mb-v60-tile" data-v73-chart-accounts="1" onclick="openChartAccountsV73()"><div><div class="mb-v60-icon">🧾</div><div class="mb-v60-title">${lang==='ar'?'شجرة الحسابات':'Chart of accounts'}</div><div class="mb-v60-sub">${lang==='ar'?'عرض شجرة الحسابات والقيود اليومية التي تم بناؤها':'Open the built chart of accounts and journal entries'}</div></div><div class="mb-v60-count">›</div></div>`);
+  }
+  const renderAccountsBeforeV73=window.renderAccounts;
+  if(typeof renderAccountsBeforeV73==='function'){
+    window.renderAccounts=function(){renderAccountsBeforeV73.apply(this,arguments);setTimeout(injectAccountsTileV73,20);};
+  }
+
+  // Ensure nav/render picks up patched screens.
+  const renderRepsBeforeV73=window.renderReps;
+  if(typeof renderRepsBeforeV73==='function'){
+    window.renderReps=function(){
+      let el=document.getElementById('view-reps');
+      if(el && (isSalesManagerV73() || (typeof can==='function'&&can('reps','view')))) { el.innerHTML=window.salesOrdersWorkspace(); return; }
+      return renderRepsBeforeV73.apply(this,arguments);
+    };
+  }
+  const renderBeforeV73=window.render;
+  if(typeof renderBeforeV73==='function'){
+    window.render=function(){let r=renderBeforeV73.apply(this,arguments);setTimeout(function(){injectOperationsOrdersV73();injectAccountsTileV73();try{if(typeof updateNotificationsV61==='function')updateNotificationsV61()}catch(e){}},80);return r;};
+  }
+  setTimeout(function(){try{injectOperationsOrdersV73();injectAccountsTileV73()}catch(e){}},500);
 })();
 </script>
