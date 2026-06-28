@@ -316,6 +316,11 @@ body.no-edit #view-sales .card:first-child textarea{pointer-events:auto!importan
 .customer-delete-btn{min-width:72px;font-weight:900}
 .customer-delete-warning{color:#b91c1c;font-weight:800;font-size:11px;margin-top:4px}
 
+
+/* ===== v74 Meaningful module tile labels ===== */
+.mb-v60-count{font-size:20px!important;line-height:1.2!important;white-space:normal!important;text-align:left!important;max-width:100%!important}
+html[dir="rtl"] .mb-v60-count{text-align:right!important}
+
 </style>
 </head>
 <body>
@@ -3423,12 +3428,32 @@ render();
     return t;
   }
   function cardCount(card){
+    // v74: do not show meaningless raw input/stat counts on module tiles.
+    // Tile badges must describe what will open: form / list / report / summary.
+    let title=textOfCard(card,0);
+    let titleLower=(title||'').toLowerCase();
     let rows=card.querySelectorAll('table tr').length;
-    if(rows>1) return rows-1;
+    function unitLabel(){
+      if(/عميل|customer/.test(titleLower)) return lang==='ar'?'عميل':'customers';
+      if(/منتج|product|مخزون|stock/.test(titleLower)) return lang==='ar'?'صنف':'items';
+      if(/مورد|supplier/.test(titleLower)) return lang==='ar'?'مورد':'suppliers';
+      if(/بياع|مندوب|rep/.test(titleLower)) return lang==='ar'?'بياع':'reps';
+      if(/طلب|operation|warehouse|مخزن/.test(titleLower)) return lang==='ar'?'طلب':'orders';
+      if(/شراء|purchase/.test(titleLower)) return lang==='ar'?'فاتورة':'invoices';
+      if(/بيع|sales|order|فاتورة/.test(titleLower)) return lang==='ar'?'أوردر':'orders';
+      if(/تحصيل|collection/.test(titleLower)) return lang==='ar'?'تحصيل':'collections';
+      if(/قيد|journal/.test(titleLower)) return lang==='ar'?'قيد':'entries';
+      if(/حساب|account/.test(titleLower)) return lang==='ar'?'حساب':'accounts';
+      return lang==='ar'?'سجل':'records';
+    }
+    if(rows>1) return (rows-1)+' '+unitLabel();
     let stats=card.querySelectorAll('.stat strong').length;
-    if(stats) return stats;
+    if(stats) return lang==='ar'?'ملخص':'Summary';
+    let table=card.querySelector('table');
+    if(table) return lang==='ar'?'لا يوجد':'Empty';
     let inputs=card.querySelectorAll('input,select,textarea').length;
-    if(inputs) return inputs;
+    if(inputs) return lang==='ar'?'فتح':'Open';
+    if(/تقرير|report/.test(titleLower)) return lang==='ar'?'تقرير':'Report';
     return '›';
   }
   function subOfCard(card){
