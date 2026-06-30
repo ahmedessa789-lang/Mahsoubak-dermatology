@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mahsoubak Business | Odoo Style v57</title>
+<title>Mahsoubak Business | Business UI</title>
 <style>
 :root{--dark:#0f172a;--bg:#f4f7fb;--card:#fff;--line:#e2e8f0;--muted:#64748b;--accent:#14b8a6;--accent2:#0f766e;--blue:#2563eb;--danger:#ef4444;--ok:#16a34a;--warn:#f59e0b;--shadow:0 14px 35px rgba(15,23,42,.10)}
 *{box-sizing:border-box}body{margin:0;font-family:Tahoma,Arial,sans-serif;background:linear-gradient(135deg,#08343a 0%,#0f172a 46%,#f8fafc 46%,#f8fafc 100%);min-height:100vh;color:#0f172a}
@@ -188,43 +188,43 @@ body.no-edit #view-sales .card:first-child textarea{
 
 
 
-/* ===== v58 Odoo Organized Layout - visual only, no logic changes ===== */
+/* ===== v58 Business Organized Layout - visual only, no logic changes ===== */
 :root{
-  --odoo-bg:#1f2430;
-  --odoo-panel:#252b36;
-  --odoo-panel-2:#2b3240;
-  --odoo-line:#3a4352;
-  --odoo-text:#f3f4f6;
-  --odoo-muted:#aab3c2;
-  --odoo-soft:#d7dde7;
-  --odoo-accent:#00a09d;
-  --odoo-accent-2:#875a7b;
-  --odoo-blue:#2f80ed;
-  --odoo-green:#16a34a;
-  --odoo-red:#dc2626;
-  --odoo-orange:#f59e0b;
+  --business-bg:#1f2430;
+  --business-panel:#252b36;
+  --business-panel-2:#2b3240;
+  --business-line:#3a4352;
+  --business-text:#f3f4f6;
+  --business-muted:#aab3c2;
+  --business-soft:#d7dde7;
+  --business-accent:#00a09d;
+  --business-accent-2:#875a7b;
+  --business-blue:#2f80ed;
+  --business-green:#16a34a;
+  --business-red:#dc2626;
+  --business-orange:#f59e0b;
 }
-html,body{min-height:100%;background:var(--odoo-bg)!important;color:var(--odoo-text)!important;}
+html,body{min-height:100%;background:var(--business-bg)!important;color:var(--business-text)!important;}
 body:before{display:none!important;}
-.app{grid-template-columns:275px minmax(0,1fr)!important;background:var(--odoo-bg)!important;min-height:100vh!important;}
-.side{background:#242a35!important;border-left:1px solid var(--odoo-line)!important;box-shadow:none!important;padding:18px 16px!important;color:var(--odoo-text)!important;}
-.logo{width:54px!important;height:54px!important;border-radius:14px!important;background:linear-gradient(135deg,var(--odoo-accent),#35c7c5)!important;box-shadow:none!important;color:#fff!important;}
-.brand{border-bottom:1px solid var(--odoo-line)!important;margin-bottom:14px!important;padding-bottom:16px!important;text-align:center!important;}
+.app{grid-template-columns:275px minmax(0,1fr)!important;background:var(--business-bg)!important;min-height:100vh!important;}
+.side{background:#242a35!important;border-left:1px solid var(--business-line)!important;box-shadow:none!important;padding:18px 16px!important;color:var(--business-text)!important;}
+.logo{width:54px!important;height:54px!important;border-radius:14px!important;background:linear-gradient(135deg,var(--business-accent),#35c7c5)!important;box-shadow:none!important;color:#fff!important;}
+.brand{border-bottom:1px solid var(--business-line)!important;margin-bottom:14px!important;padding-bottom:16px!important;text-align:center!important;}
 .brand h1{font-size:24px!important;line-height:1.15!important;color:#fff!important;text-shadow:none!important;margin-top:10px!important;}
-.brand p{color:var(--odoo-muted)!important;font-size:13px!important;line-height:1.35!important;margin:5px 0!important;}
+.brand p{color:var(--business-muted)!important;font-size:13px!important;line-height:1.35!important;margin:5px 0!important;}
 .nav{gap:6px!important;}
 .nav button{background:transparent!important;color:#d6dbe5!important;border:1px solid transparent!important;border-radius:8px!important;padding:11px 12px!important;font-size:14px!important;font-weight:700!important;box-shadow:none!important;display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:9px!important;direction:rtl!important;}
 .nav button:hover{background:#303847!important;border-color:#445063!important;color:#fff!important;transform:none!important;}
-.nav button.active{background:#313b4b!important;border-color:#4c596f!important;color:#fff!important;box-shadow:inset 3px 0 0 var(--odoo-accent)!important;}
+.nav button.active{background:#313b4b!important;border-color:#4c596f!important;color:#fff!important;box-shadow:inset 3px 0 0 var(--business-accent)!important;}
 .nav button:before{display:none!important;}
-.lang{border-top:1px solid var(--odoo-line)!important;padding-top:14px!important;margin-top:18px!important;}
-.status{color:var(--odoo-muted)!important;}
-.main{background:var(--odoo-bg)!important;padding:18px 22px 36px!important;min-width:0!important;}
+.lang{border-top:1px solid var(--business-line)!important;padding-top:14px!important;margin-top:18px!important;}
+.status{color:var(--business-muted)!important;}
+.main{background:var(--business-bg)!important;padding:18px 22px 36px!important;min-width:0!important;}
 .top{display:none!important;}
 .card,.report-filter,.insight-card,.erp-details,.dash-card,.stat,.exec-stat,.module-tile,.dash-expanded-stat,.big-bars{
-  background:var(--odoo-panel)!important;
-  color:var(--odoo-text)!important;
-  border:1px solid var(--odoo-line)!important;
+  background:var(--business-panel)!important;
+  color:var(--business-text)!important;
+  border:1px solid var(--business-line)!important;
   box-shadow:none!important;
   border-radius:8px!important;
   backdrop-filter:none!important;
@@ -236,11 +236,11 @@ body:before{display:none!important;}
   font-weight:900!important;
   margin:0 0 16px!important;
   padding-bottom:11px!important;
-  border-bottom:1px solid var(--odoo-line)!important;
+  border-bottom:1px solid var(--business-line)!important;
 }
 .section-title{align-items:flex-start!important;margin-bottom:10px!important;}
 .section-title h3{border-bottom:0!important;margin-bottom:4px!important;padding-bottom:0!important;}
-.hint,.range-note,.dash-sub,.tile-title,.exec-stat span,.stat span{color:var(--odoo-muted)!important;font-weight:500!important;}
+.hint,.range-note,.dash-sub,.tile-title,.exec-stat span,.stat span{color:var(--business-muted)!important;font-weight:500!important;}
 .grid,.grid2,.grid3,.grid4,.grid5{gap:16px!important;}
 .grid2{grid-template-columns:repeat(2,minmax(220px,1fr))!important;}
 .grid3{grid-template-columns:repeat(3,minmax(210px,1fr))!important;}
@@ -260,48 +260,48 @@ input,select,textarea{
   font-weight:700!important;
 }
 input::placeholder,textarea::placeholder{color:#7f8da1!important;}
-input:focus,select:focus,textarea:focus{border-color:var(--odoo-accent)!important;box-shadow:0 0 0 3px rgba(0,160,157,.18)!important;outline:none!important;}
+input:focus,select:focus,textarea:focus{border-color:var(--business-accent)!important;box-shadow:0 0 0 3px rgba(0,160,157,.18)!important;outline:none!important;}
 select option{background:#fff!important;color:#111827!important;}
 .btn{border-radius:6px!important;box-shadow:none!important;font-weight:800!important;padding:10px 15px!important;white-space:nowrap!important;}
 .btn:hover{transform:none!important;filter:brightness(1.06)!important;}
 .btn.secondary{background:#343d4e!important;color:#fff!important;border:1px solid #4a5669!important;}
-.btn.ok{background:var(--odoo-green)!important;color:#fff!important;}
-.btn.blue{background:var(--odoo-blue)!important;color:#fff!important;}
-.btn.danger{background:var(--odoo-red)!important;color:#fff!important;}
-.btn.warn{background:var(--odoo-orange)!important;color:#111827!important;}
+.btn.ok{background:var(--business-green)!important;color:#fff!important;}
+.btn.blue{background:var(--business-blue)!important;color:#fff!important;}
+.btn.danger{background:var(--business-red)!important;color:#fff!important;}
+.btn.warn{background:var(--business-orange)!important;color:#111827!important;}
 .btn.small{padding:7px 10px!important;font-size:12px!important;min-width:74px!important;text-align:center!important;}
 .actions{gap:6px!important;align-items:center!important;}
-table{background:transparent!important;border:1px solid var(--odoo-line)!important;border-radius:8px!important;box-shadow:none!important;min-width:1080px!important;border-collapse:separate!important;border-spacing:0!important;overflow:hidden!important;}
-th,td{border-bottom:1px solid var(--odoo-line)!important;text-align:right!important;vertical-align:middle!important;white-space:nowrap!important;}
+table{background:transparent!important;border:1px solid var(--business-line)!important;border-radius:8px!important;box-shadow:none!important;min-width:1080px!important;border-collapse:separate!important;border-spacing:0!important;overflow:hidden!important;}
+th,td{border-bottom:1px solid var(--business-line)!important;text-align:right!important;vertical-align:middle!important;white-space:nowrap!important;}
 th{background:#303847!important;color:#fff!important;font-size:13px!important;font-weight:900!important;padding:12px 11px!important;position:sticky!important;top:0!important;z-index:1!important;}
 td{background:#252b36!important;color:#e9edf5!important;font-size:13px!important;font-weight:500!important;padding:11px 10px!important;}
 tr:nth-child(even) td{background:#222936!important;}
 tr:hover td{background:#303847!important;}
 td .actions{display:flex!important;flex-wrap:nowrap!important;gap:6px!important;}
-.empty{background:#202631!important;color:var(--odoo-muted)!important;border:1px dashed #4a5669!important;border-radius:8px!important;padding:22px!important;}
+.empty{background:#202631!important;color:var(--business-muted)!important;border:1px dashed #4a5669!important;border-radius:8px!important;padding:22px!important;}
 .badge{border-radius:999px!important;box-shadow:none!important;font-weight:900!important;padding:6px 10px!important;}
 .badge.ok{background:#0f5132!important;color:#d1fae5!important;}
 .badge.warn,.badge.pending-approval{background:#47360a!important;color:#fde68a!important;}
 .badge.low,.badge.rejected{background:#4c1d1d!important;color:#fecaca!important;}
 .badge.blue{background:#1e3a8a!important;color:#dbeafe!important;}
 .transaction-region,.report-pill{background:#e6fffb!important;color:#00706e!important;border:1px solid #86e5df!important;border-radius:999px!important;font-weight:900!important;padding:5px 10px!important;display:inline-flex!important;}
-.sales-flow-hint,.perm-hero{background:#252b36!important;border:1px solid var(--odoo-line)!important;border-radius:8px!important;color:#fff!important;padding:14px 16px!important;margin-bottom:14px!important;}
+.sales-flow-hint,.perm-hero{background:#252b36!important;border:1px solid var(--business-line)!important;border-radius:8px!important;color:#fff!important;padding:14px 16px!important;margin-bottom:14px!important;}
 .sales-flow-hint b,.perm-hero h3{color:#fff!important;font-size:18px!important;}
-.sales-flow-hint span,.perm-hero p{color:var(--odoo-muted)!important;}
+.sales-flow-hint span,.perm-hero p{color:var(--business-muted)!important;}
 .stat{padding:16px!important;}
 .stat strong,.exec-stat strong,.dash-value,.tile-value{color:#fff!important;font-weight:900!important;}
 .progress,.mini-progress,.chartbar{background:#151a22!important;}
-.progress span,.mini-progress span,.chartbar span{background:linear-gradient(90deg,var(--odoo-accent),#35c7c5)!important;}
-/* Dashboard: clear Odoo-like application tiles */
-.erp-clean-hero{background:var(--odoo-panel)!important;border:1px solid var(--odoo-line)!important;border-radius:8px!important;box-shadow:none!important;}
+.progress span,.mini-progress span,.chartbar span{background:linear-gradient(90deg,var(--business-accent),#35c7c5)!important;}
+/* Dashboard: clear Business-like application tiles */
+.erp-clean-hero{background:var(--business-panel)!important;border:1px solid var(--business-line)!important;border-radius:8px!important;box-shadow:none!important;}
 .erp-clean-hero h3{color:#fff!important;}
-.erp-clean-hero p{color:var(--odoo-muted)!important;}
+.erp-clean-hero p{color:var(--business-muted)!important;}
 .executive-strip,.compact-dashboard-grid{gap:14px!important;}
-.exec-stat,.module-tile{background:var(--odoo-panel)!important;border:1px solid var(--odoo-line)!important;border-radius:8px!important;box-shadow:none!important;}
+.exec-stat,.module-tile{background:var(--business-panel)!important;border:1px solid var(--business-line)!important;border-radius:8px!important;box-shadow:none!important;}
 .module-tile{min-height:128px!important;padding:16px 16px 42px!important;}
 .module-tile:hover{background:#303847!important;transform:none!important;}
 .tile-icon{background:#303847!important;border:1px solid #4a5669!important;box-shadow:none!important;animation:none!important;}
-.tile-lines span{background:#171c25!important;color:var(--odoo-soft)!important;border:1px solid #465266!important;box-shadow:none!important;}
+.tile-lines span{background:#171c25!important;color:var(--business-soft)!important;border:1px solid #465266!important;box-shadow:none!important;}
 .tile-open{background:#171c25!important;border:1px solid #465266!important;color:#a7f3d0!important;}
 /* Keep all dropdowns usable */
 body.no-edit select, body.no-edit input, body.no-edit textarea,
@@ -320,6 +320,1154 @@ body.no-edit #view-sales .card:first-child textarea{pointer-events:auto!importan
 /* ===== v74 Meaningful module tile labels ===== */
 .mb-v60-count{font-size:20px!important;line-height:1.2!important;white-space:normal!important;text-align:left!important;max-width:100%!important}
 html[dir="rtl"] .mb-v60-count{text-align:right!important}
+
+
+
+/* ===== v96 FINAL readable colors + invoice repair - CSS ONLY ===== */
+
+/* Dark stock-market ticker must always have readable white text */
+html body .market-ticker,
+html body .market-ticker *,
+html body .market-ticker .ticker-item,
+html body .market-ticker .ticker-item *,
+html body .ticker-item,
+html body .ticker-item *,
+html body .ticker-item b,
+html body .ticker-item em,
+html body .ticker-item strong{
+  color:#ffffff!important;
+  text-shadow:none!important;
+}
+html body .market-ticker .ticker-item{
+  background:rgba(255,255,255,.10)!important;
+  border:1px solid rgba(255,255,255,.22)!important;
+}
+html body .market-ticker .ticker-item b,
+html body .market-ticker .ticker-item em{
+  background:transparent!important;
+  border:0!important;
+}
+
+/* Dark dashboard/chart cards: white text only inside the dark cards */
+html body .market-dashboard-grid .dash-card,
+html body .market-dashboard-grid .dash-card *,
+html body .dashboard-grid.market-dashboard-grid .dash-card,
+html body .dashboard-grid.market-dashboard-grid .dash-card *{
+  color:#ffffff!important;
+  text-shadow:none!important;
+}
+
+/* Normal system tables must never use dark striped rows */
+html body main table,
+html body main thead,
+html body main tbody,
+html body main tfoot,
+html body main tr,
+html body main th,
+html body main td,
+html body main tr:nth-child(even) td,
+html body main tr:nth-child(odd) td,
+html body main tr:hover td{
+  background:#ffffff!important;
+  color:#000000!important;
+  border-color:#e5e7eb!important;
+  text-shadow:none!important;
+}
+html body main th{
+  background:#f8fafc!important;
+  color:#000000!important;
+  font-weight:900!important;
+}
+
+/* White cells/cards: black text */
+html body .card,
+html body .report-filter,
+html body .erp-details,
+html body .insight-card,
+html body .stat,
+html body .exec-stat,
+html body .empty,
+html body .orders-v59-card,
+html body .mb-v60-card,
+html body .decision-card,
+html body .flow-card,
+html body .summary-card,
+html body .details-body{
+  background:#ffffff!important;
+  color:#000000!important;
+  border-color:#e5e7eb!important;
+}
+html body .card *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *),
+html body .report-filter *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *),
+html body .erp-details *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *),
+html body .insight-card *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *),
+html body .empty *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *){
+  color:#000000!important;
+  text-shadow:none!important;
+}
+
+/* Hide all helper/guidance sentences */
+html body .hint,
+html body .range-note,
+html body .open-hint,
+html body .sales-flow-hint,
+html body .manual-perm-note,
+html body .customer-import-note,
+html body .rep-split-note,
+html body .sales-order-decision-note,
+html body .login-demo-hint,
+html body .mb-v65-note,
+html body .mb-v73-note,
+html body .orders-v59-sub,
+html body .mb-v60-sub,
+html body .v76-note,
+html body .v76-app-sub,
+html body .erp-clean-hero p,
+html body .mb-v60-head p,
+html body .orders-v59-head p,
+html body .v76-topbar p,
+html body .v76-apps-head p,
+html body .note,
+html body .help,
+html body .sub-note,
+html body .description,
+html body .tile-open{
+  display:none!important;
+  visibility:hidden!important;
+}
+
+/* Buttons stay readable */
+html body .btn,
+html body .btn *,
+html body button.btn,
+html body button.btn *{color:#ffffff!important}
+html body .btn.secondary,
+html body .btn.secondary *,
+html body button.btn.secondary,
+html body button.btn.secondary *{color:#000000!important}
+html body .btn.warn,
+html body .btn.warn *,
+html body button.btn.warn,
+html body button.btn.warn *{color:#000000!important}
+
+/* ===== Invoice / sales document repair; included in the FIRST style so popup print sees it ===== */
+html body{
+  color:#000000!important;
+}
+html body .delivery-doc,
+html body .delivery-doc *,
+html body .invoice-doc,
+html body .invoice-doc *,
+html body .print-invoice,
+html body .print-invoice *,
+html body .print-range-report,
+html body .print-range-report *{
+  color:#000000!important;
+  text-shadow:none!important;
+}
+html body .delivery-doc,
+html body .invoice-doc,
+html body .print-invoice,
+html body .print-range-report{
+  background:#ffffff!important;
+  max-width:900px!important;
+  width:900px!important;
+  margin:24px auto!important;
+  padding:28px!important;
+  border:1px solid #e5e7eb!important;
+  border-radius:16px!important;
+  box-shadow:none!important;
+  overflow:hidden!important;
+}
+html body .delivery-doc table,
+html body .delivery-doc thead,
+html body .delivery-doc tbody,
+html body .delivery-doc tr,
+html body .delivery-doc th,
+html body .delivery-doc td,
+html body .invoice-doc table,
+html body .invoice-doc th,
+html body .invoice-doc td,
+html body .print-invoice table,
+html body .print-invoice th,
+html body .print-invoice td{
+  background:#ffffff!important;
+  color:#000000!important;
+  border-color:#e5e7eb!important;
+  box-shadow:none!important;
+}
+html body .delivery-doc table,
+html body .invoice-doc table,
+html body .print-invoice table{
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
+  table-layout:auto!important;
+  border-collapse:collapse!important;
+  overflow:hidden!important;
+}
+html body .delivery-doc th,
+html body .invoice-doc th,
+html body .print-invoice th{
+  background:#f8fafc!important;
+  color:#000000!important;
+  font-weight:900!important;
+}
+html body .delivery-doc td,
+html body .invoice-doc td,
+html body .print-invoice td{
+  background:#ffffff!important;
+  color:#000000!important;
+  white-space:normal!important;
+}
+html body .delivery-head{
+  background:#ffffff!important;
+  color:#000000!important;
+  border-bottom:2px solid #0f766e!important;
+}
+html body .delivery-head h1,
+html body .delivery-head h2,
+html body .delivery-head p{
+  color:#000000!important;
+}
+html body .doc-box{
+  background:#f8fafc!important;
+  color:#000000!important;
+  border:1px solid #e5e7eb!important;
+}
+html body .doc-total{
+  color:#0f766e!important;
+  background:transparent!important;
+  font-weight:900!important;
+}
+html body .doc-sign{
+  background:#ffffff!important;
+  color:#000000!important;
+  border-top:1px dashed #64748b!important;
+}
+
+@media print{
+  html body{background:#ffffff!important;color:#000000!important}
+  html body .side,
+  html body .nav,
+  html body .no-print,
+  html body .actions,
+  html body .doc-print-actions{display:none!important}
+  html body .delivery-doc,
+  html body .invoice-doc,
+  html body .print-invoice,
+  html body .print-range-report{
+    width:auto!important;
+    max-width:none!important;
+    margin:0!important;
+    padding:0!important;
+    border:0!important;
+    border-radius:0!important;
+    box-shadow:none!important;
+    overflow:visible!important;
+  }
+}
+
+
+
+/* ===== v97 FINAL: Make all dashboard/chart boxes same purple as sidebar ===== */
+
+/* Main owner/dashboard market strips and cards: purple like sidebar */
+html body .market-ticker,
+html body .ticker-tape,
+html body .dashboard-ticker,
+html body .kpi-ticker,
+html body .market-dashboard-grid .dash-card,
+html body .dashboard-grid.market-dashboard-grid .dash-card,
+html body .dashboard-grid .dash-card{
+  background:linear-gradient(180deg,#744a68 0%,#633e58 100%)!important;
+  background-color:#744a68!important;
+  color:#ffffff!important;
+  border:1px solid rgba(255,255,255,.20)!important;
+  box-shadow:0 12px 26px rgba(116,74,104,.22)!important;
+}
+
+/* Every text inside these purple areas must be white */
+html body .market-ticker *,
+html body .ticker-tape *,
+html body .dashboard-ticker *,
+html body .kpi-ticker *,
+html body .market-dashboard-grid .dash-card *,
+html body .dashboard-grid.market-dashboard-grid .dash-card *,
+html body .dashboard-grid .dash-card *{
+  color:#ffffff!important;
+  text-shadow:none!important;
+}
+
+/* Small pills inside top ticker */
+html body .market-ticker .ticker-item,
+html body .ticker-tape .ticker-item,
+html body .dashboard-ticker .ticker-item,
+html body .kpi-ticker .ticker-item,
+html body .market-ticker span,
+html body .ticker-tape span,
+html body .dashboard-ticker span,
+html body .kpi-ticker span{
+  background:rgba(255,255,255,.14)!important;
+  color:#ffffff!important;
+  border:1px solid rgba(255,255,255,.26)!important;
+  border-radius:999px!important;
+}
+html body .market-ticker b,
+html body .ticker-tape b,
+html body .dashboard-ticker b,
+html body .kpi-ticker b,
+html body .market-ticker strong,
+html body .ticker-tape strong,
+html body .dashboard-ticker strong,
+html body .kpi-ticker strong,
+html body .market-ticker em,
+html body .ticker-tape em,
+html body .dashboard-ticker em,
+html body .kpi-ticker em{
+  color:#ffffff!important;
+  background:transparent!important;
+  border:0!important;
+}
+
+/* Icons/badges inside purple cards */
+html body .market-dashboard-grid .dash-card .badge,
+html body .dashboard-grid .dash-card .badge,
+html body .market-dashboard-grid .dash-card .dash-badge,
+html body .dashboard-grid .dash-card .dash-badge{
+  background:rgba(255,255,255,.16)!important;
+  color:#ffffff!important;
+  border:1px solid rgba(255,255,255,.28)!important;
+}
+
+/* Chart grid lines can stay subtle */
+html body .market-dashboard-grid .dash-card .mini-progress,
+html body .dashboard-grid .dash-card .mini-progress,
+html body .market-dashboard-grid .dash-card .progress,
+html body .dashboard-grid .dash-card .progress{
+  background:rgba(255,255,255,.18)!important;
+}
+html body .market-dashboard-grid .dash-card .mini-progress span,
+html body .dashboard-grid .dash-card .mini-progress span,
+html body .market-dashboard-grid .dash-card .progress span,
+html body .dashboard-grid .dash-card .progress span{
+  background:#ffffff!important;
+}
+
+/* Normal system cards remain white / black text */
+html body main .card:not(.dash-card),
+html body main .report-filter,
+html body main .erp-details,
+html body main .insight-card,
+html body main .stat,
+html body main .exec-stat,
+html body main .empty,
+html body main .orders-v59-card,
+html body main .mb-v60-card{
+  background:#ffffff!important;
+  color:#000000!important;
+  border-color:#e5e7eb!important;
+}
+html body main .card:not(.dash-card) *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *),
+html body main .report-filter *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *),
+html body main .erp-details *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *),
+html body main .insight-card *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *),
+html body main .empty *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *){
+  color:#000000!important;
+}
+
+/* Tables remain readable white/black */
+html body main table,
+html body main tr,
+html body main th,
+html body main td,
+html body main tr:nth-child(even) td,
+html body main tr:nth-child(odd) td,
+html body main tr:hover td{
+  background:#ffffff!important;
+  color:#000000!important;
+  border-color:#e5e7eb!important;
+}
+html body main th{
+  background:#f8fafc!important;
+  color:#000000!important;
+}
+
+/* Hide all guidance/helper text */
+html body .hint,
+html body .range-note,
+html body .open-hint,
+html body .sales-flow-hint,
+html body .manual-perm-note,
+html body .customer-import-note,
+html body .rep-split-note,
+html body .sales-order-decision-note,
+html body .login-demo-hint,
+html body .mb-v65-note,
+html body .mb-v73-note,
+html body .orders-v59-sub,
+html body .mb-v60-sub,
+html body .v76-note,
+html body .v76-app-sub,
+html body .erp-clean-hero p,
+html body .mb-v60-head p,
+html body .orders-v59-head p,
+html body .v76-topbar p,
+html body .v76-apps-head p,
+html body .note,
+html body .help,
+html body .sub-note,
+html body .description,
+html body .tile-open{
+  display:none!important;
+  visibility:hidden!important;
+}
+
+/* Buttons readable */
+html body .btn,
+html body .btn *,
+html body button.btn,
+html body button.btn *{color:#ffffff!important}
+html body .btn.secondary,
+html body .btn.secondary *,
+html body button.btn.secondary,
+html body button.btn.secondary *{color:#000000!important}
+html body .btn.warn,
+html body .btn.warn *,
+html body button.btn.warn,
+html body button.btn.warn *{color:#000000!important}
+
+/* Invoice table must fit page and stay white/black */
+html body .delivery-doc,
+html body .delivery-doc *,
+html body .invoice-doc,
+html body .invoice-doc *,
+html body .print-invoice,
+html body .print-invoice *{
+  color:#000000!important;
+  text-shadow:none!important;
+}
+html body .delivery-doc,
+html body .invoice-doc,
+html body .print-invoice{
+  background:#ffffff!important;
+  max-width:900px!important;
+  width:900px!important;
+  margin:24px auto!important;
+  padding:28px!important;
+  border:1px solid #e5e7eb!important;
+  border-radius:16px!important;
+  overflow:hidden!important;
+  box-shadow:none!important;
+}
+html body .delivery-doc table,
+html body .invoice-doc table,
+html body .print-invoice table{
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
+  table-layout:auto!important;
+  border-collapse:collapse!important;
+  background:#ffffff!important;
+}
+html body .delivery-doc th,
+html body .delivery-doc td,
+html body .invoice-doc th,
+html body .invoice-doc td,
+html body .print-invoice th,
+html body .print-invoice td{
+  background:#ffffff!important;
+  color:#000000!important;
+  white-space:normal!important;
+  border-color:#e5e7eb!important;
+}
+html body .delivery-doc th,
+html body .invoice-doc th,
+html body .print-invoice th{
+  background:#f8fafc!important;
+  font-weight:900!important;
+}
+html body .delivery-head,
+html body .delivery-head *{
+  background:#ffffff!important;
+  color:#000000!important;
+}
+html body .doc-box{
+  background:#f8fafc!important;
+  color:#000000!important;
+  border:1px solid #e5e7eb!important;
+}
+html body .doc-total{
+  color:#0f766e!important;
+  background:transparent!important;
+}
+@media print{
+  html body{background:#ffffff!important;color:#000000!important}
+  html body .side,
+  html body .nav,
+  html body .no-print,
+  html body .actions,
+  html body .doc-print-actions{display:none!important}
+  html body .delivery-doc,
+  html body .invoice-doc,
+  html body .print-invoice{
+    width:auto!important;
+    max-width:none!important;
+    margin:0!important;
+    padding:0!important;
+    border:0!important;
+    border-radius:0!important;
+    overflow:visible!important;
+  }
+}
+
+
+
+/* ===== v98 FINAL: accordion/report panels readable and purple ===== */
+
+/* Any accordion/details panels that were dark with black text */
+html body .clean-dashboard-sections .erp-details,
+html body details.erp-details,
+html body .erp-details,
+html body .report-filter{
+  background:linear-gradient(180deg,#744a68 0%,#633e58 100%)!important;
+  color:#ffffff!important;
+  border:1px solid rgba(255,255,255,.22)!important;
+  border-radius:16px!important;
+  box-shadow:0 12px 26px rgba(116,74,104,.22)!important;
+}
+
+/* Summary/header inside those dark panels */
+html body .clean-dashboard-sections .erp-details summary,
+html body details.erp-details summary,
+html body .erp-details summary,
+html body .report-filter h3,
+html body .report-filter .section-title,
+html body .report-filter .section-title *{
+  background:transparent!important;
+  color:#ffffff!important;
+  text-shadow:none!important;
+  border-color:rgba(255,255,255,.18)!important;
+}
+
+/* All labels/titles/text inside dark report panels must be white */
+html body .clean-dashboard-sections .erp-details *:not(input):not(select):not(textarea):not(option):not(.btn):not(.btn *):not(button):not(button *),
+html body details.erp-details *:not(input):not(select):not(textarea):not(option):not(.btn):not(.btn *):not(button):not(button *),
+html body .report-filter *:not(input):not(select):not(textarea):not(option):not(.btn):not(.btn *):not(button):not(button *){
+  color:#ffffff!important;
+  text-shadow:none!important;
+}
+
+/* Inner controls area */
+html body .details-body,
+html body .report-filter .date-row,
+html body .report-filter .grid,
+html body .report-filter .grid2,
+html body .report-filter .grid3,
+html body .report-filter .grid4{
+  background:transparent!important;
+  color:#ffffff!important;
+}
+
+/* Inputs in purple panels stay white with black writing */
+html body .clean-dashboard-sections .erp-details input,
+html body .clean-dashboard-sections .erp-details select,
+html body .clean-dashboard-sections .erp-details textarea,
+html body details.erp-details input,
+html body details.erp-details select,
+html body details.erp-details textarea,
+html body .report-filter input,
+html body .report-filter select,
+html body .report-filter textarea{
+  background:#ffffff!important;
+  color:#000000!important;
+  border:1px solid #e5e7eb!important;
+  box-shadow:none!important;
+}
+html body .clean-dashboard-sections .erp-details input *,
+html body .clean-dashboard-sections .erp-details select *,
+html body details.erp-details input *,
+html body details.erp-details select *,
+html body .report-filter input *,
+html body .report-filter select *{
+  color:#000000!important;
+}
+
+/* Date range pill readable on purple */
+html body .report-pill,
+html body .clean-dashboard-sections .report-pill,
+html body .erp-details .report-pill{
+  background:rgba(255,255,255,.14)!important;
+  color:#ffffff!important;
+  border:1px solid rgba(255,255,255,.28)!important;
+}
+
+/* Plus/minus buttons inside accordion headers */
+html body .erp-details summary:after,
+html body .erp-details summary:before,
+html body .clean-dashboard-sections .erp-details summary:after,
+html body .clean-dashboard-sections .erp-details summary:before{
+  color:#ffffff!important;
+  background:rgba(255,255,255,.14)!important;
+  border:1px solid rgba(255,255,255,.24)!important;
+}
+
+/* Buttons inside these panels keep readable colors */
+html body .erp-details .btn,
+html body .erp-details button.btn,
+html body .report-filter .btn,
+html body .report-filter button.btn{
+  color:#ffffff!important;
+}
+html body .erp-details .btn.secondary,
+html body .erp-details button.btn.secondary,
+html body .report-filter .btn.secondary,
+html body .report-filter button.btn.secondary{
+  background:#ffffff!important;
+  color:#000000!important;
+}
+html body .erp-details .btn.warn,
+html body .erp-details button.btn.warn,
+html body .report-filter .btn.warn,
+html body .report-filter button.btn.warn{
+  color:#000000!important;
+}
+
+/* Still hide helper text */
+html body .hint,
+html body .range-note,
+html body .open-hint,
+html body .sales-flow-hint,
+html body .manual-perm-note,
+html body .customer-import-note,
+html body .rep-split-note,
+html body .sales-order-decision-note,
+html body .login-demo-hint,
+html body .mb-v65-note,
+html body .mb-v73-note,
+html body .orders-v59-sub,
+html body .mb-v60-sub,
+html body .v76-note,
+html body .v76-app-sub,
+html body .erp-clean-hero p,
+html body .mb-v60-head p,
+html body .orders-v59-head p,
+html body .v76-topbar p,
+html body .v76-apps-head p,
+html body .note,
+html body .help,
+html body .sub-note,
+html body .description,
+html body .tile-open{
+  display:none!important;
+  visibility:hidden!important;
+}
+
+/* Protect invoices again */
+html body .delivery-doc,
+html body .delivery-doc *,
+html body .invoice-doc,
+html body .invoice-doc *,
+html body .print-invoice,
+html body .print-invoice *{
+  background:#ffffff!important;
+  color:#000000!important;
+  text-shadow:none!important;
+}
+html body .delivery-doc table,
+html body .delivery-doc th,
+html body .delivery-doc td,
+html body .invoice-doc table,
+html body .invoice-doc th,
+html body .invoice-doc td,
+html body .print-invoice table,
+html body .print-invoice th,
+html body .print-invoice td{
+  width:auto;
+  background:#ffffff!important;
+  color:#000000!important;
+  border-color:#e5e7eb!important;
+}
+html body .delivery-doc table,
+html body .invoice-doc table,
+html body .print-invoice table{
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
+  table-layout:auto!important;
+}
+
+
+
+/* ===== v99 FINAL: force report/date panels readable ===== */
+
+/* Report/period accordion: purple surfaces */
+html body main .clean-dashboard-sections details.erp-details,
+html body main details.erp-details,
+html body main .erp-details{
+  background:#744a68!important;
+  background-image:none!important;
+  color:#ffffff!important;
+  border:1px solid rgba(255,255,255,.22)!important;
+}
+
+/* Accordion title bar */
+html body main .clean-dashboard-sections details.erp-details > summary,
+html body main details.erp-details > summary,
+html body main .erp-details > summary{
+  background:#744a68!important;
+  background-image:none!important;
+  color:#ffffff!important;
+  border-bottom:1px solid rgba(255,255,255,.22)!important;
+}
+
+/* The inner report box that was still dark */
+html body main .erp-details .details-body,
+html body main .erp-details .report-filter,
+html body main .erp-details .report-filter *,
+html body main .report-filter,
+html body main .report-filter *{
+  background-color:#744a68!important;
+  background-image:none!important;
+  color:#ffffff!important;
+  text-shadow:none!important;
+  border-color:rgba(255,255,255,.22)!important;
+}
+
+/* Stronger direct titles/labels inside report filter */
+html body main .erp-details .report-filter h1,
+html body main .erp-details .report-filter h2,
+html body main .erp-details .report-filter h3,
+html body main .erp-details .report-filter h4,
+html body main .erp-details .report-filter label,
+html body main .erp-details .report-filter span,
+html body main .erp-details .report-filter b,
+html body main .erp-details .report-filter strong,
+html body main .erp-details .report-filter div:not(.btn):not(.btn *),
+html body main .report-filter h1,
+html body main .report-filter h2,
+html body main .report-filter h3,
+html body main .report-filter h4,
+html body main .report-filter label,
+html body main .report-filter span,
+html body main .report-filter b,
+html body main .report-filter strong{
+  color:#ffffff!important;
+  text-shadow:none!important;
+}
+
+/* Date range badge */
+html body main .erp-details .report-pill,
+html body main .report-filter .report-pill,
+html body main .report-pill{
+  background:rgba(255,255,255,.16)!important;
+  color:#ffffff!important;
+  border:1px solid rgba(255,255,255,.30)!important;
+}
+
+/* Inputs stay white/black so dates are visible */
+html body main .erp-details .report-filter input,
+html body main .erp-details .report-filter select,
+html body main .erp-details .report-filter textarea,
+html body main .report-filter input,
+html body main .report-filter select,
+html body main .report-filter textarea{
+  background:#ffffff!important;
+  background-image:none!important;
+  color:#000000!important;
+  border:1px solid #e5e7eb!important;
+  box-shadow:none!important;
+}
+html body main .erp-details .report-filter input *,
+html body main .erp-details .report-filter select *,
+html body main .report-filter input *,
+html body main .report-filter select *,
+html body main .report-filter option{
+  color:#000000!important;
+  background:#ffffff!important;
+}
+
+/* Buttons inside period reports */
+html body main .erp-details .report-filter .btn,
+html body main .report-filter .btn{
+  color:#ffffff!important;
+}
+html body main .erp-details .report-filter .btn.secondary,
+html body main .report-filter .btn.secondary{
+  background:#ffffff!important;
+  color:#000000!important;
+}
+html body main .erp-details .report-filter .btn.ok,
+html body main .report-filter .btn.ok{
+  background:#16a34a!important;
+  color:#ffffff!important;
+}
+html body main .erp-details .report-filter .btn.blue,
+html body main .report-filter .btn.blue{
+  background:#2563eb!important;
+  color:#ffffff!important;
+}
+
+/* Plus/minus squares readable */
+html body main .erp-details summary:before,
+html body main .erp-details summary:after{
+  color:#ffffff!important;
+  background:rgba(255,255,255,.16)!important;
+  border:1px solid rgba(255,255,255,.28)!important;
+}
+
+/* Don't let generic black-text rules override these report panels */
+html body main .erp-details .report-filter table,
+html body main .erp-details .report-filter tr,
+html body main .erp-details .report-filter th,
+html body main .erp-details .report-filter td{
+  background:#ffffff!important;
+  color:#000000!important;
+  border-color:#e5e7eb!important;
+}
+
+/* Keep helper sentences hidden */
+html body .hint,
+html body .range-note,
+html body .open-hint,
+html body .sales-flow-hint,
+html body .manual-perm-note,
+html body .customer-import-note,
+html body .rep-split-note,
+html body .sales-order-decision-note,
+html body .login-demo-hint,
+html body .mb-v65-note,
+html body .mb-v73-note,
+html body .orders-v59-sub,
+html body .mb-v60-sub,
+html body .v76-note,
+html body .v76-app-sub,
+html body .erp-clean-hero p,
+html body .mb-v60-head p,
+html body .orders-v59-head p,
+html body .v76-topbar p,
+html body .v76-apps-head p,
+html body .note,
+html body .help,
+html body .sub-note,
+html body .description,
+html body .tile-open{
+  display:none!important;
+  visibility:hidden!important;
+}
+
+
+
+
+/* ===== v100 REVIEWED READABILITY FINAL =====
+   الهدف: أي مساحة غامقة = كلام أبيض
+   أي جدول/فاتورة = خلفية بيضاء وكلام أسود
+   بدون تغيير الداتا أو الحفظ أو منطق التشغيل
+*/
+
+/* Sidebar / purple panels / dashboards */
+html body .side,
+html body .side *,
+html body .mb-v60-shell,
+html body .orders-v59-home,
+html body .mb-v60-home,
+html body .market-ticker,
+html body .ticker-tape,
+html body .dashboard-ticker,
+html body .kpi-ticker,
+html body .market-dashboard-grid .dash-card,
+html body .dashboard-grid.market-dashboard-grid .dash-card,
+html body .dashboard-grid .dash-card,
+html body .clean-dashboard-sections details.erp-details,
+html body details.erp-details,
+html body .erp-details,
+html body .report-filter,
+html body .insight-card,
+html body .clean-insights .insight-card,
+html body .auto-dark-readable,
+html body .auto-dark-readable *:not(input):not(select):not(textarea):not(option):not(table):not(thead):not(tbody):not(tfoot):not(tr):not(th):not(td):not(.btn):not(.btn *):not(button):not(button *){
+  color:#ffffff!important;
+  text-shadow:none!important;
+}
+
+/* Make all previously dark cards/panels purple, not navy */
+html body .mb-v60-shell,
+html body .orders-v59-home,
+html body .mb-v60-home,
+html body .market-ticker,
+html body .ticker-tape,
+html body .dashboard-ticker,
+html body .kpi-ticker,
+html body .market-dashboard-grid .dash-card,
+html body .dashboard-grid.market-dashboard-grid .dash-card,
+html body .dashboard-grid .dash-card,
+html body .clean-dashboard-sections details.erp-details,
+html body details.erp-details,
+html body .erp-details,
+html body .report-filter,
+html body .insight-card,
+html body .clean-insights .insight-card,
+html body .auto-dark-readable{
+  background:#744a68!important;
+  background-image:none!important;
+  border-color:rgba(255,255,255,.22)!important;
+}
+
+/* Titles inside purple panels */
+html body .mb-v60-head h3,
+html body .orders-v59-head h3,
+html body .insight-card h3,
+html body .insight-card .section-title,
+html body .insight-card .section-title *,
+html body .erp-details summary,
+html body .report-filter h1,
+html body .report-filter h2,
+html body .report-filter h3,
+html body .report-filter h4,
+html body .report-filter label,
+html body .report-filter span,
+html body .report-filter b,
+html body .report-filter strong{
+  color:#ffffff!important;
+  background:transparent!important;
+  text-shadow:none!important;
+}
+
+/* Inputs inside purple panels */
+html body .erp-details input,
+html body .erp-details select,
+html body .erp-details textarea,
+html body .report-filter input,
+html body .report-filter select,
+html body .report-filter textarea,
+html body .auto-dark-readable input,
+html body .auto-dark-readable select,
+html body .auto-dark-readable textarea{
+  background:#ffffff!important;
+  color:#000000!important;
+  border:1px solid #e5e7eb!important;
+  box-shadow:none!important;
+}
+
+/* Tables anywhere in the system must be white/black and fit */
+html body main table,
+html body main thead,
+html body main tbody,
+html body main tfoot,
+html body main tr,
+html body main th,
+html body main td,
+html body main tr:nth-child(even) td,
+html body main tr:nth-child(odd) td,
+html body main tr:hover td,
+html body .insight-card table,
+html body .insight-card tr,
+html body .insight-card th,
+html body .insight-card td,
+html body .auto-dark-readable table,
+html body .auto-dark-readable tr,
+html body .auto-dark-readable th,
+html body .auto-dark-readable td{
+  background:#ffffff!important;
+  color:#000000!important;
+  border-color:#e5e7eb!important;
+  text-shadow:none!important;
+}
+html body main th,
+html body .insight-card th,
+html body .auto-dark-readable th{
+  background:#f8fafc!important;
+  color:#000000!important;
+  font-weight:900!important;
+}
+html body main table *,
+html body .insight-card table *,
+html body .auto-dark-readable table *{
+  color:#000000!important;
+  text-shadow:none!important;
+}
+
+/* Normal white cards stay black */
+html body main .card:not(.dash-card):not(.insight-card),
+html body main .stat,
+html body main .exec-stat,
+html body main .empty,
+html body main .orders-v59-card,
+html body main .mb-v60-card,
+html body main .decision-card,
+html body main .flow-card,
+html body main .summary-card{
+  background:#ffffff!important;
+  color:#000000!important;
+  border-color:#e5e7eb!important;
+}
+html body main .card:not(.dash-card):not(.insight-card) *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *),
+html body main .stat *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *),
+html body main .exec-stat *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *),
+html body main .empty *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *){
+  color:#000000!important;
+}
+
+/* Ticker pills */
+html body .ticker-item,
+html body .market-ticker span,
+html body .ticker-tape span,
+html body .dashboard-ticker span,
+html body .kpi-ticker span{
+  background:rgba(255,255,255,.16)!important;
+  color:#ffffff!important;
+  border:1px solid rgba(255,255,255,.30)!important;
+}
+html body .ticker-item *,
+html body .market-ticker span *,
+html body .ticker-tape span *,
+html body .dashboard-ticker span *,
+html body .kpi-ticker span *{
+  color:#ffffff!important;
+}
+
+/* Badges */
+html body .badge.ok{background:#dcfce7!important;color:#166534!important}
+html body .badge.low,
+html body .badge.rejected{background:#fee2e2!important;color:#991b1b!important}
+html body .badge.warn,
+html body .badge.pending-approval{background:#fef3c7!important;color:#92400e!important}
+html body .badge.blue{background:#dbeafe!important;color:#1d4ed8!important}
+
+/* Buttons */
+html body .btn,
+html body .btn *,
+html body button.btn,
+html body button.btn *{color:#ffffff!important}
+html body .btn.secondary,
+html body .btn.secondary *,
+html body button.btn.secondary,
+html body button.btn.secondary *{background:#ffffff!important;color:#000000!important}
+html body .btn.warn,
+html body .btn.warn *,
+html body button.btn.warn,
+html body button.btn.warn *{color:#000000!important}
+
+/* Hide every known guidance/help class */
+html body .hint,
+html body .range-note,
+html body .open-hint,
+html body .sales-flow-hint,
+html body .manual-perm-note,
+html body .customer-import-note,
+html body .rep-split-note,
+html body .sales-order-decision-note,
+html body .login-demo-hint,
+html body .mb-v65-note,
+html body .mb-v73-note,
+html body .orders-v59-sub,
+html body .mb-v60-sub,
+html body .v76-note,
+html body .v76-app-sub,
+html body .erp-clean-hero p,
+html body .mb-v60-head p,
+html body .orders-v59-head p,
+html body .v76-topbar p,
+html body .v76-apps-head p,
+html body .note,
+html body .help,
+html body .sub-note,
+html body .description,
+html body .tile-open{
+  display:none!important;
+  visibility:hidden!important;
+}
+
+/* Invoice / print document: must be white, centered, table inside paper */
+html body .delivery-doc,
+html body .delivery-doc *,
+html body .invoice-doc,
+html body .invoice-doc *,
+html body .print-invoice,
+html body .print-invoice *,
+html body .print-range-report,
+html body .print-range-report *{
+  background:#ffffff!important;
+  color:#000000!important;
+  text-shadow:none!important;
+  box-shadow:none!important;
+}
+html body .delivery-doc,
+html body .invoice-doc,
+html body .print-invoice,
+html body .print-range-report{
+  width:900px!important;
+  max-width:900px!important;
+  margin:24px auto!important;
+  padding:28px!important;
+  border:1px solid #e5e7eb!important;
+  border-radius:16px!important;
+  overflow:hidden!important;
+}
+html body .delivery-doc table,
+html body .invoice-doc table,
+html body .print-invoice table,
+html body .print-range-report table{
+  width:100%!important;
+  max-width:100%!important;
+  min-width:0!important;
+  table-layout:auto!important;
+  border-collapse:collapse!important;
+}
+html body .delivery-doc th,
+html body .delivery-doc td,
+html body .invoice-doc th,
+html body .invoice-doc td,
+html body .print-invoice th,
+html body .print-invoice td,
+html body .print-range-report th,
+html body .print-range-report td{
+  background:#ffffff!important;
+  color:#000000!important;
+  white-space:normal!important;
+  border-color:#e5e7eb!important;
+}
+html body .delivery-doc th,
+html body .invoice-doc th,
+html body .print-invoice th,
+html body .print-range-report th{
+  background:#f8fafc!important;
+  font-weight:900!important;
+}
+html body .delivery-head,
+html body .delivery-head *{
+  background:#ffffff!important;
+  color:#000000!important;
+}
+html body .doc-box{
+  background:#f8fafc!important;
+  color:#000000!important;
+}
+html body .doc-total{
+  background:transparent!important;
+  color:#0f766e!important;
+}
+
+@media print{
+  html body{background:#ffffff!important;color:#000000!important}
+  html body .side,
+  html body .nav,
+  html body .no-print,
+  html body .actions,
+  html body .doc-print-actions{display:none!important}
+  html body .delivery-doc,
+  html body .invoice-doc,
+  html body .print-invoice,
+  html body .print-range-report{
+    width:auto!important;
+    max-width:none!important;
+    margin:0!important;
+    padding:0!important;
+    border:0!important;
+    border-radius:0!important;
+    overflow:visible!important;
+  }
+}
 
 </style>
 </head>
@@ -2635,32 +3783,32 @@ document.head.insertAdjacentHTML('beforeend', `<style>
 
 /* ===== v57 FORCED ODOO-STYLE UI - appended last to override all previous themes ===== */
 :root{
-  --odoo-bg:#171b24;
-  --odoo-bg-soft:#202633;
-  --odoo-panel:#242a36;
-  --odoo-panel-2:#1d222c;
-  --odoo-panel-3:#2b3240;
-  --odoo-border:#3b4354;
-  --odoo-border-soft:#303747;
-  --odoo-text:#f7fafc;
-  --odoo-text-2:#d7dee9;
-  --odoo-muted:#9aa5b7;
-  --odoo-accent:#00c2a8;
-  --odoo-purple:#875A7B;
-  --odoo-blue:#3b82f6;
-  --odoo-green:#22c55e;
-  --odoo-danger:#ef4444;
-  --odoo-warn:#f59e0b;
+  --business-bg:#171b24;
+  --business-bg-soft:#202633;
+  --business-panel:#242a36;
+  --business-panel-2:#1d222c;
+  --business-panel-3:#2b3240;
+  --business-border:#3b4354;
+  --business-border-soft:#303747;
+  --business-text:#f7fafc;
+  --business-text-2:#d7dee9;
+  --business-muted:#9aa5b7;
+  --business-accent:#00c2a8;
+  --business-purple:#875A7B;
+  --business-blue:#3b82f6;
+  --business-green:#22c55e;
+  --business-danger:#ef4444;
+  --business-warn:#f59e0b;
 }
 html,body{
   background:
     radial-gradient(circle at 10% 0%,rgba(0,194,168,.11),transparent 30%),
     radial-gradient(circle at 90% 6%,rgba(135,90,123,.18),transparent 28%),
     linear-gradient(135deg,#151a23 0%,#171b24 52%,#10141c 100%) !important;
-  color:var(--odoo-text)!important;
+  color:var(--business-text)!important;
   font-family:Tahoma,Arial,sans-serif!important;
 }
-body:before{display:none!important;background:none!important}.app{background:transparent!important;grid-template-columns:270px 1fr!important}.main{background:transparent!important;min-height:100vh!important;padding:18px 22px 34px!important}.side{background:linear-gradient(180deg,#232a36 0%,#171c25 100%)!important;border-left:1px solid var(--odoo-border-soft)!important;box-shadow:none!important;color:var(--odoo-text)!important;padding:18px!important}.brand{border-bottom:1px solid var(--odoo-border-soft)!important;margin-bottom:14px!important;padding-bottom:14px!important}.logo{background:linear-gradient(135deg,var(--odoo-purple),var(--odoo-accent))!important;border-radius:14px!important;box-shadow:none!important;border:1px solid rgba(255,255,255,.12)!important;color:#fff!important}.brand h1,#brand{color:#fff!important;text-shadow:none!important;font-size:26px!important}.brand p,#brandLine{color:var(--odoo-muted)!important;text-shadow:none!important}.status{color:var(--odoo-muted)!important}.nav{gap:4px!important}.nav button{background:transparent!important;color:var(--odoo-text-2)!important;border:1px solid transparent!important;border-radius:8px!important;box-shadow:none!important;text-align:right!important;font-weight:700!important;padding:11px 12px!important}.nav button:before{display:none!important}.nav button.active,.nav button:hover{background:var(--odoo-panel-3)!important;color:#fff!important;border-color:var(--odoo-border)!important;box-shadow:none!important}.lang{border-top:1px solid var(--odoo-border-soft)!important;padding-top:12px!important}.top{display:none!important}.card,.report-filter,.erp-clean-hero,.erp-details,.insight-card,.dash-expanded-stat,.big-bars,.delivery-doc,.journal-panel,.stat,.exec-stat,.module-tile,.dash-card{background:var(--odoo-panel)!important;border:1px solid var(--odoo-border)!important;border-radius:10px!important;box-shadow:none!important;color:var(--odoo-text)!important;backdrop-filter:none!important}.card{padding:16px!important;margin-bottom:14px!important}.section-title{border-bottom:1px solid var(--odoo-border-soft)!important;margin-bottom:12px!important;padding-bottom:10px!important}.section-title h3,.card h3,.report-filter h3,.insight-card h3,.erp-details summary,.erp-clean-hero h3,.dash-title,.tile-title{color:#fff!important;font-weight:800!important;text-shadow:none!important}.hint,.range-note,.dash-sub,.tile-lines span,.exec-stat em,label,.brand p{color:var(--odoo-muted)!important}.empty{background:var(--odoo-panel-2)!important;border:1px dashed #4b5568!important;color:var(--odoo-muted)!important;border-radius:9px!important}.grid,.grid2,.grid3,.grid4,.grid5{gap:12px!important}label{font-size:12px!important;font-weight:800!important;margin-bottom:6px!important}.card .grid,.report-filter .date-row{align-items:end!important}input,select,textarea{background:#151a23!important;border:1px solid #465064!important;color:#fff!important;border-radius:8px!important;box-shadow:none!important;font-weight:600!important;opacity:1!important;pointer-events:auto!important;cursor:text!important}select{cursor:pointer!important}select option{background:#1d222c!important;color:#fff!important}input:focus,select:focus,textarea:focus{outline:none!important;border-color:var(--odoo-accent)!important;box-shadow:0 0 0 3px rgba(0,194,168,.16)!important}.btn{border-radius:8px!important;box-shadow:none!important;font-weight:800!important;color:#fff!important;background:var(--odoo-accent)!important}.btn:hover{transform:none!important;filter:brightness(1.06)!important;box-shadow:none!important}.btn.secondary{background:#303746!important;color:#fff!important;border:1px solid #4a5367!important}.btn.dark{background:#111827!important;color:#fff!important}.btn.blue{background:#2563eb!important;color:#fff!important}.btn.ok{background:#16a34a!important;color:#fff!important}.btn.warn{background:#f59e0b!important;color:#111827!important}.btn.danger{background:#dc2626!important;color:#fff!important}table{background:var(--odoo-panel)!important;border:1px solid var(--odoo-border)!important;border-radius:9px!important;box-shadow:none!important;overflow:hidden!important}th{background:#303746!important;color:#fff!important;font-weight:800!important;border-bottom:1px solid #4a5367!important;padding:10px!important}td{background:#242a36!important;color:#edf2f7!important;border-bottom:1px solid #343c4d!important;font-weight:500!important;padding:10px!important}tr:hover td{background:#2c3342!important}.badge{box-shadow:none!important;border:1px solid rgba(255,255,255,.12)!important}.badge.ok{background:#0f3a2d!important;color:#7ee7bc!important}.badge.warn{background:#443217!important;color:#ffd58a!important}.badge.low{background:#4a1d27!important;color:#ff9eae!important}.badge.blue{background:#1d315a!important;color:#9cc2ff!important}.executive-strip{gap:12px!important}.exec-stat:before{height:3px!important;background:linear-gradient(90deg,var(--odoo-purple),var(--odoo-accent))!important}.exec-stat:after,.module-tile:before,.dash-card:before,.dash-card:after{display:none!important}.exec-stat span,.stat span{color:var(--odoo-muted)!important}.exec-stat strong,.stat strong,.tile-value,.dash-value{color:#fff!important;font-weight:900!important}.compact-dashboard-grid{gap:12px!important}.module-tile{border-top:0!important;border-right:0!important;min-height:130px!important}.module-tile:hover,.dash-card:hover{background:#2b3240!important;transform:translateY(-2px)!important;box-shadow:none!important}.tile-icon{background:#1d222c!important;border:1px solid #3b4354!important;box-shadow:none!important;animation:none!important;color:#fff!important}.tile-lines span{background:#1d222c!important;border:1px solid #3b4354!important;color:var(--odoo-muted)!important}.tile-open,.open-hint{background:#1d222c!important;border:1px solid #3b4354!important;color:var(--odoo-accent)!important;border-radius:999px!important}.erp-clean-hero p{color:var(--odoo-muted)!important}.erp-kicker{color:var(--odoo-accent)!important}.erp-details summary{background:#2a303e!important}.erp-details summary:after{background:#1d222c!important;color:#fff!important}.details-body{background:var(--odoo-panel)!important}.mini-bars{border-bottom:1px solid #3b4354!important}.mini-col i,.progress span,.mini-progress span,.chartbar span{background:linear-gradient(90deg,var(--odoo-accent),#3b82f6)!important;box-shadow:none!important}.mini-col small{color:var(--odoo-muted)!important}.mini-progress,.progress,.chartbar{background:#1d222c!important}.report-pill{background:#1d222c!important;color:var(--odoo-accent)!important;border:1px solid #3b4354!important}.dash-modal{background:rgba(8,11,18,.78)!important}.dash-panel{background:var(--odoo-bg)!important;color:#fff!important}.dash-panel-head{background:#202633!important;border-bottom:1px solid var(--odoo-border)!important;color:#fff!important}.dash-close{background:#303746!important;color:#fff!important;border:1px solid #4a5367!important}.delivery-head{border-bottom-color:var(--odoo-accent)!important}.delivery-head h1,.delivery-head p,.doc-box b{color:#fff!important}.doc-box{background:var(--odoo-panel-2)!important;border-color:var(--odoo-border)!important}.doc-box span,.doc-sign{color:var(--odoo-muted)!important}.doc-total,.account-code{color:var(--odoo-accent)!important}.debit-cell{background:#143629!important;color:#7ee7bc!important}.credit-cell{background:#4a3016!important;color:#ffd58a!important}@media print{body{background:#fff!important;color:#111827!important}.card,table{background:#fff!important;color:#111827!important}}
+body:before{display:none!important;background:none!important}.app{background:transparent!important;grid-template-columns:270px 1fr!important}.main{background:transparent!important;min-height:100vh!important;padding:18px 22px 34px!important}.side{background:linear-gradient(180deg,#232a36 0%,#171c25 100%)!important;border-left:1px solid var(--business-border-soft)!important;box-shadow:none!important;color:var(--business-text)!important;padding:18px!important}.brand{border-bottom:1px solid var(--business-border-soft)!important;margin-bottom:14px!important;padding-bottom:14px!important}.logo{background:linear-gradient(135deg,var(--business-purple),var(--business-accent))!important;border-radius:14px!important;box-shadow:none!important;border:1px solid rgba(255,255,255,.12)!important;color:#fff!important}.brand h1,#brand{color:#fff!important;text-shadow:none!important;font-size:26px!important}.brand p,#brandLine{color:var(--business-muted)!important;text-shadow:none!important}.status{color:var(--business-muted)!important}.nav{gap:4px!important}.nav button{background:transparent!important;color:var(--business-text-2)!important;border:1px solid transparent!important;border-radius:8px!important;box-shadow:none!important;text-align:right!important;font-weight:700!important;padding:11px 12px!important}.nav button:before{display:none!important}.nav button.active,.nav button:hover{background:var(--business-panel-3)!important;color:#fff!important;border-color:var(--business-border)!important;box-shadow:none!important}.lang{border-top:1px solid var(--business-border-soft)!important;padding-top:12px!important}.top{display:none!important}.card,.report-filter,.erp-clean-hero,.erp-details,.insight-card,.dash-expanded-stat,.big-bars,.delivery-doc,.journal-panel,.stat,.exec-stat,.module-tile,.dash-card{background:var(--business-panel)!important;border:1px solid var(--business-border)!important;border-radius:10px!important;box-shadow:none!important;color:var(--business-text)!important;backdrop-filter:none!important}.card{padding:16px!important;margin-bottom:14px!important}.section-title{border-bottom:1px solid var(--business-border-soft)!important;margin-bottom:12px!important;padding-bottom:10px!important}.section-title h3,.card h3,.report-filter h3,.insight-card h3,.erp-details summary,.erp-clean-hero h3,.dash-title,.tile-title{color:#fff!important;font-weight:800!important;text-shadow:none!important}.hint,.range-note,.dash-sub,.tile-lines span,.exec-stat em,label,.brand p{color:var(--business-muted)!important}.empty{background:var(--business-panel-2)!important;border:1px dashed #4b5568!important;color:var(--business-muted)!important;border-radius:9px!important}.grid,.grid2,.grid3,.grid4,.grid5{gap:12px!important}label{font-size:12px!important;font-weight:800!important;margin-bottom:6px!important}.card .grid,.report-filter .date-row{align-items:end!important}input,select,textarea{background:#151a23!important;border:1px solid #465064!important;color:#fff!important;border-radius:8px!important;box-shadow:none!important;font-weight:600!important;opacity:1!important;pointer-events:auto!important;cursor:text!important}select{cursor:pointer!important}select option{background:#1d222c!important;color:#fff!important}input:focus,select:focus,textarea:focus{outline:none!important;border-color:var(--business-accent)!important;box-shadow:0 0 0 3px rgba(0,194,168,.16)!important}.btn{border-radius:8px!important;box-shadow:none!important;font-weight:800!important;color:#fff!important;background:var(--business-accent)!important}.btn:hover{transform:none!important;filter:brightness(1.06)!important;box-shadow:none!important}.btn.secondary{background:#303746!important;color:#fff!important;border:1px solid #4a5367!important}.btn.dark{background:#111827!important;color:#fff!important}.btn.blue{background:#2563eb!important;color:#fff!important}.btn.ok{background:#16a34a!important;color:#fff!important}.btn.warn{background:#f59e0b!important;color:#111827!important}.btn.danger{background:#dc2626!important;color:#fff!important}table{background:var(--business-panel)!important;border:1px solid var(--business-border)!important;border-radius:9px!important;box-shadow:none!important;overflow:hidden!important}th{background:#303746!important;color:#fff!important;font-weight:800!important;border-bottom:1px solid #4a5367!important;padding:10px!important}td{background:#242a36!important;color:#edf2f7!important;border-bottom:1px solid #343c4d!important;font-weight:500!important;padding:10px!important}tr:hover td{background:#2c3342!important}.badge{box-shadow:none!important;border:1px solid rgba(255,255,255,.12)!important}.badge.ok{background:#0f3a2d!important;color:#7ee7bc!important}.badge.warn{background:#443217!important;color:#ffd58a!important}.badge.low{background:#4a1d27!important;color:#ff9eae!important}.badge.blue{background:#1d315a!important;color:#9cc2ff!important}.executive-strip{gap:12px!important}.exec-stat:before{height:3px!important;background:linear-gradient(90deg,var(--business-purple),var(--business-accent))!important}.exec-stat:after,.module-tile:before,.dash-card:before,.dash-card:after{display:none!important}.exec-stat span,.stat span{color:var(--business-muted)!important}.exec-stat strong,.stat strong,.tile-value,.dash-value{color:#fff!important;font-weight:900!important}.compact-dashboard-grid{gap:12px!important}.module-tile{border-top:0!important;border-right:0!important;min-height:130px!important}.module-tile:hover,.dash-card:hover{background:#2b3240!important;transform:translateY(-2px)!important;box-shadow:none!important}.tile-icon{background:#1d222c!important;border:1px solid #3b4354!important;box-shadow:none!important;animation:none!important;color:#fff!important}.tile-lines span{background:#1d222c!important;border:1px solid #3b4354!important;color:var(--business-muted)!important}.tile-open,.open-hint{background:#1d222c!important;border:1px solid #3b4354!important;color:var(--business-accent)!important;border-radius:999px!important}.erp-clean-hero p{color:var(--business-muted)!important}.erp-kicker{color:var(--business-accent)!important}.erp-details summary{background:#2a303e!important}.erp-details summary:after{background:#1d222c!important;color:#fff!important}.details-body{background:var(--business-panel)!important}.mini-bars{border-bottom:1px solid #3b4354!important}.mini-col i,.progress span,.mini-progress span,.chartbar span{background:linear-gradient(90deg,var(--business-accent),#3b82f6)!important;box-shadow:none!important}.mini-col small{color:var(--business-muted)!important}.mini-progress,.progress,.chartbar{background:#1d222c!important}.report-pill{background:#1d222c!important;color:var(--business-accent)!important;border:1px solid #3b4354!important}.dash-modal{background:rgba(8,11,18,.78)!important}.dash-panel{background:var(--business-bg)!important;color:#fff!important}.dash-panel-head{background:#202633!important;border-bottom:1px solid var(--business-border)!important;color:#fff!important}.dash-close{background:#303746!important;color:#fff!important;border:1px solid #4a5367!important}.delivery-head{border-bottom-color:var(--business-accent)!important}.delivery-head h1,.delivery-head p,.doc-box b{color:#fff!important}.doc-box{background:var(--business-panel-2)!important;border-color:var(--business-border)!important}.doc-box span,.doc-sign{color:var(--business-muted)!important}.doc-total,.account-code{color:var(--business-accent)!important}.debit-cell{background:#143629!important;color:#7ee7bc!important}.credit-cell{background:#4a3016!important;color:#ffd58a!important}@media print{body{background:#fff!important;color:#111827!important}.card,table{background:#fff!important;color:#111827!important}}
 
 </style>`);
 
@@ -3213,7 +4361,7 @@ save=function(){ensureAllocationFieldsV52();saveBeforeAllocationV52();}
 
 
 
-/* ===== v59 Orders as Odoo-style icon cards - UI only, no data/core changes ===== */
+/* ===== v59 Orders as Business-style icon cards - UI only, no data/core changes ===== */
 document.head.insertAdjacentHTML('beforeend',`<style>
 .orders-v59-shell{display:grid;gap:18px;margin-top:16px}
 .orders-v59-home{background:rgba(17,24,39,.92);border:1px solid rgba(148,163,184,.22);border-radius:22px;padding:20px;box-shadow:0 18px 45px rgba(0,0,0,.20)}
@@ -3398,7 +4546,7 @@ render();
 </html>
 
 <script>
-/* ===== v60 All modules as Odoo-style cards - UI only ===== */
+/* ===== v60 All modules as Business-style cards - UI only ===== */
 (function(){
   if(window.__mb_v60_cards_installed) return;
   window.__mb_v60_cards_installed=true;
@@ -4062,3 +5210,1778 @@ render();
   setTimeout(function(){try{injectOperationsOrdersV73();injectAccountsTileV73()}catch(e){}},500);
 })();
 </script>
+
+
+<style id="v93-final-strong-colors">
+/* v93 FINAL COLOR OVERRIDE - CSS only, placed at file end */
+
+/* Main page */
+html,body{
+  background:#f4f5f8!important;
+  color:#111827!important;
+}
+body:before{display:none!important}
+.app{
+  background:#f4f5f8!important;
+  grid-template-columns:270px minmax(0,1fr)!important;
+}
+
+/* Sidebar purple theme */
+.side{
+  background:linear-gradient(180deg,#744a68 0%,#5f3b55 100%)!important;
+  color:#fff!important;
+  border-left:0!important;
+  box-shadow:none!important;
+}
+.side *, .brand *, #brandLine, .status{
+  color:#fff!important;
+}
+.logo{
+  background:#ffffff!important;
+  color:#744a68!important;
+  box-shadow:none!important;
+  border-radius:16px!important;
+}
+.nav button{
+  background:transparent!important;
+  color:#ffffff!important;
+  border:1px solid transparent!important;
+  box-shadow:none!important;
+  border-radius:10px!important;
+}
+.nav button.active,
+.nav button:hover{
+  background:#ffffff!important;
+  color:#111827!important;
+  border-color:#ffffff!important;
+}
+
+/* Workspace */
+.main{
+  background:#f4f5f8!important;
+  padding:22px 26px 36px!important;
+}
+.top{display:none!important}
+
+/* Hide guidance/notes */
+.v76-note,.v76-app-sub,.erp-clean-hero p,.mb-v60-head p,.orders-v59-head p,
+.hint,.range-note,.open-hint,.sales-flow-hint,.manual-perm-note,
+.customer-import-note,.rep-split-note,.sales-order-decision-note,
+.login-demo-hint,.mb-v65-note,.mb-v73-note,.orders-v59-sub,.mb-v60-sub{
+  display:none!important;
+}
+
+/* Header / launcher */
+.v76-topbar,
+.erp-clean-hero,
+.v76-apps-head{
+  background:#ffffff!important;
+  border:1px solid #e5e7eb!important;
+  border-radius:16px!important;
+  box-shadow:0 10px 22px rgba(15,23,42,.06)!important;
+}
+.v76-topbar h2,
+.erp-clean-hero h3,
+.v76-apps-head h3{
+  color:#111827!important;
+}
+.v76-topbar p,
+.v76-apps-head p{display:none!important}
+.v76-mark{
+  background:#f4e8f0!important;
+  color:#744a68!important;
+  border:1px solid #ead7e4!important;
+  border-radius:999px!important;
+}
+
+/* Hide top static KPI boxes if present */
+.v76-kpis{display:none!important}
+
+/* Small app boxes */
+.v76-app-grid,
+.compact-dashboard-grid,
+.mb-v60-grid,
+.orders-v59-grid{
+  display:grid!important;
+  grid-template-columns:repeat(auto-fill,minmax(155px,1fr))!important;
+  gap:13px!important;
+}
+.v76-app,
+.module-tile,
+.mb-v60-tile,
+.orders-v59-tile{
+  background:#ffffff!important;
+  color:#000000!important;
+  border:1px solid #e5e7eb!important;
+  border-top:5px solid #744a68!important;
+  border-radius:16px!important;
+  box-shadow:0 8px 18px rgba(15,23,42,.07)!important;
+  min-height:122px!important;
+  padding:14px 13px!important;
+  transform:none!important;
+}
+.v76-app:hover,
+.module-tile:hover,
+.mb-v60-tile:hover,
+.orders-v59-tile:hover{
+  transform:translateY(-3px)!important;
+  box-shadow:0 14px 28px rgba(15,23,42,.13)!important;
+}
+.v76-app-icon,
+.tile-icon,
+.mb-v60-icon,
+.orders-v59-icon{
+  background:#f8fafc!important;
+  color:#111827!important;
+  border:1px solid #edf2f7!important;
+  box-shadow:none!important;
+  animation:none!important;
+  width:46px!important;
+  height:46px!important;
+  border-radius:14px!important;
+}
+.v76-app-title,
+.tile-title,
+.mb-v60-title,
+.orders-v59-title,
+.tile-value,
+.mb-v60-count,
+.orders-v59-count{
+  color:#000000!important;
+  text-shadow:none!important;
+}
+.v76-pill,
+.tile-lines span,
+.mb-v60-pill,
+.orders-v59-pill,
+.report-pill,
+.badge{
+  background:#f8fafc!important;
+  color:#000000!important;
+  border:1px solid #e5e7eb!important;
+}
+
+/* Module tiles page background like sidebar */
+.mb-v60-shell,
+.orders-v59-home,
+.mb-v60-home{
+  background:linear-gradient(180deg,#744a68 0%,#5f3b55 100%)!important;
+  border-radius:18px!important;
+  padding:18px!important;
+  border:0!important;
+}
+.mb-v60-head h3,
+.orders-v59-head h3{
+  color:#ffffff!important;
+}
+
+/* Cards, forms, tables readable */
+.card,
+.report-filter,
+.erp-details,
+.insight-card,
+.stat,
+.exec-stat,
+.dash-expanded-stat,
+.big-bars,
+.journal-panel{
+  background:#ffffff!important;
+  color:#000000!important;
+  border:1px solid #e5e7eb!important;
+  border-radius:15px!important;
+  box-shadow:0 8px 18px rgba(15,23,42,.06)!important;
+}
+.card *,
+.report-filter *,
+.erp-details *,
+.insight-card *,
+.stat *,
+.exec-stat *,
+.journal-panel *{
+  color:#000000!important;
+  text-shadow:none!important;
+}
+table,thead,tbody,tr,th,td{
+  background:#ffffff!important;
+  color:#000000!important;
+  border-color:#e5e7eb!important;
+  text-shadow:none!important;
+}
+th{
+  background:#f8fafc!important;
+  color:#000000!important;
+}
+tr:hover td{
+  background:#f8fafc!important;
+}
+input,select,textarea{
+  background:#ffffff!important;
+  color:#000000!important;
+  border:1px solid #d1d5db!important;
+}
+select option{background:#ffffff!important;color:#000000!important}
+
+/* Preserve old stock-exchange style dashboard cards */
+.market-dashboard-grid .dash-card{
+  background:#111827!important;
+  color:#ffffff!important;
+  border:1px solid rgba(56,189,248,.22)!important;
+  border-radius:18px!important;
+  box-shadow:0 16px 34px rgba(15,23,42,.18)!important;
+}
+.market-dashboard-grid .dash-card *,
+.market-dashboard-grid .dash-title,
+.market-dashboard-grid .dash-sub,
+.market-dashboard-grid .dash-value,
+.market-dashboard-grid .metric-row,
+.market-dashboard-grid .metric-row b,
+.market-dashboard-grid .mini-col small{
+  color:#ffffff!important;
+}
+.market-dashboard-grid table,
+.market-dashboard-grid th,
+.market-dashboard-grid td{
+  color:#000000!important;
+}
+
+/* Buttons stay readable */
+.btn{color:#ffffff!important}
+.btn.secondary{
+  background:#e5e7eb!important;
+  color:#000000!important;
+  border:1px solid #d1d5db!important;
+}
+.btn.warn{color:#000000!important}
+
+/* Documents / invoices */
+.delivery-doc,.delivery-doc *,
+.print-range-report,.print-range-report *{
+  background:#ffffff!important;
+  color:#000000!important;
+  box-shadow:none!important;
+}
+</style>
+
+
+<style id="v94-readable-text-no-guidance-final">
+/* v94 final readability override - CSS only */
+
+/* 1) No guidance/helper sentences anywhere */
+.hint,.range-note,.open-hint,.sales-flow-hint,.manual-perm-note,
+.customer-import-note,.rep-split-note,.sales-order-decision-note,.login-demo-hint,
+.mb-v65-note,.mb-v73-note,.orders-v59-sub,.mb-v60-sub,.v76-note,.v76-app-sub,
+.erp-clean-hero p,.mb-v60-head p,.orders-v59-head p,.v76-topbar p,.v76-apps-head p,
+small.hint,.note,.help,.sub-note,.description,.tile-open{
+  display:none!important;
+  visibility:hidden!important;
+}
+
+/* 2) Default readable text everywhere */
+main, .main, section, .card, .report-filter, .erp-details, .insight-card,
+.stat, .exec-stat, .v76-app, .module-tile, .mb-v60-tile, .orders-v59-tile,
+.orders-v59-card, .mb-v60-card, .empty, .details-body{
+  color:#000!important;
+  text-shadow:none!important;
+}
+
+/* 3) Force every cell/card content to black unless it is a real colored button/sidebar */
+main *:not(.side):not(.side *):not(.btn):not(.btn *):not(button):not(button *):not(.dash-panel-head):not(.dash-panel-head *):not(.market-dashboard-grid .dash-card):not(.market-dashboard-grid .dash-card *){
+  color:#000!important;
+  text-shadow:none!important;
+}
+
+/* 4) Tables: remove dark striped rows completely */
+table, thead, tbody, tfoot, tr, th, td,
+tr:nth-child(even) td, tr:nth-child(odd) td, tr:hover td{
+  background:#fff!important;
+  color:#000!important;
+  border-color:#e5e7eb!important;
+  text-shadow:none!important;
+}
+th{
+  background:#f8fafc!important;
+  color:#000!important;
+  font-weight:900!important;
+}
+td *:not(.btn):not(button):not(.badge){
+  color:#000!important;
+}
+
+/* 5) Cards/empty boxes that appeared white-on-white */
+.empty,.stat,.exec-stat,.orders-v59-card,.mb-v60-card,.decision-card,
+.flow-card,.summary-card,.card-lite{
+  background:#fff!important;
+  color:#000!important;
+  border:1px solid #e5e7eb!important;
+}
+.empty *, .stat *, .exec-stat *, .orders-v59-card *, .mb-v60-card *,
+.decision-card *, .flow-card *, .summary-card *, .card-lite *{
+  color:#000!important;
+}
+
+/* 6) App boxes readable and compact */
+.v76-app,.module-tile,.mb-v60-tile,.orders-v59-tile{
+  background:#fff!important;
+  color:#000!important;
+  border:1px solid #e5e7eb!important;
+  border-top:5px solid #744a68!important;
+  min-height:122px!important;
+}
+.v76-app-title,.tile-title,.mb-v60-title,.orders-v59-title,
+.v76-app strong,.module-tile strong,.mb-v60-tile strong,.orders-v59-tile strong,
+.tile-value,.mb-v60-count,.orders-v59-count{
+  color:#000!important;
+}
+.v76-app-icon,.tile-icon,.mb-v60-icon,.orders-v59-icon{
+  color:#111827!important;
+  background:#f8fafc!important;
+}
+
+/* 7) Inputs/forms readable */
+label,input,select,textarea,option{
+  color:#000!important;
+  background:#fff!important;
+  text-shadow:none!important;
+}
+input::placeholder,textarea::placeholder{color:#6b7280!important}
+
+/* 8) Buttons remain readable */
+.btn,button.btn{
+  color:#fff!important;
+  text-shadow:none!important;
+}
+.btn.secondary,button.btn.secondary{
+  background:#e5e7eb!important;
+  color:#000!important;
+}
+.btn.warn,button.btn.warn{color:#000!important}
+.btn.ok,button.btn.ok,.btn.blue,button.btn.blue,.btn.danger,button.btn.danger{
+  color:#fff!important;
+}
+
+/* 9) Badges readable */
+.badge,.v76-pill,.tile-lines span,.mb-v60-pill,.orders-v59-pill,.report-pill{
+  background:#f8fafc!important;
+  color:#000!important;
+  border:1px solid #e5e7eb!important;
+}
+.badge.ok{background:#dcfce7!important;color:#166534!important}
+.badge.low,.badge.rejected{background:#fee2e2!important;color:#991b1b!important}
+.badge.warn,.badge.pending-approval{background:#fef3c7!important;color:#92400e!important}
+.badge.blue{background:#dbeafe!important;color:#1d4ed8!important}
+
+/* 10) Sidebar remains white-on-purple */
+.side,.side *,.brand *,.nav button:not(.active):not(:hover){
+  color:#fff!important;
+}
+.nav button.active,.nav button.active *,
+.nav button:hover,.nav button:hover *{
+  color:#000!important;
+}
+
+/* 11) Old executive chart board keeps white text on dark chart cards only */
+.market-dashboard-grid .dash-card,
+.market-dashboard-grid .dash-card *{
+  color:#fff!important;
+}
+.market-dashboard-grid .dash-card table,
+.market-dashboard-grid .dash-card th,
+.market-dashboard-grid .dash-card td,
+.market-dashboard-grid .dash-card table *{
+  color:#000!important;
+  background:#fff!important;
+}
+
+/* 12) Print docs stay clean */
+.delivery-doc,.delivery-doc *,.print-range-report,.print-range-report *{
+  background:#fff!important;
+  color:#000!important;
+}
+</style>
+
+
+<style id="v95-final-readability-and-invoice-fix">
+/* v95 final fix - CSS only */
+
+/* Fix dark pills / dark strips: any dark background gets white text */
+.ticker-tape,
+.ticker-tape *,
+.v89-owner-board .ticker-tape,
+.v89-owner-board .ticker-tape *,
+.market-ticker,
+.market-ticker *,
+.dashboard-ticker,
+.dashboard-ticker *,
+.kpi-ticker,
+.kpi-ticker *,
+.v76-kpi,
+.v76-kpi *,
+.dark-strip,
+.dark-strip *,
+.dash-strip,
+.dash-strip *{
+  color:#ffffff!important;
+  text-shadow:none!important;
+}
+.ticker-tape span,
+.ticker-tape b,
+.ticker-tape strong,
+.market-ticker span,
+.market-ticker b,
+.market-ticker strong,
+.dashboard-ticker span,
+.dashboard-ticker b,
+.dashboard-ticker strong,
+.kpi-ticker span,
+.kpi-ticker b,
+.kpi-ticker strong{
+  color:#ffffff!important;
+  background:rgba(255,255,255,.10)!important;
+  border:1px solid rgba(255,255,255,.18)!important;
+}
+
+/* Keep buttons readable */
+.btn,.btn *,button.btn,button.btn *{
+  color:#ffffff!important;
+}
+.btn.secondary,.btn.secondary *,button.btn.secondary,button.btn.secondary *{
+  color:#000000!important;
+}
+.btn.warn,.btn.warn *,button.btn.warn,button.btn.warn *{
+  color:#000000!important;
+}
+
+/* Remove dark table rows across the system */
+main table,
+main thead,
+main tbody,
+main tfoot,
+main tr,
+main th,
+main td,
+main tr:nth-child(even) td,
+main tr:nth-child(odd) td,
+main tr:hover td{
+  background:#ffffff!important;
+  color:#000000!important;
+  border-color:#e5e7eb!important;
+  text-shadow:none!important;
+}
+main th{
+  background:#f8fafc!important;
+  color:#000000!important;
+  font-weight:900!important;
+}
+main td *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *){
+  color:#000000!important;
+}
+
+/* All white cards / cells must have black text */
+.card,.report-filter,.erp-details,.insight-card,.stat,.exec-stat,
+.empty,.orders-v59-card,.mb-v60-card,.decision-card,.flow-card,.summary-card,
+.dash-expanded-stat,.big-bars,.journal-panel,.details-body{
+  background:#ffffff!important;
+  color:#000000!important;
+  border-color:#e5e7eb!important;
+}
+.card *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *),
+.report-filter *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *),
+.erp-details *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *),
+.insight-card *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *),
+.stat *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *),
+.exec-stat *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *),
+.empty *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *){
+  color:#000000!important;
+  text-shadow:none!important;
+}
+
+/* Hide guidance sentences */
+.hint,.range-note,.open-hint,.sales-flow-hint,.manual-perm-note,
+.customer-import-note,.rep-split-note,.sales-order-decision-note,.login-demo-hint,
+.mb-v65-note,.mb-v73-note,.orders-v59-sub,.mb-v60-sub,.v76-note,.v76-app-sub,
+.erp-clean-hero p,.mb-v60-head p,.orders-v59-head p,.v76-topbar p,.v76-apps-head p,
+.note,.help,.sub-note,.description,.tile-open{
+  display:none!important;
+}
+
+/* Invoice / delivery document final repair */
+.delivery-doc,
+.delivery-doc *,
+.invoice-doc,
+.invoice-doc *,
+.print-invoice,
+.print-invoice *,
+.print-range-report,
+.print-range-report *,
+.doc-print-table,
+.doc-print-table *,
+.delivery-doc table,
+.delivery-doc th,
+.delivery-doc td{
+  background:#ffffff!important;
+  color:#000000!important;
+  text-shadow:none!important;
+  box-shadow:none!important;
+}
+.delivery-doc,
+.invoice-doc,
+.print-invoice,
+.print-range-report{
+  max-width:900px!important;
+  margin:0 auto!important;
+  padding:28px!important;
+  border:1px solid #e5e7eb!important;
+  border-radius:16px!important;
+  font-family:Tahoma,Arial,sans-serif!important;
+}
+.delivery-head{
+  background:#ffffff!important;
+  color:#000000!important;
+  border-bottom:2px solid #0f766e!important;
+  padding-bottom:14px!important;
+  margin-bottom:18px!important;
+}
+.delivery-head h1,
+.delivery-head h2,
+.delivery-head p{
+  color:#000000!important;
+}
+.doc-box{
+  background:#f8fafc!important;
+  color:#000000!important;
+  border:1px solid #e5e7eb!important;
+}
+.doc-total{
+  color:#0f766e!important;
+  background:transparent!important;
+  font-weight:900!important;
+}
+.doc-sign{
+  background:#ffffff!important;
+  color:#000000!important;
+  border-top:1px dashed #64748b!important;
+}
+.doc-print-actions .btn,
+.doc-print-actions button{
+  color:#ffffff!important;
+}
+@media print{
+  body{background:#ffffff!important}
+  .side,.nav,.no-print,.actions,.doc-print-actions{display:none!important}
+  .delivery-doc,.invoice-doc,.print-invoice,.print-range-report{
+    border:0!important;
+    border-radius:0!important;
+    max-width:none!important;
+    padding:0!important;
+    box-shadow:none!important;
+  }
+}
+</style>
+
+<style id="v96-final-live-override">
+
+/* ===== v96 FINAL readable colors + invoice repair - CSS ONLY ===== */
+
+/* Dark stock-market ticker must always have readable white text */
+html body .market-ticker,
+html body .market-ticker *,
+html body .market-ticker .ticker-item,
+html body .market-ticker .ticker-item *,
+html body .ticker-item,
+html body .ticker-item *,
+html body .ticker-item b,
+html body .ticker-item em,
+html body .ticker-item strong{
+  color:#ffffff!important;
+  text-shadow:none!important;
+}
+html body .market-ticker .ticker-item{
+  background:rgba(255,255,255,.10)!important;
+  border:1px solid rgba(255,255,255,.22)!important;
+}
+html body .market-ticker .ticker-item b,
+html body .market-ticker .ticker-item em{
+  background:transparent!important;
+  border:0!important;
+}
+
+/* Dark dashboard/chart cards: white text only inside the dark cards */
+html body .market-dashboard-grid .dash-card,
+html body .market-dashboard-grid .dash-card *,
+html body .dashboard-grid.market-dashboard-grid .dash-card,
+html body .dashboard-grid.market-dashboard-grid .dash-card *{
+  color:#ffffff!important;
+  text-shadow:none!important;
+}
+
+/* Normal system tables must never use dark striped rows */
+html body main table,
+html body main thead,
+html body main tbody,
+html body main tfoot,
+html body main tr,
+html body main th,
+html body main td,
+html body main tr:nth-child(even) td,
+html body main tr:nth-child(odd) td,
+html body main tr:hover td{
+  background:#ffffff!important;
+  color:#000000!important;
+  border-color:#e5e7eb!important;
+  text-shadow:none!important;
+}
+html body main th{
+  background:#f8fafc!important;
+  color:#000000!important;
+  font-weight:900!important;
+}
+
+/* White cells/cards: black text */
+html body .card,
+html body .report-filter,
+html body .erp-details,
+html body .insight-card,
+html body .stat,
+html body .exec-stat,
+html body .empty,
+html body .orders-v59-card,
+html body .mb-v60-card,
+html body .decision-card,
+html body .flow-card,
+html body .summary-card,
+html body .details-body{
+  background:#ffffff!important;
+  color:#000000!important;
+  border-color:#e5e7eb!important;
+}
+html body .card *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *),
+html body .report-filter *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *),
+html body .erp-details *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *),
+html body .insight-card *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *),
+html body .empty *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *){
+  color:#000000!important;
+  text-shadow:none!important;
+}
+
+/* Hide all helper/guidance sentences */
+html body .hint,
+html body .range-note,
+html body .open-hint,
+html body .sales-flow-hint,
+html body .manual-perm-note,
+html body .customer-import-note,
+html body .rep-split-note,
+html body .sales-order-decision-note,
+html body .login-demo-hint,
+html body .mb-v65-note,
+html body .mb-v73-note,
+html body .orders-v59-sub,
+html body .mb-v60-sub,
+html body .v76-note,
+html body .v76-app-sub,
+html body .erp-clean-hero p,
+html body .mb-v60-head p,
+html body .orders-v59-head p,
+html body .v76-topbar p,
+html body .v76-apps-head p,
+html body .note,
+html body .help,
+html body .sub-note,
+html body .description,
+html body .tile-open{
+  display:none!important;
+  visibility:hidden!important;
+}
+
+/* Buttons stay readable */
+html body .btn,
+html body .btn *,
+html body button.btn,
+html body button.btn *{color:#ffffff!important}
+html body .btn.secondary,
+html body .btn.secondary *,
+html body button.btn.secondary,
+html body button.btn.secondary *{color:#000000!important}
+html body .btn.warn,
+html body .btn.warn *,
+html body button.btn.warn,
+html body button.btn.warn *{color:#000000!important}
+
+/* ===== Invoice / sales document repair; included in the FIRST style so popup print sees it ===== */
+html body{
+  color:#000000!important;
+}
+html body .delivery-doc,
+html body .delivery-doc *,
+html body .invoice-doc,
+html body .invoice-doc *,
+html body .print-invoice,
+html body .print-invoice *,
+html body .print-range-report,
+html body .print-range-report *{
+  color:#000000!important;
+  text-shadow:none!important;
+}
+html body .delivery-doc,
+html body .invoice-doc,
+html body .print-invoice,
+html body .print-range-report{
+  background:#ffffff!important;
+  max-width:900px!important;
+  width:900px!important;
+  margin:24px auto!important;
+  padding:28px!important;
+  border:1px solid #e5e7eb!important;
+  border-radius:16px!important;
+  box-shadow:none!important;
+  overflow:hidden!important;
+}
+html body .delivery-doc table,
+html body .delivery-doc thead,
+html body .delivery-doc tbody,
+html body .delivery-doc tr,
+html body .delivery-doc th,
+html body .delivery-doc td,
+html body .invoice-doc table,
+html body .invoice-doc th,
+html body .invoice-doc td,
+html body .print-invoice table,
+html body .print-invoice th,
+html body .print-invoice td{
+  background:#ffffff!important;
+  color:#000000!important;
+  border-color:#e5e7eb!important;
+  box-shadow:none!important;
+}
+html body .delivery-doc table,
+html body .invoice-doc table,
+html body .print-invoice table{
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
+  table-layout:auto!important;
+  border-collapse:collapse!important;
+  overflow:hidden!important;
+}
+html body .delivery-doc th,
+html body .invoice-doc th,
+html body .print-invoice th{
+  background:#f8fafc!important;
+  color:#000000!important;
+  font-weight:900!important;
+}
+html body .delivery-doc td,
+html body .invoice-doc td,
+html body .print-invoice td{
+  background:#ffffff!important;
+  color:#000000!important;
+  white-space:normal!important;
+}
+html body .delivery-head{
+  background:#ffffff!important;
+  color:#000000!important;
+  border-bottom:2px solid #0f766e!important;
+}
+html body .delivery-head h1,
+html body .delivery-head h2,
+html body .delivery-head p{
+  color:#000000!important;
+}
+html body .doc-box{
+  background:#f8fafc!important;
+  color:#000000!important;
+  border:1px solid #e5e7eb!important;
+}
+html body .doc-total{
+  color:#0f766e!important;
+  background:transparent!important;
+  font-weight:900!important;
+}
+html body .doc-sign{
+  background:#ffffff!important;
+  color:#000000!important;
+  border-top:1px dashed #64748b!important;
+}
+
+@media print{
+  html body{background:#ffffff!important;color:#000000!important}
+  html body .side,
+  html body .nav,
+  html body .no-print,
+  html body .actions,
+  html body .doc-print-actions{display:none!important}
+  html body .delivery-doc,
+  html body .invoice-doc,
+  html body .print-invoice,
+  html body .print-range-report{
+    width:auto!important;
+    max-width:none!important;
+    margin:0!important;
+    padding:0!important;
+    border:0!important;
+    border-radius:0!important;
+    box-shadow:none!important;
+    overflow:visible!important;
+  }
+}
+
+</style>
+
+<style id='v97-purple-final-live'>
+
+/* ===== v97 FINAL: Make all dashboard/chart boxes same purple as sidebar ===== */
+
+/* Main owner/dashboard market strips and cards: purple like sidebar */
+html body .market-ticker,
+html body .ticker-tape,
+html body .dashboard-ticker,
+html body .kpi-ticker,
+html body .market-dashboard-grid .dash-card,
+html body .dashboard-grid.market-dashboard-grid .dash-card,
+html body .dashboard-grid .dash-card{
+  background:linear-gradient(180deg,#744a68 0%,#633e58 100%)!important;
+  background-color:#744a68!important;
+  color:#ffffff!important;
+  border:1px solid rgba(255,255,255,.20)!important;
+  box-shadow:0 12px 26px rgba(116,74,104,.22)!important;
+}
+
+/* Every text inside these purple areas must be white */
+html body .market-ticker *,
+html body .ticker-tape *,
+html body .dashboard-ticker *,
+html body .kpi-ticker *,
+html body .market-dashboard-grid .dash-card *,
+html body .dashboard-grid.market-dashboard-grid .dash-card *,
+html body .dashboard-grid .dash-card *{
+  color:#ffffff!important;
+  text-shadow:none!important;
+}
+
+/* Small pills inside top ticker */
+html body .market-ticker .ticker-item,
+html body .ticker-tape .ticker-item,
+html body .dashboard-ticker .ticker-item,
+html body .kpi-ticker .ticker-item,
+html body .market-ticker span,
+html body .ticker-tape span,
+html body .dashboard-ticker span,
+html body .kpi-ticker span{
+  background:rgba(255,255,255,.14)!important;
+  color:#ffffff!important;
+  border:1px solid rgba(255,255,255,.26)!important;
+  border-radius:999px!important;
+}
+html body .market-ticker b,
+html body .ticker-tape b,
+html body .dashboard-ticker b,
+html body .kpi-ticker b,
+html body .market-ticker strong,
+html body .ticker-tape strong,
+html body .dashboard-ticker strong,
+html body .kpi-ticker strong,
+html body .market-ticker em,
+html body .ticker-tape em,
+html body .dashboard-ticker em,
+html body .kpi-ticker em{
+  color:#ffffff!important;
+  background:transparent!important;
+  border:0!important;
+}
+
+/* Icons/badges inside purple cards */
+html body .market-dashboard-grid .dash-card .badge,
+html body .dashboard-grid .dash-card .badge,
+html body .market-dashboard-grid .dash-card .dash-badge,
+html body .dashboard-grid .dash-card .dash-badge{
+  background:rgba(255,255,255,.16)!important;
+  color:#ffffff!important;
+  border:1px solid rgba(255,255,255,.28)!important;
+}
+
+/* Chart grid lines can stay subtle */
+html body .market-dashboard-grid .dash-card .mini-progress,
+html body .dashboard-grid .dash-card .mini-progress,
+html body .market-dashboard-grid .dash-card .progress,
+html body .dashboard-grid .dash-card .progress{
+  background:rgba(255,255,255,.18)!important;
+}
+html body .market-dashboard-grid .dash-card .mini-progress span,
+html body .dashboard-grid .dash-card .mini-progress span,
+html body .market-dashboard-grid .dash-card .progress span,
+html body .dashboard-grid .dash-card .progress span{
+  background:#ffffff!important;
+}
+
+/* Normal system cards remain white / black text */
+html body main .card:not(.dash-card),
+html body main .report-filter,
+html body main .erp-details,
+html body main .insight-card,
+html body main .stat,
+html body main .exec-stat,
+html body main .empty,
+html body main .orders-v59-card,
+html body main .mb-v60-card{
+  background:#ffffff!important;
+  color:#000000!important;
+  border-color:#e5e7eb!important;
+}
+html body main .card:not(.dash-card) *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *),
+html body main .report-filter *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *),
+html body main .erp-details *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *),
+html body main .insight-card *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *),
+html body main .empty *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *){
+  color:#000000!important;
+}
+
+/* Tables remain readable white/black */
+html body main table,
+html body main tr,
+html body main th,
+html body main td,
+html body main tr:nth-child(even) td,
+html body main tr:nth-child(odd) td,
+html body main tr:hover td{
+  background:#ffffff!important;
+  color:#000000!important;
+  border-color:#e5e7eb!important;
+}
+html body main th{
+  background:#f8fafc!important;
+  color:#000000!important;
+}
+
+/* Hide all guidance/helper text */
+html body .hint,
+html body .range-note,
+html body .open-hint,
+html body .sales-flow-hint,
+html body .manual-perm-note,
+html body .customer-import-note,
+html body .rep-split-note,
+html body .sales-order-decision-note,
+html body .login-demo-hint,
+html body .mb-v65-note,
+html body .mb-v73-note,
+html body .orders-v59-sub,
+html body .mb-v60-sub,
+html body .v76-note,
+html body .v76-app-sub,
+html body .erp-clean-hero p,
+html body .mb-v60-head p,
+html body .orders-v59-head p,
+html body .v76-topbar p,
+html body .v76-apps-head p,
+html body .note,
+html body .help,
+html body .sub-note,
+html body .description,
+html body .tile-open{
+  display:none!important;
+  visibility:hidden!important;
+}
+
+/* Buttons readable */
+html body .btn,
+html body .btn *,
+html body button.btn,
+html body button.btn *{color:#ffffff!important}
+html body .btn.secondary,
+html body .btn.secondary *,
+html body button.btn.secondary,
+html body button.btn.secondary *{color:#000000!important}
+html body .btn.warn,
+html body .btn.warn *,
+html body button.btn.warn,
+html body button.btn.warn *{color:#000000!important}
+
+/* Invoice table must fit page and stay white/black */
+html body .delivery-doc,
+html body .delivery-doc *,
+html body .invoice-doc,
+html body .invoice-doc *,
+html body .print-invoice,
+html body .print-invoice *{
+  color:#000000!important;
+  text-shadow:none!important;
+}
+html body .delivery-doc,
+html body .invoice-doc,
+html body .print-invoice{
+  background:#ffffff!important;
+  max-width:900px!important;
+  width:900px!important;
+  margin:24px auto!important;
+  padding:28px!important;
+  border:1px solid #e5e7eb!important;
+  border-radius:16px!important;
+  overflow:hidden!important;
+  box-shadow:none!important;
+}
+html body .delivery-doc table,
+html body .invoice-doc table,
+html body .print-invoice table{
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
+  table-layout:auto!important;
+  border-collapse:collapse!important;
+  background:#ffffff!important;
+}
+html body .delivery-doc th,
+html body .delivery-doc td,
+html body .invoice-doc th,
+html body .invoice-doc td,
+html body .print-invoice th,
+html body .print-invoice td{
+  background:#ffffff!important;
+  color:#000000!important;
+  white-space:normal!important;
+  border-color:#e5e7eb!important;
+}
+html body .delivery-doc th,
+html body .invoice-doc th,
+html body .print-invoice th{
+  background:#f8fafc!important;
+  font-weight:900!important;
+}
+html body .delivery-head,
+html body .delivery-head *{
+  background:#ffffff!important;
+  color:#000000!important;
+}
+html body .doc-box{
+  background:#f8fafc!important;
+  color:#000000!important;
+  border:1px solid #e5e7eb!important;
+}
+html body .doc-total{
+  color:#0f766e!important;
+  background:transparent!important;
+}
+@media print{
+  html body{background:#ffffff!important;color:#000000!important}
+  html body .side,
+  html body .nav,
+  html body .no-print,
+  html body .actions,
+  html body .doc-print-actions{display:none!important}
+  html body .delivery-doc,
+  html body .invoice-doc,
+  html body .print-invoice{
+    width:auto!important;
+    max-width:none!important;
+    margin:0!important;
+    padding:0!important;
+    border:0!important;
+    border-radius:0!important;
+    overflow:visible!important;
+  }
+}
+
+</style>
+
+<style id='v98-accordion-purple-readable-live'>
+
+/* ===== v98 FINAL: accordion/report panels readable and purple ===== */
+
+/* Any accordion/details panels that were dark with black text */
+html body .clean-dashboard-sections .erp-details,
+html body details.erp-details,
+html body .erp-details,
+html body .report-filter{
+  background:linear-gradient(180deg,#744a68 0%,#633e58 100%)!important;
+  color:#ffffff!important;
+  border:1px solid rgba(255,255,255,.22)!important;
+  border-radius:16px!important;
+  box-shadow:0 12px 26px rgba(116,74,104,.22)!important;
+}
+
+/* Summary/header inside those dark panels */
+html body .clean-dashboard-sections .erp-details summary,
+html body details.erp-details summary,
+html body .erp-details summary,
+html body .report-filter h3,
+html body .report-filter .section-title,
+html body .report-filter .section-title *{
+  background:transparent!important;
+  color:#ffffff!important;
+  text-shadow:none!important;
+  border-color:rgba(255,255,255,.18)!important;
+}
+
+/* All labels/titles/text inside dark report panels must be white */
+html body .clean-dashboard-sections .erp-details *:not(input):not(select):not(textarea):not(option):not(.btn):not(.btn *):not(button):not(button *),
+html body details.erp-details *:not(input):not(select):not(textarea):not(option):not(.btn):not(.btn *):not(button):not(button *),
+html body .report-filter *:not(input):not(select):not(textarea):not(option):not(.btn):not(.btn *):not(button):not(button *){
+  color:#ffffff!important;
+  text-shadow:none!important;
+}
+
+/* Inner controls area */
+html body .details-body,
+html body .report-filter .date-row,
+html body .report-filter .grid,
+html body .report-filter .grid2,
+html body .report-filter .grid3,
+html body .report-filter .grid4{
+  background:transparent!important;
+  color:#ffffff!important;
+}
+
+/* Inputs in purple panels stay white with black writing */
+html body .clean-dashboard-sections .erp-details input,
+html body .clean-dashboard-sections .erp-details select,
+html body .clean-dashboard-sections .erp-details textarea,
+html body details.erp-details input,
+html body details.erp-details select,
+html body details.erp-details textarea,
+html body .report-filter input,
+html body .report-filter select,
+html body .report-filter textarea{
+  background:#ffffff!important;
+  color:#000000!important;
+  border:1px solid #e5e7eb!important;
+  box-shadow:none!important;
+}
+html body .clean-dashboard-sections .erp-details input *,
+html body .clean-dashboard-sections .erp-details select *,
+html body details.erp-details input *,
+html body details.erp-details select *,
+html body .report-filter input *,
+html body .report-filter select *{
+  color:#000000!important;
+}
+
+/* Date range pill readable on purple */
+html body .report-pill,
+html body .clean-dashboard-sections .report-pill,
+html body .erp-details .report-pill{
+  background:rgba(255,255,255,.14)!important;
+  color:#ffffff!important;
+  border:1px solid rgba(255,255,255,.28)!important;
+}
+
+/* Plus/minus buttons inside accordion headers */
+html body .erp-details summary:after,
+html body .erp-details summary:before,
+html body .clean-dashboard-sections .erp-details summary:after,
+html body .clean-dashboard-sections .erp-details summary:before{
+  color:#ffffff!important;
+  background:rgba(255,255,255,.14)!important;
+  border:1px solid rgba(255,255,255,.24)!important;
+}
+
+/* Buttons inside these panels keep readable colors */
+html body .erp-details .btn,
+html body .erp-details button.btn,
+html body .report-filter .btn,
+html body .report-filter button.btn{
+  color:#ffffff!important;
+}
+html body .erp-details .btn.secondary,
+html body .erp-details button.btn.secondary,
+html body .report-filter .btn.secondary,
+html body .report-filter button.btn.secondary{
+  background:#ffffff!important;
+  color:#000000!important;
+}
+html body .erp-details .btn.warn,
+html body .erp-details button.btn.warn,
+html body .report-filter .btn.warn,
+html body .report-filter button.btn.warn{
+  color:#000000!important;
+}
+
+/* Still hide helper text */
+html body .hint,
+html body .range-note,
+html body .open-hint,
+html body .sales-flow-hint,
+html body .manual-perm-note,
+html body .customer-import-note,
+html body .rep-split-note,
+html body .sales-order-decision-note,
+html body .login-demo-hint,
+html body .mb-v65-note,
+html body .mb-v73-note,
+html body .orders-v59-sub,
+html body .mb-v60-sub,
+html body .v76-note,
+html body .v76-app-sub,
+html body .erp-clean-hero p,
+html body .mb-v60-head p,
+html body .orders-v59-head p,
+html body .v76-topbar p,
+html body .v76-apps-head p,
+html body .note,
+html body .help,
+html body .sub-note,
+html body .description,
+html body .tile-open{
+  display:none!important;
+  visibility:hidden!important;
+}
+
+/* Protect invoices again */
+html body .delivery-doc,
+html body .delivery-doc *,
+html body .invoice-doc,
+html body .invoice-doc *,
+html body .print-invoice,
+html body .print-invoice *{
+  background:#ffffff!important;
+  color:#000000!important;
+  text-shadow:none!important;
+}
+html body .delivery-doc table,
+html body .delivery-doc th,
+html body .delivery-doc td,
+html body .invoice-doc table,
+html body .invoice-doc th,
+html body .invoice-doc td,
+html body .print-invoice table,
+html body .print-invoice th,
+html body .print-invoice td{
+  width:auto;
+  background:#ffffff!important;
+  color:#000000!important;
+  border-color:#e5e7eb!important;
+}
+html body .delivery-doc table,
+html body .invoice-doc table,
+html body .print-invoice table{
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
+  table-layout:auto!important;
+}
+
+</style>
+
+<style id='v99-report-panels-final-live'>
+
+/* ===== v99 FINAL: force report/date panels readable ===== */
+
+/* Report/period accordion: purple surfaces */
+html body main .clean-dashboard-sections details.erp-details,
+html body main details.erp-details,
+html body main .erp-details{
+  background:#744a68!important;
+  background-image:none!important;
+  color:#ffffff!important;
+  border:1px solid rgba(255,255,255,.22)!important;
+}
+
+/* Accordion title bar */
+html body main .clean-dashboard-sections details.erp-details > summary,
+html body main details.erp-details > summary,
+html body main .erp-details > summary{
+  background:#744a68!important;
+  background-image:none!important;
+  color:#ffffff!important;
+  border-bottom:1px solid rgba(255,255,255,.22)!important;
+}
+
+/* The inner report box that was still dark */
+html body main .erp-details .details-body,
+html body main .erp-details .report-filter,
+html body main .erp-details .report-filter *,
+html body main .report-filter,
+html body main .report-filter *{
+  background-color:#744a68!important;
+  background-image:none!important;
+  color:#ffffff!important;
+  text-shadow:none!important;
+  border-color:rgba(255,255,255,.22)!important;
+}
+
+/* Stronger direct titles/labels inside report filter */
+html body main .erp-details .report-filter h1,
+html body main .erp-details .report-filter h2,
+html body main .erp-details .report-filter h3,
+html body main .erp-details .report-filter h4,
+html body main .erp-details .report-filter label,
+html body main .erp-details .report-filter span,
+html body main .erp-details .report-filter b,
+html body main .erp-details .report-filter strong,
+html body main .erp-details .report-filter div:not(.btn):not(.btn *),
+html body main .report-filter h1,
+html body main .report-filter h2,
+html body main .report-filter h3,
+html body main .report-filter h4,
+html body main .report-filter label,
+html body main .report-filter span,
+html body main .report-filter b,
+html body main .report-filter strong{
+  color:#ffffff!important;
+  text-shadow:none!important;
+}
+
+/* Date range badge */
+html body main .erp-details .report-pill,
+html body main .report-filter .report-pill,
+html body main .report-pill{
+  background:rgba(255,255,255,.16)!important;
+  color:#ffffff!important;
+  border:1px solid rgba(255,255,255,.30)!important;
+}
+
+/* Inputs stay white/black so dates are visible */
+html body main .erp-details .report-filter input,
+html body main .erp-details .report-filter select,
+html body main .erp-details .report-filter textarea,
+html body main .report-filter input,
+html body main .report-filter select,
+html body main .report-filter textarea{
+  background:#ffffff!important;
+  background-image:none!important;
+  color:#000000!important;
+  border:1px solid #e5e7eb!important;
+  box-shadow:none!important;
+}
+html body main .erp-details .report-filter input *,
+html body main .erp-details .report-filter select *,
+html body main .report-filter input *,
+html body main .report-filter select *,
+html body main .report-filter option{
+  color:#000000!important;
+  background:#ffffff!important;
+}
+
+/* Buttons inside period reports */
+html body main .erp-details .report-filter .btn,
+html body main .report-filter .btn{
+  color:#ffffff!important;
+}
+html body main .erp-details .report-filter .btn.secondary,
+html body main .report-filter .btn.secondary{
+  background:#ffffff!important;
+  color:#000000!important;
+}
+html body main .erp-details .report-filter .btn.ok,
+html body main .report-filter .btn.ok{
+  background:#16a34a!important;
+  color:#ffffff!important;
+}
+html body main .erp-details .report-filter .btn.blue,
+html body main .report-filter .btn.blue{
+  background:#2563eb!important;
+  color:#ffffff!important;
+}
+
+/* Plus/minus squares readable */
+html body main .erp-details summary:before,
+html body main .erp-details summary:after{
+  color:#ffffff!important;
+  background:rgba(255,255,255,.16)!important;
+  border:1px solid rgba(255,255,255,.28)!important;
+}
+
+/* Don't let generic black-text rules override these report panels */
+html body main .erp-details .report-filter table,
+html body main .erp-details .report-filter tr,
+html body main .erp-details .report-filter th,
+html body main .erp-details .report-filter td{
+  background:#ffffff!important;
+  color:#000000!important;
+  border-color:#e5e7eb!important;
+}
+
+/* Keep helper sentences hidden */
+html body .hint,
+html body .range-note,
+html body .open-hint,
+html body .sales-flow-hint,
+html body .manual-perm-note,
+html body .customer-import-note,
+html body .rep-split-note,
+html body .sales-order-decision-note,
+html body .login-demo-hint,
+html body .mb-v65-note,
+html body .mb-v73-note,
+html body .orders-v59-sub,
+html body .mb-v60-sub,
+html body .v76-note,
+html body .v76-app-sub,
+html body .erp-clean-hero p,
+html body .mb-v60-head p,
+html body .orders-v59-head p,
+html body .v76-topbar p,
+html body .v76-apps-head p,
+html body .note,
+html body .help,
+html body .sub-note,
+html body .description,
+html body .tile-open{
+  display:none!important;
+  visibility:hidden!important;
+}
+
+</style>
+
+
+<style id="v100-reviewed-readability-final">
+/* ===== v100 REVIEWED READABILITY FINAL =====
+   الهدف: أي مساحة غامقة = كلام أبيض
+   أي جدول/فاتورة = خلفية بيضاء وكلام أسود
+   بدون تغيير الداتا أو الحفظ أو منطق التشغيل
+*/
+
+/* Sidebar / purple panels / dashboards */
+html body .side,
+html body .side *,
+html body .mb-v60-shell,
+html body .orders-v59-home,
+html body .mb-v60-home,
+html body .market-ticker,
+html body .ticker-tape,
+html body .dashboard-ticker,
+html body .kpi-ticker,
+html body .market-dashboard-grid .dash-card,
+html body .dashboard-grid.market-dashboard-grid .dash-card,
+html body .dashboard-grid .dash-card,
+html body .clean-dashboard-sections details.erp-details,
+html body details.erp-details,
+html body .erp-details,
+html body .report-filter,
+html body .insight-card,
+html body .clean-insights .insight-card,
+html body .auto-dark-readable,
+html body .auto-dark-readable *:not(input):not(select):not(textarea):not(option):not(table):not(thead):not(tbody):not(tfoot):not(tr):not(th):not(td):not(.btn):not(.btn *):not(button):not(button *){
+  color:#ffffff!important;
+  text-shadow:none!important;
+}
+
+/* Make all previously dark cards/panels purple, not navy */
+html body .mb-v60-shell,
+html body .orders-v59-home,
+html body .mb-v60-home,
+html body .market-ticker,
+html body .ticker-tape,
+html body .dashboard-ticker,
+html body .kpi-ticker,
+html body .market-dashboard-grid .dash-card,
+html body .dashboard-grid.market-dashboard-grid .dash-card,
+html body .dashboard-grid .dash-card,
+html body .clean-dashboard-sections details.erp-details,
+html body details.erp-details,
+html body .erp-details,
+html body .report-filter,
+html body .insight-card,
+html body .clean-insights .insight-card,
+html body .auto-dark-readable{
+  background:#744a68!important;
+  background-image:none!important;
+  border-color:rgba(255,255,255,.22)!important;
+}
+
+/* Titles inside purple panels */
+html body .mb-v60-head h3,
+html body .orders-v59-head h3,
+html body .insight-card h3,
+html body .insight-card .section-title,
+html body .insight-card .section-title *,
+html body .erp-details summary,
+html body .report-filter h1,
+html body .report-filter h2,
+html body .report-filter h3,
+html body .report-filter h4,
+html body .report-filter label,
+html body .report-filter span,
+html body .report-filter b,
+html body .report-filter strong{
+  color:#ffffff!important;
+  background:transparent!important;
+  text-shadow:none!important;
+}
+
+/* Inputs inside purple panels */
+html body .erp-details input,
+html body .erp-details select,
+html body .erp-details textarea,
+html body .report-filter input,
+html body .report-filter select,
+html body .report-filter textarea,
+html body .auto-dark-readable input,
+html body .auto-dark-readable select,
+html body .auto-dark-readable textarea{
+  background:#ffffff!important;
+  color:#000000!important;
+  border:1px solid #e5e7eb!important;
+  box-shadow:none!important;
+}
+
+/* Tables anywhere in the system must be white/black and fit */
+html body main table,
+html body main thead,
+html body main tbody,
+html body main tfoot,
+html body main tr,
+html body main th,
+html body main td,
+html body main tr:nth-child(even) td,
+html body main tr:nth-child(odd) td,
+html body main tr:hover td,
+html body .insight-card table,
+html body .insight-card tr,
+html body .insight-card th,
+html body .insight-card td,
+html body .auto-dark-readable table,
+html body .auto-dark-readable tr,
+html body .auto-dark-readable th,
+html body .auto-dark-readable td{
+  background:#ffffff!important;
+  color:#000000!important;
+  border-color:#e5e7eb!important;
+  text-shadow:none!important;
+}
+html body main th,
+html body .insight-card th,
+html body .auto-dark-readable th{
+  background:#f8fafc!important;
+  color:#000000!important;
+  font-weight:900!important;
+}
+html body main table *,
+html body .insight-card table *,
+html body .auto-dark-readable table *{
+  color:#000000!important;
+  text-shadow:none!important;
+}
+
+/* Normal white cards stay black */
+html body main .card:not(.dash-card):not(.insight-card),
+html body main .stat,
+html body main .exec-stat,
+html body main .empty,
+html body main .orders-v59-card,
+html body main .mb-v60-card,
+html body main .decision-card,
+html body main .flow-card,
+html body main .summary-card{
+  background:#ffffff!important;
+  color:#000000!important;
+  border-color:#e5e7eb!important;
+}
+html body main .card:not(.dash-card):not(.insight-card) *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *),
+html body main .stat *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *),
+html body main .exec-stat *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *),
+html body main .empty *:not(.btn):not(.btn *):not(button):not(button *):not(.badge):not(.badge *){
+  color:#000000!important;
+}
+
+/* Ticker pills */
+html body .ticker-item,
+html body .market-ticker span,
+html body .ticker-tape span,
+html body .dashboard-ticker span,
+html body .kpi-ticker span{
+  background:rgba(255,255,255,.16)!important;
+  color:#ffffff!important;
+  border:1px solid rgba(255,255,255,.30)!important;
+}
+html body .ticker-item *,
+html body .market-ticker span *,
+html body .ticker-tape span *,
+html body .dashboard-ticker span *,
+html body .kpi-ticker span *{
+  color:#ffffff!important;
+}
+
+/* Badges */
+html body .badge.ok{background:#dcfce7!important;color:#166534!important}
+html body .badge.low,
+html body .badge.rejected{background:#fee2e2!important;color:#991b1b!important}
+html body .badge.warn,
+html body .badge.pending-approval{background:#fef3c7!important;color:#92400e!important}
+html body .badge.blue{background:#dbeafe!important;color:#1d4ed8!important}
+
+/* Buttons */
+html body .btn,
+html body .btn *,
+html body button.btn,
+html body button.btn *{color:#ffffff!important}
+html body .btn.secondary,
+html body .btn.secondary *,
+html body button.btn.secondary,
+html body button.btn.secondary *{background:#ffffff!important;color:#000000!important}
+html body .btn.warn,
+html body .btn.warn *,
+html body button.btn.warn,
+html body button.btn.warn *{color:#000000!important}
+
+/* Hide every known guidance/help class */
+html body .hint,
+html body .range-note,
+html body .open-hint,
+html body .sales-flow-hint,
+html body .manual-perm-note,
+html body .customer-import-note,
+html body .rep-split-note,
+html body .sales-order-decision-note,
+html body .login-demo-hint,
+html body .mb-v65-note,
+html body .mb-v73-note,
+html body .orders-v59-sub,
+html body .mb-v60-sub,
+html body .v76-note,
+html body .v76-app-sub,
+html body .erp-clean-hero p,
+html body .mb-v60-head p,
+html body .orders-v59-head p,
+html body .v76-topbar p,
+html body .v76-apps-head p,
+html body .note,
+html body .help,
+html body .sub-note,
+html body .description,
+html body .tile-open{
+  display:none!important;
+  visibility:hidden!important;
+}
+
+/* Invoice / print document: must be white, centered, table inside paper */
+html body .delivery-doc,
+html body .delivery-doc *,
+html body .invoice-doc,
+html body .invoice-doc *,
+html body .print-invoice,
+html body .print-invoice *,
+html body .print-range-report,
+html body .print-range-report *{
+  background:#ffffff!important;
+  color:#000000!important;
+  text-shadow:none!important;
+  box-shadow:none!important;
+}
+html body .delivery-doc,
+html body .invoice-doc,
+html body .print-invoice,
+html body .print-range-report{
+  width:900px!important;
+  max-width:900px!important;
+  margin:24px auto!important;
+  padding:28px!important;
+  border:1px solid #e5e7eb!important;
+  border-radius:16px!important;
+  overflow:hidden!important;
+}
+html body .delivery-doc table,
+html body .invoice-doc table,
+html body .print-invoice table,
+html body .print-range-report table{
+  width:100%!important;
+  max-width:100%!important;
+  min-width:0!important;
+  table-layout:auto!important;
+  border-collapse:collapse!important;
+}
+html body .delivery-doc th,
+html body .delivery-doc td,
+html body .invoice-doc th,
+html body .invoice-doc td,
+html body .print-invoice th,
+html body .print-invoice td,
+html body .print-range-report th,
+html body .print-range-report td{
+  background:#ffffff!important;
+  color:#000000!important;
+  white-space:normal!important;
+  border-color:#e5e7eb!important;
+}
+html body .delivery-doc th,
+html body .invoice-doc th,
+html body .print-invoice th,
+html body .print-range-report th{
+  background:#f8fafc!important;
+  font-weight:900!important;
+}
+html body .delivery-head,
+html body .delivery-head *{
+  background:#ffffff!important;
+  color:#000000!important;
+}
+html body .doc-box{
+  background:#f8fafc!important;
+  color:#000000!important;
+}
+html body .doc-total{
+  background:transparent!important;
+  color:#0f766e!important;
+}
+
+@media print{
+  html body{background:#ffffff!important;color:#000000!important}
+  html body .side,
+  html body .nav,
+  html body .no-print,
+  html body .actions,
+  html body .doc-print-actions{display:none!important}
+  html body .delivery-doc,
+  html body .invoice-doc,
+  html body .print-invoice,
+  html body .print-range-report{
+    width:auto!important;
+    max-width:none!important;
+    margin:0!important;
+    padding:0!important;
+    border:0!important;
+    border-radius:0!important;
+    overflow:visible!important;
+  }
+}
+</style>
+
+<script id="v100-visual-readability-audit">
+(function(){
+  function rgbOf(el){
+    var c=getComputedStyle(el).backgroundColor || '';
+    var m=c.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+    if(!m) return null;
+    var a=m[4]===undefined?1:parseFloat(m[4]);
+    if(a<0.8) return null;
+    return {r:+m[1],g:+m[2],b:+m[3]};
+  }
+  function lum(x){return (0.299*x.r+0.587*x.g+0.114*x.b);}
+  function readableAuditV100(){
+    try{
+      document.querySelectorAll('main .card, main .report-filter, main .erp-details, main .insight-card, main details, main .dash-card, main .market-ticker, main .ticker-tape').forEach(function(el){
+        var c=rgbOf(el);
+        if(c && lum(c)<95){
+          el.classList.add('auto-dark-readable');
+        }
+      });
+      document.querySelectorAll('main table').forEach(function(t){
+        t.style.background='#fff';
+        t.style.color='#000';
+        t.querySelectorAll('th,td,tr').forEach(function(cell){
+          cell.style.background=cell.tagName==='TH'?'#f8fafc':'#fff';
+          cell.style.color='#000';
+          cell.style.textShadow='none';
+        });
+      });
+    }catch(e){}
+  }
+  var oldRender=window.render;
+  if(typeof oldRender==='function'){
+    window.render=function(){
+      var r=oldRender.apply(this, arguments);
+      setTimeout(readableAuditV100,80);
+      return r;
+    };
+  }
+  var oldShow=window.show;
+  if(typeof oldShow==='function'){
+    window.show=function(){
+      var r=oldShow.apply(this, arguments);
+      setTimeout(readableAuditV100,80);
+      return r;
+    };
+  }
+  document.addEventListener('DOMContentLoaded', function(){setTimeout(readableAuditV100,150);});
+  setInterval(readableAuditV100,1200);
+})();
+</script>
+
