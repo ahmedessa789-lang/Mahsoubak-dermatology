@@ -1489,6 +1489,11 @@ html body .doc-total{
 }
 </style>
 
+
+<style id="v122-area-enter-only-style">
+#customers_area::placeholder{color:#64748b!important}
+</style>
+
 </head>
 <body>
 <div class="app">
@@ -2764,11 +2769,29 @@ function syncCustomerAreasToRegionsV112(){
   mergeDuplicateRegionsV112();if(db.deleted_region_keys_v121){db.regions=db.regions.filter(r=>!db.deleted_region_keys_v121[regionDeleteKeyV121(regionDeleteTitleV121(r))]);}distributeRegionsV112();
 }
 function customerAreaTypedV112(v){
-  let area=regionCleanTextV112(v);let select=document.getElementById('customers_region_id');
-  if(!area){if(select)select.innerHTML=moduleRegionOptions(select.value||'');return;}
-  let r=createRegionFromAreaV112(area);syncCustomerAreasToRegionsV112();
-  if(select&&r){select.innerHTML=moduleRegionOptions(r.id);select.value=r.id}
+  let area=regionCleanTextV112(v);
+  let select=document.getElementById('customers_region_id');
+  if(!area){
+    if(select)select.innerHTML=moduleRegionOptions(select.value||'');
+    return;
+  }
+  let r=createRegionFromAreaV112(area);
+  syncCustomerAreasToRegionsV112();
+  if(select&&r){
+    select.innerHTML=moduleRegionOptions(r.id);
+    select.value=r.id;
+  }
   if(typeof save==='function')save();
+}
+function customerAreaEnterCommitV122(el,event){
+  if(event && event.key!=='Enter')return;
+  if(event){
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  customerAreaTypedV112(el.value);
+  if(el && el.blur)el.blur();
+  return false;
 }
 
 function detectRegionId(area){
@@ -2916,7 +2939,7 @@ function regionEntityPage(table,title){
   let fields=regionEntityFields(table);
   let form=fields.map(f=>{
     let extra='';
-    if(table==='customers'&&f[0]==='area')extra=' oninput="customerAreaTypedV112(this.value)" onchange="customerAreaTypedV112(this.value)"';
+    if(table==='customers'&&f[0]==='area')extra=' onkeydown="return customerAreaEnterCommitV122(this,event)" onchange="customerAreaTypedV112(this.value)"';
     return `<div><label>${T(f[1])}</label><input id="${table}_${f[0]}" ${f[2]?'type="number"':''}${extra}></div>`;
   }).join('');
   let regionField=`<div><label>${lang==='ar'?'المنطقة الرئيسية':'Main region'}</label><select id="${table}_region_id">${moduleRegionOptions('')}</select></div>`;
