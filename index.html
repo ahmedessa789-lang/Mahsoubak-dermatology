@@ -2763,14 +2763,81 @@ function syncCustomerAreasToRegionsV112(){
   db.reps.forEach(rep=>{let area=regionRepAreaV112(rep);let r=findRegionByAreaV112(area);if(r){rep.region_id=r.id;rep.region_name=regionName(r)}});
   mergeDuplicateRegionsV112();if(db.deleted_region_keys_v121){db.regions=db.regions.filter(r=>!db.deleted_region_keys_v121[regionDeleteKeyV121(regionDeleteTitleV121(r))]);}distributeRegionsV112();
 }
+function regionManualKeyV132(v){return regionTextKeyV112(String(v||'').replace(/\s+/g,' ').trim())}
+function regionManualIdV132(area){return 'manual_area_'+Math.abs(Array.from(regionManualKeyV132(area)).reduce((h,ch)=>((h<<5)-h+ch.charCodeAt(0))|0,0)).toString(36)}
+function createManualAreaRegionV132(area){
+  area=String(area||'').replace(/\s+/g,' ').trim();
+  if(!area)return null;
+  if(!Array.isArray(db.regions))db.regions=[];
+  let k=regionManualKeyV132(area);
+  let r=db.regions.find(x=>regionManualKeyV132(regionTitleV112(x))===k);
+  if(r){
+    r.customer_area=area;
+    r.name_ar=area;
+    r.name_en=area;
+    if(!r.source||r.source==='customers')r.source='manual_area_pending';
+    return r;
+  }
+  let idx=db.regions.length;
+  r={id:regionManualIdV132(area),name_ar:area,name_en:area,customer_area:area,source:'manual_area_pending',color:'#744a68',x:45+(idx%7)*6,y:30+(idx%6)*8};
+  db.regions.push(r);
+  return r;
+}
+function regionVisibleListV132(selectedId){
+  ensureRegions();
+  let customerKeys={};
+  (db.customers||[]).forEach(c=>{
+    let a=regionCustomerAreaV112(c), k=regionManualKeyV132(a);
+    if(k)customerKeys[k]=a;
+  });
+  let selectedKey='';
+  if(selectedId){
+    let sr=(db.regions||[]).find(x=>x.id===selectedId);
+    if(sr)selectedKey=regionManualKeyV132(regionTitleV112(sr));
+  }
+  let seen={}, list=[];
+  (db.regions||[]).forEach(r=>{
+    let title=regionTitleV112(r), k=regionManualKeyV132(title);
+    if(!k||seen[k])return;
+    let dynamic=String(r.id||'').startsWith('cust_area_')||String(r.id||'').startsWith('manual_area_')||r.source==='customers'||r.source==='manual_area_pending';
+    let pending=r.source==='manual_area_pending'||String(r.id||'').startsWith('manual_area_');
+    if(dynamic && !customerKeys[k] && !pending && k!==selectedKey)return;
+    seen[k]=1;
+    if(customerKeys[k]){
+      r.customer_area=customerKeys[k];
+      r.name_ar=customerKeys[k];
+      r.name_en=customerKeys[k];
+      if(r.source==='manual_area_pending')r.source='customers';
+    }
+    list.push(r);
+  });
+  return list.sort((a,b)=>regionTitleV112(a).localeCompare(regionTitleV112(b),'ar'));
+}
 function customerAreaTypedV112(v){
-  let area=regionCleanTextV112(v);let select=document.getElementById('customers_region_id');
-  if(!area){if(select)select.innerHTML=moduleRegionOptions(select.value||'');return;}
-  let r=createRegionFromAreaV112(area);syncCustomerAreasToRegionsV112();
-  if(select&&r){select.innerHTML=moduleRegionOptions(r.id);select.value=r.id}
+  let area=String(v||'').replace(/\s+/g,' ').trim();
+  let select=document.getElementById('customers_region_id');
+  if(!area){
+    if(select)select.innerHTML=moduleRegionOptions(select.value||'');
+    return;
+  }
+  let r=createManualAreaRegionV132(area);
+  if(r&&select){
+    select.innerHTML=moduleRegionOptions(r.id);
+    select.value=r.id;
+  }
+  if(typeof distributeRegionsV112==='function')distributeRegionsV112();
   if(typeof save==='function')save();
 }
-
+function customerAreaCommitV132(el,event){
+  if(event && event.key && event.key!=='Enter')return true;
+  if(event){event.preventDefault();event.stopPropagation();}
+  customerAreaTypedV112(el.value);
+  return false;
+}
+function commitCustomerAreaBeforeDropdownV132(){
+  let el=document.getElementById('customers_area');
+  if(el&&String(el.value||'').trim())customerAreaTypedV112(el.value);
+}
 function detectRegionId(area){
   let r=findRegionByAreaV112(area);
   if(r)return r.id;
@@ -2907,74 +2974,18 @@ function regionDetail(r){
   return `<div id="regionDetail" class="card" style="--region-color:${r.color}"><div class="region-detail-head"><div class="region-title-wrap"><span class="region-color-mark"></span><div><h3>${esc(regionName(r))}</h3><p>${lang==='ar'?'ملخص التغطية والأداء الميداني':'Field coverage and performance overview'}</p></div></div><span class="badge blue">${visits.length} ${lang==='ar'?'زيارة':'visits'}</span></div><div class="region-detail-grid"><div class="stat"><span>${T('customers')}</span><strong>${customers.length}</strong></div><div class="stat"><span>${T('reps')}</span><strong>${reps.length}</strong></div><div class="stat"><span>${lang==='ar'?'إجمالي الزيارات':'Total visits'}</span><strong>${visits.length}</strong></div><div class="stat"><span>${T('salesTotal')}</span><strong>${money(salesTotal)}</strong></div></div><div class="coverage-roster">${rosterCard(lang==='ar'?'عملاء المنطقة':'Area customers',customers,'customer',r)}${rosterCard(lang==='ar'?'فريق المبيعات':'Sales team',reps,'rep',r)}</div><div class="region-panels"><div class="region-panel"><h4>${lang==='ar'?'تسجيل وصول جديد':'Log a new visit'}</h4><div class="visit-form"><div><label>${T('date')}</label><input id="visit_date" type="date" value="${today()}"></div><div><label>${T('customer')}</label><select id="visit_customer">${visitCustomerOptions}</select></div><div><label>${T('rep')}</label><select id="visit_rep">${visitRepOptions}</select></div><div><label>${lang==='ar'?'نتيجة الزيارة':'Visit result'}</label><select id="visit_result"><option>${lang==='ar'?'تمت الزيارة':'Completed'}</option><option>${lang==='ar'?'تم طلب منتجات':'Order placed'}</option><option>${lang==='ar'?'إعادة زيارة':'Follow up'}</option><option>${lang==='ar'?'العميل غير متاح':'Customer unavailable'}</option></select></div><div class="visit-notes"><label>${T('notes')}</label><input id="visit_notes"></div><button class="btn ok" onclick="addVisit()">${lang==='ar'?'تسجيل الوصول':'Log visit'}</button></div><h4 style="margin-top:18px">${lang==='ar'?'آخر التحركات':'Recent activity'}</h4><div class="visit-timeline">${visits.length?visits.slice(0,6).map(v=>`<div class="visit-item"><span class="visit-dot"></span><div><b>${esc(v.customer_name)} · ${esc(v.rep_name)}</b><small>${esc(v.date)} · ${esc(v.result)} ${v.notes?'· '+esc(v.notes):''}</small></div><button class="btn small danger" onclick="deleteVisit('${v.id}')">×</button></div>`).join(''):`<div class="empty">${lang==='ar'?'لا توجد زيارات مسجلة بعد':'No visits recorded yet'}</div>`}</div></div><div class="region-panel"><h4>${lang==='ar'?'المنتجات المباعة':'Products sold'}</h4>${regionProductChart(products,r)}<h4 style="margin-top:20px">${lang==='ar'?'زيارات كل بياع':'Visits by sales rep'}</h4>${repVisitBars(reps,visits)||`<div class="empty">${lang==='ar'?'عيّن بياعين للمنطقة':'Assign sales reps to this area'}</div>`}</div></div>${regionAssignments(r)}</div>`;
 }
 function regionFullMap(r){
-  let regs=regionVisibleListV131(r&&r.id);
+  let regs=regionVisibleListV132(r&&r.id);
   if(!r || !regs.find(x=>x.id===r.id))r=regs[0]||db.regions[0];
   return `<div class="regions-map-stage"><span class="map-zone z1"></span><span class="map-zone z2"></span><span class="map-zone z3"></span><svg class="fluid-map-lines" viewBox="0 0 1200 720" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="routeGradient" x1="0" x2="1"><stop offset="0" stop-color="#38bdf8"/><stop offset=".52" stop-color="#14b8a6"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient></defs><path class="route-shadow" d="M-40 560 C170 420 230 530 410 395 S690 190 850 300 S1040 520 1260 310"/><path class="route-main" d="M-40 560 C170 420 230 530 410 395 S690 190 850 300 S1040 520 1260 310"/><path class="route-edge" d="M-40 560 C170 420 230 530 410 395 S690 190 850 300 S1040 520 1260 310"/><path class="route-accent" d="M-40 560 C170 420 230 530 410 395 S690 190 850 300 S1040 520 1260 310"/><path class="route-small" d="M170 -30 C240 145 405 105 480 245 S525 520 690 760"/><path class="route-small" d="M760 -40 C700 130 805 185 960 205 S1110 150 1240 80"/><path class="route-small" d="M-40 245 C150 300 260 220 350 125 S520 20 620 -30"/></svg><div class="full-map-head"><span>${lang==='ar'?'تغطية ميدانية مباشرة':'Live field coverage'}</span><h3>${lang==='ar'?'خريطة المناطق':'Regions map'}</h3><p>${lang==='ar'?'اضغط على نقطة وصول لفتح تفاصيل المنطقة':'Select a location pin to open area details'}</p></div>${regs.map(x=>`<button class="map-pin ${regionPanelOpen&&x.id===selectedRegionId?'active':''}" style="left:${x.x}%;top:${x.y}%;--pin:${x.color}" onclick="selectRegion('${x.id}')"><span class="map-pin-dot"></span><span class="map-pin-name">${esc(regionName(x))}</span><span class="map-pin-count">${regionCustomers(x.id).length} ${lang==='ar'?'عميل':'customers'} · ${regionVisits(x.id).length} ${lang==='ar'?'زيارة':'visits'}</span></button>`).join('')}<div class="map-watermark"><b>Mahsoubak Field Map</b> · ${lang==='ar'?'التغطية حسب المناطق':'Coverage by region'}</div>${regionPanelOpen?`<div class="map-detail-backdrop" onclick="closeRegionPanel()"></div><div class="map-detail-drawer"><div class="map-drawer-toolbar"><button class="map-close" onclick="closeRegionPanel()" title="${lang==='ar'?'إغلاق':'Close'}">×</button></div>${regionDetail(r)}</div>`:''}</div>`;
 }
 function renderRegions(){
   ensureRegions();let el=document.getElementById('view-regions');if(!el)return;
-  let regs=regionVisibleListV131(selectedRegionId);
+  let regs=regionVisibleListV132(selectedRegionId);
   let r=regs.find(x=>x.id===selectedRegionId)||regs[0]||db.regions[0];
   el.innerHTML=regionFullMap(r);
 }
-function regionVisibleListV131(selectedId){
-  ensureRegions();
-  let customerKeys={};
-  (db.customers||[]).forEach(c=>{
-    let a=regionCustomerAreaV112(c), k=regionTextKeyV112(a);
-    if(k)customerKeys[k]=a;
-  });
-  let selectedKey='';
-  if(selectedId){
-    let sr=(db.regions||[]).find(x=>x.id===selectedId);
-    if(sr)selectedKey=regionTextKeyV112(regionTitleV112(sr));
-  }
-  let seen={}, list=[];
-  (db.regions||[]).forEach(r=>{
-    let name=regionTitleV112(r), k=regionTextKeyV112(name);
-    if(!k||seen[k])return;
-    let dynamic=String(r.id||'').startsWith('cust_area_')||r.source==='customers';
-    // اعرض المنطقة الديناميكية فقط لو مرتبطة بعميل أو هي الاختيار الحالي المكتوب بالكامل
-    if(dynamic && !customerKeys[k] && k!==selectedKey)return;
-    seen[k]=1;
-    if(dynamic && customerKeys[k]){
-      r.customer_area=customerKeys[k];
-      r.name_ar=customerKeys[k];
-      r.name_en=customerKeys[k];
-      r.source='customers';
-    }
-    list.push(r);
-  });
-  return list.sort((a,b)=>regionTitleV112(a).localeCompare(regionTitleV112(b),'ar'));
-}
-function customerAreaTypedV112(v){
-  let area=regionCleanTextV112(v);
-  let select=document.getElementById('customers_region_id');
-  if(!area){
-    if(select)select.innerHTML=moduleRegionOptions(select.value||'');
-    return;
-  }
-  let r=createRegionFromAreaV112(area);
-  if(r){
-    if(select){
-      select.innerHTML=moduleRegionOptions(r.id);
-      select.value=r.id;
-    }
-    if(typeof save==='function')save();
-  }
-}
-function customerAreaCommitV131(el,event){
-  if(event && event.key && event.key!=='Enter')return true;
-  if(event){
-    event.preventDefault();
-    event.stopPropagation();
-  }
-  customerAreaTypedV112(el.value);
-  return false;
-}
-
 function moduleRegionOptions(selected){
-  let regs=regionVisibleListV131(selected);
+  let regs=regionVisibleListV132(selected);
   return `<option value="">${lang==='ar'?'اختر المنطقة':'Choose region'}</option>${regs.map(r=>`<option value="${r.id}" ${r.id===selected?'selected':''}>${esc(regionName(r))}</option>`).join('')}`;
 }
 function regionEntityFields(table){return table==='customers'?[['name','name'],['type','type'],['phone','phone'],['area','area'],['address','address'],['balance','balance',1],['notes','notes']]:[['name','name'],['phone','phone'],['area','area'],['target','target',1],['notes','notes']]}
@@ -2982,10 +2993,10 @@ function regionEntityPage(table,title){
   let fields=regionEntityFields(table);
   let form=fields.map(f=>{
     let extra='';
-    if(table==='customers'&&f[0]==='area')extra=' onkeydown="return customerAreaCommitV131(this,event)" onchange="customerAreaTypedV112(this.value)" onblur="customerAreaTypedV112(this.value)"';
+    if(table==='customers'&&f[0]==='area')extra=' onkeydown="return customerAreaCommitV132(this,event)" onchange="customerAreaTypedV112(this.value)" onblur="customerAreaTypedV112(this.value)"';
     return `<div><label>${T(f[1])}</label><input id="${table}_${f[0]}" ${f[2]?'type="number"':''}${extra}></div>`;
   }).join('');
-  let regionField=`<div><label>${lang==='ar'?'المنطقة الرئيسية':'Main region'}</label><select id="${table}_region_id">${moduleRegionOptions('')}</select></div>`;
+  let regionField=`<div><label>${lang==='ar'?'المنطقة الرئيسية':'Main region'}</label><select id="${table}_region_id" onmousedown="commitCustomerAreaBeforeDropdownV132()" onfocus="commitCustomerAreaBeforeDropdownV132()">${moduleRegionOptions('')}</select></div>`;
   let rows=db[table].length?`<table><tr>${fields.map(f=>`<th>${T(f[1])}</th>`).join('')}<th>${lang==='ar'?'المنطقة':'Region'}</th><th></th></tr>${db[table].map(row=>`<tr>${fields.map(f=>`<td><input ${f[2]?'type="number"':''} value="${esc(row[f[0]]||'')}" onchange="editCell('${table}','${row.id}','${f[0]}',this.value,${!!f[2]})"></td>`).join('')}<td><select onchange="setModuleEntityRegion('${table}','${row.id}',this.value)">${moduleRegionOptions(entityRegionId(row))}</select></td><td><button class="btn small danger" onclick="del('${table}','${row.id}')">${T('delete')}</button></td></tr>`).join('')}</table>`:`<div class="empty">${T('empty')}</div>`;
   return `<div class="card"><h3>${title}</h3><div class="grid grid4">${form}${regionField}<div style="display:flex;align-items:end"><button class="btn ok" onclick="addRegionEntity('${table}')">${T('add')}</button></div></div></div><div class="card"><h3>${T(table)}</h3>${rows}</div>`;
 }
@@ -2994,8 +3005,14 @@ function addRegionEntity(table){
   fields.forEach(f=>row[f[0]]=document.getElementById(table+'_'+f[0]).value);
   ['balance','target'].forEach(f=>{if(row[f]!==undefined)row[f]=n(row[f])});
   if(table==='customers'&&row.area){
-    let r=createRegionFromAreaV112(row.area);
-    if(r){row.region_id=r.id;row.region_name=regionName(r);let sel=document.getElementById(table+'_region_id');if(sel){sel.innerHTML=moduleRegionOptions(r.id);sel.value=r.id}}
+    let r=createManualAreaRegionV132(row.area);
+    if(r){
+      r.source='customers';
+      row.region_id=r.id;
+      row.region_name=regionName(r);
+      let sel=document.getElementById(table+'_region_id');
+      if(sel){sel.innerHTML=moduleRegionOptions(r.id);sel.value=r.id}
+    }
   }
   if(!row.region_id)row.region_id=document.getElementById(table+'_region_id').value;
   if(!row.name)return alert(T('name'));
@@ -7257,4 +7274,4 @@ html body .doc-total{
 })();
 </script>
 
-<!-- v131: area saved only on Enter/blur/change; no letter-by-letter saving -->
+<!-- v132 area saved on exit/enter and stays in main region; old partials hidden -->
