@@ -7277,212 +7277,196 @@ html body .doc-total{
 <!-- v132 area saved on exit/enter and stays in main region; old partials hidden -->
 
 
-<script id="v133-cashflow-egp-currency">
+<script id="v134-finance-cash-currency">
 (function(){
   function clean(v){return String(v||'').replace(/\s+/g,' ').trim();}
-  function num(v){return typeof n==='function'?n(v):(Number(v)||0);}
-  function fmtMoney(v){return typeof money==='function'?money(v):('EGP '+num(v).toLocaleString());}
-  function todayV133(){return typeof today==='function'?today():new Date().toISOString().slice(0,10);}
-  function uidV133(){return typeof uid==='function'?uid():('cf_'+Date.now()+'_'+Math.random().toString(16).slice(2));}
-  function escV133(v){return typeof esc==='function'?esc(v):String(v||'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));}
+  function num(v){return Number(v||0)||0;}
+  function esc2(v){return typeof esc==='function'?esc(v):String(v||'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));}
+  function today2(){return typeof today==='function'?today():new Date().toISOString().slice(0,10);}
+  function money2(v){return typeof money==='function'?money(v):(num(v).toLocaleString('en-EG')+' EGP');}
+  function uid2(){return typeof uid==='function'?uid():('cm_'+Date.now()+'_'+Math.random().toString(36).slice(2));}
 
-  function ensureCashCurrencyV133(){
+  function ensureCashCurrencyV134(){
     if(!window.db)return;
-    if(!Array.isArray(db.cash_currency_movements))db.cash_currency_movements=[];
-    db.cash_currency_movements.forEach(r=>{
-      r.currency=r.currency||'EGP';
+    if(!Array.isArray(db.finance_cash_currency_movements))db.finance_cash_currency_movements=[];
+    db.finance_cash_currency_movements.forEach(r=>{
+      r.date=r.date||today2();
       r.type=r.type||'in';
-      r.rate=num(r.rate)||1;
+      r.currency=r.currency||'EGP';
       r.amount=num(r.amount);
-      r.egp_value=num(r.egp_value)||num(r.amount)*num(r.rate);
-      r.date=r.date||todayV133();
+      r.rate=r.currency==='EGP'?1:(num(r.rate)||1);
+      r.egp_value=num(r.egp_value)||r.amount*r.rate;
+      r.description=r.description||'';
     });
   }
 
-  function cashCurrencyRangeV133(){
-    return {
-      from:document.getElementById('cf_from')?.value || reportRange.from || monthStart(),
-      to:document.getElementById('cf_to')?.value || reportRange.to || todayV133()
-    };
+  function currencyNameV134(c){
+    return ({EGP:'مصري / EGP',USD:'دولار / USD',EUR:'يورو / EUR',SAR:'ريال / SAR',AED:'درهم / AED'}[c]||c||'');
+  }
+  function currencyOptionsV134(selected){
+    return ['EGP','USD','EUR','SAR','AED'].map(c=>`<option value="${c}" ${c===selected?'selected':''}>${currencyNameV134(c)}</option>`).join('');
   }
 
-  function movementRowsV133(){
-    ensureCashCurrencyV133();
-    let r=cashCurrencyRangeV133();
-    return db.cash_currency_movements.filter(x=>(!r.from||x.date>=r.from)&&(!r.to||x.date<=r.to));
+  function rowsV134(){
+    ensureCashCurrencyV134();
+    return db.finance_cash_currency_movements||[];
   }
 
-  function currencyLabelV133(c){
-    let map={EGP:'مصري / EGP',USD:'دولار / USD',EUR:'يورو / EUR',SAR:'ريال / SAR',AED:'درهم / AED'};
-    return map[c]||c||'';
-  }
-
-  function cashCurrencySummaryV133(){
-    let rows=movementRowsV133();
-    let egp={in:0,out:0,balance:0};
-    let fx={};
-    rows.forEach(r=>{
-      let cur=r.currency||'EGP', sign=r.type==='out'?-1:1, amount=num(r.amount), egpValue=num(r.egp_value)||amount*num(r.rate||1);
-      if(cur==='EGP'){
-        if(sign>0)egp.in+=amount;else egp.out+=amount;
-        egp.balance+=sign*amount;
+  function summaryV134(){
+    let egpIn=0,egpOut=0,fxEgpBalance=0,fx={};
+    rowsV134().forEach(r=>{
+      let sign=r.type==='out'?-1:1;
+      let amount=num(r.amount), rate=r.currency==='EGP'?1:(num(r.rate)||1), egp=amount*rate;
+      r.egp_value=egp;
+      if(r.currency==='EGP'){
+        if(sign>0)egpIn+=amount; else egpOut+=amount;
       }else{
-        fx[cur]=fx[cur]||{currency:cur,in:0,out:0,balance:0,egp_in:0,egp_out:0,egp_balance:0,count:0};
-        if(sign>0){fx[cur].in+=amount;fx[cur].egp_in+=egpValue;}else{fx[cur].out+=amount;fx[cur].egp_out+=egpValue;}
-        fx[cur].balance+=sign*amount;
-        fx[cur].egp_balance+=sign*egpValue;
-        fx[cur].count++;
+        fx[r.currency]=fx[r.currency]||{currency:r.currency,in:0,out:0,balance:0,egp_balance:0};
+        if(sign>0)fx[r.currency].in+=amount; else fx[r.currency].out+=amount;
+        fx[r.currency].balance+=sign*amount;
+        fx[r.currency].egp_balance+=sign*egp;
+        fxEgpBalance+=sign*egp;
       }
     });
-    return {egp,fx:Object.values(fx),rows};
+    return {egpIn,egpOut,egpBalance:egpIn-egpOut,fxEgpBalance,fx:Object.values(fx)};
   }
 
-  function currencyOptionsV133(selected){
-    let arr=['EGP','USD','EUR','SAR','AED'];
-    return arr.map(c=>`<option value="${c}" ${c===selected?'selected':''}>${currencyLabelV133(c)}</option>`).join('');
-  }
+  window.updateCashCurrencyRateV134=function(){
+    let cur=document.getElementById('v134_currency')?.value||'EGP';
+    let rate=document.getElementById('v134_rate');
+    if(!rate)return;
+    if(cur==='EGP'){rate.value=1;rate.disabled=true;}
+    else{rate.disabled=false;if(!num(rate.value)||num(rate.value)===1)rate.value='50';}
+  };
 
-  window.addCashCurrencyMovementV133=function(){
-    ensureCashCurrencyV133();
-    let date=(document.getElementById('cfm_date')||{}).value||todayV133();
-    let type=(document.getElementById('cfm_type')||{}).value||'in';
-    let currency=(document.getElementById('cfm_currency')||{}).value||'EGP';
-    let amount=num((document.getElementById('cfm_amount')||{}).value);
-    let rate=num((document.getElementById('cfm_rate')||{}).value)||1;
-    let desc=clean((document.getElementById('cfm_desc')||{}).value);
-    if(!amount){alert(window.lang==='ar'?'اكتب المبلغ':'Enter amount');return;}
-    if(currency==='EGP')rate=1;
-    db.cash_currency_movements.unshift({
-      id:uidV133(),
-      date,type,currency,
+  window.addFinanceCashCurrencyV134=function(){
+    ensureCashCurrencyV134();
+    let currency=document.getElementById('v134_currency')?.value||'EGP';
+    let amount=num(document.getElementById('v134_amount')?.value);
+    let rate=currency==='EGP'?1:(num(document.getElementById('v134_rate')?.value)||1);
+    if(!amount){alert(lang==='ar'?'اكتب المبلغ':'Enter amount');return;}
+    db.finance_cash_currency_movements.unshift({
+      id:uid2(),
+      date:document.getElementById('v134_date')?.value||today2(),
+      type:document.getElementById('v134_type')?.value||'in',
+      currency,
       amount,
       rate,
       egp_value:amount*rate,
-      description:desc,
-      source:'manual_currency'
+      description:clean(document.getElementById('v134_desc')?.value||''),
+      source:'finance_cash_currency'
     });
     if(typeof save==='function')save();
+    if(typeof renderAccounts==='function')renderAccounts();
     if(typeof renderCashFlow==='function')renderCashFlow();
   };
 
-  window.deleteCashCurrencyMovementV133=function(id){
-    if(!confirm(window.lang==='ar'?'حذف حركة النقد؟':'Delete cash movement?'))return;
-    ensureCashCurrencyV133();
-    db.cash_currency_movements=db.cash_currency_movements.filter(x=>x.id!==id);
+  window.deleteFinanceCashCurrencyV134=function(id){
+    if(!confirm(lang==='ar'?'حذف الحركة؟':'Delete movement?'))return;
+    ensureCashCurrencyV134();
+    db.finance_cash_currency_movements=db.finance_cash_currency_movements.filter(r=>r.id!==id);
     if(typeof save==='function')save();
+    if(typeof renderAccounts==='function')renderAccounts();
     if(typeof renderCashFlow==='function')renderCashFlow();
   };
 
-  window.updateCashCurrencyRateV133=function(){
-    let cur=(document.getElementById('cfm_currency')||{}).value||'EGP';
-    let rate=document.getElementById('cfm_rate');
-    if(rate){
-      if(cur==='EGP'){rate.value=1;rate.disabled=true;}
-      else{rate.disabled=false;if(!num(rate.value)||num(rate.value)===1)rate.value='50';}
-    }
-  };
-
-  window.exportCashCurrencyCSVV133=function(){
-    let rows=movementRowsV133();
-    let csv='\ufeff'+[
-      ['Date','Type','Currency','Amount','Rate','EGP Value','Description'],
-      ...rows.map(r=>[r.date,r.type,r.currency,num(r.amount),num(r.rate),num(r.egp_value),r.description||''])
-    ].map(row=>row.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(',')).join('\n');
-    let a=document.createElement('a');
-    a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
-    a.download='cash_currency_movements.csv';
-    a.click();
-  };
-
-  function cashCurrencyCardsV133(s){
-    let fxBalance=s.fx.reduce((a,x)=>a+num(x.egp_balance),0);
-    return `<div class="grid grid4">
-      <div class="card stat"><span>${lang==='ar'?'داخل مصري':'EGP in'}</span><strong>${fmtMoney(s.egp.in)}</strong></div>
-      <div class="card stat"><span>${lang==='ar'?'خارج مصري':'EGP out'}</span><strong>${fmtMoney(s.egp.out)}</strong></div>
-      <div class="card stat"><span>${lang==='ar'?'رصيد مصري':'EGP balance'}</span><strong>${fmtMoney(s.egp.balance)}</strong></div>
-      <div class="card stat"><span>${lang==='ar'?'رصيد العملات بالجنيه':'FX balance EGP'}</span><strong>${fmtMoney(fxBalance)}</strong></div>
-    </div>`;
+  function movementTableV134(){
+    let rows=rowsV134();
+    if(!rows.length)return `<div class="empty">${lang==='ar'?'لا توجد حركات نقدية مصري أو عملة':'No EGP/currency cash movements'}</div>`;
+    return `<table><tr>
+      <th>${T('date')}</th><th>${lang==='ar'?'نوع الحركة':'Type'}</th><th>${lang==='ar'?'العملة':'Currency'}</th><th>${lang==='ar'?'المبلغ':'Amount'}</th><th>${lang==='ar'?'سعر الصرف':'Rate'}</th><th>${lang==='ar'?'القيمة بالجنيه':'EGP value'}</th><th>${lang==='ar'?'البيان':'Description'}</th><th></th>
+    </tr>${rows.map(r=>`<tr>
+      <td>${esc2(r.date)}</td>
+      <td>${r.type==='in'?(lang==='ar'?'داخل':'In'):(lang==='ar'?'خارج':'Out')}</td>
+      <td>${esc2(currencyNameV134(r.currency))}</td>
+      <td><b>${num(r.amount).toLocaleString()} ${esc2(r.currency)}</b></td>
+      <td>${num(r.rate).toLocaleString()}</td>
+      <td>${money2(num(r.egp_value)||num(r.amount)*num(r.rate||1))}</td>
+      <td>${esc2(r.description)}</td>
+      <td><button class="btn small danger" onclick="deleteFinanceCashCurrencyV134('${r.id}')">${T('delete')}</button></td>
+    </tr>`).join('')}</table>`;
   }
 
-  function cashCurrencyFxTableV133(items){
-    if(!items.length)return `<div class="empty">${lang==='ar'?'لا توجد حركات عملة':'No foreign currency movements'}</div>`;
-    return `<table>
-      <tr><th>${lang==='ar'?'العملة':'Currency'}</th><th>${lang==='ar'?'داخل':'In'}</th><th>${lang==='ar'?'خارج':'Out'}</th><th>${lang==='ar'?'الرصيد عملة':'Currency balance'}</th><th>${lang==='ar'?'القيمة بالجنيه':'EGP value'}</th></tr>
-      ${items.map(x=>`<tr><td><b>${escV133(currencyLabelV133(x.currency))}</b></td><td>${num(x.in).toLocaleString()}</td><td>${num(x.out).toLocaleString()}</td><td><b>${num(x.balance).toLocaleString()} ${escV133(x.currency)}</b></td><td>${fmtMoney(x.egp_balance)}</td></tr>`).join('')}
-    </table>`;
+  function fxTableV134(items){
+    if(!items.length)return `<div class="empty">${lang==='ar'?'لا توجد عملات أجنبية':'No foreign currencies'}</div>`;
+    return `<table><tr><th>${lang==='ar'?'العملة':'Currency'}</th><th>${lang==='ar'?'داخل':'In'}</th><th>${lang==='ar'?'خارج':'Out'}</th><th>${lang==='ar'?'رصيد العملة':'Currency balance'}</th><th>${lang==='ar'?'القيمة بالجنيه':'EGP value'}</th></tr>
+    ${items.map(x=>`<tr><td><b>${esc2(currencyNameV134(x.currency))}</b></td><td>${num(x.in).toLocaleString()}</td><td>${num(x.out).toLocaleString()}</td><td><b>${num(x.balance).toLocaleString()} ${esc2(x.currency)}</b></td><td>${money2(x.egp_balance)}</td></tr>`).join('')}</table>`;
   }
 
-  function cashCurrencyRowsTableV133(rows){
-    if(!rows.length)return `<div class="empty">${lang==='ar'?'لا توجد حركات مسجلة':'No manual cash movements'}</div>`;
-    return `<table>
-      <tr><th>${T('date')}</th><th>${lang==='ar'?'نوع الحركة':'Type'}</th><th>${lang==='ar'?'العملة':'Currency'}</th><th>${lang==='ar'?'المبلغ':'Amount'}</th><th>${lang==='ar'?'سعر الصرف':'Rate'}</th><th>${lang==='ar'?'القيمة بالجنيه':'EGP value'}</th><th>${lang==='ar'?'البيان':'Description'}</th><th></th></tr>
-      ${rows.slice().reverse().map(r=>`<tr>
-        <td>${escV133(r.date)}</td>
-        <td>${r.type==='in'?(lang==='ar'?'داخل':'In'):(lang==='ar'?'خارج':'Out')}</td>
-        <td>${escV133(currencyLabelV133(r.currency))}</td>
-        <td><b>${num(r.amount).toLocaleString()} ${escV133(r.currency)}</b></td>
-        <td>${num(r.rate).toLocaleString()}</td>
-        <td>${fmtMoney(r.egp_value)}</td>
-        <td>${escV133(r.description||'')}</td>
-        <td><button class="btn small danger" onclick="deleteCashCurrencyMovementV133('${r.id}')">${T('delete')}</button></td>
-      </tr>`).join('')}
-    </table>`;
-  }
-
-  function cashCurrencyPanelV133(){
-    ensureCashCurrencyV133();
-    let s=cashCurrencySummaryV133();
-    return `<div class="card no-print">
+  window.financeCashCurrencyPanelV134=function(){
+    ensureCashCurrencyV134();
+    let s=summaryV134();
+    return `<div id="financeCashCurrencyV134" class="card">
       <div class="section-title">
         <div>
-          <h3>${lang==='ar'?'حركة النقدية: مصري وعملة':'Cash movement: EGP & Currency'}</h3>
-          <p class="hint">${lang==='ar'?'تسجيل حركة يدوية منفصلة للجنيه المصري والعملات الأجنبية مع قيمة مقابلة بالجنيه':'Manual movements for EGP and foreign currencies with EGP equivalent value'}</p>
+          <h3>${lang==='ar'?'حركة النقدية - مصري وعملة':'Cash movement - EGP & Currency'}</h3>
+          <p class="hint">${lang==='ar'?'تسجيل حركة نقدية داخل/خارج بالجنيه أو بعملة أجنبية مع سعر الصرف':'Record cash in/out in EGP or foreign currency with exchange rate'}</p>
         </div>
-        <div class="actions"><button class="btn secondary" onclick="exportCashCurrencyCSVV133()">Export Currency CSV</button></div>
       </div>
       <div class="grid grid6">
-        <div><label>${T('date')}</label><input id="cfm_date" type="date" value="${todayV133()}"></div>
-        <div><label>${lang==='ar'?'نوع الحركة':'Type'}</label><select id="cfm_type"><option value="in">${lang==='ar'?'داخل':'In'}</option><option value="out">${lang==='ar'?'خارج':'Out'}</option></select></div>
-        <div><label>${lang==='ar'?'العملة':'Currency'}</label><select id="cfm_currency" onchange="updateCashCurrencyRateV133()">${currencyOptionsV133('EGP')}</select></div>
-        <div><label>${lang==='ar'?'المبلغ':'Amount'}</label><input id="cfm_amount" type="number" step="0.01" placeholder="0"></div>
-        <div><label>${lang==='ar'?'سعر الصرف':'Rate to EGP'}</label><input id="cfm_rate" type="number" step="0.01" value="1"></div>
-        <div><label>${lang==='ar'?'البيان':'Description'}</label><input id="cfm_desc" placeholder="${lang==='ar'?'مثال: إيداع / سحب / دولار':'Deposit / withdrawal / USD'}"></div>
+        <div><label>${T('date')}</label><input id="v134_date" type="date" value="${today2()}"></div>
+        <div><label>${lang==='ar'?'نوع الحركة':'Type'}</label><select id="v134_type"><option value="in">${lang==='ar'?'داخل':'In'}</option><option value="out">${lang==='ar'?'خارج':'Out'}</option></select></div>
+        <div><label>${lang==='ar'?'العملة':'Currency'}</label><select id="v134_currency" onchange="updateCashCurrencyRateV134()">${currencyOptionsV134('EGP')}</select></div>
+        <div><label>${lang==='ar'?'المبلغ':'Amount'}</label><input id="v134_amount" type="number" step="0.01"></div>
+        <div><label>${lang==='ar'?'سعر الصرف':'Rate'}</label><input id="v134_rate" type="number" step="0.01" value="1"></div>
+        <div><label>${lang==='ar'?'البيان':'Description'}</label><input id="v134_desc" placeholder="${lang==='ar'?'مثال: إيداع / سحب / دولار':'Deposit / withdrawal / USD'}"></div>
       </div>
-      <button class="btn ok" style="margin-top:12px" onclick="addCashCurrencyMovementV133()">${lang==='ar'?'إضافة حركة نقدية':'Add cash movement'}</button>
+      <button class="btn ok" style="margin-top:12px" onclick="addFinanceCashCurrencyV134()">${lang==='ar'?'إضافة حركة نقدية':'Add cash movement'}</button>
     </div>
-    ${cashCurrencyCardsV133(s)}
+    <div class="grid grid4">
+      <div class="card stat"><span>${lang==='ar'?'داخل مصري':'EGP in'}</span><strong>${money2(s.egpIn)}</strong></div>
+      <div class="card stat"><span>${lang==='ar'?'خارج مصري':'EGP out'}</span><strong>${money2(s.egpOut)}</strong></div>
+      <div class="card stat"><span>${lang==='ar'?'رصيد مصري':'EGP balance'}</span><strong>${money2(s.egpBalance)}</strong></div>
+      <div class="card stat"><span>${lang==='ar'?'رصيد العملات بالجنيه':'FX balance EGP'}</span><strong>${money2(s.fxEgpBalance)}</strong></div>
+    </div>
     <div class="grid grid2">
-      <div class="card"><h3>${lang==='ar'?'ملخص العملات':'Currency summary'}</h3>${cashCurrencyFxTableV133(s.fx)}</div>
-      <div class="card"><h3>${lang==='ar'?'تفاصيل الحركات المصري والعملة':'EGP & currency movement details'}</h3>${cashCurrencyRowsTableV133(s.rows)}</div>
+      <div class="card"><h3>${lang==='ar'?'ملخص العملات':'Currency summary'}</h3>${fxTableV134(s.fx)}</div>
+      <div class="card"><h3>${lang==='ar'?'تفاصيل حركة النقدية':'Cash movement details'}</h3>${movementTableV134()}</div>
     </div>`;
+  };
+
+  function injectIntoAccountsV134(){
+    let el=document.getElementById('view-accounts');
+    if(!el || document.getElementById('financeCashCurrencyV134'))return;
+    el.insertAdjacentHTML('afterbegin',financeCashCurrencyPanelV134());
+    updateCashCurrencyRateV134();
   }
 
-  const oldRenderCashFlowV133=window.renderCashFlow || (typeof renderCashFlow==='function'?renderCashFlow:null);
-  if(typeof oldRenderCashFlowV133==='function'){
+  const oldRenderAccountsV134=typeof renderAccounts==='function'?renderAccounts:null;
+  if(oldRenderAccountsV134){
+    renderAccounts=function(){
+      oldRenderAccountsV134.apply(this,arguments);
+      injectIntoAccountsV134();
+    };
+    window.renderAccounts=renderAccounts;
+  }
+
+  const oldRenderCashFlowV134=typeof renderCashFlow==='function'?renderCashFlow:null;
+  if(oldRenderCashFlowV134){
     renderCashFlow=function(){
-      oldRenderCashFlowV133.apply(this,arguments);
+      oldRenderCashFlowV134.apply(this,arguments);
       let el=document.getElementById('view-cashflow');
-      if(el && (!window.can || can('cashflow','view'))){
-        el.insertAdjacentHTML('beforeend',cashCurrencyPanelV133());
-        updateCashCurrencyRateV133();
+      if(el && !el.querySelector('#financeCashCurrencyV134')){
+        el.insertAdjacentHTML('beforeend',financeCashCurrencyPanelV134());
+        updateCashCurrencyRateV134();
       }
     };
     window.renderCashFlow=renderCashFlow;
   }
 
-  const oldEnsureUsersV133=window.ensureUsers || (typeof ensureUsers==='function'?ensureUsers:null);
-  if(typeof oldEnsureUsersV133==='function'){
-    ensureUsers=function(){
-      oldEnsureUsersV133.apply(this,arguments);
-      ensureCashCurrencyV133();
+  const oldRenderV134=typeof render==='function'?render:null;
+  if(oldRenderV134){
+    render=function(){
+      oldRenderV134.apply(this,arguments);
+      if(current==='accounts')injectIntoAccountsV134();
     };
-    window.ensureUsers=ensureUsers;
+    window.render=render;
   }
-
-  document.addEventListener('DOMContentLoaded',function(){
-    setTimeout(ensureCashCurrencyV133,300);
-  });
 })();
 </script>
+<style id="v134-finance-cash-currency-style">
+#financeCashCurrencyV134{border:2px solid #0f766e!important}
+#financeCashCurrencyV134 h3{color:#0f172a!important}
+</style>
 
-<!-- v133 cashflow egp and currency -->
+<!-- v134 finance cash currency panel in accounts and cashflow -->
