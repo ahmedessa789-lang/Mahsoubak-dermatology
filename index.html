@@ -7245,3 +7245,151 @@ html body .doc-total{
 </script>
 
 <!-- v126 filtered regions + enter-only area input -->
+
+
+<script id="v127-area-to-main-region-fix">
+(function(){
+  function clean(v){return String(v||'').replace(/\s+/g,' ').trim();}
+  function k(v){
+    if(typeof regionTextKeyV112 === 'function') return regionTextKeyV112(v);
+    return clean(v).toLowerCase()
+      .replace(/[أإآا]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي')
+      .replace(/[ؤ]/g,'و').replace(/[ئ]/g,'ي')
+      .replace(/[\u064B-\u065F]/g,'')
+      .replace(/[^\w\u0600-\u06FF]+/g,'');
+  }
+  function title(r){
+    if(typeof regionTitleV112 === 'function') return regionTitleV112(r);
+    return clean(r && (r.customer_area || r.name_ar || r.name_en || r.name || r.area || ''));
+  }
+  function customerArea(c){
+    if(typeof regionCustomerAreaV112 === 'function') return regionCustomerAreaV112(c);
+    return clean(c && (c.area || c.region_name || c.region || c.zone || ''));
+  }
+
+  window.pendingCustomerAreaV127 = '';
+
+  window.regionVisibleListV127 = function(selectedId){
+    if(typeof ensureRegions === 'function') ensureRegions();
+
+    var customerKeys = {};
+    (db.customers || []).forEach(function(c){
+      var a = customerArea(c), kk = k(a);
+      if(kk) customerKeys[kk] = a;
+    });
+
+    var pendingKey = k(window.pendingCustomerAreaV127 || '');
+    var seen = {};
+    var list = [];
+
+    (db.regions || []).forEach(function(r){
+      var name = title(r), rk = k(name);
+      if(!rk || seen[rk]) return;
+
+      var dynamic = String(r.id || '').startsWith('cust_area_') || r.source === 'customers';
+
+      // المهم هنا:
+      // المنطقة الجديدة أثناء إضافة العميل تظهر في Dropdown حتى قبل حفظ العميل
+      var isPending = pendingKey && rk === pendingKey;
+      var isSelected = selectedId && r.id === selectedId;
+
+      if(dynamic && !customerKeys[rk] && !isPending && !isSelected) return;
+
+      seen[rk] = true;
+
+      if(dynamic && (customerKeys[rk] || isPending)){
+        var finalName = customerKeys[rk] || window.pendingCustomerAreaV127 || name;
+        r.customer_area = finalName;
+        r.name_ar = finalName;
+        r.name_en = finalName;
+        r.source = 'customers';
+      }
+
+      list.push(r);
+    });
+
+    return list.sort(function(a,b){return title(a).localeCompare(title(b),'ar');});
+  };
+
+  window.moduleRegionOptions = function(selected){
+    var regs = window.regionVisibleListV127(selected);
+    return '<option value="">' + (window.lang === 'ar' ? 'اختر المنطقة' : 'Choose region') + '</option>' +
+      regs.map(function(r){
+        var nm = (typeof regionName === 'function') ? regionName(r) : title(r);
+        return '<option value="' + r.id + '" ' + (r.id === selected ? 'selected' : '') + '>' + esc(nm) + '</option>';
+      }).join('');
+  };
+
+  window.customerAreaTypedV112 = function(v){
+    var area = clean(v);
+    var select = document.getElementById('customers_region_id');
+
+    window.pendingCustomerAreaV127 = area;
+
+    if(!area){
+      if(select) select.innerHTML = moduleRegionOptions(select.value || '');
+      return;
+    }
+
+    var r = null;
+    if(typeof createRegionFromAreaV112 === 'function') r = createRegionFromAreaV112(area);
+    if(typeof syncCustomerAreasToRegionsV112 === 'function') syncCustomerAreasToRegionsV112();
+
+    if(select && r){
+      select.innerHTML = moduleRegionOptions(r.id);
+      select.value = r.id;
+    }
+
+    if(typeof save === 'function') save();
+  };
+
+  window.customerAreaCommitOnEnterV126 = function(el,event){
+    if(event && event.key !== 'Enter') return true;
+    if(event){
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    customerAreaTypedV112(el.value);
+    if(el && el.blur) el.blur();
+    return false;
+  };
+
+  // عند الضغط على إضافة، تأكد أن المنطقة المكتوبة اتضافت واتحددت قبل الحفظ
+  var oldAddRegionEntityV127 = window.addRegionEntity;
+  if(typeof oldAddRegionEntityV127 === 'function'){
+    window.addRegionEntity = function(table){
+      if(table === 'customers'){
+        var areaEl = document.getElementById('customers_area');
+        if(areaEl && clean(areaEl.value)){
+          customerAreaTypedV112(areaEl.value);
+        }
+      }
+      return oldAddRegionEntityV127.apply(this, arguments);
+    };
+  }
+
+  function patchInput(){
+    var area = document.getElementById('customers_area');
+    if(area){
+      area.removeAttribute('oninput');
+      area.setAttribute('onkeydown','return customerAreaCommitOnEnterV126(this,event)');
+      area.setAttribute('onchange','customerAreaTypedV112(this.value)');
+    }
+  }
+
+  var oldRenderCustomersV127 = window.renderCustomers;
+  if(typeof oldRenderCustomersV127 === 'function'){
+    window.renderCustomers = function(){
+      var r = oldRenderCustomersV127.apply(this, arguments);
+      setTimeout(patchInput, 50);
+      return r;
+    };
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    setTimeout(patchInput, 150);
+  });
+})();
+</script>
+
+<!-- v127 area appears in main region dropdown before saving customer -->
