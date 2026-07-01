@@ -2906,20 +2906,91 @@ function regionDetail(r){
   let visitCustomerOptions=customers.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join(''),visitRepOptions=reps.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');
   return `<div id="regionDetail" class="card" style="--region-color:${r.color}"><div class="region-detail-head"><div class="region-title-wrap"><span class="region-color-mark"></span><div><h3>${esc(regionName(r))}</h3><p>${lang==='ar'?'ملخص التغطية والأداء الميداني':'Field coverage and performance overview'}</p></div></div><span class="badge blue">${visits.length} ${lang==='ar'?'زيارة':'visits'}</span></div><div class="region-detail-grid"><div class="stat"><span>${T('customers')}</span><strong>${customers.length}</strong></div><div class="stat"><span>${T('reps')}</span><strong>${reps.length}</strong></div><div class="stat"><span>${lang==='ar'?'إجمالي الزيارات':'Total visits'}</span><strong>${visits.length}</strong></div><div class="stat"><span>${T('salesTotal')}</span><strong>${money(salesTotal)}</strong></div></div><div class="coverage-roster">${rosterCard(lang==='ar'?'عملاء المنطقة':'Area customers',customers,'customer',r)}${rosterCard(lang==='ar'?'فريق المبيعات':'Sales team',reps,'rep',r)}</div><div class="region-panels"><div class="region-panel"><h4>${lang==='ar'?'تسجيل وصول جديد':'Log a new visit'}</h4><div class="visit-form"><div><label>${T('date')}</label><input id="visit_date" type="date" value="${today()}"></div><div><label>${T('customer')}</label><select id="visit_customer">${visitCustomerOptions}</select></div><div><label>${T('rep')}</label><select id="visit_rep">${visitRepOptions}</select></div><div><label>${lang==='ar'?'نتيجة الزيارة':'Visit result'}</label><select id="visit_result"><option>${lang==='ar'?'تمت الزيارة':'Completed'}</option><option>${lang==='ar'?'تم طلب منتجات':'Order placed'}</option><option>${lang==='ar'?'إعادة زيارة':'Follow up'}</option><option>${lang==='ar'?'العميل غير متاح':'Customer unavailable'}</option></select></div><div class="visit-notes"><label>${T('notes')}</label><input id="visit_notes"></div><button class="btn ok" onclick="addVisit()">${lang==='ar'?'تسجيل الوصول':'Log visit'}</button></div><h4 style="margin-top:18px">${lang==='ar'?'آخر التحركات':'Recent activity'}</h4><div class="visit-timeline">${visits.length?visits.slice(0,6).map(v=>`<div class="visit-item"><span class="visit-dot"></span><div><b>${esc(v.customer_name)} · ${esc(v.rep_name)}</b><small>${esc(v.date)} · ${esc(v.result)} ${v.notes?'· '+esc(v.notes):''}</small></div><button class="btn small danger" onclick="deleteVisit('${v.id}')">×</button></div>`).join(''):`<div class="empty">${lang==='ar'?'لا توجد زيارات مسجلة بعد':'No visits recorded yet'}</div>`}</div></div><div class="region-panel"><h4>${lang==='ar'?'المنتجات المباعة':'Products sold'}</h4>${regionProductChart(products,r)}<h4 style="margin-top:20px">${lang==='ar'?'زيارات كل بياع':'Visits by sales rep'}</h4>${repVisitBars(reps,visits)||`<div class="empty">${lang==='ar'?'عيّن بياعين للمنطقة':'Assign sales reps to this area'}</div>`}</div></div>${regionAssignments(r)}</div>`;
 }
-function regionFullMap(r){return `<div class="regions-map-stage"><span class="map-zone z1"></span><span class="map-zone z2"></span><span class="map-zone z3"></span><svg class="fluid-map-lines" viewBox="0 0 1200 720" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="routeGradient" x1="0" x2="1"><stop offset="0" stop-color="#38bdf8"/><stop offset=".52" stop-color="#14b8a6"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient></defs><path class="route-shadow" d="M-40 560 C170 420 230 530 410 395 S690 190 850 300 S1040 520 1260 310"/><path class="route-main" d="M-40 560 C170 420 230 530 410 395 S690 190 850 300 S1040 520 1260 310"/><path class="route-edge" d="M-40 560 C170 420 230 530 410 395 S690 190 850 300 S1040 520 1260 310"/><path class="route-accent" d="M-40 560 C170 420 230 530 410 395 S690 190 850 300 S1040 520 1260 310"/><path class="route-small" d="M170 -30 C240 145 405 105 480 245 S525 520 690 760"/><path class="route-small" d="M760 -40 C700 130 805 185 960 205 S1110 150 1240 80"/><path class="route-small" d="M-40 245 C150 300 260 220 350 125 S520 20 620 -30"/></svg><div class="full-map-head"><span>${lang==='ar'?'تغطية ميدانية مباشرة':'Live field coverage'}</span><h3>${lang==='ar'?'خريطة المناطق':'Regions map'}</h3><p>${lang==='ar'?'اضغط على نقطة وصول لفتح تفاصيل المنطقة':'Select a location pin to open area details'}</p></div>${db.regions.map(x=>`<button class="map-pin ${regionPanelOpen&&x.id===selectedRegionId?'active':''}" style="left:${x.x}%;top:${x.y}%;--pin:${x.color}" onclick="selectRegion('${x.id}')"><span class="map-pin-dot"></span><span class="map-pin-name">${esc(regionName(x))}</span><span class="map-pin-count">${regionCustomers(x.id).length} ${lang==='ar'?'عميل':'customers'} · ${regionVisits(x.id).length} ${lang==='ar'?'زيارة':'visits'}</span></button>`).join('')}<div class="map-watermark"><b>Mahsoubak Field Map</b> · ${lang==='ar'?'التغطية حسب المناطق':'Coverage by region'}</div>${regionPanelOpen?`<div class="map-detail-backdrop" onclick="closeRegionPanel()"></div><div class="map-detail-drawer"><div class="map-drawer-toolbar"><button class="map-close" onclick="closeRegionPanel()" title="${lang==='ar'?'إغلاق':'Close'}">×</button></div>${regionDetail(r)}</div>`:''}</div>`}
-function renderRegions(){
-  ensureRegions();let el=document.getElementById('view-regions');if(!el)return;let r=db.regions.find(x=>x.id===selectedRegionId)||db.regions[0];el.innerHTML=regionFullMap(r);
+function regionFullMap(r){
+  let regs=regionVisibleListV130();
+  if(!r || !regs.find(x=>x.id===r.id))r=regs[0]||db.regions[0];
+  return `<div class="regions-map-stage"><span class="map-zone z1"></span><span class="map-zone z2"></span><span class="map-zone z3"></span><svg class="fluid-map-lines" viewBox="0 0 1200 720" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="routeGradient" x1="0" x2="1"><stop offset="0" stop-color="#38bdf8"/><stop offset=".52" stop-color="#14b8a6"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient></defs><path class="route-shadow" d="M-40 560 C170 420 230 530 410 395 S690 190 850 300 S1040 520 1260 310"/><path class="route-main" d="M-40 560 C170 420 230 530 410 395 S690 190 850 300 S1040 520 1260 310"/><path class="route-edge" d="M-40 560 C170 420 230 530 410 395 S690 190 850 300 S1040 520 1260 310"/><path class="route-accent" d="M-40 560 C170 420 230 530 410 395 S690 190 850 300 S1040 520 1260 310"/><path class="route-small" d="M170 -30 C240 145 405 105 480 245 S525 520 690 760"/><path class="route-small" d="M760 -40 C700 130 805 185 960 205 S1110 150 1240 80"/><path class="route-small" d="M-40 245 C150 300 260 220 350 125 S520 20 620 -30"/></svg><div class="full-map-head"><span>${lang==='ar'?'تغطية ميدانية مباشرة':'Live field coverage'}</span><h3>${lang==='ar'?'خريطة المناطق':'Regions map'}</h3><p>${lang==='ar'?'اضغط على نقطة وصول لفتح تفاصيل المنطقة':'Select a location pin to open area details'}</p></div>${regs.map(x=>`<button class="map-pin ${regionPanelOpen&&x.id===selectedRegionId?'active':''}" style="left:${x.x}%;top:${x.y}%;--pin:${x.color}" onclick="selectRegion('${x.id}')"><span class="map-pin-dot"></span><span class="map-pin-name">${esc(regionName(x))}</span><span class="map-pin-count">${regionCustomers(x.id).length} ${lang==='ar'?'عميل':'customers'} · ${regionVisits(x.id).length} ${lang==='ar'?'زيارة':'visits'}</span></button>`).join('')}<div class="map-watermark"><b>Mahsoubak Field Map</b> · ${lang==='ar'?'التغطية حسب المناطق':'Coverage by region'}</div>${regionPanelOpen?`<div class="map-detail-backdrop" onclick="closeRegionPanel()"></div><div class="map-detail-drawer"><div class="map-drawer-toolbar"><button class="map-close" onclick="closeRegionPanel()" title="${lang==='ar'?'إغلاق':'Close'}">×</button></div>${regionDetail(r)}</div>`:''}</div>`;
 }
-function moduleRegionOptions(selected){ensureRegions();let seen={};let regs=db.regions.filter(r=>{let k=regionTextKeyV112(regionTitleV112(r));if(!k||seen[k])return false;seen[k]=1;return true}).sort((a,b)=>regionTitleV112(a).localeCompare(regionTitleV112(b),'ar'));return `<option value="">${lang==='ar'?'اختر المنطقة':'Choose region'}</option>${regs.map(r=>`<option value="${r.id}" ${r.id===selected?'selected':''}>${esc(regionName(r))}</option>`).join('')}`}
+function renderRegions(){
+  ensureRegions();let el=document.getElementById('view-regions');if(!el)return;
+  let regs=regionVisibleListV130();
+  let r=regs.find(x=>x.id===selectedRegionId)||regs[0]||db.regions[0];
+  el.innerHTML=regionFullMap(r);
+}
+function regionVisibleListV130(){
+  ensureRegions();
+  let customerKeys={};
+  (db.customers||[]).forEach(c=>{
+    let a=regionCustomerAreaV112(c), k=regionTextKeyV112(a);
+    if(k)customerKeys[k]=a;
+  });
+  let seen={}, list=[];
+  (db.regions||[]).forEach(r=>{
+    let name=regionTitleV112(r), k=regionTextKeyV112(name);
+    if(!k||seen[k])return;
+    let dynamic=String(r.id||'').startsWith('cust_area_')||r.source==='customers';
+    if(dynamic && !customerKeys[k])return;
+    seen[k]=1;
+    if(dynamic && customerKeys[k]){
+      r.customer_area=customerKeys[k];
+      r.name_ar=customerKeys[k];
+      r.name_en=customerKeys[k];
+      r.source='customers';
+    }
+    list.push(r);
+  });
+  return list.sort((a,b)=>regionTitleV112(a).localeCompare(regionTitleV112(b),'ar'));
+}
+function cleanPendingAreaV130(v){return String(v||'').replace(/\s+/g,' ').trim();}
+function keyPendingAreaV130(v){return regionTextKeyV112(cleanPendingAreaV130(v));}
+function previewCustomerAreaV130(v){
+  let area=cleanPendingAreaV130(v);
+  let sel=document.getElementById('customers_region_id');
+  if(!sel)return;
+  sel.innerHTML=moduleRegionOptions('');
+  if(!area)return;
+  let ak=keyPendingAreaV130(area);
+  let found=false;
+  Array.from(sel.options).forEach(o=>{
+    if(regionTextKeyV112(o.textContent||'')===ak){
+      o.selected=true;sel.value=o.value;found=true;
+    }
+  });
+  if(!found){
+    let opt=document.createElement('option');
+    opt.value='__pending_area_v130__';
+    opt.textContent=area;
+    opt.selected=true;
+    sel.appendChild(opt);
+    sel.value='__pending_area_v130__';
+  }
+}
+function customerAreaTypedV112(v){
+  previewCustomerAreaV130(v);
+}
+function customerAreaKeyV130(el,event){
+  if(event&&event.key==='Enter'){
+    event.preventDefault();
+    event.stopPropagation();
+    previewCustomerAreaV130(el.value);
+    return false;
+  }
+  return true;
+}
+
+function moduleRegionOptions(selected){
+  let regs=regionVisibleListV130();
+  return `<option value="">${lang==='ar'?'اختر المنطقة':'Choose region'}</option>${regs.map(r=>`<option value="${r.id}" ${r.id===selected?'selected':''}>${esc(regionName(r))}</option>`).join('')}`;
+}
 function regionEntityFields(table){return table==='customers'?[['name','name'],['type','type'],['phone','phone'],['area','area'],['address','address'],['balance','balance',1],['notes','notes']]:[['name','name'],['phone','phone'],['area','area'],['target','target',1],['notes','notes']]}
 function regionEntityPage(table,title){
   let fields=regionEntityFields(table);
   let form=fields.map(f=>{
     let extra='';
-    if(table==='customers'&&f[0]==='area')extra=' oninput="previewCustomerAreaV129(this.value)" onkeydown="return customerAreaKeyV129(this,event)" onchange="commitCustomerAreaV129()" onblur="commitCustomerAreaV129()"';
+    if(table==='customers'&&f[0]==='area')extra=' oninput="previewCustomerAreaV130(this.value)" onkeydown="return customerAreaKeyV130(this,event)" onchange="previewCustomerAreaV130(this.value)"';
     return `<div><label>${T(f[1])}</label><input id="${table}_${f[0]}" ${f[2]?'type="number"':''}${extra}></div>`;
   }).join('');
-  let regionField=`<div><label>${lang==='ar'?'المنطقة الرئيسية':'Main region'}</label><select id="${table}_region_id" onmousedown="commitCustomerAreaV129()" onfocus="commitCustomerAreaV129()">${moduleRegionOptions('')}</select></div>`;
+  let regionField=`<div><label>${lang==='ar'?'المنطقة الرئيسية':'Main region'}</label><select id="${table}_region_id">${moduleRegionOptions('')}</select></div>`;
   let rows=db[table].length?`<table><tr>${fields.map(f=>`<th>${T(f[1])}</th>`).join('')}<th>${lang==='ar'?'المنطقة':'Region'}</th><th></th></tr>${db[table].map(row=>`<tr>${fields.map(f=>`<td><input ${f[2]?'type="number"':''} value="${esc(row[f[0]]||'')}" onchange="editCell('${table}','${row.id}','${f[0]}',this.value,${!!f[2]})"></td>`).join('')}<td><select onchange="setModuleEntityRegion('${table}','${row.id}',this.value)">${moduleRegionOptions(entityRegionId(row))}</select></td><td><button class="btn small danger" onclick="del('${table}','${row.id}')">${T('delete')}</button></td></tr>`).join('')}</table>`:`<div class="empty">${T('empty')}</div>`;
   return `<div class="card"><h3>${title}</h3><div class="grid grid4">${form}${regionField}<div style="display:flex;align-items:end"><button class="btn ok" onclick="addRegionEntity('${table}')">${T('add')}</button></div></div></div><div class="card"><h3>${T(table)}</h3>${rows}</div>`;
 }
@@ -2929,9 +3000,17 @@ function addRegionEntity(table){
   ['balance','target'].forEach(f=>{if(row[f]!==undefined)row[f]=n(row[f])});
   if(table==='customers'&&row.area){
     let r=createRegionFromAreaV112(row.area);
-    if(r){row.region_id=r.id;row.region_name=regionName(r);let sel=document.getElementById(table+'_region_id');if(sel){sel.innerHTML=moduleRegionOptions(r.id);sel.value=r.id}}
+    if(r){
+      row.region_id=r.id;
+      row.region_name=regionName(r);
+      let sel=document.getElementById(table+'_region_id');
+      if(sel){sel.innerHTML=moduleRegionOptions(r.id);sel.value=r.id}
+    }
   }
-  if(!row.region_id)row.region_id=document.getElementById(table+'_region_id').value;
+  if(!row.region_id){
+    let sel=document.getElementById(table+'_region_id');
+    row.region_id=sel&&sel.value&&sel.value.indexOf('__pending')!==0?sel.value:'';
+  }
   if(!row.name)return alert(T('name'));
   db[table].unshift(row);syncCustomerAreasToRegionsV112();render();
 }
@@ -7191,147 +7270,4 @@ html body .doc-total{
 })();
 </script>
 
-
-<script id="v129-region-dropdown-persist">
-(function(){
-  function clean(v){return String(v||'').replace(/\s+/g,' ').trim();}
-  function makeKey(v){
-    if(typeof regionTextKeyV112==='function')return regionTextKeyV112(v);
-    return clean(v).toLowerCase()
-      .replace(/[أإآا]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي')
-      .replace(/[ؤ]/g,'و').replace(/[ئ]/g,'ي')
-      .replace(/[\u064B-\u065F]/g,'')
-      .replace(/[^\w\u0600-\u06FF]+/g,'');
-  }
-
-  window.pendingCustomerAreaV129='';
-
-  function regionOptionExists(select, area){
-    var kk=makeKey(area);
-    return Array.from(select.options).some(function(o){
-      return makeKey(o.textContent||o.innerText||'')===kk;
-    });
-  }
-
-  function selectOptionByText(select, area){
-    var kk=makeKey(area);
-    Array.from(select.options).forEach(function(o){
-      if(makeKey(o.textContent||o.innerText||'')===kk){
-        o.selected=true;
-        select.value=o.value;
-      }
-    });
-  }
-
-  window.previewCustomerAreaV129=function(v){
-    var area=clean(v);
-    var select=document.getElementById('customers_region_id');
-    window.pendingCustomerAreaV129=area;
-    if(!select || !area)return;
-
-    if(!regionOptionExists(select,area)){
-      var opt=document.createElement('option');
-      opt.value='__pending_area_v129__';
-      opt.textContent=area;
-      opt.selected=true;
-      select.appendChild(opt);
-      select.value='__pending_area_v129__';
-    }else{
-      selectOptionByText(select,area);
-    }
-  };
-
-  window.commitCustomerAreaV129=function(){
-    var areaEl=document.getElementById('customers_area');
-    var select=document.getElementById('customers_region_id');
-    var area=clean((areaEl&&areaEl.value)||window.pendingCustomerAreaV129||'');
-    if(!area || !select)return null;
-
-    var r=null;
-    if(typeof createRegionFromAreaV112==='function'){
-      r=createRegionFromAreaV112(area);
-    }
-
-    if(typeof syncCustomerAreasToRegionsV112==='function'){
-      syncCustomerAreasToRegionsV112();
-    }
-
-    if(r && typeof moduleRegionOptions==='function'){
-      select.innerHTML=moduleRegionOptions(r.id);
-      select.value=r.id;
-    }else{
-      previewCustomerAreaV129(area);
-    }
-
-    if(typeof save==='function')save();
-    return r;
-  };
-
-  // أثناء الكتابة: عرض مؤقت فقط. لا حفظ حروف داخل الداتا.
-  window.customerAreaTypedV112=function(v){
-    previewCustomerAreaV129(v);
-  };
-
-  window.customerAreaKeyV129=function(el,event){
-    if(event && event.key==='Enter'){
-      event.preventDefault();
-      event.stopPropagation();
-      commitCustomerAreaV129();
-      if(el&&el.blur)el.blur();
-      return false;
-    }
-    return true;
-  };
-
-  // قبل فتح قائمة المنطقة الرئيسية: ثبت الاسم المكتوب في الداتا حتى لا يختفي
-  function beforeOpenSelect(e){
-    var select=e.target && e.target.closest && e.target.closest('#customers_region_id');
-    if(!select)return;
-    commitCustomerAreaV129();
-  }
-  document.addEventListener('pointerdown',beforeOpenSelect,true);
-  document.addEventListener('mousedown',beforeOpenSelect,true);
-  document.addEventListener('focusin',function(e){
-    if(e.target && e.target.id==='customers_region_id')commitCustomerAreaV129();
-  },true);
-
-  var oldAddRegionEntityV129=window.addRegionEntity;
-  if(typeof oldAddRegionEntityV129==='function'){
-    window.addRegionEntity=function(table){
-      if(table==='customers')commitCustomerAreaV129();
-      return oldAddRegionEntityV129.apply(this,arguments);
-    };
-  }
-
-  function patchInputs(){
-    var area=document.getElementById('customers_area');
-    if(area){
-      area.removeAttribute('oninput');
-      area.setAttribute('oninput','previewCustomerAreaV129(this.value)');
-      area.setAttribute('onkeydown','return customerAreaKeyV129(this,event)');
-      area.setAttribute('onchange','commitCustomerAreaV129()');
-      area.setAttribute('onblur','commitCustomerAreaV129()');
-    }
-    var sel=document.getElementById('customers_region_id');
-    if(sel){
-      sel.setAttribute('onmousedown','commitCustomerAreaV129()');
-      sel.setAttribute('onfocus','commitCustomerAreaV129()');
-    }
-  }
-
-  var oldRenderCustomersV129=window.renderCustomers;
-  if(typeof oldRenderCustomersV129==='function'){
-    window.renderCustomers=function(){
-      var r=oldRenderCustomersV129.apply(this,arguments);
-      setTimeout(patchInputs,50);
-      return r;
-    };
-  }
-
-  document.addEventListener('DOMContentLoaded',function(){
-    setTimeout(patchInputs,150);
-  });
-})();
-</script>
-
-<!-- v129 typed area persists in main region dropdown -->
+<!-- v130: pending region preview only; real save on Add; filtered old partial regions -->
