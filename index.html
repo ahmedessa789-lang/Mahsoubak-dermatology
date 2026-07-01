@@ -2916,7 +2916,7 @@ function regionEntityPage(table,title){
   let fields=regionEntityFields(table);
   let form=fields.map(f=>{
     let extra='';
-    if(table==='customers'&&f[0]==='area')extra=' onkeydown="return customerAreaEnterCommitV122(this,event)" onchange="customerAreaTypedV112(this.value)"';
+    if(table==='customers'&&f[0]==='area')extra=' onkeydown="return customerAreaCommitOnEnterV125(this,event)" onchange="customerAreaTypedV112(this.value)"';
     return `<div><label>${T(f[1])}</label><input id="${table}_${f[0]}" ${f[2]?'type="number"':''}${extra}></div>`;
   }).join('');
   let regionField=`<div><label>${lang==='ar'?'المنطقة الرئيسية':'Main region'}</label><select id="${table}_region_id">${moduleRegionOptions('')}</select></div>`;
@@ -4722,6 +4722,24 @@ render();
   setTimeout(function(){try{if(typeof window.updateNotificationsV61==='function') window.updateNotificationsV61()}catch(e){}},250);
 })();
 </script>
+
+<script id="v125-minimal-enter-area-only">
+(function(){
+  window.customerAreaCommitOnEnterV125 = function(el,event){
+    if(event && event.key !== 'Enter') return true;
+    if(event){
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    if(typeof customerAreaTypedV112 === 'function'){
+      customerAreaTypedV112(el.value);
+    }
+    if(el && el.blur) el.blur();
+    return false;
+  };
+})();
+</script>
+
 </body>
 </html>
 
@@ -7188,164 +7206,5 @@ html body .doc-total{
       return res;
     };
   }
-})();
-</script>
-
-
-<script id="v123-auto-clean-regions-and-enter-only">
-(function(){
-  function clean(v){return String(v||'').replace(/\s+/g,' ').trim();}
-  function key(v){
-    return clean(v).toLowerCase()
-      .replace(/[أإآا]/g,'ا')
-      .replace(/ة/g,'ه')
-      .replace(/ى/g,'ي')
-      .replace(/[ؤ]/g,'و')
-      .replace(/[ئ]/g,'ي')
-      .replace(/[\u064B-\u065F]/g,'')
-      .replace(/[^\w\u0600-\u06FF]+/g,'');
-  }
-  function regionNameV123(r){
-    return clean(r && (r.customer_area || r.name_ar || r.name_en || r.name || r.area || ''));
-  }
-  function customerAreaV123(c){
-    return clean(c && (c.area || c.region_name || c.region || c.zone || ''));
-  }
-  function cleanupRegionsV123(){
-    if(!window.db || !Array.isArray(db.regions)) return false;
-    if(!Array.isArray(db.customers)) db.customers = [];
-    var before = JSON.stringify(db.regions.map(function(r){return [r.id, regionNameV123(r), r.source, r.x, r.y];}));
-
-    var customerAreaKeys = {};
-    db.customers.forEach(function(c){
-      var a = customerAreaV123(c);
-      var k = key(a);
-      if(k) customerAreaKeys[k] = a;
-    });
-
-    var seen = {};
-    var filtered = [];
-
-    (db.regions || []).forEach(function(r){
-      var name = regionNameV123(r);
-      var k = key(name);
-      if(!k) return;
-
-      var dynamic = String(r.id || '').indexOf('cust_area_') === 0 || r.source === 'customers';
-
-      if(dynamic && !customerAreaKeys[k]) return;
-      if(seen[k]) return;
-      seen[k] = true;
-
-      if(dynamic && customerAreaKeys[k]){
-        r.customer_area = customerAreaKeys[k];
-        r.name_ar = customerAreaKeys[k];
-        r.name_en = customerAreaKeys[k];
-        r.source = 'customers';
-      }
-
-      filtered.push(r);
-    });
-
-    db.regions = filtered;
-
-    db.customers.forEach(function(c){
-      var a = customerAreaV123(c);
-      var k = key(a);
-      if(!k) return;
-      var r = db.regions.find(function(x){ return key(regionNameV123(x)) === k; });
-      if(r){
-        c.region_id = r.id;
-        c.region_name = (window.lang === 'ar' ? (r.name_ar || a) : (r.name_en || a));
-      }
-    });
-
-    try{ if(typeof distributeRegionsV112 === 'function') distributeRegionsV112(); }catch(e){}
-
-    var after = JSON.stringify(db.regions.map(function(r){return [r.id, regionNameV123(r), r.source, r.x, r.y];}));
-    var changed = before !== after;
-
-    if(changed && typeof save === 'function') save();
-    return changed;
-  }
-
-  window.customerAreaTypedV112 = function(v){
-    var area = clean(v);
-    var select = document.getElementById('customers_region_id');
-    if(!area){
-      if(select && typeof moduleRegionOptions === 'function') select.innerHTML = moduleRegionOptions(select.value || '');
-      return;
-    }
-    var r = null;
-    if(typeof createRegionFromAreaV112 === 'function') r = createRegionFromAreaV112(area);
-    if(typeof syncCustomerAreasToRegionsV112 === 'function') syncCustomerAreasToRegionsV112();
-    cleanupRegionsV123();
-    if(select && r && typeof moduleRegionOptions === 'function'){
-      select.innerHTML = moduleRegionOptions(r.id);
-      select.value = r.id;
-    }
-    if(typeof save === 'function') save();
-  };
-
-  window.customerAreaEnterCommitV122 = function(el,event){
-    if(event && event.key !== 'Enter') return;
-    if(event){
-      event.preventDefault();
-      event.stopPropagation();
-    }
-    customerAreaTypedV112(el.value);
-    if(el && el.blur) el.blur();
-    return false;
-  };
-
-  function patchAreaInputsV123(){
-    try{
-      var area = document.getElementById('customers_area');
-      if(area){
-        area.removeAttribute('oninput');
-        area.setAttribute('onkeydown','return customerAreaEnterCommitV122(this,event)');
-        area.setAttribute('onchange','customerAreaTypedV112(this.value)');
-      }
-    }catch(e){}
-  }
-
-  var oldRenderV123 = window.render;
-  if(typeof oldRenderV123 === 'function'){
-    window.render = function(){
-      var r = oldRenderV123.apply(this, arguments);
-      setTimeout(function(){cleanupRegionsV123(); patchAreaInputsV123();}, 80);
-      return r;
-    };
-  }
-
-  var oldRenderCustomersV123 = window.renderCustomers;
-  if(typeof oldRenderCustomersV123 === 'function'){
-    window.renderCustomers = function(){
-      var r = oldRenderCustomersV123.apply(this, arguments);
-      setTimeout(patchAreaInputsV123, 60);
-      return r;
-    };
-  }
-
-  var oldRenderRegionsV123 = window.renderRegions;
-  if(typeof oldRenderRegionsV123 === 'function'){
-    window.renderRegions = function(){
-      cleanupRegionsV123();
-      return oldRenderRegionsV123.apply(this, arguments);
-    };
-  }
-
-  document.addEventListener('DOMContentLoaded', function(){
-    var runs = 0;
-    var timer = setInterval(function(){
-      runs++;
-      var changed = cleanupRegionsV123();
-      patchAreaInputsV123();
-      if(changed && typeof render === 'function') setTimeout(render, 50);
-      if(runs >= 8) clearInterval(timer);
-    }, 800);
-  });
-
-  window.cleanupRegionsV123 = cleanupRegionsV123;
 })();
 </script>
