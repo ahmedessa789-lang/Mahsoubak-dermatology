@@ -2916,10 +2916,10 @@ function regionEntityPage(table,title){
   let fields=regionEntityFields(table);
   let form=fields.map(f=>{
     let extra='';
-    if(table==='customers'&&f[0]==='area')extra=' oninput="previewCustomerAreaV128(this.value)" onkeydown="return customerAreaCommitV128(this,event)" onchange="previewCustomerAreaV128(this.value)"';
+    if(table==='customers'&&f[0]==='area')extra=' oninput="previewCustomerAreaV129(this.value)" onkeydown="return customerAreaKeyV129(this,event)" onchange="commitCustomerAreaV129()" onblur="commitCustomerAreaV129()"';
     return `<div><label>${T(f[1])}</label><input id="${table}_${f[0]}" ${f[2]?'type="number"':''}${extra}></div>`;
   }).join('');
-  let regionField=`<div><label>${lang==='ar'?'المنطقة الرئيسية':'Main region'}</label><select id="${table}_region_id">${moduleRegionOptions('')}</select></div>`;
+  let regionField=`<div><label>${lang==='ar'?'المنطقة الرئيسية':'Main region'}</label><select id="${table}_region_id" onmousedown="commitCustomerAreaV129()" onfocus="commitCustomerAreaV129()">${moduleRegionOptions('')}</select></div>`;
   let rows=db[table].length?`<table><tr>${fields.map(f=>`<th>${T(f[1])}</th>`).join('')}<th>${lang==='ar'?'المنطقة':'Region'}</th><th></th></tr>${db[table].map(row=>`<tr>${fields.map(f=>`<td><input ${f[2]?'type="number"':''} value="${esc(row[f[0]]||'')}" onchange="editCell('${table}','${row.id}','${f[0]}',this.value,${!!f[2]})"></td>`).join('')}<td><select onchange="setModuleEntityRegion('${table}','${row.id}',this.value)">${moduleRegionOptions(entityRegionId(row))}</select></td><td><button class="btn small danger" onclick="del('${table}','${row.id}')">${T('delete')}</button></td></tr>`).join('')}</table>`:`<div class="empty">${T('empty')}</div>`;
   return `<div class="card"><h3>${title}</h3><div class="grid grid4">${form}${regionField}<div style="display:flex;align-items:end"><button class="btn ok" onclick="addRegionEntity('${table}')">${T('add')}</button></div></div></div><div class="card"><h3>${T(table)}</h3>${rows}</div>`;
 }
@@ -7192,112 +7192,146 @@ html body .doc-total{
 </script>
 
 
-<script id="v128-preview-area-dropdown">
+<script id="v129-region-dropdown-persist">
 (function(){
   function clean(v){return String(v||'').replace(/\s+/g,' ').trim();}
-  function key(v){
+  function makeKey(v){
     if(typeof regionTextKeyV112==='function')return regionTextKeyV112(v);
-    return clean(v).toLowerCase().replace(/[أإآا]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/[^\w\u0600-\u06FF]+/g,'');
+    return clean(v).toLowerCase()
+      .replace(/[أإآا]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي')
+      .replace(/[ؤ]/g,'و').replace(/[ئ]/g,'ي')
+      .replace(/[\u064B-\u065F]/g,'')
+      .replace(/[^\w\u0600-\u06FF]+/g,'');
   }
-  function title(r){
-    if(typeof regionTitleV112==='function')return regionTitleV112(r);
-    return clean(r&&(r.customer_area||r.name_ar||r.name_en||r.name||r.area||''));
+
+  window.pendingCustomerAreaV129='';
+
+  function regionOptionExists(select, area){
+    var kk=makeKey(area);
+    return Array.from(select.options).some(function(o){
+      return makeKey(o.textContent||o.innerText||'')===kk;
+    });
   }
-  function optionText(r){
-    return (typeof regionName==='function') ? regionName(r) : title(r);
+
+  function selectOptionByText(select, area){
+    var kk=makeKey(area);
+    Array.from(select.options).forEach(function(o){
+      if(makeKey(o.textContent||o.innerText||'')===kk){
+        o.selected=true;
+        select.value=o.value;
+      }
+    });
   }
-  window.previewCustomerAreaV128=function(v){
+
+  window.previewCustomerAreaV129=function(v){
     var area=clean(v);
     var select=document.getElementById('customers_region_id');
-    if(!select || typeof moduleRegionOptions!=='function')return;
+    window.pendingCustomerAreaV129=area;
+    if(!select || !area)return;
 
-    // رجّع القائمة الطبيعية الأول
-    var current=select.value||'';
-    select.innerHTML=moduleRegionOptions(current);
-
-    if(!area)return;
-
-    var areaKey=key(area);
-    var exists=false;
-    Array.from(select.options).forEach(function(o){
-      if(key(o.textContent||o.innerText||'')===areaKey)exists=true;
-    });
-
-    if(!exists){
+    if(!regionOptionExists(select,area)){
       var opt=document.createElement('option');
-      opt.value='__pending_area_v128__';
+      opt.value='__pending_area_v129__';
       opt.textContent=area;
       opt.selected=true;
       select.appendChild(opt);
-      select.value='__pending_area_v128__';
+      select.value='__pending_area_v129__';
     }else{
-      Array.from(select.options).forEach(function(o){
-        if(key(o.textContent||o.innerText||'')===areaKey){
-          o.selected=true;
-          select.value=o.value;
-        }
-      });
+      selectOptionByText(select,area);
     }
   };
 
-  // لا تضيف المنطقة في الداتا أثناء الكتابة. اعرضها فقط في القائمة.
-  window.customerAreaTypedV112=function(v){
-    previewCustomerAreaV128(v);
+  window.commitCustomerAreaV129=function(){
+    var areaEl=document.getElementById('customers_area');
+    var select=document.getElementById('customers_region_id');
+    var area=clean((areaEl&&areaEl.value)||window.pendingCustomerAreaV129||'');
+    if(!area || !select)return null;
+
+    var r=null;
+    if(typeof createRegionFromAreaV112==='function'){
+      r=createRegionFromAreaV112(area);
+    }
+
+    if(typeof syncCustomerAreasToRegionsV112==='function'){
+      syncCustomerAreasToRegionsV112();
+    }
+
+    if(r && typeof moduleRegionOptions==='function'){
+      select.innerHTML=moduleRegionOptions(r.id);
+      select.value=r.id;
+    }else{
+      previewCustomerAreaV129(area);
+    }
+
+    if(typeof save==='function')save();
+    return r;
   };
 
-  window.customerAreaCommitV128=function(el,event){
+  // أثناء الكتابة: عرض مؤقت فقط. لا حفظ حروف داخل الداتا.
+  window.customerAreaTypedV112=function(v){
+    previewCustomerAreaV129(v);
+  };
+
+  window.customerAreaKeyV129=function(el,event){
     if(event && event.key==='Enter'){
       event.preventDefault();
       event.stopPropagation();
-      previewCustomerAreaV128(el.value);
+      commitCustomerAreaV129();
       if(el&&el.blur)el.blur();
       return false;
     }
     return true;
   };
 
-  var oldAddRegionEntityV128=window.addRegionEntity;
-  if(typeof oldAddRegionEntityV128==='function'){
+  // قبل فتح قائمة المنطقة الرئيسية: ثبت الاسم المكتوب في الداتا حتى لا يختفي
+  function beforeOpenSelect(e){
+    var select=e.target && e.target.closest && e.target.closest('#customers_region_id');
+    if(!select)return;
+    commitCustomerAreaV129();
+  }
+  document.addEventListener('pointerdown',beforeOpenSelect,true);
+  document.addEventListener('mousedown',beforeOpenSelect,true);
+  document.addEventListener('focusin',function(e){
+    if(e.target && e.target.id==='customers_region_id')commitCustomerAreaV129();
+  },true);
+
+  var oldAddRegionEntityV129=window.addRegionEntity;
+  if(typeof oldAddRegionEntityV129==='function'){
     window.addRegionEntity=function(table){
-      if(table==='customers'){
-        var areaEl=document.getElementById('customers_area');
-        var sel=document.getElementById('customers_region_id');
-        var area=areaEl?clean(areaEl.value):'';
-        if(area && typeof createRegionFromAreaV112==='function'){
-          var r=createRegionFromAreaV112(area);
-          if(r && sel){
-            sel.innerHTML=moduleRegionOptions(r.id);
-            sel.value=r.id;
-          }
-          if(typeof save==='function')save();
-        }
-      }
-      return oldAddRegionEntityV128.apply(this,arguments);
+      if(table==='customers')commitCustomerAreaV129();
+      return oldAddRegionEntityV129.apply(this,arguments);
     };
   }
 
-  function patchAreaInput(){
+  function patchInputs(){
     var area=document.getElementById('customers_area');
-    if(!area)return;
-    area.removeAttribute('oninput');
-    area.setAttribute('oninput','previewCustomerAreaV128(this.value)');
-    area.setAttribute('onkeydown','return customerAreaCommitV128(this,event)');
-    area.setAttribute('onchange','previewCustomerAreaV128(this.value)');
+    if(area){
+      area.removeAttribute('oninput');
+      area.setAttribute('oninput','previewCustomerAreaV129(this.value)');
+      area.setAttribute('onkeydown','return customerAreaKeyV129(this,event)');
+      area.setAttribute('onchange','commitCustomerAreaV129()');
+      area.setAttribute('onblur','commitCustomerAreaV129()');
+    }
+    var sel=document.getElementById('customers_region_id');
+    if(sel){
+      sel.setAttribute('onmousedown','commitCustomerAreaV129()');
+      sel.setAttribute('onfocus','commitCustomerAreaV129()');
+    }
   }
 
-  var oldRenderCustomersV128=window.renderCustomers;
-  if(typeof oldRenderCustomersV128==='function'){
+  var oldRenderCustomersV129=window.renderCustomers;
+  if(typeof oldRenderCustomersV129==='function'){
     window.renderCustomers=function(){
-      var r=oldRenderCustomersV128.apply(this,arguments);
-      setTimeout(patchAreaInput,50);
+      var r=oldRenderCustomersV129.apply(this,arguments);
+      setTimeout(patchInputs,50);
       return r;
     };
   }
 
   document.addEventListener('DOMContentLoaded',function(){
-    setTimeout(patchAreaInput,150);
+    setTimeout(patchInputs,150);
   });
 })();
 </script>
 
-<!-- v128 preview typed area in main region dropdown without saving partial letters -->
+<!-- v129 typed area persists in main region dropdown -->
