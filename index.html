@@ -8415,3 +8415,68 @@ html body .pending-orders-head-v154{
 </style>
 <!-- v157 fixed pending popup close and decision history popup -->
 
+
+
+<script id="v158-restore-sales-effects">
+(function(){
+  function canApproveV158(){
+    try{
+      if(typeof canDecideSalesOrder==='function')return !!canDecideSalesOrder();
+      if(typeof isSalesManager==='function')return !!isSalesManager();
+    }catch(e){}
+    return false;
+  }
+
+  window.approveSalesOrder=function(id){
+    try{if(typeof ensureSalesOrders==='function')ensureSalesOrders()}catch(e){}
+    let order=(db.sales_orders||[]).find(x=>x.id===id);
+    if(!order||order.status!=='pending')return;
+    if(!canApproveV158()){
+      if(typeof permissionAlert==='function')return permissionAlert();
+      return alert(lang==='ar'?'لا توجد صلاحية للموافقة':'No approval permission');
+    }
+
+    let ok=false;
+    if(typeof createApprovedSaleFromOrder==='function'){
+      ok=createApprovedSaleFromOrder(order);
+    }
+
+    if(!ok)return;
+
+    order.operation_status='pending_dispatch';
+
+    if(typeof save==='function')save();
+    if(typeof closePendingOrdersPopupV154==='function')closePendingOrdersPopupV154();
+    if(typeof render==='function')render();
+
+    alert(lang==='ar'
+      ?'تم اعتماد الفاتورة: تم تحديث مديونية العميل والمخزون وتارجت البياع'
+      :'Invoice approved: customer debt, inventory, and sales target were updated');
+  };
+
+  window.rejectSalesOrder=function(id){
+    try{if(typeof ensureSalesOrders==='function')ensureSalesOrders()}catch(e){}
+    let order=(db.sales_orders||[]).find(x=>x.id===id);
+    if(!order||order.status!=='pending')return;
+    if(!canApproveV158()){
+      if(typeof permissionAlert==='function')return permissionAlert();
+      return alert(lang==='ar'?'لا توجد صلاحية للرفض':'No rejection permission');
+    }
+
+    order.status='rejected';
+    order.approval_status='rejected';
+    order.operation_status='rejected';
+    order.rejected_by=(typeof currentUser==='function'?(currentUser()||{}).name:'')||'Manager';
+    order.rejected_date=typeof today==='function'?today():new Date().toISOString().slice(0,10);
+
+    if(typeof save==='function')save();
+    if(typeof closePendingOrdersPopupV154==='function')closePendingOrdersPopupV154();
+    if(typeof render==='function')render();
+  };
+
+  try{approveSalesOrder=window.approveSalesOrder}catch(e){}
+  try{rejectSalesOrder=window.rejectSalesOrder}catch(e){}
+})();
+</script>
+<!-- v158 approval creates sale and updates debt stock rep target -->
+
