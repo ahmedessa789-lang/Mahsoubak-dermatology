@@ -7386,3 +7386,363 @@ html body .doc-total{
 <!-- v132 area saved on exit/enter and stays in main region; old partials hidden -->
 
 <!-- v135 direct core finance cash currency; visible inside renderAccounts -->
+
+
+<script id="v150-multi-invoice-preserve-region">
+(function(){
+  window.salesInvoiceDraftV150 = window.salesInvoiceDraftV150 || [];
+
+  function orderTypeLabelV150(v){
+    return ({sale:'بيع',bonus:'بونص',display:'للعرض'}[v]||'بيع');
+  }
+  function lineTotalV150(line){
+    return line.order_type==='sale' ? n(line.qty)*n(line.price) : 0;
+  }
+  function draftTotalV150(){
+    return salesInvoiceDraftV150.reduce((sum,line)=>sum+lineTotalV150(line),0);
+  }
+  function draftTableV150(){
+    if(!salesInvoiceDraftV150.length){
+      return `<div class="empty">${lang==='ar'?'لم يتم إضافة منتجات للفاتورة بعد':'No products added yet'}</div>`;
+    }
+    return `<table class="invoice-draft-v150"><tr>
+      <th>${T('product')}</th>
+      <th>${lang==='ar'?'نوع الأوردر':'Order type'}</th>
+      <th>${T('qty')}</th>
+      <th>${T('price')}</th>
+      <th>${T('total')}</th>
+      <th></th>
+    </tr>${salesInvoiceDraftV150.map(line=>`<tr>
+      <td>${esc(line.product_name)}</td>
+      <td><span class="badge ${line.order_type==='sale'?'blue':'warn'}">${esc(orderTypeLabelV150(line.order_type))}</span></td>
+      <td>${n(line.qty)}</td>
+      <td>${money(line.order_type==='sale'?line.price:0)}</td>
+      <td><b>${money(lineTotalV150(line))}</b></td>
+      <td><button class="btn small danger" onclick="removeInvoiceLineV150('${line.line_id}')">${T('delete')}</button></td>
+    </tr>`).join('')}</table>`;
+  }
+
+  function orderTypeOptionsV150(){
+    return `<option value="sale">بيع</option><option value="bonus">بونص</option><option value="display">للعرض</option>`;
+  }
+
+  window.saleInfoMultiV150=function(){
+    let p=db.products.find(x=>x.id===(document.getElementById('sa_product')||{}).value);
+    let type=(document.getElementById('sa_order_type')||{}).value||'sale';
+    let price=document.getElementById('sa_price');
+    let hint=document.getElementById('sale_hint');
+    if(!p)return;
+    if(price){
+      price.value=type==='sale'?n(p.sale):0;
+      price.readOnly=type!=='sale';
+    }
+    if(hint){
+      let st=expiryStatus(p);
+      hint.innerHTML=`${T('availableQty')}: <b>${n(p.stock)}</b> | ${T('expiry')}: ${esc(p.expiry||'-')} | ${T('status')}: ${st.label}`;
+    }
+  };
+
+  window.addInvoiceLineV150=function(){
+    let p=db.products.find(x=>x.id===(document.getElementById('sa_product')||{}).value);
+    let qty=n((document.getElementById('sa_qty')||{}).value);
+    let type=(document.getElementById('sa_order_type')||{}).value||'sale';
+    let price=type==='sale'?n((document.getElementById('sa_price')||{}).value||p?.sale):0;
+    if(!p)return alert(T('product'));
+    if(qty<=0)return alert(T('qty'));
+
+    let old=salesInvoiceDraftV150.find(x=>x.product_id===p.id&&x.order_type===type&&n(x.price)===price);
+    if(old) old.qty=n(old.qty)+qty;
+    else salesInvoiceDraftV150.push({
+      line_id:uid(),
+      product_id:p.id,
+      product_name:p.name,
+      product_expiry:p.expiry||'',
+      qty,
+      price,
+      order_type:type
+    });
+    renderSales();
+  };
+
+  window.removeInvoiceLineV150=function(id){
+    salesInvoiceDraftV150=salesInvoiceDraftV150.filter(x=>x.line_id!==id);
+    renderSales();
+  };
+
+  window.clearInvoiceDraftV150=function(){
+    salesInvoiceDraftV150=[];
+    renderSales();
+  };
+
+  function replaceSalesEntryCardV150(){
+    let view=document.getElementById('view-sales');
+    if(!view)return;
+    let card=view.querySelector('.card');
+    if(!card)return;
+
+    card.innerHTML=`
+      <h3>${lang==='ar'?'فاتورة بيع متعددة المنتجات':'Multi-product sales invoice'}</h3>
+
+      <div class="grid grid4">
+        <div>
+          <label>${T('customer')}</label>
+          <select id="sa_customer" onchange="updateLinkedRegion('sa')">${options(db.customers)}</select>
+        </div>
+        ${typeof linkedRegionField==='function'?linkedRegionField('sa'):''}
+        <div>
+          <label>${T('rep')}</label>
+          <select id="sa_rep">${options(db.reps)}</select>
+        </div>
+        <div>
+          <label>${T('paid')}</label>
+          <input id="sa_paid" type="number" value="0">
+        </div>
+      </div>
+
+      <div class="grid grid5" style="margin-top:14px">
+        <div>
+          <label>${T('product')}</label>
+          <select id="sa_product" onchange="saleInfoMultiV150()">${options(db.products)}</select>
+          <div id="sale_hint" class="hint"></div>
+        </div>
+        <div>
+          <label>${lang==='ar'?'نوع الأوردر':'Order type'}</label>
+          <select id="sa_order_type" onchange="saleInfoMultiV150()">${orderTypeOptionsV150()}</select>
+        </div>
+        <div>
+          <label>${T('qty')}</label>
+          <input id="sa_qty" type="number">
+        </div>
+        <div>
+          <label>${T('price')}</label>
+          <input id="sa_price" type="number">
+        </div>
+        <div style="display:flex;align-items:end">
+          <button class="btn blue" style="width:100%" onclick="addInvoiceLineV150()">${lang==='ar'?'إضافة المنتج للفاتورة':'Add item'}</button>
+        </div>
+      </div>
+
+      <div style="margin-top:16px">${draftTableV150()}</div>
+
+      <div class="section-title" style="margin-top:14px">
+        <h3 style="margin:0">${lang==='ar'?'إجمالي الفاتورة':'Invoice total'}: ${money(draftTotalV150())}</h3>
+        <div class="actions">
+          <button class="btn secondary" onclick="clearInvoiceDraftV150()">${lang==='ar'?'مسح الفاتورة الحالية':'Clear draft'}</button>
+          <button class="btn ok" onclick="saveMultiInvoiceV150()">${lang==='ar'?'حفظ الفاتورة / الأوردر':'Save invoice / order'}</button>
+        </div>
+      </div>`;
+
+    setTimeout(function(){
+      if(typeof updateLinkedRegion==='function')updateLinkedRegion('sa');
+      saleInfoMultiV150();
+    },10);
+  }
+
+  const renderSalesOriginalV150=window.renderSales || (typeof renderSales==='function'?renderSales:null);
+  window.renderSales=function(){
+    let r=renderSalesOriginalV150.apply(this,arguments);
+    replaceSalesEntryCardV150();
+    return r;
+  };
+  try{renderSales=window.renderSales}catch(e){}
+
+  window.saveMultiInvoiceV150=function(){
+    let c=db.customers.find(x=>x.id===(document.getElementById('sa_customer')||{}).value);
+    let r=db.reps.find(x=>x.id===(document.getElementById('sa_rep')||{}).value);
+    let paidTotal=n((document.getElementById('sa_paid')||{}).value);
+    if(!c)return alert(T('customer'));
+    if(!salesInvoiceDraftV150.length)return alert(lang==='ar'?'أضف منتج واحد على الأقل':'Add at least one product');
+
+    let required={};
+    salesInvoiceDraftV150.forEach(line=>required[line.product_id]=(required[line.product_id]||0)+n(line.qty));
+    for(let pid in required){
+      let p=db.products.find(x=>x.id===pid);
+      if(!p)return alert(T('product'));
+      if(required[pid]>n(p.stock)&&!confirm((lang==='ar'?'الكمية المطلوبة أكبر من مخزون ':'Requested quantity exceeds stock for ')+p.name+'. '+(lang==='ar'?'تكمل؟':'Continue?')))return;
+    }
+
+    let region=typeof customerRegionSnapshot==='function'?customerRegionSnapshot(c):{id:'',name:c.area||''};
+    let groupId='INV_'+uid();
+    let invoiceTotal=draftTotalV150();
+    if(paidTotal>invoiceTotal)paidTotal=invoiceTotal;
+    let paidLeft=paidTotal;
+    let u=(typeof currentUser==='function'?currentUser():null)||{};
+
+    if(typeof isSalesManager==='function'&&isSalesManager()){
+      let totalCost=0,totalRemaining=0;
+      salesInvoiceDraftV150.forEach(line=>{
+        let p=db.products.find(x=>x.id===line.product_id);
+        let total=lineTotalV150(line);
+        let paid=Math.min(paidLeft,total);
+        paidLeft-=paid;
+        let remaining=total-paid;
+        let cost=n(p.purchase)*n(line.qty);
+        totalCost+=cost;
+        totalRemaining+=remaining;
+        db.sales.unshift({
+          id:uid(),
+          invoice_group_id:groupId,
+          date:today(),
+          customer_id:c.id,
+          customer_name:c.name,
+          region_id:region.id||'',
+          region_name:region.name||'',
+          rep_id:r?r.id:'',
+          rep_name:r?r.name:'',
+          product_id:p.id,
+          product_name:p.name,
+          product_expiry:p.expiry||'',
+          qty:n(line.qty),
+          price:line.order_type==='sale'?n(line.price):0,
+          total,
+          paid,
+          remaining,
+          order_type:line.order_type,
+          order_type_label:orderTypeLabelV150(line.order_type),
+          approval_status:'approved',
+          approved_by:u.name||'',
+          approved_date:today()
+        });
+        p.stock=n(p.stock)-n(line.qty);
+      });
+      c.balance=n(c.balance)+totalRemaining;
+      postEntry('sale',groupId,(lang==='ar'?'فاتورة بيع متعددة المنتجات':'Multi-product sales invoice'),[
+        {account:'1100',debit:paidTotal},
+        {account:'1200',debit:totalRemaining},
+        {account:'4100',credit:invoiceTotal},
+        {account:'5100',debit:totalCost},
+        {account:'1300',credit:totalCost}
+      ]);
+    }else{
+      if(typeof ensureSalesOrders==='function')ensureSalesOrders();
+      salesInvoiceDraftV150.forEach(line=>{
+        let p=db.products.find(x=>x.id===line.product_id);
+        let total=lineTotalV150(line);
+        let paid=Math.min(paidLeft,total);
+        paidLeft-=paid;
+        db.sales_orders.unshift({
+          id:uid(),
+          invoice_group_id:groupId,
+          date:today(),
+          customer_id:c.id,
+          customer_name:c.name,
+          region_id:region.id||'',
+          region_name:region.name||'',
+          rep_id:r?r.id:'',
+          rep_name:r?r.name:'',
+          product_id:p.id,
+          product_name:p.name,
+          product_expiry:p.expiry||'',
+          qty:n(line.qty),
+          price:line.order_type==='sale'?n(line.price):0,
+          total,
+          paid,
+          remaining:total-paid,
+          order_type:line.order_type,
+          order_type_label:orderTypeLabelV150(line.order_type),
+          status:'pending',
+          approval_status:'pending',
+          created_by:u.name||'',
+          created_by_id:u.id||'',
+          created_by_email:u.email||''
+        });
+      });
+      alert(lang==='ar'?'تم إرسال الفاتورة متعددة المنتجات للموافقة':'Multi-product order sent for approval');
+    }
+
+    salesInvoiceDraftV150=[];
+    if(typeof save==='function')save();
+    render();
+  };
+
+  const approveOriginalV150=window.createApprovedSaleFromOrder || (typeof createApprovedSaleFromOrder==='function'?createApprovedSaleFromOrder:null);
+  if(typeof approveOriginalV150==='function'){
+    window.createApprovedSaleFromOrder=function(order){
+      if(order){
+        order.order_type=order.order_type||'sale';
+        order.order_type_label=orderTypeLabelV150(order.order_type);
+        if(order.order_type!=='sale'){
+          order.price=0;
+          order.total=0;
+          order.paid=0;
+          order.remaining=0;
+        }
+      }
+      let before=new Set((db.sales||[]).map(x=>x.id));
+      let ok=approveOriginalV150.apply(this,arguments);
+      let created=(db.sales||[]).find(x=>!before.has(x.id));
+      if(ok&&created&&order){
+        created.invoice_group_id=order.invoice_group_id||created.id;
+        created.region_id=order.region_id||created.region_id||'';
+        created.region_name=order.region_name||created.region_name||'';
+        created.order_type=order.order_type||'sale';
+        created.order_type_label=orderTypeLabelV150(created.order_type);
+        if(created.order_type!=='sale'){
+          created.price=0;
+          created.total=0;
+          created.paid=0;
+          created.remaining=0;
+        }
+        if(typeof save==='function')save();
+      }
+      return ok;
+    };
+    try{createApprovedSaleFromOrder=window.createApprovedSaleFromOrder}catch(e){}
+  }
+
+  const saleDocumentOriginalV150=window.saleDocumentHTML || (typeof saleDocumentHTML==='function'?saleDocumentHTML:null);
+  window.saleDocumentHTML=function(s,type){
+    let rows=s.invoice_group_id?(db.sales||[]).filter(x=>x.invoice_group_id===s.invoice_group_id):[s];
+    if(rows.length<=1&&typeof saleDocumentOriginalV150==='function')return saleDocumentOriginalV150(s,type);
+
+    let c=db.customers.find(x=>x.id===s.customer_id)||{};
+    let r=db.reps.find(x=>x.id===s.rep_id)||{};
+    let docNo=(type==='delivery'?'DN-':'INV-')+(s.invoice_group_id||s.id||'').slice(-6).toUpperCase();
+    let total=rows.reduce((a,x)=>a+n(x.total),0);
+    let paid=rows.reduce((a,x)=>a+n(x.paid),0);
+    let remaining=rows.reduce((a,x)=>a+n(x.remaining),0);
+
+    return `<!DOCTYPE html><html lang="${lang}" dir="${lang==='ar'?'rtl':'ltr'}"><head><meta charset="UTF-8"><title>${saleDocumentTitle(type)}</title><style>${document.querySelector('style').innerHTML}</style></head><body>
+      <div class="doc-print-actions"><button class="btn blue" onclick="window.print()">${T('print')}</button><button class="btn secondary" onclick="window.close()">${lang==='ar'?'إغلاق':'Close'}</button></div>
+      <div class="delivery-doc">
+        <div class="delivery-head">
+          <div><h1>${esc(saleDocumentTitle(type))}</h1><p>${esc(db.settings.company)}</p><p>${esc(db.settings.subtitle||'')}</p></div>
+          <div><p><b>${lang==='ar'?'رقم المستند':'Document no.'}:</b> ${docNo}</p><p><b>${T('date')}:</b> ${esc(s.date)}</p></div>
+        </div>
+        <div class="doc-meta">
+          <div class="doc-box"><span>${T('customer')}</span><b>${esc(s.customer_name)}</b><br><small>${esc(c.phone||'')}</small></div>
+          <div class="doc-box"><span>${lang==='ar'?'منطقة العميل':'Customer region'}</span><b>${esc(s.region_name||transactionRegionName(s)||'-')}</b></div>
+          <div class="doc-box"><span>${T('rep')}</span><b>${esc(s.rep_name||'-')}</b><br><small>${esc(r.phone||'')}</small></div>
+        </div>
+        <table class="doc-print-table">
+          <tr><th>${T('product')}</th><th>${lang==='ar'?'نوع الأوردر':'Order type'}</th><th>${T('expiry')}</th><th>${T('qty')}</th><th>${T('price')}</th><th>${T('total')}</th></tr>
+          ${rows.map(x=>`<tr>
+            <td>${esc(x.product_name)}</td>
+            <td>${esc(orderTypeLabelV150(x.order_type||'sale'))}</td>
+            <td>${esc(x.product_expiry||'-')}</td>
+            <td>${n(x.qty)}</td>
+            <td>${money((x.order_type||'sale')==='sale'?x.price:0)}</td>
+            <td>${money((x.order_type||'sale')==='sale'?x.total:0)}</td>
+          </tr>`).join('')}
+        </table>
+        ${type==='invoice'?`<div class="doc-meta" style="margin-top:16px">
+          <div class="doc-box"><span>${T('paid')}</span><b>${money(paid)}</b></div>
+          <div class="doc-box"><span>${T('remaining')}</span><b>${money(remaining)}</b></div>
+          <div class="doc-box"><span>${T('total')}</span><b>${money(total)}</b></div>
+        </div>`:''}
+        <div class="doc-signatures">
+          <div class="doc-sign">${lang==='ar'?'توقيع المخزن':'Warehouse signature'}</div>
+          <div class="doc-sign">${lang==='ar'?'توقيع المندوب':'Sales rep signature'}</div>
+          <div class="doc-sign">${lang==='ar'?'توقيع العميل':'Customer signature'}</div>
+        </div>
+      </div>
+    </body></html>`;
+  };
+})();
+</script>
+<style id="v150-multi-invoice-preserve-region-style">
+html body .invoice-draft-v150{min-width:900px!important}
+html body .invoice-draft-v150 .badge.warn{background:#fef3c7!important;color:#92400e!important}
+</style>
+<!-- v150 multi-product invoice preserving automatic customer region -->
+
