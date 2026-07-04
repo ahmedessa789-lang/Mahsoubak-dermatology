@@ -7744,6 +7744,674 @@ html body .doc-total{
 html body .invoice-draft-v150{min-width:900px!important}
 html body .invoice-draft-v150 .badge.warn{background:#fef3c7!important;color:#92400e!important}
 </style>
-<!-- force redeploy 2026-07-04-v2 -->
 <!-- v150 multi-product invoice preserving automatic customer region -->
+
+
+
+<script id="v151-clickable-order-summary-cards">
+(function(){
+  window.openOrderSummaryCardV151=function(type){
+    if(type==='operations'){
+      if(typeof show==='function'){
+        show('operations');
+        setTimeout(function(){
+          let el=document.getElementById('operations_orders_v73');
+          if(el)el.scrollIntoView({behavior:'smooth',block:'start'});
+        },180);
+      }
+      return;
+    }
+    let id=type==='pending'?'orders_pending_section_v151':'orders_history_section_v151';
+    let el=document.getElementById(id);
+    if(el)el.scrollIntoView({behavior:'smooth',block:'start'});
+  };
+
+  window.salesOrdersWorkspace=function(){
+    try{ensureSalesOrders&&ensureSalesOrders()}catch(e){db.sales_orders=db.sales_orders||[]}
+    let rows=Array.isArray(db.sales_orders)?db.sales_orders:[];
+    let visible=function(o){try{return window.orderVisibleToCurrent(o)}catch(e){return true}};
+    let pending=rows.filter(o=>o.status==='pending'&&visible(o)).length;
+    let waitingOps=rows.filter(o=>o.status==='approved'&&o.operation_status!=='dispatched').length;
+    let decided=rows.filter(o=>o.status!=='pending'&&visible(o)).length;
+    let manager=(typeof isSalesManagerV73==='function'?isSalesManagerV73():(typeof isSalesManager==='function'?isSalesManager():false));
+    let title=manager?(lang==='ar'?'موافقات مدير المبيعات':'Sales manager approvals'):(lang==='ar'?'Orders الخاصة بي':'My orders');
+
+    return `
+      <div class="perm-hero">
+        <div>
+          <h3>${title}</h3>
+          <p>${lang==='ar'?'أي Order جديد يظهر هنا لمدير المبيعات، وبعد الموافقة ينتقل إلى Operations لتنفيذ خروج المخزن.':'New orders appear here for approval, then move to Operations for warehouse dispatch.'}</p>
+        </div>
+        <span class="badge pending-approval">${pending} ${lang==='ar'?'منتظر':'pending'}</span>
+      </div>
+
+      <div class="grid grid3 order-summary-grid-v151">
+        <div class="stat order-summary-card-v151" onclick="openOrderSummaryCardV151('pending')">
+          <span>${lang==='ar'?'منتظر موافقة':'Pending approval'}</span>
+          <strong>${pending}</strong>
+          <small>${lang==='ar'?'اضغط لعرض الأوردرات':'Click to open orders'}</small>
+        </div>
+
+        <div class="stat order-summary-card-v151" onclick="openOrderSummaryCardV151('operations')">
+          <span>${lang==='ar'?'منتظر Operations':'Waiting Operations'}</span>
+          <strong>${waitingOps}</strong>
+          <small>${lang==='ar'?'اضغط للانتقال إلى Operations':'Click to open Operations'}</small>
+        </div>
+
+        <div class="stat order-summary-card-v151" onclick="openOrderSummaryCardV151('history')">
+          <span>${lang==='ar'?'سجل القرارات':'Decision history'}</span>
+          <strong>${decided}</strong>
+          <small>${lang==='ar'?'اضغط لعرض السجل':'Click to open history'}</small>
+        </div>
+      </div>
+
+      <div class="card approval-card" id="orders_pending_section_v151">
+        <h3>${lang==='ar'?'مطلوب موافقة أو رفض':'Needs approval or rejection'}</h3>
+        ${pendingSalesOrdersTable()}
+      </div>
+
+      <div class="card" id="orders_history_section_v151">
+        <h3>${lang==='ar'?'سجل sales orders':'Sales orders history'}</h3>
+        ${salesOrdersHistoryTable()}
+      </div>`;
+  };
+})();
+</script>
+
+<style id="v151-clickable-order-summary-cards-style">
+html body .order-summary-card-v151{
+  cursor:pointer!important;
+  transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease!important;
+  position:relative!important;
+}
+html body .order-summary-card-v151:hover{
+  transform:translateY(-3px)!important;
+  box-shadow:0 12px 28px rgba(15,23,42,.14)!important;
+  border-color:#2563eb!important;
+}
+html body .order-summary-card-v151 small{
+  display:block!important;
+  margin-top:8px!important;
+  color:#2563eb!important;
+  font-weight:900!important;
+}
+</style>
+<!-- v151 clickable pending operations and history cards -->
+
+
+
+<style id="v152-finance-amounts-clear-style">
+/* Finance report and journal amounts: plain readable text, no dark highlighting */
+html body #report_accounts .debit-cell,
+html body #report_accounts .credit-cell,
+html body #view-accounts .debit-cell,
+html body #view-accounts .credit-cell,
+html body #view-trial .debit-cell,
+html body #view-trial .credit-cell,
+html body .journal-panel .debit-cell,
+html body .journal-panel .credit-cell{
+  display:inline!important;
+  background:transparent!important;
+  color:#111827!important;
+  border:0!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+  padding:0!important;
+  text-shadow:none!important;
+  font-weight:900!important;
+}
+
+html body #report_accounts .journal-amount,
+html body #view-accounts .journal-amount,
+html body #view-trial .journal-amount,
+html body .journal-panel .journal-amount{
+  background:#ffffff!important;
+  color:#111827!important;
+  text-align:center!important;
+}
+
+html body #report_accounts table td,
+html body #view-accounts table td,
+html body #view-trial table td,
+html body .journal-panel table td{
+  color:#111827!important;
+}
+
+html body #report_accounts .dept-report-grid .stat strong,
+html body #view-accounts .dept-report-grid .stat strong,
+html body #view-trial .stat strong{
+  color:#111827!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  text-shadow:none!important;
+}
+</style>
+<!-- v152 finance amounts clear without dark highlight -->
+
+
+
+<script id="v153-restore-approval-buttons">
+(function(){
+  function isManagerV153(){
+    try{
+      if(typeof isSalesManagerV73==='function')return !!isSalesManagerV73();
+      if(typeof isSalesManager==='function')return !!isSalesManager();
+    }catch(e){}
+    return false;
+  }
+
+  window.canDecideSalesOrder=function(order){
+    return isManagerV153();
+  };
+
+  window.approveSalesOrder=function(id){
+    try{ensureSalesOrders&&ensureSalesOrders()}catch(e){db.sales_orders=db.sales_orders||[]}
+    let o=(db.sales_orders||[]).find(x=>x.id===id);
+    if(!o||o.status!=='pending')return;
+    if(!isManagerV153())return (typeof permissionAlert==='function'?permissionAlert():alert(T('noPermission')));
+
+    o.status='approved';
+    o.approval_status='approved';
+    o.operation_status='pending_dispatch';
+    o.approved_by=(typeof currentUser==='function'?(currentUser()||{}).name:'')||'Sales Manager';
+    o.approved_date=(typeof today==='function'?today():new Date().toISOString().slice(0,10));
+
+    if(typeof save==='function')save();
+    alert(lang==='ar'?'تمت الموافقة وانتقل الأوردر إلى Operations':'Approved and moved to Operations');
+    if(typeof render==='function')render();
+  };
+
+  window.rejectSalesOrder=function(id){
+    try{ensureSalesOrders&&ensureSalesOrders()}catch(e){db.sales_orders=db.sales_orders||[]}
+    let o=(db.sales_orders||[]).find(x=>x.id===id);
+    if(!o||o.status!=='pending')return;
+    if(!isManagerV153())return (typeof permissionAlert==='function'?permissionAlert():alert(T('noPermission')));
+
+    o.status='rejected';
+    o.approval_status='rejected';
+    o.operation_status='rejected';
+    o.rejected_by=(typeof currentUser==='function'?(currentUser()||{}).name:'')||'Sales Manager';
+    o.rejected_date=(typeof today==='function'?today():new Date().toISOString().slice(0,10));
+
+    if(typeof save==='function')save();
+    if(typeof render==='function')render();
+  };
+
+  window.pendingSalesOrdersTable=function(){
+    try{ensureSalesOrders&&ensureSalesOrders()}catch(e){db.sales_orders=db.sales_orders||[]}
+    let rows=(db.sales_orders||[]).filter(o=>o.status==='pending'&&(typeof orderVisibleToCurrent!=='function'||orderVisibleToCurrent(o)));
+    if(!rows.length)return `<div class="empty">${lang==='ar'?'لا توجد أوردرات منتظرة موافقة':'No sales orders pending approval'}</div>`;
+
+    return `<table><tr>
+      <th>${T('date')}</th>
+      <th>${T('customer')}</th>
+      <th>${T('rep')}</th>
+      <th>${T('product')}</th>
+      <th>${T('qty')}</th>
+      <th>${T('total')}</th>
+      <th>${T('status')}</th>
+      <th>${lang==='ar'?'القرار':'Decision'}</th>
+    </tr>${rows.map(o=>`<tr>
+      <td>${esc(o.date)}</td>
+      <td>${esc(o.customer_name)}</td>
+      <td>${esc(o.rep_name||'')}</td>
+      <td>${esc(o.product_name)}</td>
+      <td>${n(o.qty)}</td>
+      <td>${money(o.total)}</td>
+      <td><span class="badge pending-approval">${lang==='ar'?'منتظر موافقة مدير المبيعات':'Waiting sales manager approval'}</span></td>
+      <td><div class="actions">
+        ${isManagerV153()
+          ? `<button class="btn small ok" onclick="approveSalesOrder('${o.id}')">${lang==='ar'?'موافقة':'Approve'}</button>
+             <button class="btn small danger" onclick="rejectSalesOrder('${o.id}')">${lang==='ar'?'رفض':'Reject'}</button>`
+          : `<span class="badge warn">${lang==='ar'?'منتظر مدير المبيعات':'Waiting manager'}</span>`}
+      </div></td>
+    </tr>`).join('')}</table>`;
+  };
+})();
+</script>
+<style id="v153-restore-approval-buttons-style">
+html body #view-orders .btn.ok,
+html body #view-orders .btn.danger{
+  display:inline-block!important;
+  visibility:visible!important;
+}
+</style>
+<!-- v153 restore approve reject buttons including self-created orders -->
+
+
+
+<script id="v154-pending-orders-popup">
+(function(){
+  window.openPendingOrdersPopupV154=function(){
+    let old=document.getElementById('pending_orders_modal_v154');
+    if(old)old.remove();
+
+    let modal=document.createElement('div');
+    modal.id='pending_orders_modal_v154';
+    modal.className='pending-orders-modal-v154';
+    modal.innerHTML=`
+      <div class="pending-orders-panel-v154">
+        <div class="pending-orders-head-v154">
+          <h2>${lang==='ar'?'الأوردرات المنتظرة موافقة':'Orders pending approval'}</h2>
+          <button type="button" class="btn danger" onclick="closePendingOrdersPopupV154()">${lang==='ar'?'إغلاق':'Close'}</button>
+        </div>
+        <div class="pending-orders-body-v154">
+          ${pendingSalesOrdersTable()}
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    document.body.classList.add('modal-open');
+  };
+
+  window.closePendingOrdersPopupV154=function(){
+    let modal=document.getElementById('pending_orders_modal_v154');
+    if(modal)modal.remove();
+    document.body.classList.remove('modal-open');
+  };
+
+  const oldApproveV154=window.approveSalesOrder;
+  if(typeof oldApproveV154==='function'){
+    window.approveSalesOrder=function(id){
+      let r=oldApproveV154.apply(this,arguments);
+      setTimeout(function(){
+        if(document.getElementById('pending_orders_modal_v154')){
+          closePendingOrdersPopupV154();
+          openPendingOrdersPopupV154();
+        }
+      },120);
+      return r;
+    };
+    try{approveSalesOrder=window.approveSalesOrder}catch(e){}
+  }
+
+  const oldRejectV154=window.rejectSalesOrder;
+  if(typeof oldRejectV154==='function'){
+    window.rejectSalesOrder=function(id){
+      let r=oldRejectV154.apply(this,arguments);
+      setTimeout(function(){
+        if(document.getElementById('pending_orders_modal_v154')){
+          closePendingOrdersPopupV154();
+          openPendingOrdersPopupV154();
+        }
+      },120);
+      return r;
+    };
+    try{rejectSalesOrder=window.rejectSalesOrder}catch(e){}
+  }
+
+  const oldWorkspaceV154=window.salesOrdersWorkspace;
+  window.salesOrdersWorkspace=function(){
+    let html=oldWorkspaceV154.apply(this,arguments);
+    html=html.replace(
+      /onclick="openOrderSummaryCardV151\('pending'\)"/g,
+      'onclick="openPendingOrdersPopupV154()"'
+    );
+    return html;
+  };
+  try{salesOrdersWorkspace=window.salesOrdersWorkspace}catch(e){}
+})();
+</script>
+
+<style id="v154-pending-orders-popup-style">
+html body .pending-orders-modal-v154{
+  position:fixed!important;
+  inset:0!important;
+  z-index:999999!important;
+  background:rgba(15,23,42,.72)!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  padding:22px!important;
+}
+html body .pending-orders-panel-v154{
+  width:min(1400px,96vw)!important;
+  max-height:92vh!important;
+  overflow:auto!important;
+  background:#fff!important;
+  border-radius:18px!important;
+  box-shadow:0 28px 90px rgba(0,0,0,.35)!important;
+  padding:20px!important;
+}
+html body .pending-orders-head-v154{
+  display:flex!important;
+  justify-content:space-between!important;
+  align-items:center!important;
+  gap:12px!important;
+  position:sticky!important;
+  top:0!important;
+  background:#fff!important;
+  z-index:5!important;
+  padding-bottom:14px!important;
+  border-bottom:1px solid #e5e7eb!important;
+  margin-bottom:14px!important;
+}
+html body .pending-orders-head-v154 h2{
+  margin:0!important;
+  color:#111827!important;
+}
+html body .pending-orders-body-v154 table{
+  min-width:1000px!important;
+}
+html body .pending-orders-body-v154 .btn.ok,
+html body .pending-orders-body-v154 .btn.danger{
+  display:inline-block!important;
+  visibility:visible!important;
+}
+</style>
+<!-- v154 pending orders card opens popup -->
+
+
+
+<script id="v155-approval-buttons-visible">
+(function(){
+  function approvalUserV155(){
+    try{return typeof currentUser==='function'?(currentUser()||{}):{}}catch(e){return {}}
+  }
+
+  function canApproveV155(){
+    let u=approvalUserV155();
+    let role=String(u.role||'').trim().toLowerCase();
+    let name=String(u.name||u.email||u.username||'');
+    if(['admin','manager','sales_manager','operations_manager'].includes(role))return true;
+    if(/sales[_\s-]*manager|مدير\s*المبيعات|مدير|admin/i.test(role+' '+name))return true;
+    try{
+      if(typeof can==='function' && (can('sales','edit')||can('sales','add')||can('operations','edit')))return true;
+    }catch(e){}
+    return false;
+  }
+
+  window.canDecideSalesOrder=function(){
+    return canApproveV155();
+  };
+
+  window.approveSalesOrder=function(id){
+    let o=(db.sales_orders||[]).find(x=>x.id===id);
+    if(!o||o.status!=='pending')return;
+    if(!canApproveV155())return alert(lang==='ar'?'المستخدم الحالي لا يملك صلاحية الموافقة':'Current user cannot approve');
+
+    o.status='approved';
+    o.approval_status='approved';
+    o.operation_status='pending_dispatch';
+    o.approved_by=approvalUserV155().name||'Manager';
+    o.approved_date=typeof today==='function'?today():new Date().toISOString().slice(0,10);
+
+    if(typeof save==='function')save();
+    if(typeof render==='function')render();
+
+    setTimeout(function(){
+      if(document.getElementById('pending_orders_modal_v154')){
+        closePendingOrdersPopupV154();
+        openPendingOrdersPopupV154();
+      }
+    },100);
+  };
+
+  window.rejectSalesOrder=function(id){
+    let o=(db.sales_orders||[]).find(x=>x.id===id);
+    if(!o||o.status!=='pending')return;
+    if(!canApproveV155())return alert(lang==='ar'?'المستخدم الحالي لا يملك صلاحية الرفض':'Current user cannot reject');
+
+    o.status='rejected';
+    o.approval_status='rejected';
+    o.operation_status='rejected';
+    o.rejected_by=approvalUserV155().name||'Manager';
+    o.rejected_date=typeof today==='function'?today():new Date().toISOString().slice(0,10);
+
+    if(typeof save==='function')save();
+    if(typeof render==='function')render();
+
+    setTimeout(function(){
+      if(document.getElementById('pending_orders_modal_v154')){
+        closePendingOrdersPopupV154();
+        openPendingOrdersPopupV154();
+      }
+    },100);
+  };
+
+  window.pendingSalesOrdersTable=function(){
+    try{if(typeof ensureSalesOrders==='function')ensureSalesOrders()}catch(e){db.sales_orders=db.sales_orders||[]}
+    let rows=(db.sales_orders||[]).filter(o=>o.status==='pending');
+    if(!rows.length)return `<div class="empty">${lang==='ar'?'لا توجد أوردرات منتظرة موافقة':'No orders pending approval'}</div>`;
+
+    return `<table class="pending-orders-table-v155"><tr>
+      <th>${T('date')}</th>
+      <th>${T('customer')}</th>
+      <th>${T('rep')}</th>
+      <th>${T('product')}</th>
+      <th>${lang==='ar'?'نوع الأوردر':'Order type'}</th>
+      <th>${T('qty')}</th>
+      <th>${T('total')}</th>
+      <th>${T('status')}</th>
+      <th>${lang==='ar'?'منشئ الـ Order':'Created by'}</th>
+      <th>${lang==='ar'?'القرار':'Decision'}</th>
+    </tr>${rows.map(o=>`<tr>
+      <td>${esc(o.date||'')}</td>
+      <td>${esc(o.customer_name||'')}</td>
+      <td>${esc(o.rep_name||'')}</td>
+      <td>${esc(o.product_name||'')}</td>
+      <td>${esc(o.order_type_label||({sale:'بيع',bonus:'بونص',display:'للعرض'}[o.order_type]||'بيع'))}</td>
+      <td>${n(o.qty)}</td>
+      <td>${money(n(o.total))}</td>
+      <td><span class="badge pending-approval">${lang==='ar'?'منتظر موافقة':'Pending approval'}</span></td>
+      <td>${esc(o.created_by||o.created_by_email||'-')}</td>
+      <td>
+        <div class="actions approval-actions-v155">
+          <button type="button" class="btn ok approve-btn-v155" onclick="approveSalesOrder('${o.id}')">${lang==='ar'?'موافقة':'Approve'}</button>
+          <button type="button" class="btn danger reject-btn-v155" onclick="rejectSalesOrder('${o.id}')">${lang==='ar'?'رفض':'Reject'}</button>
+        </div>
+      </td>
+    </tr>`).join('')}</table>`;
+  };
+})();
+</script>
+
+<style id="v155-approval-buttons-visible-style">
+html body .approval-actions-v155{
+  display:flex!important;
+  visibility:visible!important;
+  gap:8px!important;
+  flex-wrap:nowrap!important;
+}
+html body .approve-btn-v155,
+html body .reject-btn-v155{
+  display:inline-block!important;
+  visibility:visible!important;
+  opacity:1!important;
+  pointer-events:auto!important;
+  min-width:90px!important;
+  color:#fff!important;
+  font-weight:900!important;
+}
+html body .approve-btn-v155{background:#16a34a!important}
+html body .reject-btn-v155{background:#dc2626!important}
+html body .pending-orders-table-v155 th:last-child,
+html body .pending-orders-table-v155 td:last-child{
+  min-width:210px!important;
+}
+</style>
+<!-- v155 force approve reject buttons visible for managers and admins -->
+
+
+
+<script id="v156-close-popup-after-decision">
+(function(){
+  const approveV156=window.approveSalesOrder;
+  if(typeof approveV156==='function'){
+    window.approveSalesOrder=function(id){
+      let result=approveV156.apply(this,arguments);
+      setTimeout(function(){
+        if(typeof closePendingOrdersPopupV154==='function'){
+          closePendingOrdersPopupV154();
+        }else{
+          let modal=document.getElementById('pending_orders_modal_v154');
+          if(modal)modal.remove();
+          document.body.classList.remove('modal-open');
+        }
+      },80);
+      return result;
+    };
+    try{approveSalesOrder=window.approveSalesOrder}catch(e){}
+  }
+
+  const rejectV156=window.rejectSalesOrder;
+  if(typeof rejectV156==='function'){
+    window.rejectSalesOrder=function(id){
+      let result=rejectV156.apply(this,arguments);
+      setTimeout(function(){
+        if(typeof closePendingOrdersPopupV154==='function'){
+          closePendingOrdersPopupV154();
+        }else{
+          let modal=document.getElementById('pending_orders_modal_v154');
+          if(modal)modal.remove();
+          document.body.classList.remove('modal-open');
+        }
+      },80);
+      return result;
+    };
+    try{rejectSalesOrder=window.rejectSalesOrder}catch(e){}
+  }
+})();
+</script>
+<!-- v156 close pending orders popup after approve or reject -->
+
+
+
+<script id="v157-fix-popups-and-history">
+(function(){
+  function pendingRowsV157(){
+    try{ if(typeof ensureSalesOrders==='function') ensureSalesOrders(); }catch(e){}
+    return (db.sales_orders||[]).filter(o=>o.status==='pending');
+  }
+
+  window.closePendingOrdersPopupV154=function(){
+    let modal=document.getElementById('pending_orders_modal_v154');
+    if(modal)modal.remove();
+    document.body.classList.remove('modal-open');
+  };
+
+  window.openPendingOrdersPopupV154=function(){
+    closePendingOrdersPopupV154();
+    let rows=pendingRowsV157();
+    if(!rows.length){
+      alert(lang==='ar'?'لا توجد أوردرات منتظرة موافقة':'No orders pending approval');
+      return;
+    }
+
+    let modal=document.createElement('div');
+    modal.id='pending_orders_modal_v154';
+    modal.className='pending-orders-modal-v154';
+    modal.innerHTML=`
+      <div class="pending-orders-panel-v154">
+        <div class="pending-orders-head-v154">
+          <h2>${lang==='ar'?'الأوردرات المنتظرة موافقة':'Orders pending approval'}</h2>
+          <button type="button" class="btn danger" onclick="closePendingOrdersPopupV154()">${lang==='ar'?'إغلاق':'Close'}</button>
+        </div>
+        <div class="pending-orders-body-v154">${pendingSalesOrdersTable()}</div>
+      </div>`;
+    modal.addEventListener('click',function(e){
+      if(e.target===modal)closePendingOrdersPopupV154();
+    });
+    document.body.appendChild(modal);
+    document.body.classList.add('modal-open');
+  };
+
+  window.openOrderHistoryPopupV157=function(){
+    let old=document.getElementById('order_history_modal_v157');
+    if(old)old.remove();
+
+    let modal=document.createElement('div');
+    modal.id='order_history_modal_v157';
+    modal.className='pending-orders-modal-v154';
+    modal.innerHTML=`
+      <div class="pending-orders-panel-v154">
+        <div class="pending-orders-head-v154">
+          <h2>${lang==='ar'?'سجل القرارات':'Decision history'}</h2>
+          <button type="button" class="btn danger" onclick="closeOrderHistoryPopupV157()">${lang==='ar'?'إغلاق':'Close'}</button>
+        </div>
+        <div class="pending-orders-body-v154">
+          ${typeof salesOrdersHistoryTable==='function'
+            ? salesOrdersHistoryTable()
+            : `<div class="empty">${lang==='ar'?'لا توجد بيانات':'No data'}</div>`}
+        </div>
+      </div>`;
+    modal.addEventListener('click',function(e){
+      if(e.target===modal)closeOrderHistoryPopupV157();
+    });
+    document.body.appendChild(modal);
+    document.body.classList.add('modal-open');
+  };
+
+  window.closeOrderHistoryPopupV157=function(){
+    let modal=document.getElementById('order_history_modal_v157');
+    if(modal)modal.remove();
+    if(!document.getElementById('pending_orders_modal_v154'))document.body.classList.remove('modal-open');
+  };
+
+  const approveV157=window.approveSalesOrder;
+  if(typeof approveV157==='function'){
+    window.approveSalesOrder=function(id){
+      let r=approveV157.apply(this,arguments);
+      setTimeout(function(){
+        closePendingOrdersPopupV154();
+        if(typeof render==='function')render();
+      },120);
+      return r;
+    };
+    try{approveSalesOrder=window.approveSalesOrder}catch(e){}
+  }
+
+  const rejectV157=window.rejectSalesOrder;
+  if(typeof rejectV157==='function'){
+    window.rejectSalesOrder=function(id){
+      let r=rejectV157.apply(this,arguments);
+      setTimeout(function(){
+        closePendingOrdersPopupV154();
+        if(typeof render==='function')render();
+      },120);
+      return r;
+    };
+    try{rejectSalesOrder=window.rejectSalesOrder}catch(e){}
+  }
+
+  const workspaceV157=window.salesOrdersWorkspace;
+  if(typeof workspaceV157==='function'){
+    window.salesOrdersWorkspace=function(){
+      let html=workspaceV157.apply(this,arguments);
+      html=html.replace(
+        /onclick="openOrderSummaryCardV151\('pending'\)"/g,
+        'onclick="openPendingOrdersPopupV154()"'
+      );
+      html=html.replace(
+        /onclick="openOrderSummaryCardV151\('history'\)"/g,
+        'onclick="openOrderHistoryPopupV157()"'
+      );
+      return html;
+    };
+    try{salesOrdersWorkspace=window.salesOrdersWorkspace}catch(e){}
+  }
+
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'){
+      closePendingOrdersPopupV154();
+      closeOrderHistoryPopupV157();
+    }
+  });
+})();
+</script>
+
+<style id="v157-fix-popups-and-history-style">
+html body .pending-orders-modal-v154{
+  position:fixed!important;
+  inset:0!important;
+  z-index:999999!important;
+  background:rgba(15,23,42,.72)!important;
+}
+html body .pending-orders-panel-v154{
+  position:relative!important;
+}
+html body .pending-orders-head-v154{
+  display:flex!important;
+}
+</style>
+<!-- v157 fixed pending popup close and decision history popup -->
 
