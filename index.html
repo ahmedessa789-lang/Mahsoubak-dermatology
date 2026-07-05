@@ -9299,3 +9299,837 @@ html body .finance-receipt-fullscreen-body-v162 table{
 </style>
 <!-- v162 remove duplicate finance nav and open receipts full screen -->
 
+
+
+<script id="v163-receipts-cashflow-fixed">
+(function(){
+  function ensureV163(){
+    if(!Array.isArray(db.cash_receipts_in))db.cash_receipts_in=[];
+    if(!Array.isArray(db.cash_receipts_out))db.cash_receipts_out=[];
+    if(!Array.isArray(db.finance_cash_currency_movements))db.finance_cash_currency_movements=[];
+    if(!Array.isArray(db.journal))db.journal=[];
+    if(!Array.isArray(db.accounts))db.accounts=[];
+    if(!db.accounts.find(a=>a.code==='3990')){
+      db.accounts.push({
+        id:uid(),code:'3990',
+        name:'تسوية إيصالات الخزينة / Treasury Receipt Clearing',
+        name_ar:'تسوية إيصالات الخزينة',
+        name_en:'Treasury Receipt Clearing',
+        type:'Equity',normal:'credit',level:1,opening:0
+      });
+    }
+  }
+
+  function sourceIdV163(row){
+    return 'cash_receipt_'+row.id;
+  }
+
+  function postOneReceiptV163(row,type){
+    ensureV163();
+    let sourceId=sourceIdV163(row);
+    let amount=n(row.amount);
+    let isIn=type==='in';
+    let desc=(isIn?'إيصال استلام نقدية ':'إيصال صرف نقدية ')
+      +'رقم '+(row.serial||'')+' - '+(row.party||'')+' - '+(row.purpose||'');
+
+    db.finance_cash_currency_movements=
+      db.finance_cash_currency_movements.filter(x=>x.sourceId!==sourceId && x.id!==sourceId);
+
+    db.finance_cash_currency_movements.unshift({
+      id:sourceId,
+      sourceId,
+      receipt_id:row.id,
+      receipt_type:type,
+      date:row.date||today(),
+      type:isIn?'in':'out',
+      currency:'EGP',
+      amount,
+      rate:1,
+      egp_value:amount,
+      description:desc,
+      source:'cash_receipt_v163'
+    });
+
+    db.journal=db.journal.filter(j=>j.sourceId!==sourceId);
+
+    if(isIn){
+      db.journal.push({
+        id:uid(),date:row.date||today(),account:'1100',
+        debit:amount,credit:0,description:desc,
+        source:'cash_receipt_v163',sourceId
+      });
+      db.journal.push({
+        id:uid(),date:row.date||today(),account:'3990',
+        debit:0,credit:amount,description:'مقابل '+desc,
+        source:'cash_receipt_v163',sourceId
+      });
+    }else{
+      db.journal.push({
+        id:uid(),date:row.date||today(),account:'3990',
+        debit:amount,credit:0,description:'مقابل '+desc,
+        source:'cash_receipt_v163',sourceId
+      });
+      db.journal.push({
+        id:uid(),date:row.date||today(),account:'1100',
+        debit:0,credit:amount,description:desc,
+        source:'cash_receipt_v163',sourceId
+      });
+    }
+  }
+
+  window.syncAllReceiptsToTreasuryV163=function(){
+    ensureV163();
+
+    let validIds=new Set();
+    db.cash_receipts_in.forEach(r=>{
+      validIds.add(sourceIdV163(r));
+      postOneReceiptV163(r,'in');
+    });
+    db.cash_receipts_out.forEach(r=>{
+      validIds.add(sourceIdV163(r));
+      postOneReceiptV163(r,'out');
+    });
+
+    db.finance_cash_currency_movements=
+      db.finance_cash_currency_movements.filter(x=>
+        x.source!=='cash_receipt_v163' || validIds.has(x.sourceId)
+      );
+    db.journal=
+      db.journal.filter(j=>
+        j.source!=='cash_receipt_v163' || validIds.has(j.sourceId)
+      );
+  };
+
+  window.saveCashReceiptV159=function(type){
+    ensureV163();
+    let isIn=type==='in';
+    let prefix=isIn?'cr_in':'cr_out';
+    let amount=n((document.getElementById(prefix+'_amount_v159')||{}).value);
+    if(amount<=0)return alert('اكتب قيمة صحيحة للمبلغ');
+
+    let row={
+      id:uid(),
+      type,
+      serial:nextSerialV159(type),
+      date:(document.getElementById(prefix+'_date_v159')||{}).value||today(),
+      amount,
+      amount_words:(document.getElementById(prefix+'_words_v159')||{}).value||'',
+      purpose:(document.getElementById(prefix+'_for_v159')||{}).value||'',
+      method:receiptMethodV159(prefix),
+      bank:(document.getElementById(prefix+'_bank_v159')||{}).value||'',
+      cheque:(document.getElementById(prefix+'_cheque_v159')||{}).value||'',
+      receiver:(document.getElementById(prefix+'_receiver_v159')||{}).value||''
+    };
+
+    if(isIn){
+      row.party=(document.getElementById('cr_in_from_v159')||{}).value||'';
+      db.cash_receipts_in.unshift(row);
+    }else{
+      row.party=(document.getElementById('cr_out_to_v159')||{}).value||'';
+      row.department=(document.getElementById('cr_out_department_v159')||{}).value||'';
+      row.treasury_approval=(document.getElementById('cr_out_treasury_v159')||{}).value||'';
+      row.manager_approval=(document.getElementById('cr_out_manager_v159')||{}).value||'';
+      db.cash_receipts_out.unshift(row);
+    }
+
+    postOneReceiptV163(row,type);
+
+    if(typeof save==='function')save();
+    if(typeof renderCashFlow==='function')renderCashFlow();
+    if(typeof renderTrial==='function')renderTrial();
+    if(typeof renderTrialBalance==='function')renderTrialBalance();
+    if(typeof renderAccounts==='function')renderAccounts();
+
+    alert(isIn
+      ?'تم حفظ إيصال الاستلام وإضافته إلى حركة الخزنة'
+      :'تم حفظ إيصال الصرف وإضافته إلى حركة الخزنة');
+  };
+  try{saveCashReceiptV159=window.saveCashReceiptV159}catch(e){}
+
+  window.deleteCashReceiptV159=function(type,id){
+    if(!confirm('هل تريد مسح الإيصال وحركته من الخزنة والقيود؟'))return;
+    ensureV163();
+    let sourceId='cash_receipt_'+id;
+
+    if(type==='in'){
+      db.cash_receipts_in=db.cash_receipts_in.filter(r=>r.id!==id);
+    }else{
+      db.cash_receipts_out=db.cash_receipts_out.filter(r=>r.id!==id);
+    }
+
+    db.finance_cash_currency_movements=
+      db.finance_cash_currency_movements.filter(x=>x.sourceId!==sourceId && x.id!==sourceId);
+    db.journal=
+      db.journal.filter(j=>j.sourceId!==sourceId);
+
+    if(typeof save==='function')save();
+    if(typeof renderCashFlow==='function')renderCashFlow();
+    if(typeof renderTrial==='function')renderTrial();
+    if(typeof renderTrialBalance==='function')renderTrialBalance();
+    if(typeof renderAccounts==='function')renderAccounts();
+  };
+  try{deleteCashReceiptV159=window.deleteCashReceiptV159}catch(e){}
+
+  const renderAccountsBeforeV163=window.renderAccounts;
+  if(typeof renderAccountsBeforeV163==='function'){
+    window.renderAccounts=function(){
+      syncAllReceiptsToTreasuryV163();
+      let r=renderAccountsBeforeV163.apply(this,arguments);
+      return r;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  document.addEventListener('DOMContentLoaded',function(){
+    setTimeout(function(){
+      syncAllReceiptsToTreasuryV163();
+      if(typeof save==='function')save();
+    },700);
+  });
+})();
+</script>
+<!-- v163 fixed receipts posting to treasury cashflow journal trial -->
+
+
+
+<script id="v164-receipt-save-button-fixed">
+(function(){
+  function ensureV164(){
+    if(!Array.isArray(db.cash_receipts_in))db.cash_receipts_in=[];
+    if(!Array.isArray(db.cash_receipts_out))db.cash_receipts_out=[];
+    if(!Array.isArray(db.finance_cash_currency_movements))db.finance_cash_currency_movements=[];
+    if(!Array.isArray(db.journal))db.journal=[];
+    if(!Array.isArray(db.accounts))db.accounts=[];
+    if(!db.accounts.find(a=>a.code==='3990')){
+      db.accounts.push({
+        id:uid(),code:'3990',
+        name:'تسوية إيصالات الخزينة / Treasury Receipt Clearing',
+        name_ar:'تسوية إيصالات الخزينة',
+        name_en:'Treasury Receipt Clearing',
+        type:'Equity',normal:'credit',level:1,opening:0
+      });
+    }
+  }
+
+  function nextSerialV164(type){
+    ensureV164();
+    let arr=type==='in'?db.cash_receipts_in:db.cash_receipts_out;
+    let max=arr.reduce((m,r)=>{
+      let num=Number(String(r.serial||'').replace(/\D/g,''))||0;
+      return Math.max(m,num);
+    },0);
+    return String(max+1).padStart(6,'0');
+  }
+
+  function receiptMethodV164(type){
+    let name=type==='in'?'cr_in_method_v159':'cr_out_method_v159';
+    return (document.querySelector(`input[name="${name}"]:checked`)||{}).value||'cash';
+  }
+
+  function postReceiptV164(row,type){
+    ensureV164();
+    let sourceId='cash_receipt_'+row.id;
+    let amount=n(row.amount);
+    let isIn=type==='in';
+    let desc=(isIn?'إيصال استلام نقدية ':'إيصال صرف نقدية ')
+      +'رقم '+row.serial+' - '+(row.party||'')+' - '+(row.purpose||'');
+
+    db.finance_cash_currency_movements=
+      db.finance_cash_currency_movements.filter(x=>x.sourceId!==sourceId&&x.id!==sourceId);
+
+    db.finance_cash_currency_movements.unshift({
+      id:sourceId,
+      sourceId,
+      receipt_id:row.id,
+      receipt_type:type,
+      date:row.date||today(),
+      type:isIn?'in':'out',
+      currency:'EGP',
+      amount,
+      rate:1,
+      egp_value:amount,
+      description:desc,
+      source:'cash_receipt_v164'
+    });
+
+    db.journal=db.journal.filter(j=>j.sourceId!==sourceId);
+
+    if(isIn){
+      db.journal.push({
+        id:uid(),date:row.date||today(),account:'1100',
+        debit:amount,credit:0,description:desc,
+        source:'cash_receipt_v164',sourceId
+      });
+      db.journal.push({
+        id:uid(),date:row.date||today(),account:'3990',
+        debit:0,credit:amount,description:'مقابل '+desc,
+        source:'cash_receipt_v164',sourceId
+      });
+    }else{
+      db.journal.push({
+        id:uid(),date:row.date||today(),account:'3990',
+        debit:amount,credit:0,description:'مقابل '+desc,
+        source:'cash_receipt_v164',sourceId
+      });
+      db.journal.push({
+        id:uid(),date:row.date||today(),account:'1100',
+        debit:0,credit:amount,description:desc,
+        source:'cash_receipt_v164',sourceId
+      });
+    }
+  }
+
+  window.saveCashReceiptV159=function(type){
+    ensureV164();
+
+    let isIn=type==='in';
+    let prefix=isIn?'cr_in':'cr_out';
+    let amount=n((document.getElementById(prefix+'_amount_v159')||{}).value);
+
+    if(amount<=0){
+      alert('اكتب قيمة صحيحة للمبلغ');
+      return;
+    }
+
+    let party=(document.getElementById(
+      isIn?'cr_in_from_v159':'cr_out_to_v159'
+    )||{}).value||'';
+
+    if(!party.trim()){
+      alert(isIn?'اكتب اسم الجهة أو الشخص المستلم منه':'اكتب اسم المستفيد');
+      return;
+    }
+
+    let row={
+      id:uid(),
+      type,
+      serial:nextSerialV164(type),
+      date:(document.getElementById(prefix+'_date_v159')||{}).value||today(),
+      amount,
+      amount_words:(document.getElementById(prefix+'_words_v159')||{}).value||'',
+      purpose:(document.getElementById(prefix+'_for_v159')||{}).value||'',
+      method:receiptMethodV164(type),
+      bank:(document.getElementById(prefix+'_bank_v159')||{}).value||'',
+      cheque:(document.getElementById(prefix+'_cheque_v159')||{}).value||'',
+      receiver:(document.getElementById(prefix+'_receiver_v159')||{}).value||'',
+      party:party.trim()
+    };
+
+    if(isIn){
+      db.cash_receipts_in.unshift(row);
+    }else{
+      row.department=(document.getElementById('cr_out_department_v159')||{}).value||'';
+      row.treasury_approval=(document.getElementById('cr_out_treasury_v159')||{}).value||'';
+      row.manager_approval=(document.getElementById('cr_out_manager_v159')||{}).value||'';
+      db.cash_receipts_out.unshift(row);
+    }
+
+    postReceiptV164(row,type);
+
+    if(typeof save==='function')save();
+
+    alert(isIn
+      ?'تم حفظ إيصال الاستلام وإضافته إلى حركة الخزنة'
+      :'تم حفظ إيصال الصرف وإضافته إلى حركة الخزنة');
+
+    if(typeof closeFinanceReceiptFullscreenV162==='function'){
+      closeFinanceReceiptFullscreenV162();
+    }
+
+    if(typeof renderAccounts==='function')renderAccounts();
+    if(typeof renderCashFlow==='function')renderCashFlow();
+    if(typeof renderTrial==='function')renderTrial();
+    if(typeof renderTrialBalance==='function')renderTrialBalance();
+  };
+
+  try{saveCashReceiptV159=window.saveCashReceiptV159}catch(e){}
+})();
+</script>
+<!-- v164 receipt save button self contained fix -->
+
+
+
+<script id="v165-treasury-balance-synced">
+(function(){
+  function ensureFinanceFundsV165(){
+    if(!Array.isArray(db.financeFunds))db.financeFunds=[];
+    db.financeFunds=db.financeFunds.map(x=>({
+      id:x.id||uid(),
+      type:x.type||'cash',
+      name:x.name||'',
+      balance:n(x.balance),
+      account:x.account||'',
+      branch:x.branch||'',
+      notes:x.notes||'',
+      created_at:x.created_at||today(),
+      system_cash:x.system_cash===true
+    }));
+  }
+
+  function treasuryJournalBalanceV165(){
+    if(typeof ensureAccounting==='function')ensureAccounting();
+    let opening=0;
+    try{
+      let acc=typeof accountByCode==='function'?accountByCode('1100'):null;
+      opening=acc?n(acc.opening):0;
+    }catch(e){}
+    let movement=(db.journal||[])
+      .filter(j=>String(j.account)==='1100')
+      .reduce((sum,j)=>sum+n(j.debit)-n(j.credit),0);
+    return opening+movement;
+  }
+
+  window.syncTreasuryFundV165=function(){
+    ensureFinanceFundsV165();
+
+    let fund=db.financeFunds.find(f=>f.system_cash===true)
+      || db.financeFunds.find(f=>f.type==='cash' && String(f.account||'')==='1100');
+
+    if(!fund){
+      fund={
+        id:uid(),
+        type:'cash',
+        name:'الخزنة الرئيسية',
+        balance:0,
+        account:'1100',
+        branch:'',
+        notes:'مرتبطة تلقائيًا بحساب الخزينة 1100',
+        created_at:today(),
+        system_cash:true
+      };
+      db.financeFunds.unshift(fund);
+    }
+
+    fund.system_cash=true;
+    fund.type='cash';
+    fund.account='1100';
+    fund.balance=treasuryJournalBalanceV165();
+
+    return fund.balance;
+  };
+
+  const saveReceiptV165=window.saveCashReceiptV159;
+  if(typeof saveReceiptV165==='function'){
+    window.saveCashReceiptV159=function(type){
+      let result=saveReceiptV165.apply(this,arguments);
+      syncTreasuryFundV165();
+      if(typeof save==='function')save();
+
+      setTimeout(function(){
+        if(typeof renderAccounts==='function')renderAccounts();
+        if(typeof renderCashFlow==='function')renderCashFlow();
+      },80);
+
+      return result;
+    };
+    try{saveCashReceiptV159=window.saveCashReceiptV159}catch(e){}
+  }
+
+  const deleteReceiptV165=window.deleteCashReceiptV159;
+  if(typeof deleteReceiptV165==='function'){
+    window.deleteCashReceiptV159=function(type,id){
+      let result=deleteReceiptV165.apply(this,arguments);
+      syncTreasuryFundV165();
+      if(typeof save==='function')save();
+
+      setTimeout(function(){
+        if(typeof renderAccounts==='function')renderAccounts();
+        if(typeof renderCashFlow==='function')renderCashFlow();
+      },80);
+
+      return result;
+    };
+    try{deleteCashReceiptV159=window.deleteCashReceiptV159}catch(e){}
+  }
+
+  const fundTotalsOriginalV165=window.fundTotalsV65 || (typeof fundTotalsV65==='function'?fundTotalsV65:null);
+  window.fundTotalsV65=function(){
+    syncTreasuryFundV165();
+    let cash=0,bank=0;
+    db.financeFunds.forEach(f=>{
+      if(f.type==='bank')bank+=n(f.balance);
+      else cash+=n(f.balance);
+    });
+    return {cash,bank,total:cash+bank,count:db.financeFunds.length};
+  };
+  try{fundTotalsV65=window.fundTotalsV65}catch(e){}
+
+  const financeFundsHTMLOriginalV165=window.financeFundsHTMLV65 || (typeof financeFundsHTMLV65==='function'?financeFundsHTMLV65:null);
+  if(typeof financeFundsHTMLOriginalV165==='function'){
+    window.financeFundsHTMLV65=function(){
+      syncTreasuryFundV165();
+      return financeFundsHTMLOriginalV165.apply(this,arguments);
+    };
+    try{financeFundsHTMLV65=window.financeFundsHTMLV65}catch(e){}
+  }
+
+  const renderAccountsV165=window.renderAccounts;
+  if(typeof renderAccountsV165==='function'){
+    window.renderAccounts=function(){
+      syncTreasuryFundV165();
+      let result=renderAccountsV165.apply(this,arguments);
+      setTimeout(function(){
+        let tile=document.querySelector('#mb_v60_home_accounts [data-v65-finance-funds] .mb-v60-count');
+        if(tile){
+          let totals=window.fundTotalsV65();
+          tile.textContent=money(totals.total);
+        }
+      },100);
+      return result;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  document.addEventListener('DOMContentLoaded',function(){
+    setTimeout(function(){
+      syncTreasuryFundV165();
+      if(typeof save==='function')save();
+    },900);
+  });
+})();
+</script>
+<!-- v165 sync cashboxes tile with journal account 1100 -->
+
+
+
+<script id="v166-receipt-amount-input-fixed">
+(function(){
+  function parseAmountV166(value){
+    let s=String(value??'')
+      .trim()
+      .replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d))
+      .replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+      .replace(/[,\s٬]/g,'')
+      .replace(/٫/g,'.')
+      .replace(/[^\d.-]/g,'');
+    let num=Number(s);
+    return Number.isFinite(num)?num:0;
+  }
+
+  function ensureV166(){
+    if(!Array.isArray(db.cash_receipts_in))db.cash_receipts_in=[];
+    if(!Array.isArray(db.cash_receipts_out))db.cash_receipts_out=[];
+    if(!Array.isArray(db.finance_cash_currency_movements))db.finance_cash_currency_movements=[];
+    if(!Array.isArray(db.journal))db.journal=[];
+    if(!Array.isArray(db.accounts))db.accounts=[];
+    if(!db.accounts.find(a=>a.code==='3990')){
+      db.accounts.push({
+        id:uid(),code:'3990',
+        name:'تسوية إيصالات الخزينة / Treasury Receipt Clearing',
+        name_ar:'تسوية إيصالات الخزينة',
+        name_en:'Treasury Receipt Clearing',
+        type:'Equity',normal:'credit',level:1,opening:0
+      });
+    }
+  }
+
+  function nextSerialV166(type){
+    ensureV166();
+    let arr=type==='in'?db.cash_receipts_in:db.cash_receipts_out;
+    let max=arr.reduce((m,r)=>Math.max(m,Number(String(r.serial||'').replace(/\D/g,''))||0),0);
+    return String(max+1).padStart(6,'0');
+  }
+
+  function methodV166(type){
+    let name=type==='in'?'cr_in_method_v159':'cr_out_method_v159';
+    return (document.querySelector(`input[name="${name}"]:checked`)||{}).value||'cash';
+  }
+
+  function postReceiptV166(row,type){
+    ensureV166();
+    let sourceId='cash_receipt_'+row.id;
+    let amount=parseAmountV166(row.amount);
+    let isIn=type==='in';
+    let desc=(isIn?'إيصال استلام نقدية ':'إيصال صرف نقدية ')
+      +'رقم '+row.serial+' - '+(row.party||'')+' - '+(row.purpose||'');
+
+    db.finance_cash_currency_movements=
+      db.finance_cash_currency_movements.filter(x=>x.sourceId!==sourceId&&x.id!==sourceId);
+
+    db.finance_cash_currency_movements.unshift({
+      id:sourceId,sourceId,receipt_id:row.id,receipt_type:type,
+      date:row.date||today(),type:isIn?'in':'out',
+      currency:'EGP',amount,rate:1,egp_value:amount,
+      description:desc,source:'cash_receipt_v166'
+    });
+
+    db.journal=db.journal.filter(j=>j.sourceId!==sourceId);
+
+    if(isIn){
+      db.journal.push({id:uid(),date:row.date||today(),account:'1100',debit:amount,credit:0,description:desc,source:'cash_receipt_v166',sourceId});
+      db.journal.push({id:uid(),date:row.date||today(),account:'3990',debit:0,credit:amount,description:'مقابل '+desc,source:'cash_receipt_v166',sourceId});
+    }else{
+      db.journal.push({id:uid(),date:row.date||today(),account:'3990',debit:amount,credit:0,description:'مقابل '+desc,source:'cash_receipt_v166',sourceId});
+      db.journal.push({id:uid(),date:row.date||today(),account:'1100',debit:0,credit:amount,description:desc,source:'cash_receipt_v166',sourceId});
+    }
+  }
+
+  window.saveCashReceiptV159=function(type){
+    ensureV166();
+
+    let isIn=type==='in';
+    let prefix=isIn?'cr_in':'cr_out';
+    let amountInput=document.getElementById(prefix+'_amount_v159');
+    let amount=parseAmountV166(amountInput?.value);
+
+    if(amount<=0){
+      if(amountInput){
+        amountInput.focus();
+        amountInput.scrollIntoView({behavior:'smooth',block:'center'});
+        amountInput.style.border='2px solid #dc2626';
+        amountInput.placeholder='اكتب المبلغ رقمًا مثل 1000';
+      }
+      alert('اكتب المبلغ في خانة "المبلغ رقمًا" مثل 1000');
+      return;
+    }
+
+    if(amountInput)amountInput.style.border='';
+
+    let partyInput=document.getElementById(isIn?'cr_in_from_v159':'cr_out_to_v159');
+    let party=String(partyInput?.value||'').trim();
+    if(!party){
+      if(partyInput)partyInput.focus();
+      alert(isIn?'اكتب اسم الجهة أو الشخص المستلم منه':'اكتب اسم المستفيد');
+      return;
+    }
+
+    let row={
+      id:uid(),type,
+      serial:nextSerialV166(type),
+      date:document.getElementById(prefix+'_date_v159')?.value||today(),
+      amount,
+      amount_words:document.getElementById(prefix+'_words_v159')?.value||'',
+      purpose:document.getElementById(prefix+'_for_v159')?.value||'',
+      method:methodV166(type),
+      bank:document.getElementById(prefix+'_bank_v159')?.value||'',
+      cheque:document.getElementById(prefix+'_cheque_v159')?.value||'',
+      receiver:document.getElementById(prefix+'_receiver_v159')?.value||'',
+      party
+    };
+
+    if(isIn){
+      db.cash_receipts_in.unshift(row);
+    }else{
+      row.department=document.getElementById('cr_out_department_v159')?.value||'';
+      row.treasury_approval=document.getElementById('cr_out_treasury_v159')?.value||'';
+      row.manager_approval=document.getElementById('cr_out_manager_v159')?.value||'';
+      db.cash_receipts_out.unshift(row);
+    }
+
+    postReceiptV166(row,type);
+
+    if(typeof syncTreasuryFundV165==='function')syncTreasuryFundV165();
+    if(typeof save==='function')save();
+
+    alert(isIn
+      ?'تم حفظ إيصال الاستلام وتحديث رصيد الخزنة'
+      :'تم حفظ إيصال الصرف وتحديث رصيد الخزنة');
+
+    if(typeof closeFinanceReceiptFullscreenV162==='function')closeFinanceReceiptFullscreenV162();
+    if(typeof renderAccounts==='function')renderAccounts();
+    if(typeof renderCashFlow==='function')renderCashFlow();
+    if(typeof renderTrial==='function')renderTrial();
+    if(typeof renderTrialBalance==='function')renderTrialBalance();
+  };
+
+  function prepareAmountFieldsV166(){
+    ['cr_in_amount_v159','cr_out_amount_v159'].forEach(id=>{
+      let input=document.getElementById(id);
+      if(!input)return;
+      input.type='text';
+      input.inputMode='decimal';
+      input.placeholder='مثال: 1000';
+      input.autocomplete='off';
+    });
+  }
+
+  const openReceiptV166=window.openFinanceReceiptFullscreenV162;
+  if(typeof openReceiptV166==='function'){
+    window.openFinanceReceiptFullscreenV162=function(kind){
+      let r=openReceiptV166.apply(this,arguments);
+      setTimeout(prepareAmountFieldsV166,80);
+      return r;
+    };
+  }
+
+  try{saveCashReceiptV159=window.saveCashReceiptV159}catch(e){}
+})();
+</script>
+<!-- v166 robust receipt amount input and treasury posting -->
+
+
+
+<script id="v167-cash-movements-affect-treasury-reports">
+(function(){
+  function ensureCashMovementAccountingV167(){
+    if(!Array.isArray(db.finance_cash_currency_movements))db.finance_cash_currency_movements=[];
+    if(!Array.isArray(db.journal))db.journal=[];
+    if(!Array.isArray(db.accounts))db.accounts=[];
+    if(!db.accounts.find(a=>a.code==='3990')){
+      db.accounts.push({
+        id:uid(),code:'3990',
+        name:'تسوية حركة النقدية / Cash Movement Clearing',
+        name_ar:'تسوية حركة النقدية',
+        name_en:'Cash Movement Clearing',
+        type:'Equity',normal:'credit',level:1,opening:0
+      });
+    }
+  }
+
+  function cashMovementSourceIdV167(row){
+    return 'cash_movement_'+row.id;
+  }
+
+  function isReceiptMovementV167(row){
+    return row && (
+      row.source==='cash_receipt_v161' ||
+      row.source==='cash_receipt_v163' ||
+      row.source==='cash_receipt_v164' ||
+      row.source==='cash_receipt_v166' ||
+      row.receipt_id
+    );
+  }
+
+  function postCashMovementV167(row){
+    if(!row || isReceiptMovementV167(row))return;
+    ensureCashMovementAccountingV167();
+
+    let sourceId=cashMovementSourceIdV167(row);
+    let amount=n(row.egp_value)||n(row.amount)*n(row.rate||1);
+    let isIn=row.type!=='out';
+    let desc=(isIn?'حركة نقدية داخلة: ':'حركة نقدية خارجة: ')
+      +(row.description||'بدون بيان')
+      +' - '+(row.currency||'EGP')+' '+n(row.amount).toLocaleString()
+      +(row.currency!=='EGP'?' بسعر '+n(row.rate||1).toLocaleString():'');
+
+    db.journal=db.journal.filter(j=>j.sourceId!==sourceId);
+
+    if(isIn){
+      db.journal.push({
+        id:uid(),date:row.date||today(),account:'1100',
+        debit:amount,credit:0,description:desc,
+        source:'manual_cash_movement_v167',sourceId
+      });
+      db.journal.push({
+        id:uid(),date:row.date||today(),account:'3990',
+        debit:0,credit:amount,description:'مقابل '+desc,
+        source:'manual_cash_movement_v167',sourceId
+      });
+    }else{
+      db.journal.push({
+        id:uid(),date:row.date||today(),account:'3990',
+        debit:amount,credit:0,description:'مقابل '+desc,
+        source:'manual_cash_movement_v167',sourceId
+      });
+      db.journal.push({
+        id:uid(),date:row.date||today(),account:'1100',
+        debit:0,credit:amount,description:desc,
+        source:'manual_cash_movement_v167',sourceId
+      });
+    }
+  }
+
+  window.syncManualCashMovementsV167=function(){
+    ensureCashMovementAccountingV167();
+
+    let valid=new Set();
+    (db.finance_cash_currency_movements||[]).forEach(row=>{
+      if(isReceiptMovementV167(row))return;
+      let sourceId=cashMovementSourceIdV167(row);
+      valid.add(sourceId);
+      postCashMovementV167(row);
+    });
+
+    db.journal=db.journal.filter(j=>
+      j.source!=='manual_cash_movement_v167' || valid.has(j.sourceId)
+    );
+
+    if(typeof syncTreasuryFundV165==='function')syncTreasuryFundV165();
+  };
+
+  window.addFinanceCashMovementV135=function(){
+    ensureFinanceCashCurrencyV135();
+
+    let currency=document.getElementById('fc_currency_v135')?.value||'EGP';
+    let amount=n(document.getElementById('fc_amount_v135')?.value);
+    let rate=currency==='EGP'?1:(n(document.getElementById('fc_rate_v135')?.value)||1);
+
+    if(amount<=0){
+      alert(lang==='ar'?'اكتب قيمة صحيحة للمبلغ':'Enter a valid amount');
+      return;
+    }
+
+    let row={
+      id:uid(),
+      date:document.getElementById('fc_date_v135')?.value||today(),
+      type:document.getElementById('fc_type_v135')?.value||'in',
+      currency,
+      amount,
+      rate,
+      egp_value:amount*rate,
+      description:String(document.getElementById('fc_desc_v135')?.value||'').trim(),
+      source:'finance_cash_currency_v135'
+    };
+
+    db.finance_cash_currency_movements.unshift(row);
+    postCashMovementV167(row);
+
+    if(typeof syncTreasuryFundV165==='function')syncTreasuryFundV165();
+    if(typeof save==='function')save();
+
+    if(typeof renderAccounts==='function')renderAccounts();
+    if(typeof renderCashFlow==='function')renderCashFlow();
+    if(typeof renderTrial==='function')renderTrial();
+    if(typeof renderTrialBalance==='function')renderTrialBalance();
+    if(typeof renderReports==='function')renderReports();
+
+    alert(row.type==='in'
+      ?'تم تسجيل الحركة الداخلة وتحديث رصيد الخزنة والتقارير'
+      :'تم تسجيل الحركة الخارجة وتحديث رصيد الخزنة والتقارير');
+  };
+
+  window.deleteFinanceCashMovementV135=function(id){
+    let row=(db.finance_cash_currency_movements||[]).find(r=>r.id===id);
+    if(!row)return;
+    if(!confirm(lang==='ar'?'حذف الحركة ومسح أثرها من الخزنة والتقارير؟':'Delete movement and its effects?'))return;
+
+    let sourceId=cashMovementSourceIdV167(row);
+
+    db.finance_cash_currency_movements=
+      db.finance_cash_currency_movements.filter(r=>r.id!==id);
+
+    db.journal=db.journal.filter(j=>j.sourceId!==sourceId);
+
+    if(typeof syncTreasuryFundV165==='function')syncTreasuryFundV165();
+    if(typeof save==='function')save();
+
+    if(typeof renderAccounts==='function')renderAccounts();
+    if(typeof renderCashFlow==='function')renderCashFlow();
+    if(typeof renderTrial==='function')renderTrial();
+    if(typeof renderTrialBalance==='function')renderTrialBalance();
+    if(typeof renderReports==='function')renderReports();
+  };
+
+  try{addFinanceCashMovementV135=window.addFinanceCashMovementV135}catch(e){}
+  try{deleteFinanceCashMovementV135=window.deleteFinanceCashMovementV135}catch(e){}
+
+  const renderAccountsBeforeV167=window.renderAccounts;
+  if(typeof renderAccountsBeforeV167==='function'){
+    window.renderAccounts=function(){
+      syncManualCashMovementsV167();
+      let result=renderAccountsBeforeV167.apply(this,arguments);
+      return result;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  document.addEventListener('DOMContentLoaded',function(){
+    setTimeout(function(){
+      syncManualCashMovementsV167();
+      if(typeof save==='function')save();
+    },1000);
+  });
+})();
+</script>
+<!-- v167 manual cash movements update treasury cashflow journal and reports -->
+
