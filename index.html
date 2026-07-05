@@ -10133,3 +10133,536 @@ html body .finance-receipt-fullscreen-body-v162 table{
 </script>
 <!-- v167 manual cash movements update treasury cashflow journal and reports -->
 
+
+
+<script id="v168-finance-report-date-stays-open">
+(function(){
+  const RANGE_KEY_V168='mb_finance_report_range_v168';
+
+  function loadFinanceRangeV168(){
+    try{
+      let r=JSON.parse(localStorage.getItem(RANGE_KEY_V168)||'null');
+      if(r && typeof r==='object')return {from:r.from||'',to:r.to||''};
+    }catch(e){}
+    return {from:reportRange?.from||monthStart(),to:reportRange?.to||today()};
+  }
+
+  function saveFinanceRangeV168(r){
+    localStorage.setItem(RANGE_KEY_V168,JSON.stringify(r));
+    localStorage.setItem('mb_report_range',JSON.stringify(r));
+  }
+
+  function withFinanceRangeV168(fn){
+    let previous={from:reportRange?.from||'',to:reportRange?.to||''};
+    let financeRange=loadFinanceRangeV168();
+    reportRange={from:financeRange.from,to:financeRange.to};
+    try{return fn();}
+    finally{reportRange=previous;}
+  }
+
+  const departmentReportCardBeforeV168=window.departmentReportCard || departmentReportCard;
+  window.departmentReportCard=function(type,title,desc){
+    if(type!=='accounts'){
+      return departmentReportCardBeforeV168.apply(this,arguments);
+    }
+    return withFinanceRangeV168(function(){
+      return departmentReportCardBeforeV168(type,title,desc);
+    });
+  };
+  try{departmentReportCard=window.departmentReportCard}catch(e){}
+
+  window.applyDepartmentReportRange=function(type){
+    if(type!=='accounts'){
+      reportRange={
+        from:document.getElementById(type+'_rep_from')?.value||'',
+        to:document.getElementById(type+'_rep_to')?.value||''
+      };
+      saveReportRange();
+      if(typeof render==='function')render();
+      return;
+    }
+
+    let from=document.getElementById('accounts_rep_from')?.value||'';
+    let to=document.getElementById('accounts_rep_to')?.value||'';
+
+    if(from && to && from>to){
+      alert(lang==='ar'?'تاريخ البداية يجب أن يكون قبل تاريخ النهاية':'From date must be before To date');
+      return;
+    }
+
+    let selected={from,to};
+    saveFinanceRangeV168(selected);
+    reportRange={from,to};
+
+    let card=document.getElementById('report_accounts');
+    if(!card)return;
+
+    let badge=card.querySelector('.dept-report-head .badge');
+    if(badge)badge.textContent=reportPeriodLabel();
+
+    let controls=card.querySelector('.dept-report-actions');
+    if(controls){
+      let fromInput=controls.querySelector('#accounts_rep_from');
+      let toInput=controls.querySelector('#accounts_rep_to');
+      if(fromInput)fromInput.value=from;
+      if(toInput)toInput.value=to;
+
+      let node=controls.nextSibling;
+      while(node){
+        let next=node.nextSibling;
+        node.remove();
+        node=next;
+      }
+      controls.insertAdjacentHTML('afterend',departmentReportBody('accounts'));
+    }
+
+    card.scrollIntoView({behavior:'smooth',block:'start'});
+  };
+  try{applyDepartmentReportRange=window.applyDepartmentReportRange}catch(e){}
+
+  const printDepartmentReportBeforeV168=window.printDepartmentReport || printDepartmentReport;
+  window.printDepartmentReport=function(type){
+    if(type!=='accounts'){
+      return printDepartmentReportBeforeV168.apply(this,arguments);
+    }
+    let financeRange=loadFinanceRangeV168();
+    let previous={from:reportRange?.from||'',to:reportRange?.to||''};
+    reportRange={from:financeRange.from,to:financeRange.to};
+    try{
+      return printDepartmentReportBeforeV168(type);
+    }finally{
+      reportRange=previous;
+    }
+  };
+  try{printDepartmentReport=window.printDepartmentReport}catch(e){}
+
+  function restoreFinanceInputsV168(){
+    let r=loadFinanceRangeV168();
+    document.querySelectorAll('#accounts_rep_from').forEach(el=>el.value=r.from||'');
+    document.querySelectorAll('#accounts_rep_to').forEach(el=>el.value=r.to||'');
+  }
+
+  const renderAccountsBeforeV168=window.renderAccounts;
+  if(typeof renderAccountsBeforeV168==='function'){
+    window.renderAccounts=function(){
+      let previous={from:reportRange?.from||'',to:reportRange?.to||''};
+      let financeRange=loadFinanceRangeV168();
+      reportRange={from:financeRange.from,to:financeRange.to};
+      let result;
+      try{
+        result=renderAccountsBeforeV168.apply(this,arguments);
+      }finally{
+        reportRange=previous;
+      }
+      setTimeout(restoreFinanceInputsV168,80);
+      return result;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  document.addEventListener('DOMContentLoaded',function(){
+    setTimeout(restoreFinanceInputsV168,700);
+  });
+})();
+</script>
+<!-- v168 finance report range persists and apply stays in same card -->
+
+
+
+<script id="v169-finance-report-filter-rows-fixed">
+(function(){
+  function financeRangeV169(){
+    try{
+      let saved=JSON.parse(localStorage.getItem('mb_finance_report_range_v168')||'null');
+      if(saved)return {from:saved.from||'',to:saved.to||''};
+    }catch(e){}
+    return {from:reportRange?.from||'',to:reportRange?.to||''};
+  }
+
+  function financeJournalRowsV169(){
+    if(typeof ensureAccounting==='function')ensureAccounting();
+    let r=financeRangeV169();
+    return (db.journal||[]).filter(j=>{
+      let d=String(j.date||'').slice(0,10);
+      if(!d)return false;
+      return (!r.from||d>=r.from)&&(!r.to||d<=r.to);
+    });
+  }
+
+  function financeJournalTableV169(){
+    let rows=financeJournalRowsV169();
+    if(!rows.length){
+      return `<div class="empty">${lang==='ar'?'لا توجد قيود في الفترة المحددة':'No journal entries in selected range'}</div>`;
+    }
+
+    return `<table>
+      <tr>
+        <th>${T('date')}</th>
+        <th>${lang==='ar'?'البيان / الحركة':'Description / transaction'}</th>
+        <th>${lang==='ar'?'الحساب المتأثر':'Affected account'}</th>
+        <th>${lang==='ar'?'مدين':'Debit'}</th>
+        <th>${lang==='ar'?'دائن':'Credit'}</th>
+      </tr>
+      ${rows.map(j=>`<tr>
+        <td><b>${esc(j.date||'')}</b><span class="entry-source">${esc(j.source||'')}</span></td>
+        <td class="journal-desc">
+          ${esc(j.description||'')}
+          <span class="entry-source">${lang==='ar'?'رقم الحركة':'Transaction ID'}: ${esc((j.sourceId||'').slice(-8))}</span>
+        </td>
+        <td class="journal-account">
+          <span class="account-code">${esc(j.account||'')}</span><br>
+          <b>${esc((typeof accountByCode==='function'&&accountByCode(j.account)?accountByCode(j.account).name:'')||'')}</b>
+        </td>
+        <td class="journal-amount">${n(j.debit)?money(j.debit):''}</td>
+        <td class="journal-amount">${n(j.credit)?money(j.credit):''}</td>
+      </tr>`).join('')}
+    </table>`;
+  }
+
+  window.accountsReportTable=function(){
+    let rows=financeJournalRowsV169();
+    let debit=rows.reduce((a,j)=>a+n(j.debit),0);
+    let credit=rows.reduce((a,j)=>a+n(j.credit),0);
+    let diff=Math.abs(debit-credit);
+
+    return `<div class="dept-report-grid">
+      <div class="stat"><span>${lang==='ar'?'مدين الفترة':'Period debit'}</span><strong>${money(debit)}</strong></div>
+      <div class="stat"><span>${lang==='ar'?'دائن الفترة':'Period credit'}</span><strong>${money(credit)}</strong></div>
+      <div class="stat"><span>${lang==='ar'?'الفرق':'Difference'}</span><strong>${money(diff)}</strong></div>
+    </div>${financeJournalTableV169()}`;
+  };
+  try{accountsReportTable=window.accountsReportTable}catch(e){}
+
+  window.applyDepartmentReportRange=function(type){
+    if(type!=='accounts'){
+      reportRange={
+        from:document.getElementById(type+'_rep_from')?.value||'',
+        to:document.getElementById(type+'_rep_to')?.value||''
+      };
+      saveReportRange();
+      if(typeof render==='function')render();
+      return;
+    }
+
+    let from=document.getElementById('accounts_rep_from')?.value||'';
+    let to=document.getElementById('accounts_rep_to')?.value||'';
+
+    if(from&&to&&from>to){
+      alert(lang==='ar'?'تاريخ البداية يجب أن يكون قبل تاريخ النهاية':'From date must be before To date');
+      return;
+    }
+
+    let selected={from,to};
+    localStorage.setItem('mb_finance_report_range_v168',JSON.stringify(selected));
+    localStorage.setItem('mb_report_range',JSON.stringify(selected));
+
+    let card=document.getElementById('report_accounts');
+    if(!card)return;
+
+    let badge=card.querySelector('.dept-report-head .badge');
+    if(badge)badge.textContent=(from||'...')+' → '+(to||'...');
+
+    let controls=card.querySelector('.dept-report-actions');
+    if(controls){
+      let fromInput=controls.querySelector('#accounts_rep_from');
+      let toInput=controls.querySelector('#accounts_rep_to');
+      if(fromInput)fromInput.value=from;
+      if(toInput)toInput.value=to;
+
+      let node=controls.nextSibling;
+      while(node){
+        let next=node.nextSibling;
+        node.remove();
+        node=next;
+      }
+      controls.insertAdjacentHTML('afterend',accountsReportTable());
+    }
+
+    card.scrollIntoView({behavior:'smooth',block:'start'});
+  };
+  try{applyDepartmentReportRange=window.applyDepartmentReportRange}catch(e){}
+})();
+</script>
+<!-- v169 finance report table uses selected date range only -->
+
+
+
+<script id="v170-remove-duplicate-cash-journals">
+(function(){
+  function movementKeyV170(row){
+    if(!row)return '';
+    return String(row.id||row.sourceId||'');
+  }
+
+  function journalMovementKeyV170(j){
+    if(!j)return '';
+    let sid=String(j.sourceId||'');
+    if(sid.startsWith('cash_movement_'))return sid.replace('cash_movement_','');
+    return sid;
+  }
+
+  window.cleanupDuplicateCashJournalsV170=function(){
+    if(!Array.isArray(db.journal))db.journal=[];
+    if(!Array.isArray(db.finance_cash_currency_movements))db.finance_cash_currency_movements=[];
+
+    let manualIds=new Set(
+      db.finance_cash_currency_movements
+        .filter(r=>r && !r.receipt_id)
+        .map(r=>movementKeyV170(r))
+        .filter(Boolean)
+    );
+
+    // Keep the original finance cash posting and remove the later duplicated v167 posting
+    db.journal=db.journal.filter(j=>{
+      let key=journalMovementKeyV170(j);
+      if(!manualIds.has(key))return true;
+      return j.source!=='manual_cash_movement_v167';
+    });
+
+    // Also remove exact duplicate journal lines if any remain
+    let seen=new Set();
+    db.journal=db.journal.filter(j=>{
+      let sig=[
+        j.date||'',
+        j.account||'',
+        n(j.debit),
+        n(j.credit),
+        String(j.sourceId||'').replace(/^cash_movement_/,''),
+        String(j.description||'').replace(/^مقابل\s+/,'مقابل ')
+      ].join('|');
+      if(seen.has(sig))return false;
+      seen.add(sig);
+      return true;
+    });
+  };
+
+  // Replace sync so it does not create a second journal set
+  window.syncManualCashMovementsV167=function(){
+    cleanupDuplicateCashJournalsV170();
+    if(typeof syncTreasuryFundV165==='function')syncTreasuryFundV165();
+  };
+
+  // Keep add function behavior but prevent duplicate posting after original add logic
+  const addCashBeforeV170=window.addFinanceCashMovementV135;
+  if(typeof addCashBeforeV170==='function'){
+    window.addFinanceCashMovementV135=function(){
+      let beforeIds=new Set((db.finance_cash_currency_movements||[]).map(r=>r.id));
+      let result=addCashBeforeV170.apply(this,arguments);
+
+      cleanupDuplicateCashJournalsV170();
+
+      // If the original function did not post anything, post exactly one pair
+      let row=(db.finance_cash_currency_movements||[]).find(r=>!beforeIds.has(r.id));
+      if(row){
+        let hasJournal=(db.journal||[]).some(j=>String(j.sourceId||'')===String(row.id));
+        if(!hasJournal && typeof addFinanceCashJournalV136==='function'){
+          addFinanceCashJournalV136(row);
+        }
+      }
+
+      cleanupDuplicateCashJournalsV170();
+      if(typeof syncTreasuryFundV165==='function')syncTreasuryFundV165();
+      if(typeof save==='function')save();
+
+      if(typeof renderAccounts==='function')renderAccounts();
+      if(typeof renderCashFlow==='function')renderCashFlow();
+      if(typeof renderTrial==='function')renderTrial();
+      if(typeof renderTrialBalance==='function')renderTrialBalance();
+      if(typeof renderReports==='function')renderReports();
+
+      return result;
+    };
+    try{addFinanceCashMovementV135=window.addFinanceCashMovementV135}catch(e){}
+  }
+
+  const deleteCashBeforeV170=window.deleteFinanceCashMovementV135;
+  if(typeof deleteCashBeforeV170==='function'){
+    window.deleteFinanceCashMovementV135=function(id){
+      let result=deleteCashBeforeV170.apply(this,arguments);
+      cleanupDuplicateCashJournalsV170();
+      if(typeof syncTreasuryFundV165==='function')syncTreasuryFundV165();
+      if(typeof save==='function')save();
+      return result;
+    };
+    try{deleteFinanceCashMovementV135=window.deleteFinanceCashMovementV135}catch(e){}
+  }
+
+  const renderAccountsBeforeV170=window.renderAccounts;
+  if(typeof renderAccountsBeforeV170==='function'){
+    window.renderAccounts=function(){
+      cleanupDuplicateCashJournalsV170();
+      let result=renderAccountsBeforeV170.apply(this,arguments);
+      return result;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  document.addEventListener('DOMContentLoaded',function(){
+    setTimeout(function(){
+      cleanupDuplicateCashJournalsV170();
+      if(typeof syncTreasuryFundV165==='function')syncTreasuryFundV165();
+      if(typeof save==='function')save();
+    },900);
+  });
+})();
+</script>
+<!-- v170 remove duplicate manual cash journal postings -->
+
+
+
+<script id="v171-finance-filter-exact-period">
+(function(){
+  const KEY='mb_finance_exact_range_v171';
+
+  function readSavedV171(){
+    try{
+      let r=JSON.parse(localStorage.getItem(KEY)||'null');
+      if(r)return {from:r.from||'',to:r.to||''};
+    }catch(e){}
+    return {from:'',to:''};
+  }
+
+  function saveRangeV171(from,to){
+    localStorage.setItem(KEY,JSON.stringify({from,to}));
+    localStorage.setItem('mb_finance_report_range_v168',JSON.stringify({from,to}));
+    localStorage.setItem('mb_report_range',JSON.stringify({from,to}));
+  }
+
+  function rowsV171(from,to){
+    if(typeof ensureAccounting==='function')ensureAccounting();
+    return (db.journal||[]).filter(j=>{
+      let d=String(j.date||'').slice(0,10);
+      if(!d)return false;
+      return (!from||d>=from)&&(!to||d<=to);
+    });
+  }
+
+  function tableV171(from,to){
+    let rows=rowsV171(from,to);
+    let debit=rows.reduce((s,j)=>s+n(j.debit),0);
+    let credit=rows.reduce((s,j)=>s+n(j.credit),0);
+    let diff=Math.abs(debit-credit);
+
+    let table=rows.length?`<table>
+      <tr>
+        <th>${T('date')}</th>
+        <th>${lang==='ar'?'البيان / الحركة':'Description / transaction'}</th>
+        <th>${lang==='ar'?'الحساب المتأثر':'Affected account'}</th>
+        <th>${lang==='ar'?'مدين':'Debit'}</th>
+        <th>${lang==='ar'?'دائن':'Credit'}</th>
+      </tr>
+      ${rows.map(j=>{
+        let acc=(typeof accountByCode==='function'?accountByCode(j.account):null)||{};
+        return `<tr>
+          <td><b>${esc(j.date||'')}</b><span class="entry-source">${esc(j.source||'')}</span></td>
+          <td class="journal-desc">${esc(j.description||'')}<span class="entry-source">${lang==='ar'?'رقم الحركة':'Transaction ID'}: ${esc((j.sourceId||'').slice(-8))}</span></td>
+          <td class="journal-account"><span class="account-code">${esc(j.account||'')}</span><br><b>${esc(acc.name||'')}</b></td>
+          <td class="journal-amount">${n(j.debit)?money(j.debit):''}</td>
+          <td class="journal-amount">${n(j.credit)?money(j.credit):''}</td>
+        </tr>`;
+      }).join('')}
+    </table>`:`<div class="empty">${lang==='ar'?'لا توجد قيود داخل المدة المحددة':'No entries in selected period'}</div>`;
+
+    return `<div class="dept-report-grid">
+      <div class="stat"><span>${lang==='ar'?'مدين الفترة':'Period debit'}</span><strong>${money(debit)}</strong></div>
+      <div class="stat"><span>${lang==='ar'?'دائن الفترة':'Period credit'}</span><strong>${money(credit)}</strong></div>
+      <div class="stat"><span>${lang==='ar'?'الفرق':'Difference'}</span><strong>${money(diff)}</strong></div>
+    </div>${table}`;
+  }
+
+  function visibleReportCardV171(){
+    let cards=Array.from(document.querySelectorAll('#report_accounts'));
+    return cards.find(c=>c.offsetParent!==null)||cards[0]||null;
+  }
+
+  window.applyFinanceExactRangeV171=function(btn){
+    let card=btn?.closest('#report_accounts')||visibleReportCardV171();
+    if(!card)return;
+
+    let from=card.querySelector('#accounts_rep_from')?.value||'';
+    let to=card.querySelector('#accounts_rep_to')?.value||'';
+
+    if(from&&to&&from>to){
+      alert(lang==='ar'?'تاريخ البداية يجب أن يكون قبل تاريخ النهاية':'From date must be before To date');
+      return;
+    }
+
+    saveRangeV171(from,to);
+
+    let badge=card.querySelector('.dept-report-head .badge');
+    if(badge)badge.textContent=(from||'...')+' → '+(to||'...');
+
+    let controls=card.querySelector('.dept-report-actions');
+    if(!controls)return;
+
+    let old=card.querySelector('.finance-filter-result-v171');
+    if(old)old.remove();
+
+    let result=document.createElement('div');
+    result.className='finance-filter-result-v171';
+    result.innerHTML=tableV171(from,to);
+    controls.insertAdjacentElement('afterend',result);
+
+    // Hide only the original unfiltered body in this card.
+    let node=result.nextElementSibling;
+    while(node){
+      node.style.display='none';
+      node=node.nextElementSibling;
+    }
+
+    card.scrollIntoView({behavior:'smooth',block:'start'});
+  };
+
+  function bindCardV171(card){
+    if(!card||card.dataset.v171Bound==='1')return;
+    card.dataset.v171Bound='1';
+
+    let controls=card.querySelector('.dept-report-actions');
+    if(!controls)return;
+
+    let buttons=Array.from(controls.querySelectorAll('button'));
+    let applyBtn=buttons.find(b=>
+      /تطبيق|apply/i.test(b.textContent||'') ||
+      String(b.getAttribute('onclick')||'').includes('applyDepartmentReportRange')
+    );
+
+    if(applyBtn){
+      applyBtn.removeAttribute('onclick');
+      applyBtn.onclick=function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        applyFinanceExactRangeV171(this);
+        return false;
+      };
+    }
+
+    let saved=readSavedV171();
+    let fromInput=card.querySelector('#accounts_rep_from');
+    let toInput=card.querySelector('#accounts_rep_to');
+    if(saved.from&&fromInput)fromInput.value=saved.from;
+    if(saved.to&&toInput)toInput.value=saved.to;
+
+    if(saved.from||saved.to){
+      setTimeout(()=>applyFinanceExactRangeV171(applyBtn||controls),20);
+    }
+  }
+
+  function bindAllV171(){
+    document.querySelectorAll('#report_accounts').forEach(bindCardV171);
+  }
+
+  const observerV171=new MutationObserver(bindAllV171);
+  observerV171.observe(document.documentElement,{childList:true,subtree:true});
+
+  document.addEventListener('DOMContentLoaded',()=>setTimeout(bindAllV171,500));
+  setTimeout(bindAllV171,900);
+})();
+</script>
+
+<style id="v171-finance-filter-exact-period-style">
+html body #report_accounts .finance-filter-result-v171{
+  display:block!important;
+}
+</style>
+<!-- v171 finance report shows exact selected period only -->
+
