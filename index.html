@@ -8479,5 +8479,823 @@ html body .pending-orders-head-v154{
 })();
 </script>
 <!-- v158 approval creates sale and updates debt stock rep target -->
-<!-- force redeploy v158 - 2026-07-04 -->
+
+
+
+<script id="v159-cash-receipts-forms">
+(function(){
+  function ensureCashReceiptsV159(){
+    if(!Array.isArray(db.cash_receipts_in))db.cash_receipts_in=[];
+    if(!Array.isArray(db.cash_receipts_out))db.cash_receipts_out=[];
+  }
+
+  function nextSerialV159(type){
+    ensureCashReceiptsV159();
+    let arr=type==='in'?db.cash_receipts_in:db.cash_receipts_out;
+    let max=arr.reduce((m,r)=>Math.max(m,Number(String(r.serial||'').replace(/\D/g,''))||0),0);
+    return String(max+1).padStart(6,'0');
+  }
+
+  function receiptMethodV159(prefix){
+    return (document.querySelector(`input[name="${prefix}_method"]:checked`)||{}).value||'cash';
+  }
+
+  function cashReceiptFormsV159(){
+    ensureCashReceiptsV159();
+    return `
+      <div class="cash-receipts-wrap-v159">
+        <div class="card cash-receipt-card-v159">
+          <h3>إيصال استلام نقدية</h3>
+          <div class="grid grid3">
+            <div><label>السيريال</label><input value="${nextSerialV159('in')}" readonly></div>
+            <div><label>التاريخ</label><input id="cr_in_date_v159" type="date" value="${today()}"></div>
+            <div><label>استلمنا من السيد / السادة</label><input id="cr_in_from_v159"></div>
+            <div><label>المبلغ رقمًا</label><input id="cr_in_amount_v159" type="number" step="0.01"></div>
+            <div><label>المبلغ كتابة</label><input id="cr_in_words_v159"></div>
+            <div><label>وذلك نظير</label><input id="cr_in_for_v159"></div>
+          </div>
+
+          <div class="receipt-methods-v159">
+            <label><input type="radio" name="cr_in_method_v159" value="cash" checked> نقدًا</label>
+            <label><input type="radio" name="cr_in_method_v159" value="bank"> بنك / شيك</label>
+          </div>
+
+          <div class="grid grid3">
+            <div><label>اسم البنك</label><input id="cr_in_bank_v159"></div>
+            <div><label>رقم الشيك</label><input id="cr_in_cheque_v159"></div>
+            <div><label>اسم المستلم</label><input id="cr_in_receiver_v159"></div>
+          </div>
+
+          <button class="btn ok" onclick="saveCashReceiptV159('in')">حفظ إيصال الاستلام</button>
+        </div>
+
+        <div class="card cash-receipt-card-v159">
+          <h3>إيصال صرف نقدية</h3>
+          <div class="grid grid3">
+            <div><label>السيريال</label><input value="${nextSerialV159('out')}" readonly></div>
+            <div><label>التاريخ</label><input id="cr_out_date_v159" type="date" value="${today()}"></div>
+            <div><label>اسم المستفيد</label><input id="cr_out_to_v159"></div>
+            <div><label>المبلغ رقمًا</label><input id="cr_out_amount_v159" type="number" step="0.01"></div>
+            <div><label>المبلغ كتابة</label><input id="cr_out_words_v159"></div>
+            <div><label>وذلك نظير</label><input id="cr_out_for_v159"></div>
+          </div>
+
+          <div class="receipt-methods-v159">
+            <label><input type="radio" name="cr_out_method_v159" value="cash" checked> نقدًا</label>
+            <label><input type="radio" name="cr_out_method_v159" value="bank"> بنك / شيك</label>
+          </div>
+
+          <div class="grid grid3">
+            <div><label>اسم البنك</label><input id="cr_out_bank_v159"></div>
+            <div><label>رقم الشيك</label><input id="cr_out_cheque_v159"></div>
+            <div><label>يعمل بقسم</label><input id="cr_out_department_v159"></div>
+            <div><label>اسم المستلم</label><input id="cr_out_receiver_v159"></div>
+            <div><label>اعتماد مسؤول الخزينة</label><input id="cr_out_treasury_v159"></div>
+            <div><label>اعتماد مدير القسم</label><input id="cr_out_manager_v159"></div>
+          </div>
+
+          <button class="btn warn" onclick="saveCashReceiptV159('out')">حفظ إيصال الصرف</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">
+          <h3>سجل إيصالات الاستلام والصرف</h3>
+        </div>
+        ${cashReceiptsTableV159()}
+      </div>`;
+  }
+
+  window.saveCashReceiptV159=function(type){
+    ensureCashReceiptsV159();
+    let isIn=type==='in';
+    let prefix=isIn?'cr_in':'cr_out';
+    let amount=n((document.getElementById(prefix+'_amount_v159')||{}).value);
+    if(amount<=0)return alert('اكتب قيمة صحيحة للمبلغ');
+
+    let row={
+      id:uid(),
+      type,
+      serial:nextSerialV159(type),
+      date:(document.getElementById(prefix+'_date_v159')||{}).value||today(),
+      amount,
+      amount_words:(document.getElementById(prefix+'_words_v159')||{}).value||'',
+      purpose:(document.getElementById(prefix+'_for_v159')||{}).value||'',
+      method:receiptMethodV159(prefix),
+      bank:(document.getElementById(prefix+'_bank_v159')||{}).value||'',
+      cheque:(document.getElementById(prefix+'_cheque_v159')||{}).value||'',
+      receiver:(document.getElementById(prefix+'_receiver_v159')||{}).value||''
+    };
+
+    if(isIn){
+      row.party=(document.getElementById('cr_in_from_v159')||{}).value||'';
+      db.cash_receipts_in.unshift(row);
+    }else{
+      row.party=(document.getElementById('cr_out_to_v159')||{}).value||'';
+      row.department=(document.getElementById('cr_out_department_v159')||{}).value||'';
+      row.treasury_approval=(document.getElementById('cr_out_treasury_v159')||{}).value||'';
+      row.manager_approval=(document.getElementById('cr_out_manager_v159')||{}).value||'';
+      db.cash_receipts_out.unshift(row);
+    }
+
+    if(typeof save==='function')save();
+    alert(isIn?'تم حفظ إيصال الاستلام':'تم حفظ إيصال الصرف');
+    if(typeof renderAccounts==='function')renderAccounts();
+  };
+
+  window.deleteCashReceiptV159=function(type,id){
+    if(!confirm('هل تريد مسح هذا الإيصال؟'))return;
+    ensureCashReceiptsV159();
+    if(type==='in')db.cash_receipts_in=db.cash_receipts_in.filter(r=>r.id!==id);
+    else db.cash_receipts_out=db.cash_receipts_out.filter(r=>r.id!==id);
+    if(typeof save==='function')save();
+    if(typeof renderAccounts==='function')renderAccounts();
+  };
+
+  function allReceiptsV159(){
+    ensureCashReceiptsV159();
+    return [
+      ...db.cash_receipts_in.map(r=>({...r,type:'in'})),
+      ...db.cash_receipts_out.map(r=>({...r,type:'out'}))
+    ].sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+  }
+
+  window.cashReceiptsTableV159=function(){
+    let rows=allReceiptsV159();
+    if(!rows.length)return `<div class="empty">لا توجد إيصالات محفوظة</div>`;
+    return `<table>
+      <tr>
+        <th>النوع</th><th>السيريال</th><th>التاريخ</th><th>الاسم</th><th>المبلغ</th><th>طريقة الدفع</th><th>البيان</th><th>إجراءات</th>
+      </tr>
+      ${rows.map(r=>`<tr>
+        <td><span class="badge ${r.type==='in'?'ok':'warn'}">${r.type==='in'?'استلام':'صرف'}</span></td>
+        <td><b>${esc(r.serial)}</b></td>
+        <td>${esc(r.date)}</td>
+        <td>${esc(r.party||'-')}</td>
+        <td>${money(r.amount)}</td>
+        <td>${r.method==='bank'?'بنك / شيك':'نقدًا'}</td>
+        <td>${esc(r.purpose||'-')}</td>
+        <td>
+          <div class="actions">
+            <button class="btn small blue" onclick="printCashReceiptV159('${r.type}','${r.id}')">طباعة</button>
+            <button class="btn small danger" onclick="deleteCashReceiptV159('${r.type}','${r.id}')">مسح</button>
+          </div>
+        </td>
+      </tr>`).join('')}
+    </table>`;
+  };
+
+  function receiptPrintHTMLV159(r){
+    let isIn=r.type==='in';
+    let title=isIn?'إيصال استلام نقدية':'إيصال صرف نقدية';
+    let partyLabel=isIn?'استلمنا من السيد / السادة':'اسم المستفيد';
+    return `<!DOCTYPE html>
+    <html lang="ar" dir="rtl">
+    <head>
+      <meta charset="UTF-8">
+      <title>${title} - ${esc(r.serial)}</title>
+      <style>
+        @page{size:A4 portrait;margin:14mm}
+        *{box-sizing:border-box}
+        body{font-family:Tahoma,Arial,sans-serif;background:#f3f4f6;margin:0;padding:20px;color:#111827}
+        .actions{max-width:920px;margin:0 auto 12px;display:flex;gap:10px;justify-content:flex-start}
+        button{padding:10px 18px;border:0;border-radius:10px;background:#1d4ed8;color:#fff;font-weight:800;cursor:pointer;font-size:15px}
+        .receipt{max-width:920px;margin:auto;background:#fff;border:1px solid #d1d5db;border-radius:18px;padding:26px 30px;box-shadow:0 6px 22px rgba(0,0,0,.06)}
+        .topbar{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;border-bottom:2px solid #111827;padding-bottom:18px;margin-bottom:22px}
+        .title h1{margin:0;font-size:33px;line-height:1.2}
+        .title small{display:block;color:#6b7280;font-size:14px;margin-top:6px}
+        .meta{min-width:220px;text-align:left}
+        .serialBox,.dateBox{border:1px solid #d1d5db;border-radius:12px;padding:10px 14px;margin-bottom:10px;background:#fafafa}
+        .serialBox .num{font-size:28px;font-weight:900;letter-spacing:2px;color:#111827;margin-top:4px}
+        .dateBox .num{font-size:20px;font-weight:800;color:#111827;margin-top:4px}
+        .row{display:grid;grid-template-columns:220px 1fr;gap:14px;align-items:center;margin:12px 0;font-size:20px}
+        .label{font-weight:800}
+        .value{border-bottom:1px dashed #6b7280;min-height:34px;padding:5px 8px;font-weight:700}
+        .amountBox{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:10px}
+        .mini{border:1px solid #d1d5db;border-radius:12px;padding:14px;background:#fafafa}
+        .mini .cap{font-size:14px;color:#6b7280;margin-bottom:8px;font-weight:700}
+        .mini .val{font-size:28px;font-weight:900;color:#111827}
+        .checks{display:flex;flex-wrap:wrap;gap:18px 30px;align-items:center;border:1px solid #d1d5db;border-radius:12px;padding:14px 16px;margin:18px 0;background:#fafafa;font-size:18px}
+        .checks .tag{font-weight:700}
+        .ack{margin-top:22px;padding:12px 16px;border-right:4px solid #111827;background:#f9fafb;font-size:19px;font-weight:800}
+        .signs{display:grid;grid-template-columns:repeat(3,1fr);gap:26px;margin-top:70px;text-align:center}
+        .sign .line{border-top:1.8px dashed #6b7280;padding-top:12px;font-weight:800;font-size:18px;min-height:50px}
+        .footnote{margin-top:25px;text-align:center;color:#6b7280;font-size:13px}
+        @media print{
+          body{background:#fff;padding:0}
+          .actions{display:none!important}
+          .receipt{max-width:none;border:0;box-shadow:none;border-radius:0;padding:0}
+          .topbar{margin-top:0}
+        }
+      </style>
+    </head>
+    <body>
+      <div class="actions"><button onclick="window.print()">طباعة</button><button onclick="window.close()">إغلاق</button></div>
+      <div class="receipt">
+        <div class="topbar">
+          <div class="title">
+            <h1>${title}</h1>
+            <small>مستند مالي رسمي</small>
+          </div>
+          <div class="meta">
+            <div class="serialBox"><div>رقم الإيصال</div><div class="num">${esc(r.serial)}</div></div>
+            <div class="dateBox"><div>التاريخ</div><div class="num">${esc(r.date||'')}</div></div>
+          </div>
+        </div>
+
+        <div class="row"><div class="label">${partyLabel}:</div><div class="value">${esc(r.party||'')}</div></div>
+
+        <div class="amountBox">
+          <div class="mini">
+            <div class="cap">المبلغ</div>
+            <div class="val">${money(r.amount)}</div>
+          </div>
+          <div class="mini">
+            <div class="cap">فقط وقدره</div>
+            <div class="val" style="font-size:18px;line-height:1.5">${esc(r.amount_words||'')}</div>
+          </div>
+        </div>
+
+        <div class="row"><div class="label">وذلك نظير:</div><div class="value">${esc(r.purpose||'')}</div></div>
+
+        <div class="checks">
+          <span class="tag">طريقة السداد:</span>
+          <span>${r.method==='cash'?'☑':'☐'} نقدًا</span>
+          <span>${r.method==='bank'?'☑':'☐'} بنك / شيك</span>
+          <span><b>البنك:</b> ${esc(r.bank||'-')}</span>
+          <span><b>رقم الشيك:</b> ${esc(r.cheque||'-')}</span>
+        </div>
+
+        ${isIn?'':`<div class="row"><div class="label">يعمل بقسم:</div><div class="value">${esc(r.department||'')}</div></div>`}
+
+        <div class="ack">${isIn?'تم استلام المبلغ المذكور أعلاه':'أقر باستلام المبلغ الموضح أعلاه'}.</div>
+
+        <div class="signs">
+          <div class="sign"><div class="line">المستلم<br>${esc(r.receiver||'')}</div></div>
+          <div class="sign"><div class="line">${isIn?'مسؤول الخزينة':'اعتماد مسؤول الخزينة'}<br>${esc(r.treasury_approval||'')}</div></div>
+          <div class="sign"><div class="line">${isIn?'اعتماد المالية':'اعتماد مدير القسم'}<br>${esc(r.manager_approval||'')}</div></div>
+        </div>
+
+        <div class="footnote">تم إنشاء هذا الإيصال من النظام المالي.</div>
+      </div>
+    </body></html>`;
+  }
+
+  window.printCashReceiptV159=function(type,id){
+    ensureCashReceiptsV159();
+    let arr=type==='in'?db.cash_receipts_in:db.cash_receipts_out;
+    let r=arr.find(x=>x.id===id);
+    if(!r)return alert('الإيصال غير موجود');
+    let w=window.open('','_blank','width=1000,height=800');
+    if(!w)return alert('اسمح بفتح النوافذ المنبثقة للطباعة');
+    w.document.open();
+    w.document.write(receiptPrintHTMLV159({...r,type}));
+    w.document.close();
+  };
+
+  const renderAccountsBeforeV159=window.renderAccounts || renderAccounts;
+  window.renderAccounts=function(){
+    ensureCashReceiptsV159();
+    let result=renderAccountsBeforeV159.apply(this,arguments);
+    let view=document.getElementById('view-accounts');
+    if(view && !document.getElementById('cash_receipts_section_v159')){
+      let section=document.createElement('div');
+      section.id='cash_receipts_section_v159';
+      section.innerHTML=cashReceiptFormsV159();
+      view.prepend(section);
+    }
+    return result;
+  };
+  try{renderAccounts=window.renderAccounts}catch(e){}
+})();
+</script>
+
+<style id="v159-cash-receipts-style">
+html body .cash-receipts-wrap-v159{
+  display:grid!important;
+  grid-template-columns:1fr 1fr!important;
+  gap:16px!important;
+  margin-bottom:16px!important;
+}
+html body .cash-receipt-card-v159{
+  border-top:5px solid #be123c!important;
+}
+html body .receipt-methods-v159{
+  display:flex!important;
+  gap:25px!important;
+  align-items:center!important;
+  margin:14px 0!important;
+}
+html body .receipt-methods-v159 label{
+  display:flex!important;
+  align-items:center!important;
+  gap:7px!important;
+  color:#111827!important;
+}
+html body .receipt-methods-v159 input[type="radio"]{
+  width:auto!important;
+  min-height:auto!important;
+}
+@media(max-width:1000px){
+  html body .cash-receipts-wrap-v159{grid-template-columns:1fr!important}
+}
+</style>
+<!-- v159 finance cash receive and disbursement receipts -->
+
+
+
+<script id="v161-receipts-cashflow-organized">
+(function(){
+  function ensureReceiptAccountingV161(){
+    if(!Array.isArray(db.finance_cash_currency_movements))db.finance_cash_currency_movements=[];
+    if(!Array.isArray(db.journal))db.journal=[];
+    if(!Array.isArray(db.accounts))db.accounts=[];
+    if(!db.accounts.find(a=>a.code==='3990')){
+      db.accounts.push({
+        id:uid(),code:'3990',
+        name:'تسوية إيصالات الخزينة / Treasury Receipt Clearing',
+        name_ar:'تسوية إيصالات الخزينة',
+        name_en:'Treasury Receipt Clearing',
+        type:'Equity',normal:'credit',level:1,opening:0
+      });
+    }
+  }
+
+  function receiptSourceIdV161(row){
+    return 'cash_receipt_v161_'+row.id;
+  }
+
+  function postReceiptToTreasuryV161(row){
+    if(!row)return;
+    ensureReceiptAccountingV161();
+    let sourceId=receiptSourceIdV161(row);
+    let amount=n(row.amount);
+    let isIn=row.type==='in';
+    let method=row.method==='bank'?'بنك / شيك':'نقدًا';
+    let desc=(isIn?'إيصال استلام نقدية ':'إيصال صرف نقدية ')
+      +'رقم '+row.serial+' - '+(row.party||'')+' - '+(row.purpose||'')+' - '+method;
+
+    db.finance_cash_currency_movements =
+      db.finance_cash_currency_movements.filter(x=>x.sourceId!==sourceId);
+
+    db.finance_cash_currency_movements.unshift({
+      id:sourceId,
+      sourceId,
+      receipt_id:row.id,
+      receipt_type:row.type,
+      date:row.date||today(),
+      type:isIn?'in':'out',
+      currency:'EGP',
+      amount,
+      rate:1,
+      egp_value:amount,
+      description:desc,
+      source:'cash_receipt_v161'
+    });
+
+    db.journal=db.journal.filter(j=>j.sourceId!==sourceId);
+
+    if(isIn){
+      db.journal.push({
+        id:uid(),date:row.date||today(),account:'1100',
+        debit:amount,credit:0,description:desc,
+        source:'cash_receipt_v161',sourceId
+      });
+      db.journal.push({
+        id:uid(),date:row.date||today(),account:'3990',
+        debit:0,credit:amount,description:'مقابل '+desc,
+        source:'cash_receipt_v161',sourceId
+      });
+    }else{
+      db.journal.push({
+        id:uid(),date:row.date||today(),account:'3990',
+        debit:amount,credit:0,description:'مقابل '+desc,
+        source:'cash_receipt_v161',sourceId
+      });
+      db.journal.push({
+        id:uid(),date:row.date||today(),account:'1100',
+        debit:0,credit:amount,description:desc,
+        source:'cash_receipt_v161',sourceId
+      });
+    }
+  }
+
+  function removeReceiptAccountingV161(type,id){
+    ensureReceiptAccountingV161();
+    let sourceId='cash_receipt_v161_'+id;
+    db.finance_cash_currency_movements=
+      db.finance_cash_currency_movements.filter(x=>x.sourceId!==sourceId && x.id!==sourceId);
+    db.journal=
+      db.journal.filter(j=>j.sourceId!==sourceId);
+  }
+
+  const saveReceiptOriginalV161=window.saveCashReceiptV159;
+  window.saveCashReceiptV159=function(type){
+    let beforeIn=(db.cash_receipts_in||[]).map(x=>x.id);
+    let beforeOut=(db.cash_receipts_out||[]).map(x=>x.id);
+
+    let result=saveReceiptOriginalV161.apply(this,arguments);
+
+    let row;
+    if(type==='in'){
+      row=(db.cash_receipts_in||[]).find(x=>!beforeIn.includes(x.id));
+    }else{
+      row=(db.cash_receipts_out||[]).find(x=>!beforeOut.includes(x.id));
+    }
+
+    if(row){
+      postReceiptToTreasuryV161({...row,type});
+      if(typeof save==='function')save();
+      if(typeof renderAccounts==='function')renderAccounts();
+      if(typeof renderCashFlow==='function')renderCashFlow();
+      if(typeof renderTrial==='function')renderTrial();
+      if(typeof renderTrialBalance==='function')renderTrialBalance();
+    }
+    return result;
+  };
+  try{saveCashReceiptV159=window.saveCashReceiptV159}catch(e){}
+
+  const deleteReceiptOriginalV161=window.deleteCashReceiptV159;
+  window.deleteCashReceiptV159=function(type,id){
+    if(!confirm('هل تريد مسح هذا الإيصال وحركته من الخزنة والقيود؟'))return;
+
+    if(type==='in'){
+      db.cash_receipts_in=(db.cash_receipts_in||[]).filter(r=>r.id!==id);
+    }else{
+      db.cash_receipts_out=(db.cash_receipts_out||[]).filter(r=>r.id!==id);
+    }
+
+    removeReceiptAccountingV161(type,id);
+
+    if(typeof save==='function')save();
+    if(typeof renderAccounts==='function')renderAccounts();
+    if(typeof renderCashFlow==='function')renderCashFlow();
+    if(typeof renderTrial==='function')renderTrial();
+    if(typeof renderTrialBalance==='function')renderTrialBalance();
+  };
+  try{deleteCashReceiptV159=window.deleteCashReceiptV159}catch(e){}
+
+  window.showFinancePaneV161=function(name){
+    document.querySelectorAll('#view-accounts [data-finance-pane-v161]').forEach(el=>{
+      el.style.display=el.dataset.financePaneV161===name?'':'none';
+    });
+    document.querySelectorAll('#finance_nav_v161 button').forEach(btn=>{
+      btn.classList.toggle('active',btn.dataset.pane===name);
+    });
+    localStorage.setItem('finance_pane_v161',name);
+  };
+
+  function organizeFinanceV161(){
+    let view=document.getElementById('view-accounts');
+    if(!view)return;
+
+    let oldNav=document.getElementById('finance_nav_v161');
+    if(oldNav)oldNav.remove();
+
+    let nav=document.createElement('div');
+    nav.id='finance_nav_v161';
+    nav.className='finance-nav-v161';
+    nav.innerHTML=`
+      <button type="button" data-pane="cash" onclick="showFinancePaneV161('cash')">💰 خزنة وبنوك</button>
+      <button type="button" data-pane="receipt_in" onclick="showFinancePaneV161('receipt_in')">📥 إيصال استلام</button>
+      <button type="button" data-pane="receipt_out" onclick="showFinancePaneV161('receipt_out')">📤 إيصال صرف</button>
+      <button type="button" data-pane="receipts_log" onclick="showFinancePaneV161('receipts_log')">🧾 سجل الإيصالات</button>
+      <button type="button" data-pane="add_account" onclick="showFinancePaneV161('add_account')">➕ إضافة حساب</button>
+      <button type="button" data-pane="accounts_tree" onclick="showFinancePaneV161('accounts_tree')">🌳 شجرة الحسابات</button>
+      <button type="button" data-pane="journal" onclick="showFinancePaneV161('journal')">📒 القيود اليومية</button>
+    `;
+    view.prepend(nav);
+
+    let cashPanel=document.getElementById('financeCashCurrencyV135');
+    if(cashPanel){
+      cashPanel.dataset.financePaneV161='cash';
+      let n1=cashPanel.nextElementSibling;
+      let n2=n1?n1.nextElementSibling:null;
+      if(n1)n1.dataset.financePaneV161='cash';
+      if(n2)n2.dataset.financePaneV161='cash';
+    }
+
+    let receipts=document.getElementById('cash_receipts_section_v159');
+    if(receipts){
+      let wrap=receipts.querySelector('.cash-receipts-wrap-v159');
+      let cards=wrap?Array.from(wrap.children):[];
+      if(cards[0])cards[0].dataset.financePaneV161='receipt_in';
+      if(cards[1])cards[1].dataset.financePaneV161='receipt_out';
+
+      let log=Array.from(receipts.children).find(el=>el.classList&&el.classList.contains('card'));
+      if(log)log.dataset.financePaneV161='receipts_log';
+
+      receipts.style.display='contents';
+    }
+
+    let addAccount=document.getElementById('acc_code')?.closest('.card');
+    if(addAccount)addAccount.dataset.financePaneV161='add_account';
+
+    let layout=view.querySelector('.accounts-layout');
+    if(layout){
+      let cards=Array.from(layout.children);
+      if(cards[0])cards[0].dataset.financePaneV161='accounts_tree';
+      if(cards[1])cards[1].dataset.financePaneV161='journal';
+      layout.style.display='contents';
+    }
+
+    let balanceGrid=Array.from(view.children).find(el=>
+      el.classList?.contains('grid') &&
+      el.querySelector?.('.stat') &&
+      !el.dataset.financePaneV161
+    );
+    if(balanceGrid)balanceGrid.dataset.financePaneV161='journal';
+
+    let journalScreen=document.getElementById('journalScreen');
+    if(journalScreen)journalScreen.dataset.financePaneV161='journal';
+
+    let current=localStorage.getItem('finance_pane_v161')||'cash';
+    showFinancePaneV161(current);
+  }
+
+  const renderAccountsOriginalV161=window.renderAccounts;
+  window.renderAccounts=function(){
+    let result=renderAccountsOriginalV161.apply(this,arguments);
+    setTimeout(organizeFinanceV161,20);
+    return result;
+  };
+  try{renderAccounts=window.renderAccounts}catch(e){}
+
+  document.addEventListener('DOMContentLoaded',function(){
+    setTimeout(organizeFinanceV161,500);
+  });
+})();
+</script>
+
+<style id="v161-receipts-cashflow-organized-style">
+html body .finance-nav-v161{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(170px,1fr))!important;
+  gap:12px!important;
+  margin-bottom:18px!important;
+}
+html body .finance-nav-v161 button{
+  border:1px solid #d1d5db!important;
+  background:#fff!important;
+  color:#111827!important;
+  border-radius:14px!important;
+  padding:16px 14px!important;
+  font-size:16px!important;
+  font-weight:900!important;
+  cursor:pointer!important;
+  box-shadow:0 8px 22px rgba(15,23,42,.07)!important;
+}
+html body .finance-nav-v161 button:hover,
+html body .finance-nav-v161 button.active{
+  background:#0f766e!important;
+  color:#fff!important;
+  border-color:#0f766e!important;
+}
+html body #cash_receipts_section_v159{
+  display:contents!important;
+}
+@media(max-width:1100px){
+  html body .finance-nav-v161{grid-template-columns:repeat(2,minmax(170px,1fr))!important}
+}
+@media(max-width:650px){
+  html body .finance-nav-v161{grid-template-columns:1fr!important}
+}
+</style>
+<!-- v161 receipts post to treasury and organized finance menu -->
+
+
+
+<script id="v162-finance-no-duplicates-fullscreen-receipts">
+(function(){
+  let movedReceiptV162=null;
+  let receiptPlaceholderV162=null;
+
+  function removeDuplicateFinanceNavV162(){
+    let nav=document.getElementById('finance_nav_v161');
+    if(nav)nav.remove();
+  }
+
+  function receiptSourceNodeV162(kind){
+    let receipts=document.getElementById('cash_receipts_section_v159');
+    if(!receipts)return null;
+
+    if(kind==='receipt_in'){
+      return receipts.querySelector('[data-finance-pane-v161="receipt_in"]')
+        || receipts.querySelector('.cash-receipts-wrap-v159 .cash-receipt-card-v159:nth-child(1)');
+    }
+    if(kind==='receipt_out'){
+      return receipts.querySelector('[data-finance-pane-v161="receipt_out"]')
+        || receipts.querySelector('.cash-receipts-wrap-v159 .cash-receipt-card-v159:nth-child(2)');
+    }
+    if(kind==='receipts_log'){
+      return receipts.querySelector('[data-finance-pane-v161="receipts_log"]')
+        || Array.from(receipts.children).find(el=>el.classList&&el.classList.contains('card'));
+    }
+    return null;
+  }
+
+  function titleV162(kind){
+    return kind==='receipt_in'?'إيصال استلام نقدية':
+      kind==='receipt_out'?'إيصال صرف نقدية':'سجل الإيصالات';
+  }
+
+  window.closeFinanceReceiptFullscreenV162=function(){
+    let modal=document.getElementById('finance_receipt_fullscreen_v162');
+    if(movedReceiptV162 && receiptPlaceholderV162 && receiptPlaceholderV162.parentNode){
+      receiptPlaceholderV162.parentNode.replaceChild(movedReceiptV162,receiptPlaceholderV162);
+      movedReceiptV162.style.display='none';
+    }
+    movedReceiptV162=null;
+    receiptPlaceholderV162=null;
+    if(modal)modal.remove();
+    document.body.classList.remove('modal-open');
+  };
+
+  window.openFinanceReceiptFullscreenV162=function(kind){
+    closeFinanceReceiptFullscreenV162();
+
+    let node=receiptSourceNodeV162(kind);
+    if(!node)return alert('تعذر فتح القسم');
+
+    receiptPlaceholderV162=document.createComment('receipt-placeholder-v162');
+    node.parentNode.replaceChild(receiptPlaceholderV162,node);
+    movedReceiptV162=node;
+    movedReceiptV162.style.display='block';
+    movedReceiptV162.removeAttribute('data-finance-pane-v161');
+
+    let modal=document.createElement('div');
+    modal.id='finance_receipt_fullscreen_v162';
+    modal.className='finance-receipt-fullscreen-v162';
+    modal.innerHTML=`
+      <div class="finance-receipt-fullscreen-head-v162">
+        <div>
+          <h2>${titleV162(kind)}</h2>
+          <p>المالية</p>
+        </div>
+        <button type="button" class="btn danger" onclick="closeFinanceReceiptFullscreenV162()">إغلاق</button>
+      </div>
+      <div class="finance-receipt-fullscreen-body-v162"></div>`;
+    modal.querySelector('.finance-receipt-fullscreen-body-v162').appendChild(movedReceiptV162);
+    document.body.appendChild(modal);
+    document.body.classList.add('modal-open');
+  };
+
+  function addReceiptTilesV162(){
+    removeDuplicateFinanceNavV162();
+
+    let grid=document.querySelector('#mb_v60_home_accounts .mb-v60-grid');
+    if(!grid)return;
+
+    if(!grid.querySelector('[data-v162-receipt-in]')){
+      grid.insertAdjacentHTML('beforeend',`
+        <div class="mb-v60-tile" data-v162-receipt-in="1" onclick="openFinanceReceiptFullscreenV162('receipt_in')">
+          <div>
+            <div class="mb-v60-icon">📥</div>
+            <div class="mb-v60-title">إيصال استلام</div>
+            <div class="mb-v60-sub">إنشاء وطباعة إيصال استلام نقدية</div>
+          </div>
+          <div class="mb-v60-count">فتح</div>
+        </div>`);
+    }
+
+    if(!grid.querySelector('[data-v162-receipt-out]')){
+      grid.insertAdjacentHTML('beforeend',`
+        <div class="mb-v60-tile" data-v162-receipt-out="1" onclick="openFinanceReceiptFullscreenV162('receipt_out')">
+          <div>
+            <div class="mb-v60-icon">📤</div>
+            <div class="mb-v60-title">إيصال صرف</div>
+            <div class="mb-v60-sub">إنشاء وطباعة إيصال صرف نقدية</div>
+          </div>
+          <div class="mb-v60-count">فتح</div>
+        </div>`);
+    }
+
+    if(!grid.querySelector('[data-v162-receipts-log]')){
+      grid.insertAdjacentHTML('beforeend',`
+        <div class="mb-v60-tile" data-v162-receipts-log="1" onclick="openFinanceReceiptFullscreenV162('receipts_log')">
+          <div>
+            <div class="mb-v60-icon">🧾</div>
+            <div class="mb-v60-title">سجل الإيصالات</div>
+            <div class="mb-v60-sub">عرض وطباعة ومسح الإيصالات المحفوظة</div>
+          </div>
+          <div class="mb-v60-count">${((db.cash_receipts_in||[]).length+(db.cash_receipts_out||[]).length)} سجل</div>
+        </div>`);
+    }
+
+    let pill=document.querySelector('#mb_v60_home_accounts .mb-v60-pill');
+    if(pill){
+      let count=grid.querySelectorAll('.mb-v60-tile').length;
+      pill.textContent=count+' أقسام';
+    }
+
+    let receipts=document.getElementById('cash_receipts_section_v159');
+    if(receipts)receipts.style.display='none';
+  }
+
+  const renderAccountsBeforeV162=window.renderAccounts;
+  if(typeof renderAccountsBeforeV162==='function'){
+    window.renderAccounts=function(){
+      let r=renderAccountsBeforeV162.apply(this,arguments);
+      setTimeout(addReceiptTilesV162,80);
+      return r;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  const renderBeforeV162=window.render;
+  if(typeof renderBeforeV162==='function'){
+    window.render=function(){
+      let r=renderBeforeV162.apply(this,arguments);
+      setTimeout(addReceiptTilesV162,120);
+      return r;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape')closeFinanceReceiptFullscreenV162();
+  });
+
+  document.addEventListener('DOMContentLoaded',function(){
+    setTimeout(addReceiptTilesV162,700);
+  });
+
+  setTimeout(addReceiptTilesV162,900);
+})();
+</script>
+
+<style id="v162-finance-no-duplicates-fullscreen-receipts-style">
+html body #finance_nav_v161{
+  display:none!important;
+  visibility:hidden!important;
+}
+
+html body #cash_receipts_section_v159{
+  display:none!important;
+}
+
+html body .finance-receipt-fullscreen-v162{
+  position:fixed!important;
+  inset:0!important;
+  z-index:999999!important;
+  background:#f1f5f9!important;
+  overflow:auto!important;
+  padding:0!important;
+  display:block!important;
+}
+
+html body .finance-receipt-fullscreen-head-v162{
+  position:sticky!important;
+  top:0!important;
+  z-index:10!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  gap:16px!important;
+  padding:18px 28px!important;
+  background:linear-gradient(135deg,#0f172a,#0f766e)!important;
+  color:#fff!important;
+  box-shadow:0 10px 30px rgba(15,23,42,.22)!important;
+}
+
+html body .finance-receipt-fullscreen-head-v162 h2{
+  margin:0!important;
+  color:#fff!important;
+  font-size:30px!important;
+}
+
+html body .finance-receipt-fullscreen-head-v162 p{
+  margin:4px 0 0!important;
+  color:#ccfbf1!important;
+}
+
+html body .finance-receipt-fullscreen-body-v162{
+  padding:28px!important;
+  max-width:1500px!important;
+  margin:auto!important;
+}
+
+html body .finance-receipt-fullscreen-body-v162 > .card{
+  width:100%!important;
+  max-width:none!important;
+  min-height:calc(100vh - 150px)!important;
+  margin:0!important;
+  overflow:visible!important;
+}
+
+html body .finance-receipt-fullscreen-body-v162 .grid3{
+  grid-template-columns:repeat(3,minmax(220px,1fr))!important;
+}
+
+html body .finance-receipt-fullscreen-body-v162 table{
+  min-width:1000px!important;
+}
+
+@media(max-width:900px){
+  html body .finance-receipt-fullscreen-body-v162{padding:14px!important}
+  html body .finance-receipt-fullscreen-body-v162 .grid3{grid-template-columns:1fr!important}
+  html body .finance-receipt-fullscreen-head-v162 h2{font-size:22px!important}
+}
+</style>
+<!-- v162 remove duplicate finance nav and open receipts full screen -->
 
