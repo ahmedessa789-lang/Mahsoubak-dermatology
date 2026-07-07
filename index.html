@@ -11230,3 +11230,516 @@ html body .customer-option-v173 .customer-meta-v173{
 </style>
 <!-- v174 customer list names only with automatic region -->
 
+
+
+<script id="v175-rep-sales-collections-cell">
+(function(){
+  function repSalesV175(repId){
+    return (db.sales||[]).filter(s=>s.rep_id===repId);
+  }
+
+  function repCollectionsV175(repId){
+    return (db.collections||[]).filter(c=>c.rep_id===repId);
+  }
+
+  function repTotalsV175(repId){
+    let sales=repSalesV175(repId);
+    let collections=repCollectionsV175(repId);
+    return {
+      sales:sales.reduce((a,s)=>a+n(s.total),0),
+      paid:sales.reduce((a,s)=>a+n(s.paid),0),
+      remaining:sales.reduce((a,s)=>a+n(s.remaining),0),
+      collections:collections.reduce((a,c)=>a+n(c.amount),0),
+      invoices:sales.length,
+      collectionCount:collections.length
+    };
+  }
+
+  function repCustomerRowsV175(repId){
+    let map=new Map();
+
+    repSalesV175(repId).forEach(s=>{
+      let key=s.customer_id||s.customer_name||'unknown';
+      if(!map.has(key)){
+        map.set(key,{
+          customer_id:s.customer_id||'',
+          customer_name:s.customer_name||'-',
+          sales:0,paid:0,remaining:0,collections:0,
+          invoiceCount:0,collectionCount:0
+        });
+      }
+      let row=map.get(key);
+      row.sales+=n(s.total);
+      row.paid+=n(s.paid);
+      row.remaining+=n(s.remaining);
+      row.invoiceCount+=1;
+    });
+
+    repCollectionsV175(repId).forEach(c=>{
+      let key=c.customer_id||c.customer_name||'unknown';
+      if(!map.has(key)){
+        map.set(key,{
+          customer_id:c.customer_id||'',
+          customer_name:c.customer_name||'-',
+          sales:0,paid:0,remaining:0,collections:0,
+          invoiceCount:0,collectionCount:0
+        });
+      }
+      let row=map.get(key);
+      row.collections+=n(c.amount);
+      row.collectionCount+=1;
+    });
+
+    return Array.from(map.values()).sort((a,b)=>b.sales-a.sales);
+  }
+
+  function repDetailsHTMLV175(repId){
+    let rep=(db.reps||[]).find(r=>r.id===repId);
+    if(!rep)return `<div class="empty">المندوب غير موجود</div>`;
+
+    let totals=repTotalsV175(repId);
+    let rows=repCustomerRowsV175(repId);
+
+    return `
+      <div class="rep-detail-head-v175">
+        <div>
+          <h2>${esc(rep.name||'')}</h2>
+          <p>${esc(rep.phone||'')}</p>
+        </div>
+        <button type="button" class="btn blue" onclick="printRepDetailsV175('${repId}')">طباعة التقرير</button>
+      </div>
+
+      <div class="grid grid4 rep-summary-v175">
+        <div class="stat"><span>إجمالي المبيعات</span><strong>${money(totals.sales)}</strong></div>
+        <div class="stat"><span>إجمالي التحصيل</span><strong>${money(totals.collections)}</strong></div>
+        <div class="stat"><span>المتبقي على العملاء</span><strong>${money(totals.remaining)}</strong></div>
+        <div class="stat"><span>عدد الفواتير</span><strong>${totals.invoices}</strong></div>
+      </div>
+
+      <div class="card">
+        <h3>المبيعات والتحصيل لكل عميل</h3>
+        ${rows.length?`<table>
+          <tr>
+            <th>العميل</th>
+            <th>إجمالي المبيعات</th>
+            <th>المدفوع بالفواتير</th>
+            <th>التحصيلات</th>
+            <th>المتبقي</th>
+            <th>عدد الفواتير</th>
+            <th>عدد التحصيلات</th>
+          </tr>
+          ${rows.map(r=>`<tr>
+            <td><b>${esc(r.customer_name)}</b></td>
+            <td>${money(r.sales)}</td>
+            <td>${money(r.paid)}</td>
+            <td>${money(r.collections)}</td>
+            <td>${money(r.remaining)}</td>
+            <td>${r.invoiceCount}</td>
+            <td>${r.collectionCount}</td>
+          </tr>`).join('')}
+        </table>`:`<div class="empty">لا توجد مبيعات أو تحصيلات لهذا المندوب</div>`}
+      </div>
+
+      <div class="card">
+        <h3>تفاصيل فواتير المبيعات</h3>
+        ${repSalesV175(repId).length?`<table>
+          <tr><th>التاريخ</th><th>العميل</th><th>المنتج</th><th>الكمية</th><th>الإجمالي</th><th>المدفوع</th><th>المتبقي</th></tr>
+          ${repSalesV175(repId).map(s=>`<tr>
+            <td>${esc(s.date||'')}</td>
+            <td>${esc(s.customer_name||'')}</td>
+            <td>${esc(s.product_name||'')}</td>
+            <td>${n(s.qty)}</td>
+            <td>${money(s.total)}</td>
+            <td>${money(s.paid)}</td>
+            <td>${money(s.remaining)}</td>
+          </tr>`).join('')}
+        </table>`:`<div class="empty">لا توجد مبيعات</div>`}
+      </div>
+
+      <div class="card">
+        <h3>تفاصيل التحصيلات</h3>
+        ${repCollectionsV175(repId).length?`<table>
+          <tr><th>التاريخ</th><th>العميل</th><th>المبلغ</th><th>الطريقة</th><th>ملاحظات</th></tr>
+          ${repCollectionsV175(repId).map(c=>`<tr>
+            <td>${esc(c.date||'')}</td>
+            <td>${esc(c.customer_name||'')}</td>
+            <td>${money(c.amount)}</td>
+            <td>${esc(c.method||'')}</td>
+            <td>${esc(c.notes||'')}</td>
+          </tr>`).join('')}
+        </table>`:`<div class="empty">لا توجد تحصيلات</div>`}
+      </div>`;
+  }
+
+  window.openRepDetailsV175=function(repId){
+    let body=document.getElementById('rep_details_body_v175');
+    if(!body)return;
+    body.innerHTML=repDetailsHTMLV175(repId);
+    document.querySelectorAll('.rep-card-v175').forEach(card=>{
+      card.classList.toggle('active',card.dataset.repId===repId);
+    });
+  };
+
+  window.openRepPerformanceV175=function(){
+    let old=document.getElementById('rep_performance_modal_v175');
+    if(old)old.remove();
+
+    let reps=(db.reps||[]);
+    let modal=document.createElement('div');
+    modal.id='rep_performance_modal_v175';
+    modal.className='rep-performance-modal-v175';
+    modal.innerHTML=`
+      <div class="rep-performance-panel-v175">
+        <div class="rep-performance-head-v175">
+          <div>
+            <h2>مبيعات وتحصيلات المندوبين</h2>
+            <p>تفاصيل كل مندوب مع المبيعات والتحصيل من كل عميل</p>
+          </div>
+          <button type="button" class="btn danger" onclick="closeRepPerformanceV175()">إغلاق</button>
+        </div>
+
+        <div class="rep-performance-layout-v175">
+          <div class="rep-list-v175">
+            ${reps.length?reps.map(r=>{
+              let t=repTotalsV175(r.id);
+              return `<button type="button" class="rep-card-v175" data-rep-id="${r.id}" onclick="openRepDetailsV175('${r.id}')">
+                <b>${esc(r.name||'')}</b>
+                <span>مبيعات: ${money(t.sales)}</span>
+                <span>تحصيل: ${money(t.collections)}</span>
+              </button>`;
+            }).join(''):`<div class="empty">لا يوجد مندوبون</div>`}
+          </div>
+          <div id="rep_details_body_v175" class="rep-details-body-v175">
+            ${reps.length?repDetailsHTMLV175(reps[0].id):`<div class="empty">لا يوجد مندوبون</div>`}
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    document.body.classList.add('modal-open');
+
+    if(reps[0]){
+      setTimeout(()=>openRepDetailsV175(reps[0].id),20);
+    }
+  };
+
+  window.closeRepPerformanceV175=function(){
+    let modal=document.getElementById('rep_performance_modal_v175');
+    if(modal)modal.remove();
+    document.body.classList.remove('modal-open');
+  };
+
+  window.printRepDetailsV175=function(repId){
+    let rep=(db.reps||[]).find(r=>r.id===repId);
+    if(!rep)return;
+    let html=repDetailsHTMLV175(repId);
+    let w=window.open('','_blank','width=1200,height=850');
+    if(!w)return alert('اسمح بفتح النوافذ المنبثقة للطباعة');
+    w.document.open();
+    w.document.write(`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>تقرير المندوب - ${esc(rep.name)}</title><style>${document.querySelector('style').innerHTML}
+      body{background:#fff!important;padding:20px!important}
+      .rep-detail-head-v175{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+      .rep-detail-head-v175 .btn{display:none!important}
+      .card{box-shadow:none!important;border:1px solid #e5e7eb!important}
+      @media print{button{display:none!important}}
+    </style></head><body>${html}</body></html>`);
+    w.document.close();
+  };
+
+  function addRepTileV175(){
+    let view=document.getElementById('view-reps');
+    if(!view||document.getElementById('rep_performance_tile_v175'))return;
+
+    let tile=document.createElement('div');
+    tile.id='rep_performance_tile_v175';
+    tile.className='card rep-performance-tile-v175';
+    tile.setAttribute('onclick','openRepPerformanceV175()');
+    tile.innerHTML=`
+      <div class="rep-tile-icon-v175">📊</div>
+      <div>
+        <h3>مبيعات وتحصيلات المندوبين</h3>
+        <p>عرض كل مندوب بالمبيعات والتحصيلات الخاصة بكل عميل</p>
+      </div>
+      <div class="rep-tile-open-v175">فتح التفاصيل</div>`;
+    view.prepend(tile);
+  }
+
+  const renderRepsBeforeV175=window.renderReps || renderReps;
+  window.renderReps=function(){
+    let result=renderRepsBeforeV175.apply(this,arguments);
+    setTimeout(addRepTileV175,20);
+    return result;
+  };
+  try{renderReps=window.renderReps}catch(e){}
+
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape')closeRepPerformanceV175();
+  });
+})();
+</script>
+
+<style id="v175-rep-sales-collections-style">
+html body .rep-performance-tile-v175{
+  display:flex!important;
+  align-items:center!important;
+  gap:16px!important;
+  cursor:pointer!important;
+  border-right:5px solid #2563eb!important;
+}
+html body .rep-performance-tile-v175:hover{
+  border-color:#2563eb!important;
+  box-shadow:0 14px 32px rgba(37,99,235,.14)!important;
+}
+html body .rep-performance-tile-v175 h3{
+  margin:0 0 6px!important;
+  border:0!important;
+  padding:0!important;
+}
+html body .rep-performance-tile-v175 p{
+  margin:0!important;
+  color:#64748b!important;
+}
+html body .rep-tile-icon-v175{
+  width:56px!important;
+  height:56px!important;
+  border-radius:16px!important;
+  background:#dbeafe!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  font-size:28px!important;
+}
+html body .rep-tile-open-v175{
+  margin-right:auto!important;
+  color:#2563eb!important;
+  font-weight:900!important;
+}
+
+html body .rep-performance-modal-v175{
+  position:fixed!important;
+  inset:0!important;
+  z-index:999999!important;
+  background:#f1f5f9!important;
+  overflow:auto!important;
+}
+html body .rep-performance-panel-v175{
+  min-height:100vh!important;
+}
+html body .rep-performance-head-v175{
+  position:sticky!important;
+  top:0!important;
+  z-index:10!important;
+  display:flex!important;
+  justify-content:space-between!important;
+  align-items:center!important;
+  gap:16px!important;
+  padding:18px 28px!important;
+  background:linear-gradient(135deg,#0f172a,#1d4ed8)!important;
+  color:#fff!important;
+}
+html body .rep-performance-head-v175 h2{
+  margin:0!important;
+  color:#fff!important;
+}
+html body .rep-performance-head-v175 p{
+  margin:5px 0 0!important;
+  color:#dbeafe!important;
+}
+html body .rep-performance-layout-v175{
+  display:grid!important;
+  grid-template-columns:300px 1fr!important;
+  gap:18px!important;
+  padding:20px!important;
+}
+html body .rep-list-v175{
+  display:grid!important;
+  gap:10px!important;
+  align-content:start!important;
+}
+html body .rep-card-v175{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:flex-start!important;
+  gap:5px!important;
+  padding:14px!important;
+  border:1px solid #cbd5e1!important;
+  background:#fff!important;
+  color:#111827!important;
+  border-radius:12px!important;
+  cursor:pointer!important;
+  text-align:right!important;
+}
+html body .rep-card-v175.active,
+html body .rep-card-v175:hover{
+  border-color:#2563eb!important;
+  background:#eff6ff!important;
+}
+html body .rep-card-v175 span{
+  color:#64748b!important;
+  font-size:13px!important;
+}
+html body .rep-details-body-v175{
+  min-width:0!important;
+}
+html body .rep-detail-head-v175{
+  display:flex!important;
+  justify-content:space-between!important;
+  align-items:center!important;
+  gap:14px!important;
+  margin-bottom:16px!important;
+}
+html body .rep-detail-head-v175 h2{
+  margin:0!important;
+  color:#111827!important;
+}
+html body .rep-detail-head-v175 p{
+  margin:4px 0 0!important;
+  color:#64748b!important;
+}
+html body .rep-summary-v175{
+  margin-bottom:16px!important;
+}
+@media(max-width:900px){
+  html body .rep-performance-layout-v175{grid-template-columns:1fr!important}
+  html body .rep-list-v175{grid-template-columns:repeat(2,1fr)!important}
+}
+@media(max-width:600px){
+  html body .rep-list-v175{grid-template-columns:1fr!important}
+}
+</style>
+<!-- v175 sales reps sales and collections by customer cell -->
+
+
+
+<script id="v176-rep-report-visible">
+(function(){
+  function injectRepReportTileV176(){
+    let view=document.getElementById('view-reps');
+    if(!view)return;
+
+    let old=document.getElementById('rep_performance_tile_v175');
+    if(old)old.remove();
+
+    if(document.getElementById('rep_performance_tile_v176'))return;
+
+    let tile=document.createElement('div');
+    tile.id='rep_performance_tile_v176';
+    tile.className='card rep-performance-tile-v176';
+    tile.innerHTML=`
+      <div class="rep-tile-icon-v176">📊</div>
+      <div class="rep-tile-copy-v176">
+        <h3>تقرير مبيعات وتحصيلات المندوبين</h3>
+        <p>اسم كل مندوب، مبيعاته، والتحصيل الذي حصله من كل عميل</p>
+      </div>
+      <button type="button" class="btn blue" onclick="openRepPerformanceV175()">فتح التقرير</button>`;
+    view.prepend(tile);
+  }
+
+  function injectRepReportNavV176(){
+    let nav=document.getElementById('nav');
+    if(!nav || document.getElementById('rep_report_nav_v176'))return;
+
+    let repsBtn=[...nav.querySelectorAll('button')].find(b=>{
+      let oc=b.getAttribute('onclick')||'';
+      return oc.includes("show('reps')");
+    });
+
+    let btn=document.createElement('button');
+    btn.id='rep_report_nav_v176';
+    btn.type='button';
+    btn.innerHTML='📊 تقرير المندوبين';
+    btn.onclick=function(){
+      if(typeof openRepPerformanceV175==='function'){
+        openRepPerformanceV175();
+      }
+    };
+
+    if(repsBtn)repsBtn.insertAdjacentElement('afterend',btn);
+    else nav.appendChild(btn);
+  }
+
+  function refreshRepReportV176(){
+    injectRepReportNavV176();
+    injectRepReportTileV176();
+  }
+
+  const renderRepsBeforeV176=window.renderReps;
+  if(typeof renderRepsBeforeV176==='function'){
+    window.renderReps=function(){
+      let result=renderRepsBeforeV176.apply(this,arguments);
+      setTimeout(injectRepReportTileV176,30);
+      return result;
+    };
+    try{renderReps=window.renderReps}catch(e){}
+  }
+
+  const renderBeforeV176=window.render;
+  if(typeof renderBeforeV176==='function'){
+    window.render=function(){
+      let result=renderBeforeV176.apply(this,arguments);
+      setTimeout(refreshRepReportV176,80);
+      return result;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  const observerV176=new MutationObserver(function(){
+    setTimeout(refreshRepReportV176,20);
+  });
+
+  document.addEventListener('DOMContentLoaded',function(){
+    let nav=document.getElementById('nav');
+    let reps=document.getElementById('view-reps');
+    if(nav)observerV176.observe(nav,{childList:true,subtree:true});
+    if(reps)observerV176.observe(reps,{childList:true,subtree:true});
+    setTimeout(refreshRepReportV176,600);
+  });
+})();
+</script>
+
+<style id="v176-rep-report-visible-style">
+html body .rep-performance-tile-v176{
+  display:grid!important;
+  grid-template-columns:auto 1fr auto!important;
+  align-items:center!important;
+  gap:16px!important;
+  border-right:6px solid #2563eb!important;
+  background:linear-gradient(135deg,#ffffff,#eff6ff)!important;
+  margin-bottom:18px!important;
+}
+html body .rep-tile-icon-v176{
+  width:60px!important;
+  height:60px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  border-radius:16px!important;
+  background:#dbeafe!important;
+  font-size:30px!important;
+}
+html body .rep-tile-copy-v176 h3{
+  margin:0 0 6px!important;
+  padding:0!important;
+  border:0!important;
+  color:#0f172a!important;
+}
+html body .rep-tile-copy-v176 p{
+  margin:0!important;
+  color:#64748b!important;
+}
+html body #rep_report_nav_v176{
+  background:#e0f2fe!important;
+  color:#0f172a!important;
+  font-weight:900!important;
+  border:1px solid #7dd3fc!important;
+}
+html body #rep_report_nav_v176:hover{
+  background:#bae6fd!important;
+}
+@media(max-width:700px){
+  html body .rep-performance-tile-v176{
+    grid-template-columns:1fr!important;
+  }
+}
+</style>
+<!-- v176 make rep report visible in reps screen and sidebar -->
+
