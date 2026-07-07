@@ -12594,4 +12594,424 @@ html body .collection-approval-card-v178{
 })();
 </script>
 <!-- v179 approved order synchronizes into rep report -->
+<script id="github-rep-report-approved-orders-fix">
+(function () {
+  function norm(value) {
+    return String(value || "").trim().toLowerCase();
+  }
+
+  function num(value) {
+    const x = Number(value);
+    return Number.isFinite(x) ? x : 0;
+  }
+
+  function sameRep(row, rep) {
+    if (!row || !rep) return false;
+
+    if (row.rep_id && rep.id && row.rep_id === rep.id) {
+      return true;
+    }
+
+    return norm(row.rep_name) === norm(rep.name);
+  }
+
+  function isApprovedOrder(order) {
+    return (
+      order &&
+      (
+        order.status === "approved" ||
+        order.approval_status === "approved"
+      )
+    );
+  }
+
+  function saleExistsForOrder(order) {
+    return (db.sales || []).some(function (sale) {
+      return (
+        sale.order_id === order.id ||
+        sale.sale_order_id === order.id ||
+        (order.sale_id && sale.id === order.sale_id)
+      );
+    });
+  }
+
+  function getApprovedSalesForRep(rep) {
+    const rows = [];
+    const linkedOrders = new Set();
+
+    (db.sales || []).forEach(function (sale) {
+      if (!sameRep(sale, rep)) return;
+
+      if (
+        sale.approval_status &&
+        sale.approval_status !== "approved"
+      ) {
+        return;
+      }
+
+      rows.push(sale);
+
+      if (sale.order_id) {
+        linkedOrders.add(sale.order_id);
+      }
+    });
+
+    /*
+      إضافة الأوردرات القديمة المعتمدة التي لم تتحول
+      إلى سجل بيع داخل db.sales
+    */
+    (db.sales_orders || []).forEach(function (order) {
+      if (!isApprovedOrder(order)) return;
+      if (!sameRep(order, rep)) return;
+      if (linkedOrders.has(order.id)) return;
+      if (saleExistsForOrder(order)) return;
+
+      rows.push({
+        id: "approved_order_" + order.id,
+        order_id: order.id,
+        date: order.approved_date || order.date || "",
+        customer_id: order.customer_id || "",
+        customer_name: order.customer_name || "",
+        rep_id: order.rep_id || "",
+        rep_name: order.rep_name || "",
+        product_id: order.product_id || "",
+        product_name: order.product_name || "",
+        qty: num(order.qty),
+        price: num(order.price),
+        total: num(order.total),
+        paid: num(order.paid),
+        remaining: num(order.remaining),
+        approval_status: "approved",
+        source: "approved_order_fallback"
+      });
+    });
+
+    return rows;
+  }
+
+  function getApprovedCollectionsForRep(rep) {
+    return (db.collections || []).filter(function (collection) {
+      return (
+        sameRep(collection, rep) &&
+        (
+          !collection.approval_status ||
+          collection.approval_status === "approved"
+        )
+      );
+    });
+  }
+
+  function buildRepReport(repId) {
+    const rep = (db.reps || []).find(function (item) {
+      return item.id === repId;
+    });
+
+    if (!rep) {
+      return '<div class="empty">المندوب غير موجود</div>';
+    }
+
+    const sales = getApprovedSalesForRep(rep);
+    const collections = getApprovedCollectionsForRep(rep);
+
+    const customerMap = new Map();
+
+    sales.forEach(function (sale) {
+      const key =
+        sale.customer_id ||
+        norm(sale.customer_name) ||
+        "unknown";
+
+      if (!customerMap.has(key)) {
+        customerMap.set(key, {
+          name: sale.customer_name || "-",
+          sales: 0,
+          collections: 0,
+          remaining: 0,
+          invoiceCount: 0,
+          collectionCount: 0
+        });
+      }
+
+      const row = customerMap.get(key);
+
+      row.sales += num(sale.total);
+      row.remaining += num(sale.remaining);
+      row.invoiceCount += 1;
+    });
+
+    collections.forEach(function (collection) {
+      const key =
+        collection.customer_id ||
+        norm(collection.customer_name) ||
+        "unknown";
+
+      if (!customerMap.has(key)) {
+        customerMap.set(key, {
+          name: collection.customer_name || "-",
+          sales: 0,
+          collections: 0,
+          remaining: 0,
+          invoiceCount: 0,
+          collectionCount: 0
+        });
+      }
+
+      const row = customerMap.get(key);
+
+      row.collections += num(collection.amount);
+      row.collectionCount += 1;
+    });
+
+    const customerRows = Array.from(customerMap.values());
+
+    const salesTotal = sales.reduce(function (sum, sale) {
+      return sum + num(sale.total);
+    }, 0);
+
+    const collectionTotal = collections.reduce(function (sum, collection) {
+      return sum + num(collection.amount);
+    }, 0);
+
+    const remainingTotal = sales.reduce(function (sum, sale) {
+      return sum + num(sale.remaining);
+    }, 0);
+
+    return `
+      <div class="rep-detail-head-v175">
+        <div>
+          <h2>${esc(rep.name || "")}</h2>
+          <p>${esc(rep.phone || "")}</p>
+        </div>
+      </div>
+
+      <div class="grid grid4 rep-summary-v175">
+        <div class="stat">
+          <span>المبيعات بعد الموافقة</span>
+          <strong>${money(salesTotal)}</strong>
+        </div>
+
+        <div class="stat">
+          <span>التحصيلات بعد الموافقة</span>
+          <strong>${money(collectionTotal)}</strong>
+        </div>
+
+        <div class="stat">
+          <span>المتبقي على العملاء</span>
+          <strong>${money(remainingTotal)}</strong>
+        </div>
+
+        <div class="stat">
+          <span>عدد الفواتير المعتمدة</span>
+          <strong>${sales.length}</strong>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>المبيعات والتحصيل المعتمد لكل عميل</h3>
+
+        ${
+          customerRows.length
+            ? `
+              <table>
+                <tr>
+                  <th>العميل</th>
+                  <th>المبيعات المعتمدة</th>
+                  <th>التحصيلات المعتمدة</th>
+                  <th>المتبقي</th>
+                  <th>عدد الفواتير</th>
+                  <th>عدد التحصيلات</th>
+                </tr>
+
+                ${customerRows.map(function (row) {
+                  return `
+                    <tr>
+                      <td><b>${esc(row.name)}</b></td>
+                      <td>${money(row.sales)}</td>
+                      <td>${money(row.collections)}</td>
+                      <td>${money(row.remaining)}</td>
+                      <td>${row.invoiceCount}</td>
+                      <td>${row.collectionCount}</td>
+                    </tr>
+                  `;
+                }).join("")}
+              </table>
+            `
+            : '<div class="empty">لا توجد مبيعات أو تحصيلات معتمدة لهذا المندوب</div>'
+        }
+      </div>
+
+      <div class="card">
+        <h3>تفاصيل المبيعات المعتمدة</h3>
+
+        ${
+          sales.length
+            ? `
+              <table>
+                <tr>
+                  <th>التاريخ</th>
+                  <th>العميل</th>
+                  <th>المنتج</th>
+                  <th>الكمية</th>
+                  <th>الإجمالي</th>
+                  <th>المدفوع</th>
+                  <th>المتبقي</th>
+                </tr>
+
+                ${sales.map(function (sale) {
+                  return `
+                    <tr>
+                      <td>${esc(sale.date || "")}</td>
+                      <td>${esc(sale.customer_name || "")}</td>
+                      <td>${esc(sale.product_name || "")}</td>
+                      <td>${num(sale.qty)}</td>
+                      <td>${money(sale.total)}</td>
+                      <td>${money(sale.paid)}</td>
+                      <td>${money(sale.remaining)}</td>
+                    </tr>
+                  `;
+                }).join("")}
+              </table>
+            `
+            : '<div class="empty">لا توجد مبيعات معتمدة</div>'
+        }
+      </div>
+
+      <div class="card">
+        <h3>تفاصيل التحصيلات المعتمدة</h3>
+
+        ${
+          collections.length
+            ? `
+              <table>
+                <tr>
+                  <th>التاريخ</th>
+                  <th>العميل</th>
+                  <th>المبلغ</th>
+                  <th>الطريقة</th>
+                  <th>ملاحظات</th>
+                </tr>
+
+                ${collections.map(function (collection) {
+                  return `
+                    <tr>
+                      <td>${esc(collection.date || "")}</td>
+                      <td>${esc(collection.customer_name || "")}</td>
+                      <td>${money(collection.amount)}</td>
+                      <td>${esc(collection.method || "")}</td>
+                      <td>${esc(collection.notes || "")}</td>
+                    </tr>
+                  `;
+                }).join("")}
+              </table>
+            `
+            : '<div class="empty">لا توجد تحصيلات معتمدة</div>'
+        }
+      </div>
+    `;
+  }
+
+  /*
+    استبدال وظيفة فتح تفاصيل المندوب
+  */
+  window.openRepDetailsV175 = function (repId) {
+    const body = document.getElementById("rep_details_body_v175");
+
+    if (!body) return;
+
+    body.innerHTML = buildRepReport(repId);
+
+    document.querySelectorAll(".rep-card-v175").forEach(function (card) {
+      card.classList.toggle(
+        "active",
+        card.dataset.repId === repId
+      );
+    });
+  };
+
+  /*
+    تحديث التقرير بعد الموافقة على الأوردر
+  */
+  function refreshRepReport() {
+    const modal = document.getElementById(
+      "rep_performance_modal_v175"
+    );
+
+    if (!modal) return;
+
+    const active = document.querySelector(
+      ".rep-card-v175.active"
+    );
+
+    const repId =
+      active?.dataset.repId ||
+      (db.reps || [])[0]?.id;
+
+    if (repId) {
+      window.openRepDetailsV175(repId);
+    }
+  }
+
+  /*
+    مراقبة الموافقة على الأوردر
+  */
+  const oldApproveSalesOrder = window.approveSalesOrder;
+
+  if (typeof oldApproveSalesOrder === "function") {
+    window.approveSalesOrder = function () {
+      const result = oldApproveSalesOrder.apply(
+        this,
+        arguments
+      );
+
+      setTimeout(function () {
+        refreshRepReport();
+      }, 150);
+
+      return result;
+    };
+  }
+
+  /*
+    مراقبة تحويل الأوردر إلى عملية بيع
+  */
+  const oldCreateApprovedSale =
+    window.createApprovedSaleFromOrder;
+
+  if (typeof oldCreateApprovedSale === "function") {
+    window.createApprovedSaleFromOrder = function () {
+      const result = oldCreateApprovedSale.apply(
+        this,
+        arguments
+      );
+
+      setTimeout(function () {
+        refreshRepReport();
+      }, 150);
+
+      return result;
+    };
+  }
+
+  /*
+    تحديث التقرير بعد أي Render
+  */
+  const oldRender = window.render;
+
+  if (typeof oldRender === "function") {
+    window.render = function () {
+      const result = oldRender.apply(this, arguments);
+
+      setTimeout(function () {
+        refreshRepReport();
+      }, 150);
+
+      return result;
+    };
+  }
+})();
+</script>
+
+<!-- force redeploy rep report approved orders fix -->
+</body>
+</html>
 
