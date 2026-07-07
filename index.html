@@ -11743,3 +11743,599 @@ html body #rep_report_nav_v176:hover{
 </style>
 <!-- v176 make rep report visible in reps screen and sidebar -->
 
+
+
+<script id="v177-rep-report-updates-from-orders">
+(function(){
+  function normV177(v){return String(v||'').trim().toLowerCase()}
+
+  function repMatchesV177(row,rep){
+    if(!row||!rep)return false;
+    if(row.rep_id && rep.id && row.rep_id===rep.id)return true;
+    return normV177(row.rep_name)===normV177(rep.name);
+  }
+
+  function approvedSalesV177(rep){
+    return (db.sales||[]).filter(s=>repMatchesV177(s,rep));
+  }
+
+  function pendingOrdersV177(rep){
+    return (db.sales_orders||[]).filter(o=>
+      repMatchesV177(o,rep) &&
+      (o.status==='pending' || o.approval_status==='pending')
+    );
+  }
+
+  function collectionsV177(rep){
+    return (db.collections||[]).filter(c=>repMatchesV177(c,rep));
+  }
+
+  function totalsV177(rep){
+    let sales=approvedSalesV177(rep);
+    let pending=pendingOrdersV177(rep);
+    let collections=collectionsV177(rep);
+    return {
+      approvedSales:sales.reduce((a,s)=>a+n(s.total),0),
+      pendingSales:pending.reduce((a,o)=>a+n(o.total),0),
+      collections:collections.reduce((a,c)=>a+n(c.amount),0),
+      remaining:sales.reduce((a,s)=>a+n(s.remaining),0),
+      approvedCount:sales.length,
+      pendingCount:pending.length,
+      collectionCount:collections.length
+    };
+  }
+
+  function customerRowsV177(rep){
+    let map=new Map();
+
+    approvedSalesV177(rep).forEach(s=>{
+      let key=s.customer_id||normV177(s.customer_name);
+      if(!map.has(key))map.set(key,{
+        name:s.customer_name||'-',
+        approved:0,pending:0,collections:0,remaining:0,
+        approvedCount:0,pendingCount:0,collectionCount:0
+      });
+      let r=map.get(key);
+      r.approved+=n(s.total);
+      r.remaining+=n(s.remaining);
+      r.approvedCount++;
+    });
+
+    pendingOrdersV177(rep).forEach(o=>{
+      let key=o.customer_id||normV177(o.customer_name);
+      if(!map.has(key))map.set(key,{
+        name:o.customer_name||'-',
+        approved:0,pending:0,collections:0,remaining:0,
+        approvedCount:0,pendingCount:0,collectionCount:0
+      });
+      let r=map.get(key);
+      r.pending+=n(o.total);
+      r.pendingCount++;
+    });
+
+    collectionsV177(rep).forEach(c=>{
+      let key=c.customer_id||normV177(c.customer_name);
+      if(!map.has(key))map.set(key,{
+        name:c.customer_name||'-',
+        approved:0,pending:0,collections:0,remaining:0,
+        approvedCount:0,pendingCount:0,collectionCount:0
+      });
+      let r=map.get(key);
+      r.collections+=n(c.amount);
+      r.collectionCount++;
+    });
+
+    return [...map.values()].sort((a,b)=>
+      (b.approved+b.pending+b.collections)-(a.approved+a.pending+a.collections)
+    );
+  }
+
+  function reportHTMLV177(repId){
+    let rep=(db.reps||[]).find(r=>r.id===repId);
+    if(!rep)return `<div class="empty">المندوب غير موجود</div>`;
+
+    let t=totalsV177(rep);
+    let rows=customerRowsV177(rep);
+    let approved=approvedSalesV177(rep);
+    let pending=pendingOrdersV177(rep);
+    let collections=collectionsV177(rep);
+
+    return `
+      <div class="rep-detail-head-v175">
+        <div>
+          <h2>${esc(rep.name||'')}</h2>
+          <p>${esc(rep.phone||'')}</p>
+        </div>
+        <button type="button" class="btn blue" onclick="printRepDetailsV177('${rep.id}')">طباعة التقرير</button>
+      </div>
+
+      <div class="grid grid4 rep-summary-v175">
+        <div class="stat"><span>المبيعات المعتمدة</span><strong>${money(t.approvedSales)}</strong></div>
+        <div class="stat pending-stat-v177"><span>أوردرات بانتظار الموافقة</span><strong>${money(t.pendingSales)}</strong><small>${t.pendingCount} أوردر</small></div>
+        <div class="stat"><span>إجمالي التحصيل</span><strong>${money(t.collections)}</strong></div>
+        <div class="stat"><span>المتبقي على العملاء</span><strong>${money(t.remaining)}</strong></div>
+      </div>
+
+      <div class="card">
+        <h3>المبيعات والأوردرات والتحصيل لكل عميل</h3>
+        ${rows.length?`<table>
+          <tr>
+            <th>العميل</th>
+            <th>المبيعات المعتمدة</th>
+            <th>أوردرات معلقة</th>
+            <th>التحصيلات</th>
+            <th>المتبقي</th>
+            <th>عدد الفواتير</th>
+            <th>عدد الأوردرات</th>
+          </tr>
+          ${rows.map(r=>`<tr>
+            <td><b>${esc(r.name)}</b></td>
+            <td>${money(r.approved)}</td>
+            <td>${money(r.pending)}</td>
+            <td>${money(r.collections)}</td>
+            <td>${money(r.remaining)}</td>
+            <td>${r.approvedCount}</td>
+            <td>${r.pendingCount}</td>
+          </tr>`).join('')}
+        </table>`:`<div class="empty">لا توجد مبيعات أو أوردرات أو تحصيلات لهذا المندوب</div>`}
+      </div>
+
+      <div class="card">
+        <h3>الأوردرات بانتظار الموافقة</h3>
+        ${pending.length?`<table>
+          <tr><th>التاريخ</th><th>العميل</th><th>المنتج</th><th>الكمية</th><th>الإجمالي</th><th>الحالة</th></tr>
+          ${pending.map(o=>`<tr>
+            <td>${esc(o.date||'')}</td>
+            <td>${esc(o.customer_name||'')}</td>
+            <td>${esc(o.product_name||'')}</td>
+            <td>${n(o.qty)}</td>
+            <td>${money(o.total)}</td>
+            <td><span class="badge warn">بانتظار الموافقة</span></td>
+          </tr>`).join('')}
+        </table>`:`<div class="empty">لا توجد أوردرات معلقة</div>`}
+      </div>
+
+      <div class="card">
+        <h3>المبيعات المعتمدة</h3>
+        ${approved.length?`<table>
+          <tr><th>التاريخ</th><th>العميل</th><th>المنتج</th><th>الكمية</th><th>الإجمالي</th><th>المدفوع</th><th>المتبقي</th></tr>
+          ${approved.map(s=>`<tr>
+            <td>${esc(s.date||'')}</td>
+            <td>${esc(s.customer_name||'')}</td>
+            <td>${esc(s.product_name||'')}</td>
+            <td>${n(s.qty)}</td>
+            <td>${money(s.total)}</td>
+            <td>${money(s.paid)}</td>
+            <td>${money(s.remaining)}</td>
+          </tr>`).join('')}
+        </table>`:`<div class="empty">لا توجد مبيعات معتمدة</div>`}
+      </div>
+
+      <div class="card">
+        <h3>تفاصيل التحصيلات</h3>
+        ${collections.length?`<table>
+          <tr><th>التاريخ</th><th>العميل</th><th>المبلغ</th><th>الطريقة</th><th>ملاحظات</th></tr>
+          ${collections.map(c=>`<tr>
+            <td>${esc(c.date||'')}</td>
+            <td>${esc(c.customer_name||'')}</td>
+            <td>${money(c.amount)}</td>
+            <td>${esc(c.method||'')}</td>
+            <td>${esc(c.notes||'')}</td>
+          </tr>`).join('')}
+        </table>`:`<div class="empty">لا توجد تحصيلات</div>`}
+      </div>`;
+  }
+
+  window.openRepDetailsV175=function(repId){
+    let body=document.getElementById('rep_details_body_v175');
+    if(!body)return;
+    body.innerHTML=reportHTMLV177(repId);
+    document.querySelectorAll('.rep-card-v175').forEach(card=>{
+      card.classList.toggle('active',card.dataset.repId===repId);
+    });
+  };
+
+  window.printRepDetailsV177=function(repId){
+    let rep=(db.reps||[]).find(r=>r.id===repId);
+    if(!rep)return;
+    let w=window.open('','_blank','width=1200,height=850');
+    if(!w)return alert('اسمح بفتح النوافذ المنبثقة للطباعة');
+    w.document.open();
+    w.document.write(`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>تقرير المندوب - ${esc(rep.name)}</title><style>
+      body{font-family:Arial,sans-serif;padding:20px;color:#111827}
+      table{width:100%;border-collapse:collapse;margin:12px 0}
+      th,td{border:1px solid #d1d5db;padding:8px;text-align:right}
+      th{background:#f3f4f6}
+      .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+      .stat,.card{border:1px solid #d1d5db;border-radius:10px;padding:14px;margin-bottom:14px}
+      .stat span,.stat small{display:block;color:#64748b}
+      .stat strong{display:block;font-size:22px;margin-top:5px}
+      button{display:none}
+    </style></head><body>${reportHTMLV177(repId)}</body></html>`);
+    w.document.close();
+  };
+
+  function refreshOpenRepReportV177(){
+    let modal=document.getElementById('rep_performance_modal_v175');
+    if(!modal)return;
+
+    let active=document.querySelector('.rep-card-v175.active');
+    let repId=active?.dataset.repId || (db.reps||[])[0]?.id;
+    if(repId)openRepDetailsV175(repId);
+
+    document.querySelectorAll('.rep-card-v175').forEach(card=>{
+      let rep=(db.reps||[]).find(r=>r.id===card.dataset.repId);
+      if(!rep)return;
+      let t=totalsV177(rep);
+      card.innerHTML=`
+        <b>${esc(rep.name||'')}</b>
+        <span>مبيعات معتمدة: ${money(t.approvedSales)}</span>
+        <span>أوردرات معلقة: ${money(t.pendingSales)}</span>
+        <span>تحصيل: ${money(t.collections)}</span>`;
+    });
+  }
+
+  const renderBeforeV177=window.render;
+  if(typeof renderBeforeV177==='function'){
+    window.render=function(){
+      let result=renderBeforeV177.apply(this,arguments);
+      setTimeout(refreshOpenRepReportV177,100);
+      return result;
+    };
+    try{render=window.render}catch(e){}
+  }
+})();
+</script>
+
+<style id="v177-rep-report-updates-from-orders-style">
+html body .pending-stat-v177{
+  border-color:#f59e0b!important;
+  background:#fffbeb!important;
+}
+html body .pending-stat-v177 small{
+  margin-top:5px!important;
+}
+</style>
+<!-- v177 rep report includes pending sales orders and auto refresh -->
+
+
+
+<script id="v178-rep-report-after-approval-only">
+(function(){
+  function normV178(v){return String(v||'').trim().toLowerCase()}
+
+  function repMatchesV178(row,rep){
+    if(!row||!rep)return false;
+    if(row.rep_id && rep.id && row.rep_id===rep.id)return true;
+    return normV178(row.rep_name)===normV178(rep.name);
+  }
+
+  function ensureCollectionRequestsV178(){
+    if(!Array.isArray(db.collection_requests))db.collection_requests=[];
+  }
+
+  function isManagerV178(){
+    if(typeof isSalesManager==='function' && isSalesManager())return true;
+    let u=typeof currentUser==='function'?currentUser():null;
+    let role=normV178(u?.role||u?.type);
+    return ['admin','manager','sales_manager','accounts'].includes(role);
+  }
+
+  window.addCollection=function(){
+    ensureCollectionRequestsV178();
+
+    let c=db.customers.find(x=>x.id===document.getElementById('co_customer')?.value);
+    let r=db.reps.find(x=>x.id===document.getElementById('co_rep')?.value);
+    let amount=n(document.getElementById('co_amount')?.value);
+
+    if(!c)return alert('اختر العميل');
+    if(!r)return alert('اختر المندوب');
+    if(amount<=0)return alert('اكتب قيمة صحيحة للتحصيل');
+
+    db.collection_requests.unshift({
+      id:uid(),
+      date:today(),
+      customer_id:c.id,
+      customer_name:c.name,
+      rep_id:r.id,
+      rep_name:r.name,
+      amount,
+      method:document.getElementById('co_method')?.value||'Cash',
+      notes:document.getElementById('co_notes')?.value||'',
+      status:'pending',
+      approval_status:'pending',
+      created_by:(typeof currentUser==='function'?(currentUser()||{}).name:'')||''
+    });
+
+    if(typeof save==='function')save();
+    alert('تم إرسال التحصيل للموافقة');
+    render();
+  };
+  try{addCollection=window.addCollection}catch(e){}
+
+  window.approveCollectionV178=function(id){
+    if(!isManagerV178())return alert('هذه العملية متاحة للمدير فقط');
+
+    ensureCollectionRequestsV178();
+    let req=db.collection_requests.find(x=>x.id===id);
+    if(!req || req.approval_status!=='pending')return;
+
+    let c=db.customers.find(x=>x.id===req.customer_id);
+    if(!c)return alert('العميل غير موجود');
+
+    let collectionId=uid();
+    db.collections.unshift({
+      id:collectionId,
+      request_id:req.id,
+      date:req.date||today(),
+      customer_id:req.customer_id,
+      customer_name:req.customer_name,
+      rep_id:req.rep_id,
+      rep_name:req.rep_name,
+      amount:n(req.amount),
+      method:req.method||'Cash',
+      notes:req.notes||'',
+      approval_status:'approved',
+      approved_by:(typeof currentUser==='function'?(currentUser()||{}).name:'')||'',
+      approved_date:today()
+    });
+
+    c.balance=n(c.balance)-n(req.amount);
+
+    if(typeof postEntry==='function'){
+      postEntry(
+        'collection',
+        collectionId,
+        (lang==='ar'?'تحصيل من ':'Collection from ')+c.name,
+        [{account:'1100',debit:n(req.amount)},{account:'1200',credit:n(req.amount)}]
+      );
+    }
+
+    req.status='approved';
+    req.approval_status='approved';
+    req.approved_by=(typeof currentUser==='function'?(currentUser()||{}).name:'')||'';
+    req.approved_date=today();
+    req.collection_id=collectionId;
+
+    if(typeof save==='function')save();
+    render();
+  };
+
+  window.rejectCollectionV178=function(id){
+    if(!isManagerV178())return alert('هذه العملية متاحة للمدير فقط');
+
+    ensureCollectionRequestsV178();
+    let req=db.collection_requests.find(x=>x.id===id);
+    if(!req || req.approval_status!=='pending')return;
+
+    req.status='rejected';
+    req.approval_status='rejected';
+    req.rejected_by=(typeof currentUser==='function'?(currentUser()||{}).name:'')||'';
+    req.rejected_date=today();
+
+    if(typeof save==='function')save();
+    render();
+  };
+
+  function collectionApprovalsHTMLV178(){
+    ensureCollectionRequestsV178();
+    let rows=db.collection_requests.filter(x=>x.approval_status==='pending');
+
+    return `<div class="card collection-approval-card-v178">
+      <h3>تحصيلات بانتظار الموافقة</h3>
+      ${rows.length?`<table>
+        <tr>
+          <th>التاريخ</th>
+          <th>العميل</th>
+          <th>المندوب</th>
+          <th>المبلغ</th>
+          <th>الطريقة</th>
+          <th>الحالة</th>
+          <th>الإجراء</th>
+        </tr>
+        ${rows.map(r=>`<tr>
+          <td>${esc(r.date||'')}</td>
+          <td>${esc(r.customer_name||'')}</td>
+          <td>${esc(r.rep_name||'')}</td>
+          <td>${money(r.amount)}</td>
+          <td>${esc(r.method||'')}</td>
+          <td><span class="badge warn">بانتظار الموافقة</span></td>
+          <td>
+            ${isManagerV178()?`
+              <button type="button" class="btn ok" onclick="approveCollectionV178('${r.id}')">موافقة</button>
+              <button type="button" class="btn danger" onclick="rejectCollectionV178('${r.id}')">رفض</button>
+            `:`<span class="badge">بانتظار المدير</span>`}
+          </td>
+        </tr>`).join('')}
+      </table>`:`<div class="empty">لا توجد تحصيلات معلقة</div>`}
+    </div>`;
+  }
+
+  const renderCollectionsBeforeV178=window.renderCollections;
+  window.renderCollections=function(){
+    let result=renderCollectionsBeforeV178.apply(this,arguments);
+    let view=document.getElementById('view-collections');
+    if(view){
+      let old=view.querySelector('.collection-approval-card-v178');
+      if(old)old.remove();
+      view.insertAdjacentHTML('beforeend',collectionApprovalsHTMLV178());
+    }
+    return result;
+  };
+  try{renderCollections=window.renderCollections}catch(e){}
+
+  function approvedSalesOnlyV178(rep){
+    return (db.sales||[]).filter(s=>
+      repMatchesV178(s,rep) &&
+      (!s.approval_status || s.approval_status==='approved')
+    );
+  }
+
+  function approvedCollectionsOnlyV178(rep){
+    return (db.collections||[]).filter(c=>
+      repMatchesV178(c,rep) &&
+      (!c.approval_status || c.approval_status==='approved')
+    );
+  }
+
+  function totalsV178(rep){
+    let sales=approvedSalesOnlyV178(rep);
+    let collections=approvedCollectionsOnlyV178(rep);
+    return {
+      sales:sales.reduce((a,s)=>a+n(s.total),0),
+      collections:collections.reduce((a,c)=>a+n(c.amount),0),
+      remaining:sales.reduce((a,s)=>a+n(s.remaining),0),
+      invoices:sales.length,
+      collectionCount:collections.length
+    };
+  }
+
+  function customerRowsV178(rep){
+    let map=new Map();
+
+    approvedSalesOnlyV178(rep).forEach(s=>{
+      let key=s.customer_id||normV178(s.customer_name);
+      if(!map.has(key))map.set(key,{
+        name:s.customer_name||'-',
+        sales:0,collections:0,remaining:0,
+        invoiceCount:0,collectionCount:0
+      });
+      let row=map.get(key);
+      row.sales+=n(s.total);
+      row.remaining+=n(s.remaining);
+      row.invoiceCount++;
+    });
+
+    approvedCollectionsOnlyV178(rep).forEach(c=>{
+      let key=c.customer_id||normV178(c.customer_name);
+      if(!map.has(key))map.set(key,{
+        name:c.customer_name||'-',
+        sales:0,collections:0,remaining:0,
+        invoiceCount:0,collectionCount:0
+      });
+      let row=map.get(key);
+      row.collections+=n(c.amount);
+      row.collectionCount++;
+    });
+
+    return [...map.values()].sort((a,b)=>
+      (b.sales+b.collections)-(a.sales+a.collections)
+    );
+  }
+
+  function repReportHTMLV178(repId){
+    let rep=(db.reps||[]).find(r=>r.id===repId);
+    if(!rep)return `<div class="empty">المندوب غير موجود</div>`;
+
+    let t=totalsV178(rep);
+    let rows=customerRowsV178(rep);
+    let sales=approvedSalesOnlyV178(rep);
+    let collections=approvedCollectionsOnlyV178(rep);
+
+    return `
+      <div class="rep-detail-head-v175">
+        <div>
+          <h2>${esc(rep.name||'')}</h2>
+          <p>${esc(rep.phone||'')}</p>
+        </div>
+        <button type="button" class="btn blue" onclick="printRepDetailsV178('${rep.id}')">طباعة التقرير</button>
+      </div>
+
+      <div class="grid grid4 rep-summary-v175">
+        <div class="stat"><span>المبيعات بعد الموافقة</span><strong>${money(t.sales)}</strong></div>
+        <div class="stat"><span>التحصيلات بعد الموافقة</span><strong>${money(t.collections)}</strong></div>
+        <div class="stat"><span>المتبقي على العملاء</span><strong>${money(t.remaining)}</strong></div>
+        <div class="stat"><span>عدد الفواتير المعتمدة</span><strong>${t.invoices}</strong></div>
+      </div>
+
+      <div class="card">
+        <h3>المبيعات والتحصيل المعتمد لكل عميل</h3>
+        ${rows.length?`<table>
+          <tr>
+            <th>العميل</th>
+            <th>المبيعات المعتمدة</th>
+            <th>التحصيلات المعتمدة</th>
+            <th>المتبقي</th>
+            <th>عدد الفواتير</th>
+            <th>عدد التحصيلات</th>
+          </tr>
+          ${rows.map(r=>`<tr>
+            <td><b>${esc(r.name)}</b></td>
+            <td>${money(r.sales)}</td>
+            <td>${money(r.collections)}</td>
+            <td>${money(r.remaining)}</td>
+            <td>${r.invoiceCount}</td>
+            <td>${r.collectionCount}</td>
+          </tr>`).join('')}
+        </table>`:`<div class="empty">لا توجد مبيعات أو تحصيلات معتمدة لهذا المندوب</div>`}
+      </div>
+
+      <div class="card">
+        <h3>تفاصيل المبيعات المعتمدة</h3>
+        ${sales.length?`<table>
+          <tr><th>التاريخ</th><th>العميل</th><th>المنتج</th><th>الكمية</th><th>الإجمالي</th><th>المدفوع</th><th>المتبقي</th></tr>
+          ${sales.map(s=>`<tr>
+            <td>${esc(s.date||'')}</td>
+            <td>${esc(s.customer_name||'')}</td>
+            <td>${esc(s.product_name||'')}</td>
+            <td>${n(s.qty)}</td>
+            <td>${money(s.total)}</td>
+            <td>${money(s.paid)}</td>
+            <td>${money(s.remaining)}</td>
+          </tr>`).join('')}
+        </table>`:`<div class="empty">لا توجد مبيعات معتمدة</div>`}
+      </div>
+
+      <div class="card">
+        <h3>تفاصيل التحصيلات المعتمدة</h3>
+        ${collections.length?`<table>
+          <tr><th>التاريخ</th><th>العميل</th><th>المبلغ</th><th>الطريقة</th><th>ملاحظات</th></tr>
+          ${collections.map(c=>`<tr>
+            <td>${esc(c.date||'')}</td>
+            <td>${esc(c.customer_name||'')}</td>
+            <td>${money(c.amount)}</td>
+            <td>${esc(c.method||'')}</td>
+            <td>${esc(c.notes||'')}</td>
+          </tr>`).join('')}
+        </table>`:`<div class="empty">لا توجد تحصيلات معتمدة</div>`}
+      </div>`;
+  }
+
+  window.openRepDetailsV175=function(repId){
+    let body=document.getElementById('rep_details_body_v175');
+    if(!body)return;
+    body.innerHTML=repReportHTMLV178(repId);
+    document.querySelectorAll('.rep-card-v175').forEach(card=>{
+      card.classList.toggle('active',card.dataset.repId===repId);
+    });
+  };
+
+  window.printRepDetailsV178=function(repId){
+    let rep=(db.reps||[]).find(r=>r.id===repId);
+    if(!rep)return;
+    let w=window.open('','_blank','width=1200,height=850');
+    if(!w)return alert('اسمح بفتح النوافذ المنبثقة للطباعة');
+    w.document.open();
+    w.document.write(`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>تقرير المندوب - ${esc(rep.name)}</title><style>
+      body{font-family:Arial,sans-serif;padding:20px;color:#111827}
+      table{width:100%;border-collapse:collapse;margin:12px 0}
+      th,td{border:1px solid #d1d5db;padding:8px;text-align:right}
+      th{background:#f3f4f6}
+      .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+      .stat,.card{border:1px solid #d1d5db;border-radius:10px;padding:14px;margin-bottom:14px}
+      .stat span{display:block;color:#64748b}
+      .stat strong{display:block;font-size:22px;margin-top:5px}
+      button{display:none}
+    </style></head><body>${repReportHTMLV178(repId)}</body></html>`);
+    w.document.close();
+  };
+})();
+</script>
+
+<style id="v178-rep-report-after-approval-only-style">
+html body .collection-approval-card-v178{
+  border-right:5px solid #f59e0b!important;
+}
+</style>
+<!-- v178 rep report counts approved sales and approved collections only -->
+
