@@ -12597,311 +12597,39 @@ html body .collection-approval-card-v178{
 
 
 
-<script id="v180-manage-sales-reps">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script id="v185-clean-rep-management">
 (function(){
-  function ensureRepsV180(){
-    if(!Array.isArray(db.reps))db.reps=[];
-  }
-
-  function repUsageV180(rep){
-    let sales=(db.sales||[]).filter(x=>x.rep_id===rep.id || String(x.rep_name||'').trim()===String(rep.name||'').trim()).length;
-    let orders=(db.sales_orders||[]).filter(x=>x.rep_id===rep.id || String(x.rep_name||'').trim()===String(rep.name||'').trim()).length;
-    let collections=(db.collections||[]).filter(x=>x.rep_id===rep.id || String(x.rep_name||'').trim()===String(rep.name||'').trim()).length;
-    return {sales,orders,collections,total:sales+orders+collections};
-  }
-
-  function repsManagementHTMLV180(){
-    ensureRepsV180();
-
-    return `
-      <div class="card reps-management-card-v180">
-        <div class="reps-management-head-v180">
-          <div>
-            <h3>إدارة المندوبين</h3>
-            <p>إضافة مندوب جديد أو حذف مندوب من القائمة</p>
-          </div>
-        </div>
-
-        <div class="reps-add-grid-v180">
-          <label>
-            <span>اسم المندوب</span>
-            <input id="rep_name_v180" type="text" placeholder="اكتب اسم المندوب">
-          </label>
-
-          <label>
-            <span>رقم الهاتف</span>
-            <input id="rep_phone_v180" type="text" placeholder="رقم الهاتف">
-          </label>
-
-          <label>
-            <span>المنطقة</span>
-            <input id="rep_region_v180" type="text" placeholder="منطقة العمل">
-          </label>
-
-          <label>
-            <span>التارجت</span>
-            <input id="rep_target_v180" type="number" min="0" step="0.01" placeholder="0">
-          </label>
-
-          <button type="button" class="btn ok reps-add-btn-v180" onclick="addSalesRepV180()">
-            إضافة المندوب
-          </button>
-        </div>
-
-        <div class="reps-list-v180">
-          ${db.reps.length?db.reps.map(rep=>{
-            let usage=repUsageV180(rep);
-            return `
-              <div class="rep-manage-row-v180">
-                <div class="rep-manage-main-v180">
-                  <b>${esc(rep.name||'')}</b>
-                  <span>${esc(rep.phone||'')}</span>
-                  <span>${esc(rep.region||rep.area||'')}</span>
-                </div>
-
-                <div class="rep-manage-stats-v180">
-                  <span>مبيعات: ${usage.sales}</span>
-                  <span>أوردرات: ${usage.orders}</span>
-                  <span>تحصيلات: ${usage.collections}</span>
-                </div>
-
-                <button type="button" class="btn danger" onclick="deleteSalesRepV180('${rep.id}')">
-                  حذف
-                </button>
-              </div>
-            `;
-          }).join(''):`<div class="empty">لا يوجد مندوبون حاليًا</div>`}
-        </div>
-      </div>
-    `;
-  }
-
-  window.addSalesRepV180=function(){
-    ensureRepsV180();
-
-    let name=String(document.getElementById('rep_name_v180')?.value||'').trim();
-    let phone=String(document.getElementById('rep_phone_v180')?.value||'').trim();
-    let region=String(document.getElementById('rep_region_v180')?.value||'').trim();
-    let target=n(document.getElementById('rep_target_v180')?.value);
-
-    if(!name){
-      alert('اكتب اسم المندوب');
-      document.getElementById('rep_name_v180')?.focus();
-      return;
-    }
-
-    let duplicate=db.reps.some(r=>String(r.name||'').trim().toLowerCase()===name.toLowerCase());
-    if(duplicate){
-      alert('اسم المندوب موجود بالفعل');
-      return;
-    }
-
-    db.reps.push({
-      id:uid(),
-      name,
-      phone,
-      region,
-      area:region,
-      target,
-      created_at:new Date().toISOString()
-    });
-
-    if(typeof save==='function')save();
-    if(typeof render==='function')render();
-
-    setTimeout(function(){
-      if(typeof show==='function')show('reps');
-    },50);
-  };
-
-  window.deleteSalesRepV180=function(id){
-    ensureRepsV180();
-
-    let rep=db.reps.find(r=>r.id===id);
-    if(!rep)return;
-
-    let usage=repUsageV180(rep);
-    let msg='هل تريد حذف المندوب "'+rep.name+'" من قائمة المندوبين؟';
-
-    if(usage.total){
-      msg+='\n\nالسجلات القديمة لن تُحذف، وستظل المبيعات والأوردرات والتحصيلات السابقة محفوظة باسم المندوب.';
-    }
-
-    if(!confirm(msg))return;
-
-    db.reps=db.reps.filter(r=>r.id!==id);
-
-    if(typeof save==='function')save();
-    if(typeof render==='function')render();
-
-    setTimeout(function(){
-      if(typeof show==='function')show('reps');
-    },50);
-  };
-
-  function injectRepManagementV180(){
-    let view=document.getElementById('view-reps');
-    if(!view)return;
-
-    let old=document.getElementById('reps_management_wrap_v180');
-    if(old)old.remove();
-
-    let wrap=document.createElement('div');
-    wrap.id='reps_management_wrap_v180';
-    wrap.innerHTML=repsManagementHTMLV180();
-
-    let reportTile=document.getElementById('rep_performance_tile_v176');
-    if(reportTile){
-      reportTile.insertAdjacentElement('afterend',wrap);
-    }else{
-      view.prepend(wrap);
-    }
-  }
-
-  const renderRepsBeforeV180=window.renderReps;
-  if(typeof renderRepsBeforeV180==='function'){
-    window.renderReps=function(){
-      let result=renderRepsBeforeV180.apply(this,arguments);
-      setTimeout(injectRepManagementV180,30);
-      return result;
-    };
-    try{renderReps=window.renderReps}catch(e){}
-  }
-
-  const renderBeforeV180=window.render;
-  if(typeof renderBeforeV180==='function'){
-    window.render=function(){
-      let result=renderBeforeV180.apply(this,arguments);
-      setTimeout(injectRepManagementV180,80);
-      return result;
-    };
-    try{render=window.render}catch(e){}
-  }
-
-  document.addEventListener('DOMContentLoaded',function(){
-    setTimeout(injectRepManagementV180,700);
-  });
-})();
-</script>
-
-<style id="v180-manage-sales-reps-style">
-html body .reps-management-card-v180{
-  border-right:6px solid #16a34a!important;
-  margin-bottom:18px!important;
-}
-html body .reps-management-head-v180 h3{
-  margin:0 0 6px!important;
-  padding:0!important;
-  border:0!important;
-}
-html body .reps-management-head-v180 p{
-  margin:0 0 14px!important;
-  color:#64748b!important;
-}
-html body .reps-add-grid-v180{
-  display:grid!important;
-  grid-template-columns:repeat(4,minmax(0,1fr)) auto!important;
-  gap:10px!important;
-  align-items:end!important;
-  margin-bottom:18px!important;
-}
-html body .reps-add-grid-v180 label{
-  display:grid!important;
-  gap:6px!important;
-}
-html body .reps-add-grid-v180 label span{
-  font-weight:800!important;
-  color:#334155!important;
-}
-html body .reps-add-grid-v180 input{
-  width:100%!important;
-  min-height:44px!important;
-  border:1px solid #cbd5e1!important;
-  border-radius:10px!important;
-  padding:9px 11px!important;
-  background:#fff!important;
-  color:#111827!important;
-}
-html body .reps-add-btn-v180{
-  min-height:44px!important;
-  white-space:nowrap!important;
-}
-html body .reps-list-v180{
-  display:grid!important;
-  gap:10px!important;
-}
-html body .rep-manage-row-v180{
-  display:grid!important;
-  grid-template-columns:1fr auto auto!important;
-  gap:14px!important;
-  align-items:center!important;
-  border:1px solid #e2e8f0!important;
-  border-radius:12px!important;
-  padding:12px!important;
-  background:#fff!important;
-}
-html body .rep-manage-main-v180{
-  display:flex!important;
-  flex-wrap:wrap!important;
-  gap:8px 14px!important;
-  align-items:center!important;
-}
-html body .rep-manage-main-v180 b{
-  font-size:16px!important;
-  color:#0f172a!important;
-}
-html body .rep-manage-main-v180 span{
-  color:#64748b!important;
-}
-html body .rep-manage-stats-v180{
-  display:flex!important;
-  flex-wrap:wrap!important;
-  gap:8px!important;
-}
-html body .rep-manage-stats-v180 span{
-  background:#f1f5f9!important;
-  border-radius:999px!important;
-  padding:5px 9px!important;
-  color:#334155!important;
-  font-size:12px!important;
-  font-weight:800!important;
-}
-@media(max-width:1000px){
-  html body .reps-add-grid-v180{
-    grid-template-columns:repeat(2,minmax(0,1fr))!important;
-  }
-}
-@media(max-width:700px){
-  html body .reps-add-grid-v180{
-    grid-template-columns:1fr!important;
-  }
-  html body .rep-manage-row-v180{
-    grid-template-columns:1fr!important;
-  }
-}
-</style>
-<!-- v180 add and delete sales representatives -->
-
-
-
-<script id="v181-delete-sales-reps-fixed">
-(function(){
-  function normV181(v){
+  function normV185(v){
     return String(v||'').trim().toLowerCase();
   }
 
-  function ensureRepsV181(){
+  function ensureRepsV185(){
     if(!Array.isArray(db.reps))db.reps=[];
   }
 
-  function repUsageV181(rep){
+  function repUsageV185(rep){
     const same=function(row){
       return row && (
         (row.rep_id && rep.id && row.rep_id===rep.id) ||
-        normV181(row.rep_name)===normV181(rep.name)
+        normV185(row.rep_name)===normV185(rep.name)
       );
     };
-
     return {
       sales:(db.sales||[]).filter(same).length,
       orders:(db.sales_orders||[]).filter(same).length,
@@ -12909,134 +12637,21 @@ html body .rep-manage-stats-v180 span{
     };
   }
 
-  window.deleteSalesRepV181=function(repId){
-    ensureRepsV181();
+  window.addRepV185=function(){
+    ensureRepsV185();
 
-    let rep=db.reps.find(r=>r.id===repId);
-    if(!rep)return alert('المندوب غير موجود');
-
-    let usage=repUsageV181(rep);
-    let total=usage.sales+usage.orders+usage.collections;
-
-    let message='هل تريد حذف المندوب "'+rep.name+'" من قائمة المندوبين؟';
-
-    if(total>0){
-      message+='\n\nالسجلات القديمة لن تُحذف، وستظل المبيعات والأوردرات والتحصيلات السابقة محفوظة باسم المندوب.';
-    }
-
-    if(!confirm(message))return;
-
-    db.reps=db.reps.filter(r=>r.id!==repId);
-
-    if(typeof save==='function')save();
-
-    if(typeof render==='function')render();
-
-    setTimeout(function(){
-      if(typeof show==='function')show('reps');
-      if(typeof injectRepManagementV181==='function')injectRepManagementV181();
-    },80);
-  };
-
-  window.injectRepManagementV181=function(){
-    ensureRepsV181();
-
-    let view=document.getElementById('view-reps');
-    if(!view)return;
-
-    let old=document.getElementById('reps_management_wrap_v181');
-    if(old)old.remove();
-
-    let wrap=document.createElement('div');
-    wrap.id='reps_management_wrap_v181';
-    wrap.innerHTML=`
-      <div class="card reps-management-card-v181">
-        <div class="reps-management-head-v181">
-          <div>
-            <h3>إدارة المندوبين</h3>
-            <p>إضافة مندوب جديد أو حذف مندوب من القائمة</p>
-          </div>
-        </div>
-
-        <div class="reps-add-grid-v181">
-          <label>
-            <span>اسم المندوب</span>
-            <input id="rep_name_v181" type="text" placeholder="اكتب اسم المندوب">
-          </label>
-
-          <label>
-            <span>رقم الهاتف</span>
-            <input id="rep_phone_v181" type="text" placeholder="رقم الهاتف">
-          </label>
-
-          <label>
-            <span>المنطقة</span>
-            <input id="rep_region_v181" type="text" placeholder="منطقة العمل">
-          </label>
-
-          <label>
-            <span>التارجت</span>
-            <input id="rep_target_v181" type="number" min="0" step="0.01" placeholder="0">
-          </label>
-
-          <button type="button" class="btn ok reps-add-btn-v181" onclick="addSalesRepV181()">
-            إضافة المندوب
-          </button>
-        </div>
-
-        <div class="reps-list-v181">
-          ${(db.reps||[]).length?(db.reps||[]).map(rep=>{
-            let usage=repUsageV181(rep);
-            return `
-              <div class="rep-manage-row-v181">
-                <div class="rep-manage-main-v181">
-                  <b>${esc(rep.name||'')}</b>
-                  <span>${esc(rep.phone||'')}</span>
-                  <span>${esc(rep.region||rep.area||'')}</span>
-                </div>
-
-                <div class="rep-manage-stats-v181">
-                  <span>مبيعات: ${usage.sales}</span>
-                  <span>أوردرات: ${usage.orders}</span>
-                  <span>تحصيلات: ${usage.collections}</span>
-                </div>
-
-                <button
-                  type="button"
-                  class="btn danger rep-delete-btn-v181"
-                  onclick="deleteSalesRepV181('${rep.id}')">
-                  🗑 حذف المندوب
-                </button>
-              </div>
-            `;
-          }).join(''):`<div class="empty">لا يوجد مندوبون حاليًا</div>`}
-        </div>
-      </div>
-    `;
-
-    let oldV180=document.getElementById('reps_management_wrap_v180');
-    if(oldV180)oldV180.remove();
-
-    let reportTile=document.getElementById('rep_performance_tile_v176');
-    if(reportTile)reportTile.insertAdjacentElement('afterend',wrap);
-    else view.prepend(wrap);
-  };
-
-  window.addSalesRepV181=function(){
-    ensureRepsV181();
-
-    let name=String(document.getElementById('rep_name_v181')?.value||'').trim();
-    let phone=String(document.getElementById('rep_phone_v181')?.value||'').trim();
-    let region=String(document.getElementById('rep_region_v181')?.value||'').trim();
-    let target=n(document.getElementById('rep_target_v181')?.value);
+    let name=String(document.getElementById('rep_name_v185')?.value||'').trim();
+    let phone=String(document.getElementById('rep_phone_v185')?.value||'').trim();
+    let area=String(document.getElementById('rep_area_v185')?.value||'').trim();
+    let target=n(document.getElementById('rep_target_v185')?.value);
 
     if(!name){
       alert('اكتب اسم المندوب');
-      document.getElementById('rep_name_v181')?.focus();
+      document.getElementById('rep_name_v185')?.focus();
       return;
     }
 
-    if(db.reps.some(r=>normV181(r.name)===normV181(name))){
+    if(db.reps.some(r=>normV185(r.name)===normV185(name))){
       alert('اسم المندوب موجود بالفعل');
       return;
     }
@@ -13045,319 +12660,29 @@ html body .rep-manage-stats-v180 span{
       id:uid(),
       name,
       phone,
-      region,
-      area:region,
+      area,
+      region:area,
       target,
+      notes:'',
       created_at:new Date().toISOString()
     });
 
     if(typeof save==='function')save();
-    injectRepManagementV181();
+    buildRepManagementV185();
   };
 
-  const renderRepsBeforeV181=window.renderReps;
-  if(typeof renderRepsBeforeV181==='function'){
-    window.renderReps=function(){
-      let result=renderRepsBeforeV181.apply(this,arguments);
-      setTimeout(injectRepManagementV181,40);
-      return result;
-    };
-    try{renderReps=window.renderReps}catch(e){}
-  }
-
-  const renderBeforeV181=window.render;
-  if(typeof renderBeforeV181==='function'){
-    window.render=function(){
-      let result=renderBeforeV181.apply(this,arguments);
-      setTimeout(injectRepManagementV181,100);
-      return result;
-    };
-    try{render=window.render}catch(e){}
-  }
-
-  document.addEventListener('DOMContentLoaded',function(){
-    setTimeout(injectRepManagementV181,800);
-  });
-})();
-</script>
-
-<style id="v181-delete-sales-reps-fixed-style">
-html body .reps-management-card-v181{
-  border-right:6px solid #16a34a!important;
-  margin-bottom:18px!important;
-}
-html body .reps-management-head-v181 h3{
-  margin:0 0 6px!important;
-  padding:0!important;
-  border:0!important;
-}
-html body .reps-management-head-v181 p{
-  margin:0 0 14px!important;
-  color:#64748b!important;
-}
-html body .reps-add-grid-v181{
-  display:grid!important;
-  grid-template-columns:repeat(4,minmax(0,1fr)) auto!important;
-  gap:10px!important;
-  align-items:end!important;
-  margin-bottom:18px!important;
-}
-html body .reps-add-grid-v181 label{
-  display:grid!important;
-  gap:6px!important;
-}
-html body .reps-add-grid-v181 input{
-  width:100%!important;
-  min-height:44px!important;
-  border:1px solid #cbd5e1!important;
-  border-radius:10px!important;
-  padding:9px 11px!important;
-  background:#fff!important;
-  color:#111827!important;
-}
-html body .reps-list-v181{
-  display:grid!important;
-  gap:10px!important;
-}
-html body .rep-manage-row-v181{
-  display:grid!important;
-  grid-template-columns:1fr auto auto!important;
-  gap:14px!important;
-  align-items:center!important;
-  border:1px solid #e2e8f0!important;
-  border-radius:12px!important;
-  padding:12px!important;
-  background:#fff!important;
-}
-html body .rep-manage-main-v181{
-  display:flex!important;
-  flex-wrap:wrap!important;
-  gap:8px 14px!important;
-  align-items:center!important;
-}
-html body .rep-manage-stats-v181{
-  display:flex!important;
-  flex-wrap:wrap!important;
-  gap:8px!important;
-}
-html body .rep-manage-stats-v181 span{
-  background:#f1f5f9!important;
-  border-radius:999px!important;
-  padding:5px 9px!important;
-  color:#334155!important;
-  font-size:12px!important;
-  font-weight:800!important;
-}
-html body .rep-delete-btn-v181{
-  display:inline-flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  min-width:140px!important;
-  min-height:42px!important;
-  background:#dc2626!important;
-  color:#fff!important;
-  border:0!important;
-  border-radius:10px!important;
-  font-weight:900!important;
-  cursor:pointer!important;
-  visibility:visible!important;
-  opacity:1!important;
-}
-html body .rep-delete-btn-v181:hover{
-  background:#b91c1c!important;
-}
-@media(max-width:1000px){
-  html body .reps-add-grid-v181{
-    grid-template-columns:repeat(2,minmax(0,1fr))!important;
-  }
-}
-@media(max-width:700px){
-  html body .reps-add-grid-v181{
-    grid-template-columns:1fr!important;
-  }
-  html body .rep-manage-row-v181{
-    grid-template-columns:1fr!important;
-  }
-}
-</style>
-<!-- v181 visible delete button for sales reps -->
-
-
-
-<script id="v182-delete-button-visible-for-each-rep">
-(function(){
-  function removeRepV182(id){
-    if(!Array.isArray(db.reps))db.reps=[];
-    let rep=db.reps.find(r=>r.id===id);
-    if(!rep)return alert('المندوب غير موجود');
-
-    let linkedSales=(db.sales||[]).filter(x=>x.rep_id===id).length;
-    let linkedOrders=(db.sales_orders||[]).filter(x=>x.rep_id===id).length;
-    let linkedCollections=(db.collections||[]).filter(x=>x.rep_id===id).length;
-
-    let message='هل تريد حذف المندوب "'+rep.name+'" من قائمة المندوبين؟';
-    if(linkedSales+linkedOrders+linkedCollections>0){
-      message+='\n\nالمبيعات والأوردرات والتحصيلات القديمة ستظل محفوظة، لكن المندوب لن يظهر في الاختيارات الجديدة.';
-    }
-
-    if(!confirm(message))return;
-
-    db.reps=db.reps.filter(r=>r.id!==id);
-    if(typeof save==='function')save();
-    if(typeof render==='function')render();
-
-    setTimeout(function(){
-      if(typeof show==='function')show('reps');
-      injectDeleteButtonsV182();
-    },100);
-  }
-
-  window.removeRepV182=removeRepV182;
-
-  window.injectDeleteButtonsV182=function(){
-    let view=document.getElementById('view-reps');
-    if(!view)return;
-
-    let tables=[...view.querySelectorAll('table')];
-    let repsTable=tables.find(table=>{
-      let firstRow=table.querySelector('tbody tr, tr:nth-child(2)');
-      if(!firstRow)return false;
-      return [...firstRow.querySelectorAll('input')].some(inp=>{
-        let val=String(inp.value||'').trim();
-        return (db.reps||[]).some(rep=>String(rep.name||'').trim()===val);
-      });
-    });
-
-    if(!repsTable)return;
-
-    let header=repsTable.querySelector('tr');
-    if(header && !header.querySelector('.rep-delete-head-v182')){
-      let th=document.createElement('th');
-      th.className='rep-delete-head-v182';
-      th.textContent='حذف';
-      header.appendChild(th);
-    }
-
-    let dataRows=[...repsTable.querySelectorAll('tr')].slice(1);
-    dataRows.forEach(row=>{
-      if(row.querySelector('.rep-delete-btn-v182'))return;
-
-      let nameInput=[...row.querySelectorAll('input')].find(inp=>{
-        let val=String(inp.value||'').trim();
-        return (db.reps||[]).some(rep=>String(rep.name||'').trim()===val);
-      });
-      if(!nameInput)return;
-
-      let rep=(db.reps||[]).find(r=>String(r.name||'').trim()===String(nameInput.value||'').trim());
-      if(!rep)return;
-
-      let td=document.createElement('td');
-      td.className='rep-delete-cell-v182';
-      td.innerHTML=`<button type="button" class="btn danger rep-delete-btn-v182" onclick="removeRepV182('${rep.id}')">🗑 حذف</button>`;
-      row.appendChild(td);
-    });
-  };
-
-  const renderRepsBeforeV182=window.renderReps;
-  if(typeof renderRepsBeforeV182==='function'){
-    window.renderReps=function(){
-      let result=renderRepsBeforeV182.apply(this,arguments);
-      setTimeout(injectDeleteButtonsV182,80);
-      return result;
-    };
-    try{renderReps=window.renderReps}catch(e){}
-  }
-
-  const renderBeforeV182=window.render;
-  if(typeof renderBeforeV182==='function'){
-    window.render=function(){
-      let result=renderBeforeV182.apply(this,arguments);
-      setTimeout(injectDeleteButtonsV182,130);
-      return result;
-    };
-    try{render=window.render}catch(e){}
-  }
-
-  const observerV182=new MutationObserver(function(){
-    setTimeout(injectDeleteButtonsV182,40);
-  });
-
-  document.addEventListener('DOMContentLoaded',function(){
-    let view=document.getElementById('view-reps');
-    if(view)observerV182.observe(view,{childList:true,subtree:true});
-    setTimeout(injectDeleteButtonsV182,900);
-  });
-})();
-</script>
-
-<style id="v182-delete-button-visible-for-each-rep-style">
-html body .rep-delete-cell-v182{
-  min-width:105px!important;
-  text-align:center!important;
-}
-html body .rep-delete-btn-v182.btn.danger,
-html body.no-delete .rep-delete-btn-v182.btn.danger{
-  display:inline-flex!important;
-  visibility:visible!important;
-  opacity:1!important;
-  pointer-events:auto!important;
-  align-items:center!important;
-  justify-content:center!important;
-  min-width:90px!important;
-  min-height:38px!important;
-  padding:8px 12px!important;
-  background:#dc2626!important;
-  color:#fff!important;
-  border:0!important;
-  border-radius:8px!important;
-  font-weight:900!important;
-  cursor:pointer!important;
-}
-html body .rep-delete-btn-v182.btn.danger:hover{
-  background:#b91c1c!important;
-}
-html body .rep-delete-head-v182{
-  min-width:105px!important;
-  text-align:center!important;
-}
-</style>
-<!-- v182 force visible delete button beside every sales rep -->
-
-
-
-<script id="v183-delete-button-beside-each-rep">
-(function(){
-  function normV183(v){
-    return String(v||'').trim().toLowerCase();
-  }
-
-  function findRepFromRowV183(row){
-    if(!row || !Array.isArray(db.reps)) return null;
-
-    let nameNode =
-      row.querySelector('.rep-manage-main-v180 b') ||
-      row.querySelector('.rep-manage-main-v181 b') ||
-      row.querySelector('b');
-
-    let name = normV183(nameNode?.textContent || '');
-    if(!name) return null;
-
-    return db.reps.find(rep => normV183(rep.name) === name) || null;
-  }
-
-  window.deleteRepDirectV183=function(repId){
-    if(!Array.isArray(db.reps))db.reps=[];
+  window.deleteRepV185=function(repId){
+    ensureRepsV185();
 
     let rep=db.reps.find(r=>r.id===repId);
     if(!rep)return alert('المندوب غير موجود');
 
-    let linkedSales=(db.sales||[]).filter(x=>x.rep_id===rep.id || normV183(x.rep_name)===normV183(rep.name)).length;
-    let linkedOrders=(db.sales_orders||[]).filter(x=>x.rep_id===rep.id || normV183(x.rep_name)===normV183(rep.name)).length;
-    let linkedCollections=(db.collections||[]).filter(x=>x.rep_id===rep.id || normV183(x.rep_name)===normV183(rep.name)).length;
+    let usage=repUsageV185(rep);
+    let total=usage.sales+usage.orders+usage.collections;
 
     let msg='هل تريد حذف المندوب "'+rep.name+'" من قائمة المندوبين؟';
-    if(linkedSales+linkedOrders+linkedCollections>0){
-      msg+='\n\nسيتم حذف المندوب من الاختيارات الجديدة فقط، وستظل بياناته القديمة محفوظة.';
+    if(total>0){
+      msg+='\n\nسيتم حذفه من الاختيارات الجديدة فقط، وستظل عملياته القديمة محفوظة باسمه.';
     }
 
     if(!confirm(msg))return;
@@ -13365,94 +12690,203 @@ html body .rep-delete-head-v182{
     db.reps=db.reps.filter(r=>r.id!==repId);
 
     if(typeof save==='function')save();
-    if(typeof render==='function')render();
+    buildRepManagementV185();
 
+    // Refresh all dropdowns/screens that depend on reps.
+    if(typeof render==='function')render();
     setTimeout(function(){
       if(typeof show==='function')show('reps');
-      addVisibleDeleteButtonsV183();
-    },120);
+      buildRepManagementV185();
+    },80);
   };
 
-  window.addVisibleDeleteButtonsV183=function(){
+  window.buildRepManagementV185=function(){
+    ensureRepsV185();
+
     let view=document.getElementById('view-reps');
     if(!view)return;
 
-    let rows=[
-      ...view.querySelectorAll('.rep-manage-row-v180'),
-      ...view.querySelectorAll('.rep-manage-row-v181')
-    ];
+    // Remove any old management sections/buttons left by previous versions.
+    view.querySelectorAll(
+      '#reps_management_wrap_v180,'+
+      '#reps_management_wrap_v181,'+
+      '.rep-delete-wrap-v183,'+
+      '.rep-delete-wrap-v184,'+
+      '.rep-delete-btn-v180,'+
+      '.rep-delete-btn-v181,'+
+      '.rep-delete-btn-v182,'+
+      '.rep-delete-button-v183,'+
+      '.rep-delete-button-v184'
+    ).forEach(el=>el.remove());
 
-    rows.forEach(row=>{
-      let rep=findRepFromRowV183(row);
-      if(!rep)return;
+    let old=document.getElementById('rep_management_clean_v185');
+    if(old)old.remove();
 
-      row.querySelectorAll('.rep-delete-btn-v180,.rep-delete-btn-v181,.rep-delete-btn-v182,.rep-delete-wrap-v183').forEach(el=>{
-        if(el.classList.contains('rep-delete-wrap-v183')) el.remove();
-        else el.style.display='none';
-      });
+    let wrap=document.createElement('div');
+    wrap.id='rep_management_clean_v185';
+    wrap.innerHTML=`
+      <div class="card rep-management-card-v185">
+        <div class="rep-management-title-v185">
+          <div>
+            <h3>إدارة المندوبين</h3>
+            <p>إضافة مندوب جديد أو حذف مندوب من قائمة الاختيارات</p>
+          </div>
+        </div>
 
-      let wrap=document.createElement('div');
-      wrap.className='rep-delete-wrap-v183';
-      wrap.innerHTML=`
-        <button type="button"
-          class="rep-delete-button-v183"
-          onclick="deleteRepDirectV183('${rep.id}')">
-          🗑 حذف المندوب
-        </button>
-      `;
-      row.appendChild(wrap);
-    });
+        <div class="rep-add-grid-v185">
+          <label>
+            <span>اسم المندوب</span>
+            <input id="rep_name_v185" type="text" placeholder="اكتب اسم المندوب">
+          </label>
+          <label>
+            <span>رقم الهاتف</span>
+            <input id="rep_phone_v185" type="text" placeholder="رقم الهاتف">
+          </label>
+          <label>
+            <span>المنطقة</span>
+            <input id="rep_area_v185" type="text" placeholder="منطقة العمل">
+          </label>
+          <label>
+            <span>التارجت</span>
+            <input id="rep_target_v185" type="number" min="0" step="0.01" placeholder="0">
+          </label>
+          <button type="button" class="btn ok rep-add-btn-v185" onclick="addRepV185()">إضافة المندوب</button>
+        </div>
+
+        <div class="rep-list-v185">
+          ${db.reps.length ? db.reps.map(rep=>{
+            let usage=repUsageV185(rep);
+            return `
+              <div class="rep-row-v185">
+                <div class="rep-info-v185">
+                  <b>${esc(rep.name||'')}</b>
+                  ${rep.phone?`<span>${esc(rep.phone)}</span>`:''}
+                  ${(rep.area||rep.region)?`<span>${esc(rep.area||rep.region)}</span>`:''}
+                </div>
+                <div class="rep-counts-v185">
+                  <span>مبيعات: ${usage.sales}</span>
+                  <span>أوردرات: ${usage.orders}</span>
+                  <span>تحصيلات: ${usage.collections}</span>
+                </div>
+                <button type="button" class="rep-delete-v185" onclick="deleteRepV185('${rep.id}')">🗑 حذف المندوب</button>
+              </div>
+            `;
+          }).join('') : `<div class="empty">لا يوجد مندوبون حاليًا</div>`}
+        </div>
+      </div>
+    `;
+
+    let reportTile=document.getElementById('rep_performance_tile_v176');
+    if(reportTile)reportTile.insertAdjacentElement('afterend',wrap);
+    else view.prepend(wrap);
   };
 
-  const renderRepsBeforeV183=window.renderReps;
-  if(typeof renderRepsBeforeV183==='function'){
+  const renderRepsBaseV185=window.renderReps;
+  if(typeof renderRepsBaseV185==='function'){
     window.renderReps=function(){
-      let result=renderRepsBeforeV183.apply(this,arguments);
-      setTimeout(addVisibleDeleteButtonsV183,80);
+      let result=renderRepsBaseV185.apply(this,arguments);
+      setTimeout(buildRepManagementV185,40);
       return result;
     };
     try{renderReps=window.renderReps}catch(e){}
   }
 
-  const renderBeforeV183=window.render;
-  if(typeof renderBeforeV183==='function'){
+  const renderBaseV185=window.render;
+  if(typeof renderBaseV185==='function'){
     window.render=function(){
-      let result=renderBeforeV183.apply(this,arguments);
-      setTimeout(addVisibleDeleteButtonsV183,140);
+      let result=renderBaseV185.apply(this,arguments);
+      setTimeout(buildRepManagementV185,90);
       return result;
     };
     try{render=window.render}catch(e){}
   }
 
-  const observerV183=new MutationObserver(function(){
-    setTimeout(addVisibleDeleteButtonsV183,60);
-  });
-
   document.addEventListener('DOMContentLoaded',function(){
-    let view=document.getElementById('view-reps');
-    if(view)observerV183.observe(view,{childList:true,subtree:true});
-    setTimeout(addVisibleDeleteButtonsV183,900);
+    setTimeout(buildRepManagementV185,700);
   });
 })();
 </script>
 
-<style id="v183-delete-button-beside-each-rep-style">
-html body .rep-manage-row-v180,
-html body .rep-manage-row-v181{
+<style id="v185-clean-rep-management-style">
+html body .rep-management-card-v185{
+  border-right:6px solid #16a34a!important;
+  margin-bottom:18px!important;
+}
+html body .rep-management-title-v185 h3{
+  margin:0 0 6px!important;
+  padding:0!important;
+  border:0!important;
+}
+html body .rep-management-title-v185 p{
+  margin:0 0 14px!important;
+  color:#64748b!important;
+}
+html body .rep-add-grid-v185{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr)) auto!important;
+  gap:10px!important;
+  align-items:end!important;
+  margin-bottom:18px!important;
+}
+html body .rep-add-grid-v185 label{
+  display:grid!important;
+  gap:6px!important;
+}
+html body .rep-add-grid-v185 label span{
+  font-weight:800!important;
+  color:#334155!important;
+}
+html body .rep-add-grid-v185 input{
+  width:100%!important;
+  min-height:44px!important;
+  padding:9px 11px!important;
+  border:1px solid #cbd5e1!important;
+  border-radius:10px!important;
+  background:#fff!important;
+  color:#111827!important;
+}
+html body .rep-list-v185{
+  display:grid!important;
+  gap:10px!important;
+}
+html body .rep-row-v185{
+  display:grid!important;
   grid-template-columns:1fr auto auto!important;
-}
-
-html body .rep-delete-wrap-v183{
-  display:flex!important;
-  visibility:visible!important;
-  opacity:1!important;
   align-items:center!important;
-  justify-content:center!important;
-  min-width:145px!important;
+  gap:14px!important;
+  padding:12px!important;
+  border:1px solid #e2e8f0!important;
+  border-radius:12px!important;
+  background:#fff!important;
 }
-
-html body .rep-delete-button-v183,
-html body.no-delete .rep-delete-button-v183{
+html body .rep-info-v185{
+  display:flex!important;
+  flex-wrap:wrap!important;
+  align-items:center!important;
+  gap:8px 14px!important;
+}
+html body .rep-info-v185 b{
+  font-size:16px!important;
+  color:#0f172a!important;
+}
+html body .rep-info-v185 span{
+  color:#64748b!important;
+}
+html body .rep-counts-v185{
+  display:flex!important;
+  flex-wrap:wrap!important;
+  gap:8px!important;
+}
+html body .rep-counts-v185 span{
+  padding:5px 9px!important;
+  border-radius:999px!important;
+  background:#f1f5f9!important;
+  color:#334155!important;
+  font-size:12px!important;
+  font-weight:800!important;
+}
+html body .rep-delete-v185,
+html body.no-delete .rep-delete-v185{
   display:inline-flex!important;
   visibility:visible!important;
   opacity:1!important;
@@ -13462,28 +12896,23 @@ html body.no-delete .rep-delete-button-v183{
   min-width:135px!important;
   min-height:40px!important;
   padding:9px 14px!important;
-  background:#dc2626!important;
-  color:#fff!important;
   border:0!important;
   border-radius:9px!important;
+  background:#dc2626!important;
+  color:#fff!important;
   font-weight:900!important;
   cursor:pointer!important;
-  box-shadow:0 4px 12px rgba(220,38,38,.22)!important;
 }
-
-html body .rep-delete-button-v183:hover{
+html body .rep-delete-v185:hover{
   background:#b91c1c!important;
 }
-
-@media(max-width:800px){
-  html body .rep-manage-row-v180,
-  html body .rep-manage-row-v181{
-    grid-template-columns:1fr!important;
-  }
-  html body .rep-delete-wrap-v183{
-    justify-content:flex-start!important;
-  }
+@media(max-width:1000px){
+  html body .rep-add-grid-v185{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+@media(max-width:700px){
+  html body .rep-add-grid-v185,
+  html body .rep-row-v185{grid-template-columns:1fr!important}
 }
 </style>
-<!-- v183 guaranteed visible delete button beside every rep row -->
+<!-- v185 clean representative management -->
 
