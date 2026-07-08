@@ -12916,3 +12916,504 @@ html body .rep-delete-v185:hover{
 </style>
 <!-- v185 clean representative management -->
 
+
+
+<script id="v186-west-east-total-reps">
+(function(){
+  const REP_GROUPS_V186 = [
+    {
+      id:'west_total_v186',
+      name:'west total',
+      members:['مارينا','عماد']
+    },
+    {
+      id:'east_total_v186',
+      name:'east total',
+      members:['سيف','ماهينور','نوران','سلمى','سلمي']
+    }
+  ];
+
+  function normV186(v){
+    return String(v||'')
+      .trim()
+      .toLowerCase()
+      .replace(/ى/g,'ي')
+      .replace(/ة/g,'ه')
+      .replace(/[أإآ]/g,'ا')
+      .replace(/\s+/g,' ');
+  }
+
+  function groupByIdV186(id){
+    return REP_GROUPS_V186.find(g=>g.id===id)||null;
+  }
+
+  function repNameFromRowV186(row){
+    if(!row)return '';
+    if(row.rep_name)return row.rep_name;
+    if(row.rep_id){
+      let rep=(db.reps||[]).find(r=>r.id===row.rep_id);
+      return rep?.name||'';
+    }
+    return '';
+  }
+
+  function rowInGroupV186(row,group){
+    let name=normV186(repNameFromRowV186(row));
+    return group.members.some(m=>normV186(m)===name);
+  }
+
+  function approvedOrderV186(order){
+    return order && (
+      order.status==='approved' ||
+      order.approval_status==='approved'
+    );
+  }
+
+  function salesForGroupV186(group){
+    let rows=[];
+    let linkedOrders=new Set();
+
+    (db.sales||[]).forEach(s=>{
+      if(!rowInGroupV186(s,group))return;
+      if(s.approval_status && s.approval_status!=='approved')return;
+      rows.push(s);
+      if(s.order_id)linkedOrders.add(s.order_id);
+    });
+
+    (db.sales_orders||[]).forEach(o=>{
+      if(!approvedOrderV186(o))return;
+      if(!rowInGroupV186(o,group))return;
+      if(linkedOrders.has(o.id))return;
+
+      let already=(db.sales||[]).some(s=>
+        s.order_id===o.id ||
+        s.sale_order_id===o.id ||
+        (o.sale_id && s.id===o.sale_id)
+      );
+      if(already)return;
+
+      rows.push({
+        id:'group_approved_order_'+o.id,
+        order_id:o.id,
+        date:o.approved_date||o.date||'',
+        customer_id:o.customer_id||'',
+        customer_name:o.customer_name||'',
+        rep_id:o.rep_id||'',
+        rep_name:o.rep_name||'',
+        product_id:o.product_id||'',
+        product_name:o.product_name||'',
+        qty:n(o.qty),
+        price:n(o.price),
+        total:n(o.total),
+        paid:n(o.paid),
+        remaining:n(o.remaining),
+        approval_status:'approved'
+      });
+    });
+
+    return rows;
+  }
+
+  function collectionsForGroupV186(group){
+    return (db.collections||[]).filter(c=>
+      rowInGroupV186(c,group) &&
+      (!c.approval_status || c.approval_status==='approved')
+    );
+  }
+
+  function groupReportHTMLV186(group){
+    let sales=salesForGroupV186(group);
+    let collections=collectionsForGroupV186(group);
+    let customerMap=new Map();
+
+    sales.forEach(s=>{
+      let key=s.customer_id||normV186(s.customer_name)||'unknown';
+      if(!customerMap.has(key)){
+        customerMap.set(key,{
+          name:s.customer_name||'-',
+          sales:0,
+          collections:0,
+          remaining:0,
+          invoiceCount:0,
+          collectionCount:0
+        });
+      }
+      let row=customerMap.get(key);
+      row.sales+=n(s.total);
+      row.remaining+=n(s.remaining);
+      row.invoiceCount++;
+    });
+
+    collections.forEach(c=>{
+      let key=c.customer_id||normV186(c.customer_name)||'unknown';
+      if(!customerMap.has(key)){
+        customerMap.set(key,{
+          name:c.customer_name||'-',
+          sales:0,
+          collections:0,
+          remaining:0,
+          invoiceCount:0,
+          collectionCount:0
+        });
+      }
+      let row=customerMap.get(key);
+      row.collections+=n(c.amount);
+      row.collectionCount++;
+    });
+
+    let customerRows=[...customerMap.values()].sort((a,b)=>
+      (b.sales+b.collections)-(a.sales+a.collections)
+    );
+
+    let salesTotal=sales.reduce((a,s)=>a+n(s.total),0);
+    let collectionTotal=collections.reduce((a,c)=>a+n(c.amount),0);
+    let remainingTotal=sales.reduce((a,s)=>a+n(s.remaining),0);
+
+    return `
+      <div class="rep-detail-head-v175">
+        <div>
+          <h2>${esc(group.name)}</h2>
+          <p>${group.members.map(esc).join(' + ')}</p>
+        </div>
+        <button type="button" class="btn blue" onclick="printGroupRepV186('${group.id}')">طباعة التقرير</button>
+      </div>
+
+      <div class="grid grid4 rep-summary-v175">
+        <div class="stat"><span>إجمالي المبيعات المعتمدة</span><strong>${money(salesTotal)}</strong></div>
+        <div class="stat"><span>إجمالي التحصيلات المعتمدة</span><strong>${money(collectionTotal)}</strong></div>
+        <div class="stat"><span>المتبقي على العملاء</span><strong>${money(remainingTotal)}</strong></div>
+        <div class="stat"><span>عدد الفواتير المعتمدة</span><strong>${sales.length}</strong></div>
+      </div>
+
+      <div class="card">
+        <h3>المبيعات والتحصيل لكل عميل</h3>
+        ${customerRows.length?`<table>
+          <tr>
+            <th>العميل</th>
+            <th>المبيعات</th>
+            <th>التحصيلات</th>
+            <th>المتبقي</th>
+            <th>عدد الفواتير</th>
+            <th>عدد التحصيلات</th>
+          </tr>
+          ${customerRows.map(r=>`<tr>
+            <td><b>${esc(r.name)}</b></td>
+            <td>${money(r.sales)}</td>
+            <td>${money(r.collections)}</td>
+            <td>${money(r.remaining)}</td>
+            <td>${r.invoiceCount}</td>
+            <td>${r.collectionCount}</td>
+          </tr>`).join('')}
+        </table>`:`<div class="empty">لا توجد بيانات معتمدة</div>`}
+      </div>
+
+      <div class="card">
+        <h3>تفاصيل المبيعات المعتمدة</h3>
+        ${sales.length?`<table>
+          <tr>
+            <th>التاريخ</th>
+            <th>المندوب</th>
+            <th>العميل</th>
+            <th>المنتج</th>
+            <th>الكمية</th>
+            <th>الإجمالي</th>
+            <th>المتبقي</th>
+          </tr>
+          ${sales.map(s=>`<tr>
+            <td>${esc(s.date||'')}</td>
+            <td>${esc(repNameFromRowV186(s))}</td>
+            <td>${esc(s.customer_name||'')}</td>
+            <td>${esc(s.product_name||'')}</td>
+            <td>${n(s.qty)}</td>
+            <td>${money(s.total)}</td>
+            <td>${money(s.remaining)}</td>
+          </tr>`).join('')}
+        </table>`:`<div class="empty">لا توجد مبيعات معتمدة</div>`}
+      </div>
+
+      <div class="card">
+        <h3>تفاصيل التحصيلات المعتمدة</h3>
+        ${collections.length?`<table>
+          <tr>
+            <th>التاريخ</th>
+            <th>المندوب</th>
+            <th>العميل</th>
+            <th>المبلغ</th>
+            <th>الطريقة</th>
+          </tr>
+          ${collections.map(c=>`<tr>
+            <td>${esc(c.date||'')}</td>
+            <td>${esc(repNameFromRowV186(c))}</td>
+            <td>${esc(c.customer_name||'')}</td>
+            <td>${money(c.amount)}</td>
+            <td>${esc(c.method||'')}</td>
+          </tr>`).join('')}
+        </table>`:`<div class="empty">لا توجد تحصيلات معتمدة</div>`}
+      </div>`;
+  }
+
+  const openRepDetailsBaseV186=window.openRepDetailsV175;
+  window.openRepDetailsV175=function(repId){
+    let group=groupByIdV186(repId);
+    if(!group){
+      return openRepDetailsBaseV186.apply(this,arguments);
+    }
+
+    let body=document.getElementById('rep_details_body_v175');
+    if(!body)return;
+    body.innerHTML=groupReportHTMLV186(group);
+
+    document.querySelectorAll('.rep-card-v175').forEach(card=>{
+      card.classList.toggle('active',card.dataset.repId===repId);
+    });
+  };
+
+  const openRepPerformanceBaseV186=window.openRepPerformanceV175;
+  window.openRepPerformanceV175=function(){
+    openRepPerformanceBaseV186.apply(this,arguments);
+
+    setTimeout(function(){
+      let list=document.querySelector('#rep_performance_modal_v175 .rep-list-v175');
+      if(!list)return;
+
+      list.querySelectorAll('.rep-group-card-v186').forEach(el=>el.remove());
+
+      REP_GROUPS_V186.slice().reverse().forEach(group=>{
+        let sales=salesForGroupV186(group);
+        let collections=collectionsForGroupV186(group);
+        let salesTotal=sales.reduce((a,s)=>a+n(s.total),0);
+        let collectionTotal=collections.reduce((a,c)=>a+n(c.amount),0);
+
+        let btn=document.createElement('button');
+        btn.type='button';
+        btn.className='rep-card-v175 rep-group-card-v186';
+        btn.dataset.repId=group.id;
+        btn.onclick=function(){openRepDetailsV175(group.id)};
+        btn.innerHTML=`
+          <b>${esc(group.name)}</b>
+          <span>${group.members.map(esc).join(' + ')}</span>
+          <span>مبيعات: ${money(salesTotal)}</span>
+          <span>تحصيل: ${money(collectionTotal)}</span>
+        `;
+        list.prepend(btn);
+      });
+    },50);
+  };
+
+  window.printGroupRepV186=function(groupId){
+    let group=groupByIdV186(groupId);
+    if(!group)return;
+
+    let w=window.open('','_blank','width=1200,height=850');
+    if(!w)return alert('اسمح بفتح النوافذ المنبثقة للطباعة');
+
+    w.document.open();
+    w.document.write(`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8">
+      <title>${esc(group.name)}</title>
+      <style>
+        body{font-family:Arial,sans-serif;padding:20px;color:#111827}
+        table{width:100%;border-collapse:collapse;margin:12px 0}
+        th,td{border:1px solid #d1d5db;padding:8px;text-align:right}
+        th{background:#f3f4f6}
+        .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+        .stat,.card{border:1px solid #d1d5db;border-radius:10px;padding:14px;margin-bottom:14px}
+        .stat span{display:block;color:#64748b}
+        .stat strong{display:block;font-size:22px;margin-top:5px}
+        button{display:none}
+      </style>
+    </head><body>${groupReportHTMLV186(group)}</body></html>`);
+    w.document.close();
+  };
+})();
+</script>
+
+<style id="v186-west-east-total-reps-style">
+html body .rep-group-card-v186{
+  border:2px solid #7c3aed!important;
+  background:#f5f3ff!important;
+}
+html body .rep-group-card-v186:hover,
+html body .rep-group-card-v186.active{
+  border-color:#6d28d9!important;
+  background:#ede9fe!important;
+}
+</style>
+<!-- v186 west total and east total representative groups -->
+
+
+
+<script id="v187-group-orders-sync-after-approval">
+(function(){
+  function normV187(v){
+    return String(v||'')
+      .trim()
+      .toLowerCase()
+      .replace(/ى/g,'ي')
+      .replace(/ة/g,'ه')
+      .replace(/[أإآ]/g,'ا')
+      .replace(/\s+/g,' ');
+  }
+
+  const GROUPS_V187 = {
+    west_total_v186: ['مارينا','عماد'],
+    east_total_v186: ['سيف','ماهينور','نوران','سلمي','سلمى']
+  };
+
+  function repNameV187(row){
+    if(!row)return '';
+    if(row.rep_name)return row.rep_name;
+    if(row.rep_id){
+      let rep=(db.reps||[]).find(r=>r.id===row.rep_id);
+      return rep?.name||'';
+    }
+    return '';
+  }
+
+  function belongsToGroupV187(row,groupId){
+    let members=GROUPS_V187[groupId]||[];
+    let name=normV187(repNameV187(row));
+    return members.some(m=>normV187(m)===name);
+  }
+
+  function isApprovedV187(row){
+    return row && (
+      row.status==='approved' ||
+      row.approval_status==='approved' ||
+      (!row.status && !row.approval_status && row.id && (db.sales||[]).includes(row))
+    );
+  }
+
+  function approvedGroupSalesV187(groupId){
+    let rows=[];
+    let linkedOrderIds=new Set();
+
+    (db.sales||[]).forEach(s=>{
+      if(!belongsToGroupV187(s,groupId))return;
+      if(s.approval_status && s.approval_status!=='approved')return;
+      rows.push(s);
+      if(s.order_id)linkedOrderIds.add(s.order_id);
+      if(s.sale_order_id)linkedOrderIds.add(s.sale_order_id);
+    });
+
+    (db.sales_orders||[]).forEach(o=>{
+      if(!isApprovedV187(o))return;
+      if(!belongsToGroupV187(o,groupId))return;
+      if(linkedOrderIds.has(o.id))return;
+
+      let alreadyConverted=(db.sales||[]).some(s=>
+        s.order_id===o.id ||
+        s.sale_order_id===o.id ||
+        (o.sale_id && s.id===o.sale_id)
+      );
+      if(alreadyConverted)return;
+
+      rows.push({
+        id:'approved_group_order_'+o.id,
+        order_id:o.id,
+        date:o.approved_date||o.date||'',
+        customer_id:o.customer_id||'',
+        customer_name:o.customer_name||'',
+        rep_id:o.rep_id||'',
+        rep_name:o.rep_name||'',
+        product_id:o.product_id||'',
+        product_name:o.product_name||'',
+        qty:n(o.qty),
+        price:n(o.price),
+        total:n(o.total),
+        paid:n(o.paid),
+        remaining:n(o.remaining),
+        approval_status:'approved',
+        source:'approved_group_order_fallback_v187'
+      });
+    });
+
+    return rows;
+  }
+
+  function approvedGroupCollectionsV187(groupId){
+    return (db.collections||[]).filter(c=>
+      belongsToGroupV187(c,groupId) &&
+      (!c.approval_status || c.approval_status==='approved')
+    );
+  }
+
+  function totalsV187(groupId){
+    let sales=approvedGroupSalesV187(groupId);
+    let collections=approvedGroupCollectionsV187(groupId);
+    return {
+      sales:sales.reduce((a,s)=>a+n(s.total),0),
+      collections:collections.reduce((a,c)=>a+n(c.amount),0)
+    };
+  }
+
+  function refreshGroupCardsV187(){
+    let list=document.querySelector('#rep_performance_modal_v175 .rep-list-v175');
+    if(!list)return;
+
+    list.querySelectorAll('.rep-group-card-v186').forEach(card=>{
+      let groupId=card.dataset.repId;
+      if(!GROUPS_V187[groupId])return;
+
+      let t=totalsV187(groupId);
+      let groupName=groupId==='west_total_v186'?'west total':'east total';
+      let memberText=(GROUPS_V187[groupId]||[]).join(' + ');
+
+      card.innerHTML=`
+        <b>${groupName}</b>
+        <span>${memberText}</span>
+        <span>مبيعات: ${money(t.sales)}</span>
+        <span>تحصيل: ${money(t.collections)}</span>
+      `;
+    });
+
+    let active=document.querySelector('.rep-card-v175.active');
+    if(active && GROUPS_V187[active.dataset.repId] && typeof openRepDetailsV175==='function'){
+      openRepDetailsV175(active.dataset.repId);
+    }
+  }
+
+  const approveBaseV187=window.approveSalesOrder;
+  if(typeof approveBaseV187==='function'){
+    window.approveSalesOrder=function(){
+      let result=approveBaseV187.apply(this,arguments);
+      setTimeout(refreshGroupCardsV187,180);
+      return result;
+    };
+    try{approveSalesOrder=window.approveSalesOrder}catch(e){}
+  }
+
+  const createSaleBaseV187=window.createApprovedSaleFromOrder;
+  if(typeof createSaleBaseV187==='function'){
+    window.createApprovedSaleFromOrder=function(){
+      let result=createSaleBaseV187.apply(this,arguments);
+      setTimeout(refreshGroupCardsV187,180);
+      return result;
+    };
+    try{createApprovedSaleFromOrder=window.createApprovedSaleFromOrder}catch(e){}
+  }
+
+  const approveCollectionBaseV187=window.approveCollectionV178;
+  if(typeof approveCollectionBaseV187==='function'){
+    window.approveCollectionV178=function(){
+      let result=approveCollectionBaseV187.apply(this,arguments);
+      setTimeout(refreshGroupCardsV187,180);
+      return result;
+    };
+  }
+
+  const renderBaseV187=window.render;
+  if(typeof renderBaseV187==='function'){
+    window.render=function(){
+      let result=renderBaseV187.apply(this,arguments);
+      setTimeout(refreshGroupCardsV187,180);
+      return result;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  window.getApprovedGroupSalesV187=approvedGroupSalesV187;
+  window.getApprovedGroupCollectionsV187=approvedGroupCollectionsV187;
+})();
+</script>
+<!-- v187 approved orders and collections sync into west east totals -->
+
