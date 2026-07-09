@@ -14010,3 +14010,270 @@ html body .rep-target-summary-v189{
 </style>
 <!-- v189 representative reports filtered by date and representative -->
 
+
+
+<script id="v190-rep-product-targets">
+(function(){
+  function normV190(v){
+    return String(v||'').trim().toLowerCase()
+      .replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/[أإآ]/g,'ا').replace(/\s+/g,' ');
+  }
+
+  function ensureProductTargetsV190(rep){
+    if(!Array.isArray(rep.product_targets))rep.product_targets=[];
+    return rep.product_targets;
+  }
+
+  function approvedSalesForRepV190(rep){
+    let rows=[];
+    let linkedOrders=new Set();
+
+    (db.sales||[]).forEach(s=>{
+      let same=(s.rep_id===rep.id)||normV190(s.rep_name)===normV190(rep.name);
+      if(!same)return;
+      if(s.approval_status && s.approval_status!=='approved')return;
+      rows.push(s);
+      if(s.order_id)linkedOrders.add(s.order_id);
+      if(s.sale_order_id)linkedOrders.add(s.sale_order_id);
+    });
+
+    (db.sales_orders||[]).forEach(o=>{
+      let approved=o && (o.status==='approved'||o.approval_status==='approved');
+      let same=(o.rep_id===rep.id)||normV190(o.rep_name)===normV190(rep.name);
+      if(!approved||!same||linkedOrders.has(o.id))return;
+
+      let already=(db.sales||[]).some(s=>
+        s.order_id===o.id || s.sale_order_id===o.id || (o.sale_id && s.id===o.sale_id)
+      );
+      if(already)return;
+
+      rows.push({
+        id:'product_target_order_'+o.id,
+        order_id:o.id,
+        date:o.approved_date||o.date||'',
+        rep_id:o.rep_id||'',
+        rep_name:o.rep_name||'',
+        product_id:o.product_id||'',
+        product_name:o.product_name||'',
+        qty:n(o.qty),
+        total:n(o.total),
+        approval_status:'approved'
+      });
+    });
+
+    return rows;
+  }
+
+  function productAchievedV190(rep,target){
+    return approvedSalesForRepV190(rep)
+      .filter(s=>
+        (target.product_id && s.product_id===target.product_id) ||
+        normV190(s.product_name)===normV190(target.product_name)
+      )
+      .reduce((sum,s)=>sum+n(s.qty),0);
+  }
+
+  function productTargetOptionsV190(){
+    return (db.products||[]).map(p=>
+      `<option value="${esc(p.id)}">${esc(p.name||p.product_name||'')}</option>`
+    ).join('');
+  }
+
+  window.addRepProductTargetV190=function(repId){
+    let rep=(db.reps||[]).find(r=>r.id===repId);
+    if(!rep)return alert('المندوب غير موجود');
+
+    let productId=document.getElementById('rep_product_target_product_'+repId)?.value||'';
+    let targetQty=n(document.getElementById('rep_product_target_qty_'+repId)?.value);
+
+    if(!productId)return alert('اختر المنتج');
+    if(targetQty<=0)return alert('اكتب تارجت صحيح للمنتج');
+
+    let product=(db.products||[]).find(p=>p.id===productId);
+    if(!product)return alert('المنتج غير موجود');
+
+    let targets=ensureProductTargetsV190(rep);
+    let existing=targets.find(t=>t.product_id===productId);
+
+    if(existing){
+      existing.target_qty=targetQty;
+      existing.product_name=product.name||product.product_name||'';
+    }else{
+      targets.push({
+        id:uid(),
+        product_id:productId,
+        product_name:product.name||product.product_name||'',
+        target_qty:targetQty
+      });
+    }
+
+    if(typeof save==='function')save();
+    if(typeof buildRepManagementV185==='function')buildRepManagementV185();
+  };
+
+  window.deleteRepProductTargetV190=function(repId,targetId){
+    let rep=(db.reps||[]).find(r=>r.id===repId);
+    if(!rep)return;
+    if(!confirm('حذف تارجت المنتج من هذا المندوب؟'))return;
+
+    rep.product_targets=ensureProductTargetsV190(rep).filter(t=>t.id!==targetId);
+    if(typeof save==='function')save();
+    if(typeof buildRepManagementV185==='function')buildRepManagementV185();
+  };
+
+  function productTargetsHTMLV190(rep){
+    let targets=ensureProductTargetsV190(rep);
+
+    return `
+      <div class="rep-product-target-box-v190">
+        <div class="rep-product-target-inputs-v190">
+          <select id="rep_product_target_product_${rep.id}">
+            <option value="">اختر المنتج</option>
+            ${productTargetOptionsV190()}
+          </select>
+          <input id="rep_product_target_qty_${rep.id}" type="number" min="1" step="1" placeholder="تارجت الكمية">
+          <button type="button" class="btn ok" onclick="addRepProductTargetV190('${rep.id}')">حفظ المنتج</button>
+        </div>
+
+        <div class="rep-product-target-list-v190">
+          ${targets.length?targets.map(t=>{
+            let achieved=productAchievedV190(rep,t);
+            let percent=n(t.target_qty)>0?Math.round((achieved/n(t.target_qty))*10000)/100:0;
+            return `
+              <div class="rep-product-target-item-v190">
+                <div>
+                  <b>${esc(t.product_name||'')}</b>
+                  <span>التارجت: ${n(t.target_qty).toLocaleString()}</span>
+                  <span>المحقق: ${n(achieved).toLocaleString()}</span>
+                  <span>نسبة التحقيق: ${percent}%</span>
+                </div>
+                <button type="button" onclick="deleteRepProductTargetV190('${rep.id}','${t.id}')">حذف</button>
+              </div>
+            `;
+          }).join(''):`<div class="rep-product-target-empty-v190">لا يوجد تارجت منتجات لهذا المندوب</div>`}
+        </div>
+      </div>
+    `;
+  }
+
+  function injectProductTargetsV190(){
+    let list=document.querySelector('#rep_management_clean_v185 .rep-list-v185');
+    if(!list)return;
+
+    [...list.querySelectorAll('.rep-row-v185')].forEach(row=>{
+      let old=row.querySelector('.rep-product-target-box-v190');
+      if(old)old.remove();
+
+      let name=normV190(row.querySelector('.rep-info-v185 b')?.textContent||'');
+      let rep=(db.reps||[]).find(r=>normV190(r.name)===name);
+      if(!rep)return;
+
+      let wrap=document.createElement('div');
+      wrap.innerHTML=productTargetsHTMLV190(rep);
+      let node=wrap.firstElementChild;
+
+      let deleteBtn=row.querySelector('.rep-delete-v185');
+      if(deleteBtn)deleteBtn.insertAdjacentElement('beforebegin',node);
+      else row.appendChild(node);
+    });
+  }
+
+  const buildBaseV190=window.buildRepManagementV185;
+  if(typeof buildBaseV190==='function'){
+    window.buildRepManagementV185=function(){
+      let result=buildBaseV190.apply(this,arguments);
+      setTimeout(injectProductTargetsV190,80);
+      return result;
+    };
+  }
+
+  const renderBaseV190=window.render;
+  if(typeof renderBaseV190==='function'){
+    window.render=function(){
+      let result=renderBaseV190.apply(this,arguments);
+      setTimeout(injectProductTargetsV190,140);
+      return result;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  document.addEventListener('DOMContentLoaded',function(){
+    setTimeout(injectProductTargetsV190,1000);
+  });
+})();
+</script>
+
+<style id="v190-rep-product-targets-style">
+html body .rep-row-v185{
+  grid-template-columns:1fr auto minmax(360px,auto) minmax(420px,auto) auto!important;
+}
+html body .rep-product-target-box-v190{
+  display:grid!important;
+  gap:8px!important;
+  min-width:420px!important;
+}
+html body .rep-product-target-inputs-v190{
+  display:grid!important;
+  grid-template-columns:minmax(160px,1fr) 120px auto!important;
+  gap:7px!important;
+}
+html body .rep-product-target-inputs-v190 select,
+html body .rep-product-target-inputs-v190 input{
+  min-height:38px!important;
+  padding:7px 9px!important;
+  border:1px solid #cbd5e1!important;
+  border-radius:8px!important;
+  background:#fff!important;
+  color:#111827!important;
+}
+html body .rep-product-target-list-v190{
+  display:grid!important;
+  gap:6px!important;
+}
+html body .rep-product-target-item-v190{
+  display:grid!important;
+  grid-template-columns:1fr auto!important;
+  gap:8px!important;
+  align-items:center!important;
+  padding:8px 10px!important;
+  border:1px solid #dbeafe!important;
+  border-radius:9px!important;
+  background:#eff6ff!important;
+}
+html body .rep-product-target-item-v190>div{
+  display:flex!important;
+  flex-wrap:wrap!important;
+  gap:7px 12px!important;
+  align-items:center!important;
+}
+html body .rep-product-target-item-v190 b{
+  color:#1e3a8a!important;
+}
+html body .rep-product-target-item-v190 span{
+  color:#334155!important;
+  font-size:12px!important;
+  font-weight:700!important;
+}
+html body .rep-product-target-item-v190 button{
+  border:0!important;
+  border-radius:7px!important;
+  padding:6px 9px!important;
+  background:#dc2626!important;
+  color:#fff!important;
+  font-weight:800!important;
+  cursor:pointer!important;
+}
+html body .rep-product-target-empty-v190{
+  color:#64748b!important;
+  font-size:12px!important;
+}
+@media(max-width:1500px){
+  html body .rep-row-v185{grid-template-columns:1fr!important}
+  html body .rep-product-target-box-v190{min-width:0!important}
+}
+@media(max-width:700px){
+  html body .rep-product-target-inputs-v190{grid-template-columns:1fr!important}
+}
+</style>
+<!-- v190 product targets per representative -->
+
