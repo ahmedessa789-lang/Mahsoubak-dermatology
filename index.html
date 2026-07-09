@@ -14068,3 +14068,374 @@ html body .customer-option-empty-v194{
 </style>
 <!-- v194 rebuilt customer search without duplicate selected box -->
 
+
+
+<script id="v195-group-multi-product-invoice-one-row">
+(function(){
+  function visibleRowsV195(){
+    if(typeof visibleSalesRows==='function'){
+      try{return visibleSalesRows()||[]}catch(e){}
+    }
+    return Array.isArray(db.sales)?db.sales:[];
+  }
+
+  function groupInvoicesV195(rows){
+    let map=new Map();
+
+    rows.forEach(s=>{
+      let key=s.invoice_group_id||s.id;
+      if(!map.has(key)){
+        map.set(key,{
+          key,
+          first:s,
+          rows:[],
+          date:s.date||'',
+          customer_name:s.customer_name||'',
+          region_name:typeof transactionRegionName==='function'
+            ? transactionRegionName(s)
+            : (s.region_name||''),
+          rep_name:s.rep_name||'',
+          products:[],
+          expiry:[],
+          qty:0,
+          total:0,
+          paid:0,
+          remaining:0
+        });
+      }
+
+      let g=map.get(key);
+      g.rows.push(s);
+      g.products.push(s.product_name||'');
+      if(s.product_expiry)g.expiry.push(s.product_expiry);
+      g.qty+=n(s.qty);
+      g.total+=n(s.total);
+      g.paid+=n(s.paid);
+      g.remaining+=n(s.remaining);
+    });
+
+    return [...map.values()];
+  }
+
+  function productSummaryV195(group){
+    return group.rows.map(s=>{
+      let type=s.order_type_label||s.order_type||'';
+      return `${esc(s.product_name||'')} (${n(s.qty)})${type?` - ${esc(type)}`:''}`;
+    }).join('<br>');
+  }
+
+  window.salesTable=function(){
+    let rows=visibleRowsV195();
+    if(!rows.length)return `<div class="empty">${T('empty')}</div>`;
+
+    let groups=groupInvoicesV195(rows);
+
+    return `<div class="orders-v59-table-wrap"><table>
+      <tr>
+        <th>${T('date')}</th>
+        <th>${T('customer')}</th>
+        <th>${lang==='ar'?'المنطقة':'Region'}</th>
+        <th>${T('rep')}</th>
+        <th>${lang==='ar'?'المنتجات':'Products'}</th>
+        <th>${T('qty')}</th>
+        <th>${T('total')}</th>
+        <th>${T('paid')}</th>
+        <th>${T('remaining')}</th>
+        <th>${T('status')}</th>
+        <th>${lang==='ar'?'مستندات':'Documents'}</th>
+      </tr>
+
+      ${groups.map(g=>{
+        let s=g.first;
+        let statusClass=typeof saleStatusBadge==='function'?saleStatusBadge(s):'ok';
+        let statusLabel=typeof saleStatusLabel==='function'?saleStatusLabel(s):T('sold');
+
+        return `<tr>
+          <td>${esc(g.date)}</td>
+          <td>${esc(g.customer_name)}</td>
+          <td><span class="transaction-region">${esc(g.region_name)}</span></td>
+          <td>${esc(g.rep_name)}</td>
+          <td class="invoice-products-v195">${productSummaryV195(g)}</td>
+          <td>${n(g.qty)}</td>
+          <td>${money(g.total)}</td>
+          <td>${money(g.paid)}</td>
+          <td>${money(g.remaining)}</td>
+          <td><span class="badge ${statusClass}">${statusLabel}</span></td>
+          <td>
+            <div class="actions">
+              <button class="btn small blue" onclick="printSaleDocument('${s.id}','invoice')">
+                ${lang==='ar'?'فاتورة':'Invoice'}
+              </button>
+              <button class="btn small ok" onclick="printSaleDocument('${s.id}','delivery')">
+                ${lang==='ar'?'إذن تسليم':'Delivery'}
+              </button>
+              <button class="btn small secondary" onclick="waSale('${s.id}')">
+                ${T('whatsapp')}
+              </button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('')}
+    </table></div>`;
+  };
+
+  try{salesTable=window.salesTable}catch(e){}
+
+  const renderSalesBaseV195=window.renderSales;
+  if(typeof renderSalesBaseV195==='function'){
+    window.renderSales=function(){
+      let result=renderSalesBaseV195.apply(this,arguments);
+
+      let view=document.getElementById('view-sales');
+      if(view){
+        let cards=[...view.querySelectorAll('.card')];
+        let salesCard=cards.find(card=>{
+          let h3=card.querySelector('h3');
+          return h3 && (
+            h3.textContent.trim()===T('sales') ||
+            /المبيعات|sales/i.test(h3.textContent)
+          );
+        });
+
+        if(salesCard){
+          let h3=salesCard.querySelector('h3');
+          let oldTable=salesCard.querySelector('.orders-v59-table-wrap, table, .empty');
+          if(oldTable)oldTable.remove();
+          h3.insertAdjacentHTML('afterend',salesTable());
+        }
+      }
+
+      return result;
+    };
+    try{renderSales=window.renderSales}catch(e){}
+  }
+})();
+</script>
+
+<style id="v195-group-multi-product-invoice-one-row-style">
+html body .invoice-products-v195{
+  min-width:220px!important;
+  line-height:1.8!important;
+  font-weight:700!important;
+}
+</style>
+<!-- v195 show one invoice row for all products in same invoice group -->
+
+
+
+<script id="v196-invoice-number-and-group-approval">
+(function(){
+  function ensureInvoiceSequenceV196(){
+    if(!db.meta || typeof db.meta!=='object')db.meta={};
+    if(!Number.isFinite(Number(db.meta.sales_invoice_sequence))){
+      let maxNo=0;
+      [...(db.sales||[]),...(db.sales_orders||[])].forEach(row=>{
+        let m=String(row.invoice_no||'').match(/(\d+)$/);
+        if(m)maxNo=Math.max(maxNo,Number(m[1])||0);
+      });
+      db.meta.sales_invoice_sequence=maxNo;
+    }
+  }
+
+  function nextInvoiceNoV196(){
+    ensureInvoiceSequenceV196();
+    db.meta.sales_invoice_sequence=Number(db.meta.sales_invoice_sequence||0)+1;
+    return 'INV-'+String(db.meta.sales_invoice_sequence).padStart(6,'0');
+  }
+
+  function invoiceNoForGroupV196(groupId){
+    let row=(db.sales||[]).find(x=>x.invoice_group_id===groupId&&x.invoice_no)
+      ||(db.sales_orders||[]).find(x=>x.invoice_group_id===groupId&&x.invoice_no);
+    return row?.invoice_no||'';
+  }
+
+  function setInvoiceNoForGroupV196(groupId,invoiceNo){
+    (db.sales_orders||[]).forEach(o=>{
+      if(o.invoice_group_id===groupId)o.invoice_no=invoiceNo;
+    });
+    (db.sales||[]).forEach(s=>{
+      if(s.invoice_group_id===groupId)s.invoice_no=invoiceNo;
+    });
+  }
+
+  function approveWholeInvoiceV196(order){
+    if(!order)return false;
+
+    let groupId=order.invoice_group_id||order.id;
+    let pending=(db.sales_orders||[]).filter(o=>
+      (o.invoice_group_id||o.id)===groupId &&
+      o.status==='pending'
+    );
+
+    if(!pending.length)return false;
+
+    let invoiceNo=invoiceNoForGroupV196(groupId)||nextInvoiceNoV196();
+    let approvedAny=false;
+
+    for(let line of pending){
+      line.invoice_group_id=groupId;
+      line.invoice_no=invoiceNo;
+
+      let ok=window.createApprovedSaleFromOrder(line);
+      if(!ok)return false;
+
+      let created=(db.sales||[]).find(s=>s.order_id===line.id);
+      if(created){
+        created.invoice_group_id=groupId;
+        created.invoice_no=invoiceNo;
+      }
+      approvedAny=true;
+    }
+
+    setInvoiceNoForGroupV196(groupId,invoiceNo);
+
+    if(typeof save==='function')save();
+    if(typeof render==='function')render();
+
+    return approvedAny;
+  }
+
+  window.approveSalesOrder=function(id){
+    if(typeof isSalesManager==='function'&&!isSalesManager()){
+      return typeof permissionAlert==='function'?permissionAlert():alert('غير مصرح');
+    }
+
+    if(typeof ensureSalesOrders==='function')ensureSalesOrders();
+
+    let order=(db.sales_orders||[]).find(x=>x.id===id);
+    if(!order||order.status!=='pending')return;
+
+    approveWholeInvoiceV196(order);
+  };
+  try{approveSalesOrder=window.approveSalesOrder}catch(e){}
+
+  const createApprovedBaseV196=window.createApprovedSaleFromOrder;
+  if(typeof createApprovedBaseV196==='function'){
+    window.createApprovedSaleFromOrder=function(order){
+      let groupId=order?.invoice_group_id||order?.id;
+      let invoiceNo=order?.invoice_no||invoiceNoForGroupV196(groupId)||'';
+
+      let before=new Set((db.sales||[]).map(s=>s.id));
+      let ok=createApprovedBaseV196.apply(this,arguments);
+
+      if(ok&&order){
+        let created=(db.sales||[]).find(s=>!before.has(s.id));
+        if(created){
+          created.invoice_group_id=groupId;
+          if(invoiceNo)created.invoice_no=invoiceNo;
+        }
+        if(invoiceNo)setInvoiceNoForGroupV196(groupId,invoiceNo);
+        if(typeof save==='function')save();
+      }
+
+      return ok;
+    };
+    try{createApprovedSaleFromOrder=window.createApprovedSaleFromOrder}catch(e){}
+  }
+
+  function groupInvoicesWithNoV196(rows){
+    let map=new Map();
+
+    rows.forEach(s=>{
+      let key=s.invoice_group_id||s.id;
+      if(!map.has(key)){
+        map.set(key,{
+          key,
+          invoice_no:s.invoice_no||invoiceNoForGroupV196(key)||('INV-'+String(key).slice(-6).toUpperCase()),
+          first:s,
+          rows:[],
+          date:s.date||'',
+          customer_name:s.customer_name||'',
+          region_name:typeof transactionRegionName==='function'
+            ? transactionRegionName(s)
+            : (s.region_name||''),
+          rep_name:s.rep_name||'',
+          qty:0,total:0,paid:0,remaining:0
+        });
+      }
+
+      let g=map.get(key);
+      g.rows.push(s);
+      g.qty+=n(s.qty);
+      g.total+=n(s.total);
+      g.paid+=n(s.paid);
+      g.remaining+=n(s.remaining);
+    });
+
+    return [...map.values()];
+  }
+
+  window.salesTable=function(){
+    let rows=typeof visibleSalesRows==='function'?(visibleSalesRows()||[]):(db.sales||[]);
+    if(!rows.length)return `<div class="empty">${T('empty')}</div>`;
+
+    let groups=groupInvoicesWithNoV196(rows);
+
+    return `<div class="orders-v59-table-wrap"><table>
+      <tr>
+        <th>رقم الفاتورة</th>
+        <th>${T('date')}</th>
+        <th>${T('customer')}</th>
+        <th>${lang==='ar'?'المنطقة':'Region'}</th>
+        <th>${T('rep')}</th>
+        <th>${lang==='ar'?'المنتجات':'Products'}</th>
+        <th>${T('qty')}</th>
+        <th>${T('total')}</th>
+        <th>${T('paid')}</th>
+        <th>${T('remaining')}</th>
+        <th>${T('status')}</th>
+        <th>${lang==='ar'?'مستندات':'Documents'}</th>
+      </tr>
+
+      ${groups.map(g=>{
+        let s=g.first;
+        let statusClass=typeof saleStatusBadge==='function'?saleStatusBadge(s):'ok';
+        let statusLabel=typeof saleStatusLabel==='function'?saleStatusLabel(s):T('sold');
+        let productLines=g.rows.map(x=>{
+          let type=x.order_type_label||x.order_type||'';
+          return `${esc(x.product_name||'')} (${n(x.qty)})${type?` - ${esc(type)}`:''}`;
+        }).join('<br>');
+
+        return `<tr>
+          <td><b>${esc(g.invoice_no)}</b></td>
+          <td>${esc(g.date)}</td>
+          <td>${esc(g.customer_name)}</td>
+          <td><span class="transaction-region">${esc(g.region_name)}</span></td>
+          <td>${esc(g.rep_name)}</td>
+          <td class="invoice-products-v195">${productLines}</td>
+          <td>${n(g.qty)}</td>
+          <td>${money(g.total)}</td>
+          <td>${money(g.paid)}</td>
+          <td>${money(g.remaining)}</td>
+          <td><span class="badge ${statusClass}">${statusLabel}</span></td>
+          <td>
+            <div class="actions">
+              <button class="btn small blue" onclick="printSaleDocument('${s.id}','invoice')">فاتورة</button>
+              <button class="btn small ok" onclick="printSaleDocument('${s.id}','delivery')">إذن تسليم</button>
+              <button class="btn small secondary" onclick="waSale('${s.id}')">${T('whatsapp')}</button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('')}
+    </table></div>`;
+  };
+  try{salesTable=window.salesTable}catch(e){}
+
+  const saleDocumentBaseV196=window.saleDocumentHTML;
+  if(typeof saleDocumentBaseV196==='function'){
+    window.saleDocumentHTML=function(s,type){
+      let html=saleDocumentBaseV196.apply(this,arguments);
+      let invoiceNo=s.invoice_no||invoiceNoForGroupV196(s.invoice_group_id||s.id);
+      if(!invoiceNo)return html;
+
+      return html.replace(
+        /(<body[^>]*>)/i,
+        `$1<div style="text-align:center;font-weight:900;font-size:18px;margin:10px 0">رقم الفاتورة: ${invoiceNo}</div>`
+      );
+    };
+    try{saleDocumentHTML=window.saleDocumentHTML}catch(e){}
+  }
+})();
+</script>
+<!-- v196 one invoice number and whole group approval -->
+
