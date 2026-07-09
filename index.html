@@ -10668,567 +10668,15 @@ html body #report_accounts .finance-filter-result-v171{
 
 
 
-<script id="v172-searchable-customer-orders">
-(function(){
-  function normalizeV172(v){
-    return String(v||'').trim().toLowerCase();
-  }
 
-  function customerLabelV172(c){
-    let parts=[c.name||''];
-    if(c.phone)parts.push(c.phone);
-    if(c.area)parts.push(c.area);
-    return parts.filter(Boolean).join(' - ');
-  }
 
-  function selectCustomerByTextV172(value){
-    let select=document.getElementById('sa_customer');
-    let input=document.getElementById('sa_customer_search_v172');
-    if(!select||!input)return;
 
-    let q=normalizeV172(value);
-    if(!q)return;
 
-    let exact=db.customers.find(c=>
-      normalizeV172(c.name)===q ||
-      normalizeV172(customerLabelV172(c))===q ||
-      normalizeV172(c.phone)===q
-    );
 
-    let found=exact || db.customers.find(c=>
-      normalizeV172(c.name).includes(q) ||
-      normalizeV172(c.phone).includes(q) ||
-      normalizeV172(c.area).includes(q)
-    );
 
-    if(found){
-      select.value=found.id;
-      input.value=customerLabelV172(found);
-      if(typeof updateLinkedRegion==='function')updateLinkedRegion('sa');
-      input.classList.remove('customer-search-not-found-v172');
-    }else{
-      input.classList.add('customer-search-not-found-v172');
-    }
-  }
 
-  window.bindSearchableCustomerOrdersV172=function(){
-    let select=document.getElementById('sa_customer');
-    if(!select || document.getElementById('sa_customer_search_v172'))return;
 
-    let wrap=select.closest('div');
-    if(!wrap)return;
 
-    let current=db.customers.find(c=>c.id===select.value) || db.customers[0] || null;
-
-    let input=document.createElement('input');
-    input.id='sa_customer_search_v172';
-    input.setAttribute('list','sa_customer_list_v172');
-    input.setAttribute('autocomplete','off');
-    input.setAttribute('placeholder',lang==='ar'?'اكتب اسم العميل أو رقم الهاتف':'Type customer name or phone');
-    input.value=current?customerLabelV172(current):'';
-
-    let list=document.createElement('datalist');
-    list.id='sa_customer_list_v172';
-    list.innerHTML=(db.customers||[]).map(c=>
-      `<option value="${esc(customerLabelV172(c))}"></option>`
-    ).join('');
-
-    select.style.display='none';
-    select.insertAdjacentElement('beforebegin',input);
-    input.insertAdjacentElement('afterend',list);
-
-    input.addEventListener('input',function(){
-      selectCustomerByTextV172(this.value);
-    });
-
-    input.addEventListener('change',function(){
-      selectCustomerByTextV172(this.value);
-    });
-
-    input.addEventListener('blur',function(){
-      selectCustomerByTextV172(this.value);
-    });
-
-    if(current){
-      select.value=current.id;
-      if(typeof updateLinkedRegion==='function')updateLinkedRegion('sa');
-    }
-  };
-
-  const renderSalesBeforeV172=window.renderSales;
-  if(typeof renderSalesBeforeV172==='function'){
-    window.renderSales=function(){
-      let result=renderSalesBeforeV172.apply(this,arguments);
-      setTimeout(bindSearchableCustomerOrdersV172,30);
-      return result;
-    };
-    try{renderSales=window.renderSales}catch(e){}
-  }
-
-  const renderBeforeV172=window.render;
-  if(typeof renderBeforeV172==='function'){
-    window.render=function(){
-      let result=renderBeforeV172.apply(this,arguments);
-      setTimeout(bindSearchableCustomerOrdersV172,80);
-      return result;
-    };
-    try{render=window.render}catch(e){}
-  }
-
-  document.addEventListener('DOMContentLoaded',function(){
-    setTimeout(bindSearchableCustomerOrdersV172,700);
-  });
-})();
-</script>
-
-<style id="v172-searchable-customer-orders-style">
-html body #sa_customer_search_v172{
-  width:100%!important;
-  min-height:46px!important;
-  background:#fff!important;
-  color:#111827!important;
-  border:1px solid #cbd5e1!important;
-  border-radius:10px!important;
-  padding:10px 12px!important;
-  font-weight:700!important;
-}
-html body #sa_customer_search_v172:focus{
-  border-color:#0f766e!important;
-  box-shadow:0 0 0 3px rgba(15,118,110,.12)!important;
-  outline:none!important;
-}
-html body #sa_customer_search_v172.customer-search-not-found-v172{
-  border-color:#dc2626!important;
-  background:#fff7f7!important;
-}
-</style>
-<!-- v172 searchable customer field in orders -->
-
-
-
-<script id="v173-customer-search-dropdown-fixed">
-(function(){
-  function normV173(v){
-    return String(v||'').trim().toLowerCase();
-  }
-
-  function labelV173(c){
-    return [c.name||'', c.phone||'', c.area||''].filter(Boolean).join(' - ');
-  }
-
-  function chooseCustomerV173(id){
-    let select=document.getElementById('sa_customer');
-    let input=document.getElementById('sa_customer_search_v173');
-    let menu=document.getElementById('sa_customer_menu_v173');
-    let c=(db.customers||[]).find(x=>x.id===id);
-    if(!select||!input||!c)return;
-
-    select.value=c.id;
-    input.value=labelV173(c);
-    input.dataset.customerId=c.id;
-
-    if(menu)menu.style.display='none';
-    if(typeof updateLinkedRegion==='function')updateLinkedRegion('sa');
-  }
-
-  function filteredCustomersV173(q){
-    q=normV173(q);
-    let rows=(db.customers||[]).slice();
-    if(!q)return rows.slice(0,50);
-
-    return rows.filter(c=>{
-      let hay=[
-        c.name||'',
-        c.phone||'',
-        c.area||'',
-        c.address||''
-      ].map(normV173).join(' ');
-      return hay.includes(q);
-    }).slice(0,50);
-  }
-
-  function renderMenuV173(q){
-    let menu=document.getElementById('sa_customer_menu_v173');
-    if(!menu)return;
-
-    let rows=filteredCustomersV173(q);
-    if(!rows.length){
-      menu.innerHTML=`<div class="customer-option-empty-v173">لا يوجد عميل مطابق</div>`;
-      menu.style.display='block';
-      return;
-    }
-
-    menu.innerHTML=rows.map(c=>`
-      <button type="button" class="customer-option-v173" data-customer-id="${esc(c.id)}">
-        <span class="customer-name-v173">${esc(c.name||'')}</span>
-        <span class="customer-meta-v173">${esc([c.phone||'',c.area||''].filter(Boolean).join(' - '))}</span>
-      </button>
-    `).join('');
-
-    menu.querySelectorAll('.customer-option-v173').forEach(btn=>{
-      btn.addEventListener('mousedown',function(e){
-        e.preventDefault();
-        chooseCustomerV173(this.dataset.customerId);
-      });
-    });
-
-    menu.style.display='block';
-  }
-
-  window.bindSearchableCustomerOrdersV173=function(){
-    let select=document.getElementById('sa_customer');
-    if(!select)return;
-
-    let existing=document.getElementById('sa_customer_search_wrap_v173');
-    if(existing)return;
-
-    let parent=select.parentElement;
-    if(!parent)return;
-
-    // Remove old v172 search UI if present.
-    let oldInput=document.getElementById('sa_customer_search_v172');
-    let oldList=document.getElementById('sa_customer_list_v172');
-    if(oldInput)oldInput.remove();
-    if(oldList)oldList.remove();
-
-    select.style.display='none';
-
-    let wrap=document.createElement('div');
-    wrap.id='sa_customer_search_wrap_v173';
-    wrap.className='customer-search-wrap-v173';
-
-    let input=document.createElement('input');
-    input.id='sa_customer_search_v173';
-    input.type='text';
-    input.autocomplete='off';
-    input.placeholder=lang==='ar'?'اكتب اسم العميل أو رقم الهاتف':'Type customer name or phone';
-
-    let menu=document.createElement('div');
-    menu.id='sa_customer_menu_v173';
-    menu.className='customer-menu-v173';
-
-    wrap.appendChild(input);
-    wrap.appendChild(menu);
-    select.insertAdjacentElement('beforebegin',wrap);
-
-    let current=(db.customers||[]).find(c=>c.id===select.value) || db.customers?.[0];
-    if(current){
-      select.value=current.id;
-      input.value=labelV173(current);
-      input.dataset.customerId=current.id;
-      if(typeof updateLinkedRegion==='function')updateLinkedRegion('sa');
-    }
-
-    input.addEventListener('focus',function(){
-      renderMenuV173(this.value);
-    });
-
-    input.addEventListener('input',function(){
-      input.dataset.customerId='';
-      renderMenuV173(this.value);
-    });
-
-    input.addEventListener('keydown',function(e){
-      let options=[...menu.querySelectorAll('.customer-option-v173')];
-      if(e.key==='Enter'){
-        e.preventDefault();
-        if(options[0])options[0].dispatchEvent(new MouseEvent('mousedown',{bubbles:true}));
-      }
-      if(e.key==='Escape'){
-        menu.style.display='none';
-      }
-    });
-
-    input.addEventListener('blur',function(){
-      setTimeout(()=>{
-        menu.style.display='none';
-
-        if(!input.dataset.customerId){
-          let q=normV173(input.value);
-          let exact=(db.customers||[]).find(c=>
-            normV173(c.name)===q ||
-            normV173(c.phone)===q ||
-            normV173(labelV173(c))===q
-          );
-          if(exact)chooseCustomerV173(exact.id);
-          else if(current)chooseCustomerV173(select.value||current.id);
-        }
-      },150);
-    });
-  };
-
-  const renderSalesOriginalV173=window.renderSales;
-  if(typeof renderSalesOriginalV173==='function'){
-    window.renderSales=function(){
-      let result=renderSalesOriginalV173.apply(this,arguments);
-      setTimeout(bindSearchableCustomerOrdersV173,40);
-      return result;
-    };
-    try{renderSales=window.renderSales}catch(e){}
-  }
-
-  const renderOriginalV173=window.render;
-  if(typeof renderOriginalV173==='function'){
-    window.render=function(){
-      let result=renderOriginalV173.apply(this,arguments);
-      setTimeout(bindSearchableCustomerOrdersV173,100);
-      return result;
-    };
-    try{render=window.render}catch(e){}
-  }
-
-  document.addEventListener('click',function(e){
-    let wrap=document.getElementById('sa_customer_search_wrap_v173');
-    let menu=document.getElementById('sa_customer_menu_v173');
-    if(wrap&&menu&&!wrap.contains(e.target))menu.style.display='none';
-  });
-
-  document.addEventListener('DOMContentLoaded',function(){
-    setTimeout(bindSearchableCustomerOrdersV173,700);
-  });
-})();
-</script>
-
-<style id="v173-customer-search-dropdown-fixed-style">
-html body .customer-search-wrap-v173{
-  position:relative!important;
-  width:100%!important;
-}
-
-html body #sa_customer_search_v173{
-  width:100%!important;
-  min-height:46px!important;
-  padding:10px 12px!important;
-  border:1px solid #cbd5e1!important;
-  border-radius:10px!important;
-  background:#fff!important;
-  color:#111827!important;
-  font-weight:700!important;
-}
-
-html body #sa_customer_search_v173:focus{
-  outline:none!important;
-  border-color:#0f766e!important;
-  box-shadow:0 0 0 3px rgba(15,118,110,.12)!important;
-}
-
-html body .customer-menu-v173{
-  display:none;
-  position:absolute!important;
-  top:calc(100% + 6px)!important;
-  left:0!important;
-  right:0!important;
-  z-index:99999!important;
-  max-height:280px!important;
-  overflow:auto!important;
-  background:#fff!important;
-  border:1px solid #cbd5e1!important;
-  border-radius:12px!important;
-  box-shadow:0 16px 36px rgba(15,23,42,.18)!important;
-  padding:6px!important;
-}
-
-html body .customer-option-v173{
-  display:flex!important;
-  flex-direction:column!important;
-  align-items:flex-start!important;
-  width:100%!important;
-  padding:10px 12px!important;
-  border:0!important;
-  background:#fff!important;
-  color:#111827!important;
-  border-radius:8px!important;
-  cursor:pointer!important;
-  text-align:right!important;
-}
-
-html body .customer-option-v173:hover{
-  background:#ecfdf5!important;
-}
-
-html body .customer-name-v173{
-  font-weight:900!important;
-}
-
-html body .customer-meta-v173{
-  margin-top:3px!important;
-  color:#64748b!important;
-  font-size:13px!important;
-}
-
-html body .customer-option-empty-v173{
-  padding:12px!important;
-  text-align:center!important;
-  color:#64748b!important;
-}
-</style>
-<!-- v173 fixed searchable customer dropdown in orders -->
-
-
-
-<script id="v174-customer-names-only-region-auto">
-(function(){
-  function normV174(v){
-    return String(v||'').trim().toLowerCase();
-  }
-
-  function chooseCustomerV174(id){
-    let select=document.getElementById('sa_customer');
-    let input=document.getElementById('sa_customer_search_v173');
-    let menu=document.getElementById('sa_customer_menu_v173');
-    let c=(db.customers||[]).find(x=>x.id===id);
-    if(!select||!input||!c)return;
-
-    select.value=c.id;
-    input.value=c.name||'';
-    input.dataset.customerId=c.id;
-
-    if(menu)menu.style.display='none';
-
-    // Restore the original automatic customer-region behavior.
-    if(typeof updateLinkedRegion==='function'){
-      updateLinkedRegion('sa');
-    }
-  }
-
-  function renderNamesOnlyV174(q){
-    let menu=document.getElementById('sa_customer_menu_v173');
-    if(!menu)return;
-
-    q=normV174(q);
-    let rows=(db.customers||[])
-      .filter(c=>!q || normV174(c.name).includes(q))
-      .slice(0,80);
-
-    if(!rows.length){
-      menu.innerHTML=`<div class="customer-option-empty-v173">لا يوجد عميل مطابق</div>`;
-      menu.style.display='block';
-      return;
-    }
-
-    menu.innerHTML=rows.map(c=>`
-      <button type="button" class="customer-option-v173" data-customer-id="${esc(c.id)}">
-        <span class="customer-name-v173">${esc(c.name||'')}</span>
-      </button>
-    `).join('');
-
-    menu.querySelectorAll('.customer-option-v173').forEach(btn=>{
-      btn.addEventListener('mousedown',function(e){
-        e.preventDefault();
-        chooseCustomerV174(this.dataset.customerId);
-      });
-    });
-
-    menu.style.display='block';
-  }
-
-  function rebindCustomerSearchV174(){
-    let select=document.getElementById('sa_customer');
-    let input=document.getElementById('sa_customer_search_v173');
-    let menu=document.getElementById('sa_customer_menu_v173');
-    if(!select||!input||!menu)return;
-    if(input.dataset.v174Bound==='1')return;
-
-    input.dataset.v174Bound='1';
-    input.placeholder=lang==='ar'?'اكتب اسم العميل':'Type customer name';
-
-    let current=(db.customers||[]).find(c=>c.id===select.value) || db.customers?.[0];
-    if(current){
-      select.value=current.id;
-      input.value=current.name||'';
-      input.dataset.customerId=current.id;
-      if(typeof updateLinkedRegion==='function')updateLinkedRegion('sa');
-    }
-
-    let cleanInput=input.cloneNode(true);
-    input.parentNode.replaceChild(cleanInput,input);
-    input=cleanInput;
-
-    input.addEventListener('focus',function(){
-      renderNamesOnlyV174(this.value);
-    });
-
-    input.addEventListener('input',function(){
-      this.dataset.customerId='';
-      renderNamesOnlyV174(this.value);
-    });
-
-    input.addEventListener('keydown',function(e){
-      let options=[...menu.querySelectorAll('.customer-option-v173')];
-      if(e.key==='Enter'){
-        e.preventDefault();
-        if(options[0])options[0].dispatchEvent(new MouseEvent('mousedown',{bubbles:true}));
-      }
-      if(e.key==='Escape')menu.style.display='none';
-    });
-
-    input.addEventListener('blur',function(){
-      setTimeout(()=>{
-        menu.style.display='none';
-
-        if(!input.dataset.customerId){
-          let q=normV174(input.value);
-          let exact=(db.customers||[]).find(c=>normV174(c.name)===q);
-          if(exact){
-            chooseCustomerV174(exact.id);
-          }else{
-            let selected=(db.customers||[]).find(c=>c.id===select.value);
-            if(selected){
-              input.value=selected.name||'';
-              input.dataset.customerId=selected.id;
-              if(typeof updateLinkedRegion==='function')updateLinkedRegion('sa');
-            }
-          }
-        }
-      },150);
-    });
-  }
-
-  const bindOriginalV174=window.bindSearchableCustomerOrdersV173;
-  if(typeof bindOriginalV174==='function'){
-    window.bindSearchableCustomerOrdersV173=function(){
-      let r=bindOriginalV174.apply(this,arguments);
-      setTimeout(rebindCustomerSearchV174,20);
-      return r;
-    };
-    try{bindSearchableCustomerOrdersV173=window.bindSearchableCustomerOrdersV173}catch(e){}
-  }
-
-  const renderSalesOriginalV174=window.renderSales;
-  if(typeof renderSalesOriginalV174==='function'){
-    window.renderSales=function(){
-      let result=renderSalesOriginalV174.apply(this,arguments);
-      setTimeout(rebindCustomerSearchV174,60);
-      return result;
-    };
-    try{renderSales=window.renderSales}catch(e){}
-  }
-
-  const renderOriginalV174=window.render;
-  if(typeof renderOriginalV174==='function'){
-    window.render=function(){
-      let result=renderOriginalV174.apply(this,arguments);
-      setTimeout(rebindCustomerSearchV174,120);
-      return result;
-    };
-    try{render=window.render}catch(e){}
-  }
-
-  document.addEventListener('DOMContentLoaded',function(){
-    setTimeout(rebindCustomerSearchV174,800);
-  });
-})();
-</script>
-
-<style id="v174-customer-names-only-region-auto-style">
-html body .customer-option-v173{
-  align-items:flex-start!important;
-}
-html body .customer-option-v173 .customer-meta-v173{
-  display:none!important;
-}
-</style>
-<!-- v174 customer list names only with automatic region -->
 
 
 
@@ -14276,4 +13724,347 @@ html body .rep-product-target-empty-v190{
 }
 </style>
 <!-- v190 product targets per representative -->
+
+
+
+<script id="v191-keep-customer-same-invoice">
+(function(){
+  let invoiceHeaderStateV191=null;
+
+  function captureInvoiceHeaderV191(){
+    let customerSelect=document.getElementById('sa_customer');
+    let repSelect=document.getElementById('sa_rep');
+    let paidInput=document.getElementById('sa_paid');
+    let customerSearch=document.getElementById('sa_customer_search_v173');
+
+    invoiceHeaderStateV191={
+      customerId:customerSelect?.value||'',
+      customerText:customerSearch?.value||'',
+      repId:repSelect?.value||'',
+      paid:paidInput?.value||'0'
+    };
+  }
+
+  function restoreInvoiceHeaderV191(){
+    if(!invoiceHeaderStateV191)return;
+
+    let customerSelect=document.getElementById('sa_customer');
+    let repSelect=document.getElementById('sa_rep');
+    let paidInput=document.getElementById('sa_paid');
+    let customerSearch=document.getElementById('sa_customer_search_v173');
+
+    if(customerSelect && invoiceHeaderStateV191.customerId){
+      customerSelect.value=invoiceHeaderStateV191.customerId;
+    }
+
+    if(repSelect && invoiceHeaderStateV191.repId){
+      repSelect.value=invoiceHeaderStateV191.repId;
+    }
+
+    if(paidInput){
+      paidInput.value=invoiceHeaderStateV191.paid||'0';
+    }
+
+    if(customerSearch){
+      let customer=(db.customers||[]).find(c=>c.id===invoiceHeaderStateV191.customerId);
+      customerSearch.value=customer?.name||invoiceHeaderStateV191.customerText||'';
+      if(customer)customerSearch.dataset.customerId=customer.id;
+    }
+
+    if(typeof updateLinkedRegion==='function'){
+      updateLinkedRegion('sa');
+    }
+  }
+
+  const addInvoiceLineBaseV191=window.addInvoiceLineV150;
+  window.addInvoiceLineV150=function(){
+    captureInvoiceHeaderV191();
+    let result=addInvoiceLineBaseV191.apply(this,arguments);
+    setTimeout(restoreInvoiceHeaderV191,60);
+    return result;
+  };
+
+  const removeInvoiceLineBaseV191=window.removeInvoiceLineV150;
+  window.removeInvoiceLineV150=function(){
+    captureInvoiceHeaderV191();
+    let result=removeInvoiceLineBaseV191.apply(this,arguments);
+    setTimeout(restoreInvoiceHeaderV191,60);
+    return result;
+  };
+
+  const clearInvoiceDraftBaseV191=window.clearInvoiceDraftV150;
+  window.clearInvoiceDraftV150=function(){
+    invoiceHeaderStateV191=null;
+    return clearInvoiceDraftBaseV191.apply(this,arguments);
+  };
+
+  const saveMultiInvoiceBaseV191=window.saveMultiInvoiceV150;
+  window.saveMultiInvoiceV150=function(){
+    let result=saveMultiInvoiceBaseV191.apply(this,arguments);
+    invoiceHeaderStateV191=null;
+    return result;
+  };
+
+  const renderSalesBaseV191=window.renderSales;
+  if(typeof renderSalesBaseV191==='function'){
+    window.renderSales=function(){
+      let hadDraft=typeof salesInvoiceDraftV150!=='undefined' && salesInvoiceDraftV150.length>0;
+
+      if(hadDraft && !invoiceHeaderStateV191){
+        captureInvoiceHeaderV191();
+      }
+
+      let result=renderSalesBaseV191.apply(this,arguments);
+
+      if(hadDraft && invoiceHeaderStateV191){
+        setTimeout(restoreInvoiceHeaderV191,80);
+      }
+
+      return result;
+    };
+    try{renderSales=window.renderSales}catch(e){}
+  }
+})();
+</script>
+<!-- v191 keep customer rep and paid fixed while adding invoice products -->
+
+
+
+
+
+
+
+
+
+
+
+<script id="v194-customer-search-clean-rebuilt">
+(function(){
+  function normV194(v){
+    return String(v||'').trim().toLowerCase();
+  }
+
+  function customerByIdV194(id){
+    return (db.customers||[]).find(c=>c.id===id)||null;
+  }
+
+  function selectCustomerV194(customer){
+    let select=document.getElementById('sa_customer');
+    let input=document.getElementById('sa_customer_search_v173');
+    let menu=document.getElementById('sa_customer_menu_v173');
+    if(!select||!input||!customer)return;
+
+    select.value=customer.id;
+    input.value=customer.name||'';
+    input.dataset.customerId=customer.id;
+
+    if(menu){
+      menu.innerHTML='';
+      menu.hidden=true;
+    }
+
+    if(typeof updateLinkedRegion==='function'){
+      updateLinkedRegion('sa');
+    }
+  }
+
+  function renderCustomerResultsV194(query){
+    let menu=document.getElementById('sa_customer_menu_v173');
+    if(!menu)return;
+
+    let q=normV194(query);
+    if(!q){
+      menu.innerHTML='';
+      menu.hidden=true;
+      return;
+    }
+
+    let rows=(db.customers||[])
+      .filter(c=>normV194(c.name).includes(q))
+      .slice(0,50);
+
+    if(!rows.length){
+      menu.innerHTML='<div class="customer-option-empty-v194">لا يوجد عميل مطابق</div>';
+      menu.hidden=false;
+      return;
+    }
+
+    menu.innerHTML=rows.map(c=>`
+      <button type="button" class="customer-option-v194" data-customer-id="${esc(c.id)}">
+        ${esc(c.name||'')}
+      </button>
+    `).join('');
+
+    menu.querySelectorAll('.customer-option-v194').forEach(btn=>{
+      btn.addEventListener('mousedown',function(e){
+        e.preventDefault();
+        let customer=customerByIdV194(this.dataset.customerId);
+        if(customer)selectCustomerV194(customer);
+      });
+    });
+
+    menu.hidden=false;
+  }
+
+  window.bindCustomerSearchV194=function(){
+    let select=document.getElementById('sa_customer');
+    if(!select)return;
+
+    let oldWrap=document.getElementById('sa_customer_search_wrap_v173');
+    if(oldWrap)oldWrap.remove();
+
+    select.style.display='none';
+
+    let wrap=document.createElement('div');
+    wrap.id='sa_customer_search_wrap_v173';
+    wrap.className='customer-search-wrap-v194';
+
+    let input=document.createElement('input');
+    input.id='sa_customer_search_v173';
+    input.type='text';
+    input.autocomplete='off';
+    input.placeholder=lang==='ar'?'اكتب اسم العميل':'Type customer name';
+
+    let menu=document.createElement('div');
+    menu.id='sa_customer_menu_v173';
+    menu.className='customer-menu-v194';
+    menu.hidden=true;
+
+    wrap.appendChild(input);
+    wrap.appendChild(menu);
+    select.insertAdjacentElement('beforebegin',wrap);
+
+    let selected=customerByIdV194(select.value) || (db.customers||[])[0] || null;
+    if(selected){
+      selectCustomerV194(selected);
+    }
+
+    input.addEventListener('input',function(){
+      this.dataset.customerId='';
+      renderCustomerResultsV194(this.value);
+    });
+
+    input.addEventListener('keydown',function(e){
+      if(e.key==='Escape'){
+        menu.innerHTML='';
+        menu.hidden=true;
+      }
+      if(e.key==='Enter'){
+        let first=menu.querySelector('.customer-option-v194');
+        if(first){
+          e.preventDefault();
+          first.dispatchEvent(new MouseEvent('mousedown',{bubbles:true}));
+        }
+      }
+    });
+
+    input.addEventListener('focus',function(){
+      // Do not show the selected customer again on focus.
+      menu.innerHTML='';
+      menu.hidden=true;
+    });
+
+    input.addEventListener('blur',function(){
+      setTimeout(function(){
+        menu.innerHTML='';
+        menu.hidden=true;
+
+        if(!input.dataset.customerId){
+          let exact=(db.customers||[]).find(c=>normV194(c.name)===normV194(input.value));
+          if(exact){
+            selectCustomerV194(exact);
+          }else{
+            let current=customerByIdV194(select.value);
+            if(current)selectCustomerV194(current);
+          }
+        }
+      },120);
+    });
+  };
+
+  const renderSalesBaseV194=window.renderSales;
+  if(typeof renderSalesBaseV194==='function'){
+    window.renderSales=function(){
+      let result=renderSalesBaseV194.apply(this,arguments);
+      setTimeout(bindCustomerSearchV194,50);
+      return result;
+    };
+    try{renderSales=window.renderSales}catch(e){}
+  }
+
+  const renderBaseV194=window.render;
+  if(typeof renderBaseV194==='function'){
+    window.render=function(){
+      let result=renderBaseV194.apply(this,arguments);
+      setTimeout(bindCustomerSearchV194,100);
+      return result;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  document.addEventListener('DOMContentLoaded',function(){
+    setTimeout(bindCustomerSearchV194,700);
+  });
+})();
+</script>
+
+<style id="v194-customer-search-clean-rebuilt-style">
+html body .customer-search-wrap-v194{
+  position:relative!important;
+  width:100%!important;
+}
+html body #sa_customer_search_v173{
+  width:100%!important;
+  min-height:46px!important;
+  padding:10px 12px!important;
+  border:1px solid #cbd5e1!important;
+  border-radius:10px!important;
+  background:#fff!important;
+  color:#111827!important;
+  font-weight:700!important;
+}
+html body #sa_customer_search_v173:focus{
+  outline:none!important;
+  border-color:#0f766e!important;
+  box-shadow:0 0 0 3px rgba(15,118,110,.12)!important;
+}
+html body .customer-menu-v194[hidden]{
+  display:none!important;
+}
+html body .customer-menu-v194{
+  position:absolute!important;
+  top:calc(100% + 6px)!important;
+  left:0!important;
+  right:0!important;
+  z-index:99999!important;
+  max-height:280px!important;
+  overflow:auto!important;
+  background:#fff!important;
+  border:1px solid #cbd5e1!important;
+  border-radius:12px!important;
+  box-shadow:0 16px 36px rgba(15,23,42,.18)!important;
+  padding:6px!important;
+}
+html body .customer-option-v194{
+  display:block!important;
+  width:100%!important;
+  padding:10px 12px!important;
+  border:0!important;
+  background:#fff!important;
+  color:#111827!important;
+  border-radius:8px!important;
+  cursor:pointer!important;
+  text-align:right!important;
+  font-weight:800!important;
+}
+html body .customer-option-v194:hover{
+  background:#ecfdf5!important;
+}
+html body .customer-option-empty-v194{
+  padding:12px!important;
+  text-align:center!important;
+  color:#64748b!important;
+}
+</style>
+<!-- v194 rebuilt customer search without duplicate selected box -->
 
