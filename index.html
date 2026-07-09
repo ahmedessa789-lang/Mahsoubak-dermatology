@@ -13417,3 +13417,596 @@ html body .rep-group-card-v186.active{
 </script>
 <!-- v187 approved orders and collections sync into west east totals -->
 
+
+
+<script id="v188-rep-target-count-qty-achievement">
+(function(){
+  function normV188(v){
+    return String(v||'').trim().toLowerCase()
+      .replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/[أإآ]/g,'ا').replace(/\s+/g,' ');
+  }
+
+  function repMatchesV188(row,rep){
+    if(!row||!rep)return false;
+    if(row.rep_id && rep.id && row.rep_id===rep.id)return true;
+    return normV188(row.rep_name)===normV188(rep.name);
+  }
+
+  function approvedSalesForRepV188(rep){
+    let rows=[];
+    let linkedOrders=new Set();
+
+    (db.sales||[]).forEach(s=>{
+      if(!repMatchesV188(s,rep))return;
+      if(s.approval_status && s.approval_status!=='approved')return;
+      rows.push(s);
+      if(s.order_id)linkedOrders.add(s.order_id);
+      if(s.sale_order_id)linkedOrders.add(s.sale_order_id);
+    });
+
+    (db.sales_orders||[]).forEach(o=>{
+      let approved=o && (o.status==='approved'||o.approval_status==='approved');
+      if(!approved || !repMatchesV188(o,rep))return;
+      if(linkedOrders.has(o.id))return;
+
+      let already=(db.sales||[]).some(s=>
+        s.order_id===o.id || s.sale_order_id===o.id || (o.sale_id && s.id===o.sale_id)
+      );
+      if(already)return;
+
+      rows.push({
+        id:'target_order_'+o.id,
+        order_id:o.id,
+        date:o.approved_date||o.date||'',
+        customer_id:o.customer_id||'',
+        customer_name:o.customer_name||'',
+        rep_id:o.rep_id||'',
+        rep_name:o.rep_name||'',
+        product_id:o.product_id||'',
+        product_name:o.product_name||'',
+        qty:n(o.qty),
+        total:n(o.total),
+        remaining:n(o.remaining),
+        approval_status:'approved'
+      });
+    });
+
+    return rows;
+  }
+
+  function targetModeV188(rep){
+    let mode=rep.target_mode||rep.target_type||'qty';
+    return mode==='count'?'count':'qty';
+  }
+
+  function targetValueV188(rep){
+    return n(rep.target_value||rep.target||0);
+  }
+
+  function achievedValueV188(rep){
+    let sales=approvedSalesForRepV188(rep);
+    return targetModeV188(rep)==='count'
+      ? sales.length
+      : sales.reduce((sum,s)=>sum+n(s.qty),0);
+  }
+
+  function achievementPercentV188(rep){
+    let target=targetValueV188(rep);
+    if(target<=0)return 0;
+    return Math.round((achievedValueV188(rep)/target)*10000)/100;
+  }
+
+  function targetLabelV188(rep){
+    return targetModeV188(rep)==='count'?'عدد الفواتير':'الكمية';
+  }
+
+  function formatTargetV188(value){
+    return Number(value||0).toLocaleString();
+  }
+
+  window.saveRepTargetV188=function(repId){
+    let rep=(db.reps||[]).find(r=>r.id===repId);
+    if(!rep)return alert('المندوب غير موجود');
+
+    let mode=document.getElementById('rep_target_mode_'+repId)?.value||'qty';
+    let value=n(document.getElementById('rep_target_value_'+repId)?.value);
+
+    if(value<0)return alert('اكتب قيمة صحيحة للتارجت');
+
+    rep.target_mode=mode;
+    rep.target_type=mode;
+    rep.target_value=value;
+    rep.target=value;
+
+    if(typeof save==='function')save();
+    if(typeof buildRepManagementV185==='function')buildRepManagementV185();
+
+    let modal=document.getElementById('rep_performance_modal_v175');
+    if(modal){
+      let active=document.querySelector('.rep-card-v175.active');
+      if(active && typeof openRepDetailsV175==='function')openRepDetailsV175(active.dataset.repId);
+    }
+  };
+
+  function injectTargetControlsV188(){
+    let list=document.querySelector('#rep_management_clean_v185 .rep-list-v185');
+    if(!list)return;
+
+    [...list.querySelectorAll('.rep-row-v185')].forEach(row=>{
+      if(row.querySelector('.rep-target-box-v188'))return;
+
+      let name=normV188(row.querySelector('.rep-info-v185 b')?.textContent||'');
+      let rep=(db.reps||[]).find(r=>normV188(r.name)===name);
+      if(!rep)return;
+
+      let target=targetValueV188(rep);
+      let achieved=achievedValueV188(rep);
+      let percent=achievementPercentV188(rep);
+
+      let box=document.createElement('div');
+      box.className='rep-target-box-v188';
+      box.innerHTML=`
+        <div class="rep-target-controls-v188">
+          <select id="rep_target_mode_${rep.id}">
+            <option value="qty" ${targetModeV188(rep)==='qty'?'selected':''}>تارجت بالكمية</option>
+            <option value="count" ${targetModeV188(rep)==='count'?'selected':''}>تارجت بالعدد</option>
+          </select>
+          <input id="rep_target_value_${rep.id}" type="number" min="0" step="1" value="${target}">
+          <button type="button" class="btn blue" onclick="saveRepTargetV188('${rep.id}')">حفظ التارجت</button>
+        </div>
+        <div class="rep-target-results-v188">
+          <span>التارجت: <b>${formatTargetV188(target)}</b></span>
+          <span>المحقق: <b>${formatTargetV188(achieved)}</b></span>
+          <span>نسبة التحقيق: <b>${percent}%</b></span>
+        </div>
+      `;
+
+      let deleteBtn=row.querySelector('.rep-delete-v185');
+      if(deleteBtn)deleteBtn.insertAdjacentElement('beforebegin',box);
+      else row.appendChild(box);
+    });
+  }
+
+  const buildRepManagementBaseV188=window.buildRepManagementV185;
+  if(typeof buildRepManagementBaseV188==='function'){
+    window.buildRepManagementV185=function(){
+      let result=buildRepManagementBaseV188.apply(this,arguments);
+      setTimeout(injectTargetControlsV188,50);
+      return result;
+    };
+  }
+
+  const openRepDetailsBaseV188=window.openRepDetailsV175;
+  window.openRepDetailsV175=function(repId){
+    let result=openRepDetailsBaseV188.apply(this,arguments);
+
+    setTimeout(function(){
+      let rep=(db.reps||[]).find(r=>r.id===repId);
+      if(!rep)return;
+
+      let body=document.getElementById('rep_details_body_v175');
+      if(!body)return;
+
+      let summary=body.querySelector('.rep-summary-v175');
+      if(!summary)return;
+
+      let target=targetValueV188(rep);
+      let achieved=achievedValueV188(rep);
+      let percent=achievementPercentV188(rep);
+      let remaining=Math.max(0,target-achieved);
+
+      let old=body.querySelector('.rep-target-summary-v188');
+      if(old)old.remove();
+
+      let block=document.createElement('div');
+      block.className='grid grid4 rep-target-summary-v188';
+      block.innerHTML=`
+        <div class="stat target-card-v188"><span>التارجت (${targetLabelV188(rep)})</span><strong>${formatTargetV188(target)}</strong></div>
+        <div class="stat achieved-card-v188"><span>المحقق من التارجت</span><strong>${formatTargetV188(achieved)}</strong></div>
+        <div class="stat remaining-card-v188"><span>المتبقي من التارجت</span><strong>${formatTargetV188(remaining)}</strong></div>
+        <div class="stat percent-card-v188">
+          <span>نسبة التحقيق</span><strong>${percent}%</strong>
+          <div class="rep-progress-v188"><div style="width:${Math.min(percent,100)}%"></div></div>
+        </div>
+      `;
+      summary.insertAdjacentElement('afterend',block);
+    },40);
+
+    return result;
+  };
+
+  const renderBaseV188=window.render;
+  if(typeof renderBaseV188==='function'){
+    window.render=function(){
+      let result=renderBaseV188.apply(this,arguments);
+      setTimeout(injectTargetControlsV188,120);
+      return result;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  document.addEventListener('DOMContentLoaded',function(){
+    setTimeout(injectTargetControlsV188,900);
+  });
+})();
+</script>
+
+<style id="v188-rep-target-count-qty-achievement-style">
+html body .rep-row-v185{grid-template-columns:1fr auto minmax(360px,auto) auto!important}
+html body .rep-target-box-v188{display:grid!important;gap:8px!important;min-width:360px!important}
+html body .rep-target-controls-v188{display:grid!important;grid-template-columns:1fr 110px auto!important;gap:7px!important;align-items:center!important}
+html body .rep-target-controls-v188 select,
+html body .rep-target-controls-v188 input{min-height:38px!important;border:1px solid #cbd5e1!important;border-radius:8px!important;background:#fff!important;color:#111827!important;padding:7px 9px!important}
+html body .rep-target-results-v188{display:flex!important;flex-wrap:wrap!important;gap:7px!important}
+html body .rep-target-results-v188 span{padding:5px 8px!important;background:#ecfdf5!important;color:#065f46!important;border-radius:999px!important;font-size:12px!important;font-weight:800!important}
+html body .rep-target-summary-v188{margin-bottom:16px!important}
+html body .target-card-v188{border-color:#2563eb!important}
+html body .achieved-card-v188{border-color:#16a34a!important}
+html body .remaining-card-v188{border-color:#f59e0b!important}
+html body .percent-card-v188{border-color:#7c3aed!important}
+html body .rep-progress-v188{width:100%!important;height:9px!important;margin-top:8px!important;border-radius:999px!important;overflow:hidden!important;background:#e5e7eb!important}
+html body .rep-progress-v188 div{height:100%!important;background:#16a34a!important;border-radius:999px!important}
+@media(max-width:1200px){html body .rep-row-v185{grid-template-columns:1fr!important}html body .rep-target-box-v188{min-width:0!important}}
+@media(max-width:600px){html body .rep-target-controls-v188{grid-template-columns:1fr!important}}
+</style>
+<!-- v188 representative target by count or quantity with achievement -->
+
+
+
+<script id="v189-rep-reports-by-date-and-rep">
+(function(){
+  const GROUPS_V189 = {
+    west_total_v186:{name:'west total',members:['مارينا','عماد']},
+    east_total_v186:{name:'east total',members:['سيف','ماهينور','نوران','سلمى','سلمي']}
+  };
+
+  let repReportFilterV189={
+    from:'',
+    to:'',
+    repId:''
+  };
+
+  function normV189(v){
+    return String(v||'').trim().toLowerCase()
+      .replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/[أإآ]/g,'ا').replace(/\s+/g,' ');
+  }
+
+  function dateOnlyV189(v){
+    return String(v||'').slice(0,10);
+  }
+
+  function inRangeV189(row){
+    let d=dateOnlyV189(row?.date||row?.approved_date||'');
+    if(!d)return false;
+    return (!repReportFilterV189.from || d>=repReportFilterV189.from) &&
+           (!repReportFilterV189.to || d<=repReportFilterV189.to);
+  }
+
+  function repNameV189(row){
+    if(row?.rep_name)return row.rep_name;
+    if(row?.rep_id){
+      let rep=(db.reps||[]).find(r=>r.id===row.rep_id);
+      return rep?.name||'';
+    }
+    return '';
+  }
+
+  function memberNamesV189(repId){
+    if(GROUPS_V189[repId])return GROUPS_V189[repId].members;
+    let rep=(db.reps||[]).find(r=>r.id===repId);
+    return rep?[rep.name]:[];
+  }
+
+  function rowMatchesRepV189(row,repId){
+    let names=memberNamesV189(repId).map(normV189);
+    if(!names.length)return false;
+
+    if(!GROUPS_V189[repId] && row?.rep_id===repId)return true;
+    return names.includes(normV189(repNameV189(row)));
+  }
+
+  function isApprovedOrderV189(o){
+    return o && (o.status==='approved' || o.approval_status==='approved');
+  }
+
+  function salesRowsV189(repId){
+    let rows=[];
+    let linkedOrders=new Set();
+
+    (db.sales||[]).forEach(s=>{
+      if(!rowMatchesRepV189(s,repId) || !inRangeV189(s))return;
+      if(s.approval_status && s.approval_status!=='approved')return;
+      rows.push(s);
+      if(s.order_id)linkedOrders.add(s.order_id);
+      if(s.sale_order_id)linkedOrders.add(s.sale_order_id);
+    });
+
+    (db.sales_orders||[]).forEach(o=>{
+      if(!isApprovedOrderV189(o) || !rowMatchesRepV189(o,repId) || !inRangeV189(o))return;
+      if(linkedOrders.has(o.id))return;
+
+      let already=(db.sales||[]).some(s=>
+        s.order_id===o.id || s.sale_order_id===o.id || (o.sale_id && s.id===o.sale_id)
+      );
+      if(already)return;
+
+      rows.push({
+        id:'filtered_order_'+o.id,
+        order_id:o.id,
+        date:o.approved_date||o.date||'',
+        customer_id:o.customer_id||'',
+        customer_name:o.customer_name||'',
+        rep_id:o.rep_id||'',
+        rep_name:o.rep_name||'',
+        product_name:o.product_name||'',
+        qty:n(o.qty),
+        total:n(o.total),
+        paid:n(o.paid),
+        remaining:n(o.remaining),
+        approval_status:'approved'
+      });
+    });
+
+    return rows;
+  }
+
+  function collectionRowsV189(repId){
+    return (db.collections||[]).filter(c=>
+      rowMatchesRepV189(c,repId) &&
+      inRangeV189(c) &&
+      (!c.approval_status || c.approval_status==='approved')
+    );
+  }
+
+  function repDisplayV189(repId){
+    if(GROUPS_V189[repId])return GROUPS_V189[repId].name;
+    return (db.reps||[]).find(r=>r.id===repId)?.name||'';
+  }
+
+  function targetInfoV189(repId,sales){
+    if(GROUPS_V189[repId]){
+      let reps=(db.reps||[]).filter(r=>
+        GROUPS_V189[repId].members.map(normV189).includes(normV189(r.name))
+      );
+      let target=reps.reduce((sum,r)=>sum+n(r.target_value||r.target||0),0);
+      let achieved=sales.reduce((sum,s)=>sum+n(s.qty),0);
+      return {label:'الكمية',target,achieved};
+    }
+
+    let rep=(db.reps||[]).find(r=>r.id===repId);
+    if(!rep)return {label:'الكمية',target:0,achieved:0};
+
+    let mode=rep.target_mode||rep.target_type||'qty';
+    let target=n(rep.target_value||rep.target||0);
+    let achieved=mode==='count'?sales.length:sales.reduce((sum,s)=>sum+n(s.qty),0);
+
+    return {label:mode==='count'?'عدد الفواتير':'الكمية',target,achieved};
+  }
+
+  function buildReportV189(repId){
+    let sales=salesRowsV189(repId);
+    let collections=collectionRowsV189(repId);
+    let customerMap=new Map();
+
+    sales.forEach(s=>{
+      let key=s.customer_id||normV189(s.customer_name)||'unknown';
+      if(!customerMap.has(key)){
+        customerMap.set(key,{name:s.customer_name||'-',sales:0,collections:0,remaining:0,invoiceCount:0,collectionCount:0});
+      }
+      let r=customerMap.get(key);
+      r.sales+=n(s.total);
+      r.remaining+=n(s.remaining);
+      r.invoiceCount++;
+    });
+
+    collections.forEach(c=>{
+      let key=c.customer_id||normV189(c.customer_name)||'unknown';
+      if(!customerMap.has(key)){
+        customerMap.set(key,{name:c.customer_name||'-',sales:0,collections:0,remaining:0,invoiceCount:0,collectionCount:0});
+      }
+      let r=customerMap.get(key);
+      r.collections+=n(c.amount);
+      r.collectionCount++;
+    });
+
+    let rows=[...customerMap.values()].sort((a,b)=>(b.sales+b.collections)-(a.sales+a.collections));
+    let salesTotal=sales.reduce((a,s)=>a+n(s.total),0);
+    let collectionTotal=collections.reduce((a,c)=>a+n(c.amount),0);
+    let remainingTotal=sales.reduce((a,s)=>a+n(s.remaining),0);
+    let target=targetInfoV189(repId,sales);
+    let percent=target.target>0?Math.round((target.achieved/target.target)*10000)/100:0;
+    let remainingTarget=Math.max(0,target.target-target.achieved);
+
+    return `
+      <div class="rep-detail-head-v175">
+        <div>
+          <h2>${esc(repDisplayV189(repId))}</h2>
+          <p>${repReportFilterV189.from||'البداية'} → ${repReportFilterV189.to||'النهاية'}</p>
+        </div>
+        <button type="button" class="btn blue" onclick="printFilteredRepV189()">طباعة التقرير</button>
+      </div>
+
+      <div class="grid grid4 rep-summary-v175">
+        <div class="stat"><span>المبيعات المعتمدة خلال المدة</span><strong>${money(salesTotal)}</strong></div>
+        <div class="stat"><span>التحصيلات المعتمدة خلال المدة</span><strong>${money(collectionTotal)}</strong></div>
+        <div class="stat"><span>المتبقي على العملاء</span><strong>${money(remainingTotal)}</strong></div>
+        <div class="stat"><span>عدد الفواتير المعتمدة</span><strong>${sales.length}</strong></div>
+      </div>
+
+      <div class="grid grid4 rep-target-summary-v189">
+        <div class="stat"><span>التارجت (${target.label})</span><strong>${Number(target.target).toLocaleString()}</strong></div>
+        <div class="stat"><span>المحقق خلال المدة</span><strong>${Number(target.achieved).toLocaleString()}</strong></div>
+        <div class="stat"><span>المتبقي من التارجت</span><strong>${Number(remainingTarget).toLocaleString()}</strong></div>
+        <div class="stat"><span>نسبة التحقيق</span><strong>${percent}%</strong></div>
+      </div>
+
+      <div class="card">
+        <h3>المبيعات والتحصيل المعتمد لكل عميل</h3>
+        ${rows.length?`<table>
+          <tr><th>العميل</th><th>المبيعات</th><th>التحصيلات</th><th>المتبقي</th><th>عدد الفواتير</th><th>عدد التحصيلات</th></tr>
+          ${rows.map(r=>`<tr>
+            <td><b>${esc(r.name)}</b></td>
+            <td>${money(r.sales)}</td>
+            <td>${money(r.collections)}</td>
+            <td>${money(r.remaining)}</td>
+            <td>${r.invoiceCount}</td>
+            <td>${r.collectionCount}</td>
+          </tr>`).join('')}
+        </table>`:`<div class="empty">لا توجد بيانات في المدة المحددة</div>`}
+      </div>
+
+      <div class="card">
+        <h3>تفاصيل المبيعات المعتمدة</h3>
+        ${sales.length?`<table>
+          <tr><th>التاريخ</th><th>المندوب</th><th>العميل</th><th>المنتج</th><th>الكمية</th><th>الإجمالي</th><th>المتبقي</th></tr>
+          ${sales.map(s=>`<tr>
+            <td>${esc(dateOnlyV189(s.date))}</td>
+            <td>${esc(repNameV189(s))}</td>
+            <td>${esc(s.customer_name||'')}</td>
+            <td>${esc(s.product_name||'')}</td>
+            <td>${n(s.qty)}</td>
+            <td>${money(s.total)}</td>
+            <td>${money(s.remaining)}</td>
+          </tr>`).join('')}
+        </table>`:`<div class="empty">لا توجد مبيعات معتمدة في المدة المحددة</div>`}
+      </div>
+
+      <div class="card">
+        <h3>تفاصيل التحصيلات المعتمدة</h3>
+        ${collections.length?`<table>
+          <tr><th>التاريخ</th><th>المندوب</th><th>العميل</th><th>المبلغ</th><th>الطريقة</th></tr>
+          ${collections.map(c=>`<tr>
+            <td>${esc(dateOnlyV189(c.date))}</td>
+            <td>${esc(repNameV189(c))}</td>
+            <td>${esc(c.customer_name||'')}</td>
+            <td>${money(c.amount)}</td>
+            <td>${esc(c.method||'')}</td>
+          </tr>`).join('')}
+        </table>`:`<div class="empty">لا توجد تحصيلات معتمدة في المدة المحددة</div>`}
+      </div>`;
+  }
+
+  window.applyRepReportFilterV189=function(){
+    let from=document.getElementById('rep_report_from_v189')?.value||'';
+    let to=document.getElementById('rep_report_to_v189')?.value||'';
+    let repId=document.getElementById('rep_report_rep_v189')?.value||'';
+
+    if(from && to && from>to)return alert('تاريخ البداية يجب أن يكون قبل تاريخ النهاية');
+    if(!repId)return alert('اختر المندوب');
+
+    repReportFilterV189={from,to,repId};
+    let body=document.getElementById('rep_details_body_v175');
+    if(body)body.innerHTML=buildReportV189(repId);
+
+    document.querySelectorAll('.rep-card-v175').forEach(card=>{
+      card.classList.toggle('active',card.dataset.repId===repId);
+    });
+  };
+
+  window.printFilteredRepV189=function(){
+    if(!repReportFilterV189.repId)return;
+    let w=window.open('','_blank','width=1200,height=850');
+    if(!w)return alert('اسمح بفتح النوافذ المنبثقة للطباعة');
+    w.document.open();
+    w.document.write(`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>تقرير المندوب</title>
+      <style>
+        body{font-family:Arial,sans-serif;padding:20px;color:#111827}
+        table{width:100%;border-collapse:collapse;margin:12px 0}
+        th,td{border:1px solid #d1d5db;padding:8px;text-align:right}
+        th{background:#f3f4f6}
+        .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+        .stat,.card{border:1px solid #d1d5db;border-radius:10px;padding:14px;margin-bottom:14px}
+        .stat span{display:block;color:#64748b}.stat strong{display:block;font-size:22px;margin-top:5px}
+        button{display:none}
+      </style></head><body>${buildReportV189(repReportFilterV189.repId)}</body></html>`);
+    w.document.close();
+  };
+
+  const openRepPerformanceBaseV189=window.openRepPerformanceV175;
+  window.openRepPerformanceV175=function(){
+    openRepPerformanceBaseV189.apply(this,arguments);
+
+    setTimeout(function(){
+      let panel=document.querySelector('#rep_performance_modal_v175 .rep-performance-panel-v175');
+      let layout=document.querySelector('#rep_performance_modal_v175 .rep-performance-layout-v175');
+      if(!panel||!layout||document.getElementById('rep_report_filters_v189'))return;
+
+      let options=[
+        ...Object.entries(GROUPS_V189).map(([id,g])=>`<option value="${id}">${esc(g.name)}</option>`),
+        ...(db.reps||[]).map(r=>`<option value="${r.id}">${esc(r.name||'')}</option>`)
+      ].join('');
+
+      let filters=document.createElement('div');
+      filters.id='rep_report_filters_v189';
+      filters.className='rep-report-filters-v189';
+      filters.innerHTML=`
+        <label><span>من</span><input id="rep_report_from_v189" type="date"></label>
+        <label><span>إلى</span><input id="rep_report_to_v189" type="date"></label>
+        <label><span>المندوب</span><select id="rep_report_rep_v189">${options}</select></label>
+        <button type="button" class="btn ok" onclick="applyRepReportFilterV189()">تطبيق</button>
+      `;
+      layout.insertAdjacentElement('beforebegin',filters);
+
+      let first=document.getElementById('rep_report_rep_v189')?.value||'';
+      repReportFilterV189.repId=first;
+      if(first){
+        let body=document.getElementById('rep_details_body_v175');
+        if(body)body.innerHTML=buildReportV189(first);
+      }
+    },80);
+  };
+
+  window.openRepDetailsV175=function(repId){
+    repReportFilterV189.repId=repId;
+    let select=document.getElementById('rep_report_rep_v189');
+    if(select)select.value=repId;
+    let body=document.getElementById('rep_details_body_v175');
+    if(body)body.innerHTML=buildReportV189(repId);
+
+    document.querySelectorAll('.rep-card-v175').forEach(card=>{
+      card.classList.toggle('active',card.dataset.repId===repId);
+    });
+  };
+})();
+</script>
+
+<style id="v189-rep-reports-by-date-and-rep-style">
+html body .rep-report-filters-v189{
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr)) auto!important;
+  gap:10px!important;
+  align-items:end!important;
+  margin:18px 20px 0!important;
+  padding:14px!important;
+  background:#fff!important;
+  border:1px solid #cbd5e1!important;
+  border-radius:12px!important;
+}
+html body .rep-report-filters-v189 label{
+  display:grid!important;
+  gap:6px!important;
+}
+html body .rep-report-filters-v189 label span{
+  font-weight:800!important;
+  color:#334155!important;
+}
+html body .rep-report-filters-v189 input,
+html body .rep-report-filters-v189 select{
+  min-height:42px!important;
+  border:1px solid #cbd5e1!important;
+  border-radius:9px!important;
+  padding:8px 10px!important;
+  background:#fff!important;
+  color:#111827!important;
+}
+html body .rep-target-summary-v189{
+  margin-bottom:16px!important;
+}
+@media(max-width:800px){
+  html body .rep-report-filters-v189{
+    grid-template-columns:1fr!important;
+  }
+}
+</style>
+<!-- v189 representative reports filtered by date and representative -->
+
