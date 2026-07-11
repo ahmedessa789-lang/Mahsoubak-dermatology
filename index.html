@@ -1987,7 +1987,7 @@ table{box-shadow:0 10px 30px rgba(15,23,42,.06)}th{background:linear-gradient(18
 function printSaleDocument(id,type){let s=db.sales.find(x=>x.id===id);if(!s){alert(lang==='ar'?'لم يتم العثور على الفاتورة':'Sale not found');return}let w=window.open('','_blank','width=1000,height=800');w.document.write(saleDocumentHTML(s,type));w.document.close();w.focus();setTimeout(()=>w.print(),350)}
 
 
-function renderCollections(){document.getElementById('view-collections').innerHTML=`<div class="card"><h3>${T('collection')}</h3><div class="grid grid4"><div><label>${T('customer')}</label><select id="co_customer">${options(db.customers)}</select></div><div><label>${T('collector')}</label><select id="co_rep">${options(db.reps)}</select></div>${inp('co_amount','amount','number')}<div><label>${T('method')}</label><select id="co_method"><option>Cash</option><option>Bank</option><option>Wallet</option><option>Cheque</option></select></div>${inp('co_notes','notes')}</div><button class="btn ok" style="margin-top:12px" onclick="addCollection()">${T('save')}</button></div><div class="card"><h3>${T('collections')}</h3>${collectionsTable()}</div>`}
+function renderCollections(){document.getElementById('view-collections').innerHTML=`<div class="card"><h3>${T('collection')}</h3><div class="grid grid4"><div><label>${T('customer')}</label><div class="co-customer-combo-v206"><div class="co-customer-input-wrap-v206"><input id="co_customer_text_v203" type="text" autocomplete="off" aria-autocomplete="list" aria-expanded="false" placeholder="${lang==='ar'?'اكتب أو اختر اسم العميل':'Type or select customer'}"><button type="button" class="co-customer-arrow-v206" tabindex="-1">⌄</button></div><div id="co_customer_menu_v206" class="co-customer-menu-v206" role="listbox"></div><select id="co_customer" style="display:none!important">${options(db.customers)}</select></div></div><div><label>${T('collector')}</label><select id="co_rep">${options(db.reps)}</select></div>${inp('co_amount','amount','number')}<div><label>${T('method')}</label><select id="co_method"><option>Cash</option><option>Bank</option><option>Wallet</option><option>Cheque</option></select></div>${inp('co_notes','notes')}</div><button class="btn ok" style="margin-top:12px" onclick="addCollection()">${T('save')}</button></div><div class="card"><h3>${T('collections')}</h3>${collectionsTable()}</div>`}
 function addCollection(){let c=db.customers.find(x=>x.id===co_customer.value),r=db.reps.find(x=>x.id===co_rep.value);if(!c)return;let amount=n(co_amount.value), idv=uid();db.collections.unshift({id:idv,date:today(),customer_id:c.id,customer_name:c.name,rep_id:r?r.id:'',rep_name:r?r.name:'',amount,method:co_method.value,notes:co_notes.value});c.balance=n(c.balance)-amount;postEntry('collection',idv,(lang==='ar'?'تحصيل من ':'Collection from ')+c.name,[{account:'1100',debit:amount},{account:'1200',credit:amount}]);render()}
 function collectionsTable(){if(!db.collections.length)return `<div class="empty">${T('empty')}</div>`;return `<table><tr><th>${T('date')}</th><th>${T('customer')}</th><th>${T('collector')}</th><th>${T('amount')}</th><th>${T('method')}</th><th>${T('notes')}</th></tr>${db.collections.map(c=>`<tr><td>${esc(c.date)}</td><td>${esc(c.customer_name)}</td><td>${esc(c.rep_name)}</td><td>${money(c.amount)}</td><td>${esc(c.method)}</td><td>${esc(c.notes)}</td></tr>`).join('')}</table>`}
 
@@ -14907,3 +14907,131 @@ html body .invoice-no-v200{font-weight:900!important;white-space:nowrap!importan
 })();
 </script>
 <!-- v200 changes display/counting only; stock, accounting, approvals and stored line items remain untouched -->
+
+
+<!-- v203 Stable collection customer typing field. No MutationObserver, no timer loop. -->
+<style id="v203-stable-collection-customer-style">
+html body #co_customer_text_v203{display:block!important;width:100%!important;min-height:44px!important;background:#171c25!important;color:#fff!important;border:1px solid #465266!important;border-radius:6px!important;padding:10px 12px!important;font-weight:700!important;pointer-events:auto!important;opacity:1!important}
+html body #co_customer_text_v203::placeholder{color:#7f8da1!important}
+html body #co_customer_text_v203:focus{outline:none!important;border-color:#00a09d!important;box-shadow:0 0 0 3px rgba(0,160,157,.18)!important}
+html body #co_customer{display:none!important}
+</style>
+<script id="v203-stable-collection-customer-input">
+(function(){
+  function normV203(v){return String(v||'').trim().toLowerCase();}
+  function customerNameV203(c){return String((c&&(c.name||c.customer_name||c.clinic_name||c.company_name))||'').trim();}
+  function syncCustomerV203(){
+    var input=document.getElementById('co_customer_text_v203');
+    var select=document.getElementById('co_customer');
+    if(!input||!select)return null;
+    var q=normV203(input.value);
+    var customer=(db.customers||[]).find(function(c){return normV203(customerNameV203(c))===q;})||null;
+    select.value=customer?customer.id:'';
+    input.dataset.customerId=customer?customer.id:'';
+    return customer;
+  }
+  document.addEventListener('input',function(e){if(e.target&&e.target.id==='co_customer_text_v203')syncCustomerV203();});
+  document.addEventListener('change',function(e){if(e.target&&e.target.id==='co_customer_text_v203')syncCustomerV203();});
+  var baseAddV203=window.addCollection;
+  if(typeof baseAddV203==='function'){
+    window.addCollection=function(){
+      var input=document.getElementById('co_customer_text_v203');
+      var customer=syncCustomerV203();
+      if(input&&!customer){
+        return alert((typeof lang!=='undefined'&&lang==='ar')?'اكتب اسم عميل موجود واختره من الاقتراحات':'Type an existing customer name and choose it from the suggestions');
+      }
+      if(customer){
+        var name=customerNameV203(customer);
+        if(name){customer.name=name;customer.customer_name=customer.customer_name||name;}
+      }
+      return baseAddV203.apply(this,arguments);
+    };
+    try{addCollection=window.addCollection}catch(e){}
+  }
+})();
+</script>
+<!-- v203 end -->
+
+
+<!-- v206 stable searchable customer dropdown: inserted at document end only -->
+<style id="v206-collection-customer-combo-css">
+.co-customer-combo-v206{position:relative;width:100%}
+.co-customer-input-wrap-v206{position:relative;display:flex;align-items:center;width:100%}
+html body #co_customer_text_v203{display:block!important;width:100%!important;min-height:44px!important;padding:10px 42px 10px 12px!important;background:#171c25!important;color:#fff!important;border:1px solid #465266!important;border-radius:6px!important;font-weight:700!important;pointer-events:auto!important;opacity:1!important}
+html[dir="ltr"] body #co_customer_text_v203{padding:10px 12px 10px 42px!important}
+html body #co_customer_text_v203::placeholder{color:#7f8da1!important}
+html body #co_customer_text_v203:focus{outline:none!important;border-color:#00a09d!important;box-shadow:0 0 0 3px rgba(0,160,157,.18)!important}
+.co-customer-arrow-v206{position:absolute;right:5px;top:5px;bottom:5px;width:34px!important;min-width:34px!important;padding:0!important;border:0!important;border-radius:5px!important;background:transparent!important;color:#cbd5e1!important;font-size:22px!important;line-height:1!important;cursor:pointer!important;box-shadow:none!important;z-index:3}
+html[dir="ltr"] .co-customer-arrow-v206{right:auto;left:5px}
+.co-customer-menu-v206{display:none;position:absolute;z-index:10000;top:calc(100% + 4px);right:0;left:0;max-height:280px;overflow:auto;background:#fff;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 18px 42px rgba(15,23,42,.22);padding:5px}
+.co-customer-menu-v206.show{display:block}
+.co-customer-option-v206{display:block!important;width:100%!important;border:0!important;background:#fff!important;color:#111827!important;text-align:right!important;padding:10px 12px!important;border-radius:6px!important;font-size:15px!important;cursor:pointer!important;box-shadow:none!important}
+html[dir="ltr"] .co-customer-option-v206{text-align:left!important}
+.co-customer-option-v206:hover,.co-customer-option-v206.active{background:#2563eb!important;color:#fff!important}
+.co-customer-empty-v206{padding:12px;color:#64748b;text-align:center;background:#fff}
+html body #co_customer{display:none!important}
+</style>
+<script id="v206-collection-customer-combo-js">
+(function(){
+  function norm(v){return String(v||'').trim().toLowerCase();}
+  function cname(c){return String((c&&(c.name||c.customer_name||c.clinic_name||c.company_name))||'').trim();}
+  function refs(){return {input:document.getElementById('co_customer_text_v203'),menu:document.getElementById('co_customer_menu_v206'),select:document.getElementById('co_customer')};}
+  function escHtml(v){return String(v||'').replace(/[&<>"']/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];});}
+  function matches(q){q=norm(q);return (db.customers||[]).filter(function(c){return !q||norm(cname(c)).indexOf(q)!==-1;});}
+  function draw(showAll){var r=refs();if(!r.input||!r.menu)return;var items=matches(showAll?'':r.input.value);r.menu.innerHTML=items.length?items.map(function(c){return '<button type="button" class="co-customer-option-v206" data-id="'+escHtml(c.id)+'" data-name="'+escHtml(cname(c))+'">'+escHtml(cname(c))+'</button>';}).join(''):'<div class="co-customer-empty-v206">'+((typeof lang!=='undefined'&&lang==='ar')?'لا توجد نتائج':'No matching customers')+'</div>';r.menu.classList.add('show');r.input.setAttribute('aria-expanded','true');}
+  function closeMenu(){var r=refs();if(r.menu)r.menu.classList.remove('show');if(r.input)r.input.setAttribute('aria-expanded','false');}
+  function choose(id,name){var r=refs();if(!r.input||!r.select)return;r.input.value=name;r.input.dataset.customerId=id;r.select.value=id;closeMenu();}
+  document.addEventListener('focusin',function(e){if(e.target&&e.target.id==='co_customer_text_v203')draw(false);});
+  document.addEventListener('input',function(e){if(!(e.target&&e.target.id==='co_customer_text_v203'))return;var r=refs();e.target.dataset.customerId='';if(r.select)r.select.value='';draw(false);});
+  document.addEventListener('click',function(e){
+    var opt=e.target.closest&&e.target.closest('.co-customer-option-v206');
+    if(opt){choose(opt.dataset.id||'',opt.dataset.name||opt.textContent||'');return;}
+    var arrow=e.target.closest&&e.target.closest('.co-customer-arrow-v206');
+    if(arrow){var r=refs();if(r.menu&&r.menu.classList.contains('show'))closeMenu();else draw(true);if(r.input)r.input.focus();return;}
+    if(!(e.target.closest&&e.target.closest('.co-customer-combo-v206')))closeMenu();
+  });
+  document.addEventListener('keydown',function(e){
+    if(!(e.target&&e.target.id==='co_customer_text_v203'))return;
+    var r=refs();if(!r.menu)return;
+    var opts=[].slice.call(r.menu.querySelectorAll('.co-customer-option-v206'));
+    var i=opts.findIndex(function(x){return x.classList.contains('active');});
+    if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+      e.preventDefault();
+      if(!r.menu.classList.contains('show')){draw(false);opts=[].slice.call(r.menu.querySelectorAll('.co-customer-option-v206'));i=-1;}
+      if(!opts.length)return;
+      opts.forEach(function(x){x.classList.remove('active');});
+      var ni=e.key==='ArrowDown'?(i+1)%opts.length:(i<=0?opts.length-1:i-1);
+      opts[ni].classList.add('active');opts[ni].scrollIntoView({block:'nearest'});
+    }else if(e.key==='Enter'){
+      var a=r.menu.querySelector('.co-customer-option-v206.active')||opts[0];
+      if(a&&r.menu.classList.contains('show')){e.preventDefault();choose(a.dataset.id||'',a.dataset.name||a.textContent||'');}
+    }else if(e.key==='Escape'){closeMenu();}
+  });
+})();
+</script>
+<!-- v206 end -->
+
+<!-- v207 natural collection customer field style only -->
+<style id="v207-collection-customer-natural-style">
+html body #co_customer_text_v203{
+  display:block!important;
+  width:100%!important;
+  min-height:44px!important;
+  padding:10px 12px!important;
+  background:#ffffff!important;
+  color:#111827!important;
+  border:1px solid #cbd5e1!important;
+  border-radius:6px!important;
+  box-shadow:none!important;
+  font-weight:700!important;
+}
+html body #co_customer_text_v203::placeholder{color:#64748b!important}
+html body #co_customer_text_v203:focus{
+  outline:none!important;
+  border-color:#00a09d!important;
+  box-shadow:0 0 0 3px rgba(0,160,157,.14)!important;
+}
+html body .co-customer-arrow-v206{display:none!important}
+.co-customer-input-wrap-v206{display:block!important}
+</style>
+<!-- v207 end -->
