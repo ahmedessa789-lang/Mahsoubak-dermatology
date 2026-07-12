@@ -15035,3 +15035,43 @@ html body .co-customer-arrow-v206{display:none!important}
 .co-customer-input-wrap-v206{display:block!important}
 </style>
 <!-- v207 end -->
+
+
+<!-- v208b Stable direct collection save: appended after all existing code -->
+<style id="v208b-direct-collection-style">
+html body .collection-approval-card-v178{display:none!important}
+</style>
+<script id="v208b-direct-collection-save">
+(function(){
+  function cname208(c){return String((c&&(c.name||c.customer_name||c.clinic_name||c.company_name))||'').trim();}
+  function currentName208(){try{var u=typeof currentUser==='function'?(currentUser()||{}):{};return String(u.name||u.email||'').trim();}catch(e){return '';}}
+  window.addCollection=function(){
+    var customerEl=document.getElementById('co_customer');
+    var repEl=document.getElementById('co_rep');
+    var amountEl=document.getElementById('co_amount');
+    var methodEl=document.getElementById('co_method');
+    var notesEl=document.getElementById('co_notes');
+    var customerId=customerEl?customerEl.value:'';
+    var repId=repEl?repEl.value:'';
+    var c=(db.customers||[]).find(function(x){return String(x.id)===String(customerId);});
+    var r=(db.reps||[]).find(function(x){return String(x.id)===String(repId);});
+    var amount=typeof n==='function'?n(amountEl?amountEl.value:0):Number(amountEl?amountEl.value:0)||0;
+    var ar=typeof lang!=='undefined'&&lang==='ar';
+    if(!c)return alert(ar?'اختر العميل':'Select customer');
+    if(!r)return alert(ar?'اختر المندوب':'Select representative');
+    if(amount<=0)return alert(ar?'اكتب قيمة صحيحة للتحصيل':'Enter a valid collection amount');
+    if(!Array.isArray(db.collections))db.collections=[];
+    var collectionId=typeof uid==='function'?uid():('col_'+Date.now());
+    var customerName=cname208(c);
+    var userName=currentName208();
+    db.collections.unshift({id:collectionId,date:typeof today==='function'?today():new Date().toISOString().slice(0,10),customer_id:c.id,customer_name:customerName,rep_id:r.id,rep_name:r.name||'',amount:amount,method:methodEl?methodEl.value:'Cash',notes:notesEl?notesEl.value:'',status:'approved',approval_status:'approved',created_by:userName,approved_by:userName,approved_date:typeof today==='function'?today():new Date().toISOString().slice(0,10)});
+    c.balance=(typeof n==='function'?n(c.balance):Number(c.balance)||0)-amount;
+    if(typeof postEntry==='function')postEntry('collection',collectionId,(ar?'تحصيل من ':'Collection from ')+customerName,[{account:'1100',debit:amount},{account:'1200',credit:amount}]);
+    if(typeof save==='function')save();
+    alert(ar?'تم تسجيل التحصيل بنجاح':'Collection saved successfully');
+    if(typeof render==='function')render();
+  };
+  try{addCollection=window.addCollection}catch(e){}
+})();
+</script>
+<!-- v208b end -->
