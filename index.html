@@ -15075,3 +15075,67 @@ html body .collection-approval-card-v178{display:none!important}
 })();
 </script>
 <!-- v208b end -->
+
+
+<!-- v209 sales allocation applied to reps and regions -->
+<script id="v209-sales-allocation-kpis">
+(function(){
+  function normV209(v){
+    return String(v||'').replace(/\s+/g,' ').trim().toLowerCase()
+      .replace(/[أإآا]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي')
+      .replace(/[ؤ]/g,'و').replace(/[ئ]/g,'ي').replace(/[\u064B-\u065F]/g,'');
+  }
+  function rowsV209(){
+    try{return typeof salesAllocationRowsV52==='function'?salesAllocationRowsV52():[]}
+    catch(e){console.error('v209 allocation rows',e);return []}
+  }
+  function filteredRowsV209(){
+    var rows=rowsV209();
+    try{
+      if(typeof reportFrom!=='undefined'&&reportFrom)rows=rows.filter(function(r){return String(r.date||'')>=String(reportFrom)});
+      if(typeof reportTo!=='undefined'&&reportTo)rows=rows.filter(function(r){return String(r.date||'')<=String(reportTo)});
+    }catch(e){}
+    return rows;
+  }
+  function regionIdV209(row){
+    if(!row)return '';
+    var rep=(db.reps||[]).find(function(r){return String(r.id||'')===String(row.rep_id||'')});
+    if(rep){
+      if(rep.region_id)return rep.region_id;
+      try{if(typeof entityRegionId==='function'){var rrid=entityRegionId(rep);if(rrid)return rrid}}catch(e){}
+    }
+    var code=String(row.region_code||'').trim();
+    if(!code)return '';
+    try{if(typeof findRegionByAreaV112==='function'){var fr=findRegionByAreaV112(code);if(fr)return fr.id}}catch(e){}
+    var key=normV209(code);
+    var rg=(db.regions||[]).find(function(r){
+      return [r.id,r.name,r.name_ar,r.name_en,r.customer_area,r.area,r.region_name,r.zone].some(function(v){return normV209(v)===key});
+    });
+    return rg?rg.id:'';
+  }
+  function asSaleV209(r){
+    return {id:'alloc_'+String(r.id||''),allocation_id:r.id||'',sale_id:r.sale_id||'',date:r.date||'',customer_name:r.customer_name||'',clinic_name:r.clinic_name||'',product_name:r.product_name||'',rep_id:r.rep_id||'',rep_name:r.rep_name||'',region_name:r.region_code||'',region_code:r.region_code||'',region_id:regionIdV209(r),rep_percentage:r.percentage,qty:Number(r.allocated_qty||0),total:Number(r.allocated_amount||0),paid:Number(r.paid||0),remaining:Number(r.remaining||0),_allocated:true};
+  }
+  window.repAchievement=function(id){
+    return rowsV209().filter(function(r){return String(r.rep_id||'')===String(id||'')}).reduce(function(a,r){return a+Number(r.allocated_amount||0)},0);
+  };
+  window.repAchievementFiltered=function(id){
+    return filteredRowsV209().filter(function(r){return String(r.rep_id||'')===String(id||'')}).reduce(function(a,r){return a+Number(r.allocated_amount||0)},0);
+  };
+  window.regionSales=function(id){
+    return rowsV209().filter(function(r){return String(regionIdV209(r))===String(id||'')}).map(asSaleV209);
+  };
+  window.regionProducts=function(id){
+    var map={};
+    window.regionSales(id).forEach(function(s){
+      var k=s.product_name||((typeof T==='function')?T('product'):'Product');
+      if(!map[k])map[k]={name:k,qty:0,total:0};
+      map[k].qty+=Number(s.qty||0);map[k].total+=Number(s.total||0);
+    });
+    return Object.values(map).sort(function(a,b){return b.qty-a.qty});
+  };
+  try{if(db&&Array.isArray(db.sales)){db.sales_allocations=rowsV209();if(typeof save==='function')save()}}catch(e){console.error('v209 snapshot',e)}
+  try{if(typeof render==='function')render()}catch(e){console.error('v209 render',e)}
+})();
+</script>
+<!-- v209 end -->
