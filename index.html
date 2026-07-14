@@ -15278,3 +15278,123 @@ html body .collection-approval-card-v178{display:none!important}
 })();
 </script>
 <!-- v210b end -->
+
+
+<!-- ===== v212 FINAL invoice display regrouping after rep-report allocation fix ===== -->
+<style id="v212-invoice-regroup-style">
+html body .invoice-products-v212{white-space:normal!important;line-height:1.75!important;min-width:250px!important;font-weight:700!important}
+html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!important}
+</style>
+<script id="v212-invoice-regroup-safe">
+(function(){
+  'use strict';
+  function numV212(v){try{return typeof n==='function'?n(v):(Number(v)||0)}catch(e){return Number(v)||0}}
+  function rowsV212(){
+    try{if(typeof visibleSalesRows==='function')return visibleSalesRows()||[]}catch(e){}
+    return Array.isArray(db.sales)?db.sales:[];
+  }
+  function keyV212(row){
+    var no=String((row&&row.invoice_no)||'').trim();
+    if(no)return 'NO|'+no.toLowerCase();
+    var gid=String((row&&row.invoice_group_id)||'').trim();
+    if(gid)return 'GROUP|'+gid;
+    return 'ROW|'+String((row&&row.id)||'');
+  }
+  function groupsV212(rows){
+    var map=new Map();
+    (rows||[]).forEach(function(row){
+      var key=keyV212(row);
+      if(!map.has(key))map.set(key,{key:key,first:row,rows:[],qty:0,total:0,paid:0,remaining:0});
+      var g=map.get(key);g.rows.push(row);g.qty+=numV212(row.qty);g.total+=numV212(row.total);
+    });
+    map.forEach(function(g){
+      var paidValues=g.rows.map(function(r){return numV212(r.paid)});
+      var remainingValues=g.rows.map(function(r){return numV212(r.remaining)});
+      var samePaid=paidValues.length&&paidValues.every(function(v){return v===paidValues[0]});
+      var sameRemaining=remainingValues.length&&remainingValues.every(function(v){return v===remainingValues[0]});
+      g.paid=samePaid?paidValues[0]:paidValues.reduce(function(a,b){return a+b},0);
+      g.remaining=sameRemaining?remainingValues[0]:remainingValues.reduce(function(a,b){return a+b},0);
+    });
+    return Array.from(map.values());
+  }
+  function invoiceNoV212(g){
+    var r=g.rows.find(function(x){return String(x.invoice_no||'').trim()});
+    return r?String(r.invoice_no):'';
+  }
+  function productsV212(g){
+    return g.rows.map(function(r){
+      var type=r.order_type_label||r.order_type||'';
+      return esc(r.product_name||'')+' ('+numV212(r.qty)+')'+(type?' - '+esc(type):'');
+    }).join('<br>');
+  }
+  function tableV212(rows){
+    var gs=groupsV212(rows);
+    if(!gs.length)return '<div class="empty">'+T('empty')+'</div>';
+    return '<div class="orders-v59-table-wrap"><table><tr>'+
+      '<th>'+(lang==='ar'?'رقم الفاتورة':'Invoice no.')+'</th><th>'+T('date')+'</th><th>'+T('customer')+'</th>'+
+      '<th>'+(lang==='ar'?'المنطقة':'Region')+'</th><th>'+T('rep')+'</th><th>'+(lang==='ar'?'المنتجات':'Products')+'</th>'+
+      '<th>'+T('qty')+'</th><th>'+T('total')+'</th><th>'+T('paid')+'</th><th>'+T('remaining')+'</th><th>'+T('status')+'</th>'+
+      '<th>'+(lang==='ar'?'مستندات':'Documents')+'</th></tr>'+gs.map(function(g){
+        var r=g.first,no=invoiceNoV212(g);
+        var region=typeof transactionRegionName==='function'?transactionRegionName(r):(r.region_name||'');
+        var sc=typeof saleStatusBadge==='function'?saleStatusBadge(r):'ok';
+        var sl=typeof saleStatusLabel==='function'?saleStatusLabel(r):T('sold');
+        return '<tr><td class="invoice-no-v212">'+esc(no||'-')+'</td><td>'+esc(r.date||'')+'</td><td>'+esc(r.customer_name||'')+'</td>'+
+          '<td><span class="transaction-region">'+esc(region)+'</span></td><td>'+esc(r.rep_name||'')+'</td>'+
+          '<td class="invoice-products-v212">'+productsV212(g)+'</td><td>'+numV212(g.qty)+'</td><td>'+money(g.total)+'</td>'+
+          '<td>'+money(g.paid)+'</td><td>'+money(g.remaining)+'</td><td><span class="badge '+sc+'">'+sl+'</span></td>'+
+          '<td><div class="actions"><button class="btn small blue" onclick="printSaleDocument(\''+r.id+'\',\'invoice\')">'+(lang==='ar'?'فاتورة':'Invoice')+'</button>'+
+          '<button class="btn small ok" onclick="printSaleDocument(\''+r.id+'\',\'delivery\')">'+(lang==='ar'?'إذن تسليم':'Delivery')+'</button>'+
+          '<button class="btn small secondary" onclick="waSale(\''+r.id+'\')">'+T('whatsapp')+'</button></div></td></tr>';
+      }).join('')+'</table></div>';
+  }
+  window.groupInvoiceRowsV212=groupsV212;
+  window.groupedSalesTableV212=tableV212;
+  window.salesTable=function(){return tableV212(rowsV212())};
+  window.salesRowsTableV59=function(rows){return tableV212(rows||[])};
+  try{salesTable=window.salesTable}catch(e){}
+  try{salesRowsTableV59=window.salesRowsTableV59}catch(e){}
+
+  var previousRenderSalesV212=window.renderSales;
+  if(typeof previousRenderSalesV212==='function'){
+    window.renderSales=function(){
+      var result=previousRenderSalesV212.apply(this,arguments);
+      var view=document.getElementById('view-sales');
+      if(view){
+        var cards=[].slice.call(view.querySelectorAll('.card'));
+        var card=cards.find(function(c){var h=c.querySelector('h3');return h&&(/كل المبيعات|all sales/i.test(h.textContent||''))});
+        if(card){
+          var h=card.querySelector('h3');
+          var old=card.querySelector('.orders-v59-table-wrap, table, .empty');
+          if(old)old.remove();
+          if(h)h.insertAdjacentHTML('afterend',tableV212(rowsV212()));
+        }
+      }
+      return result;
+    };
+    try{renderSales=window.renderSales}catch(e){}
+  }
+
+  var previousOrdersTilesV212=window.ordersTilesV59;
+  window.ordersTilesV59=function(){
+    var sold=rowsV212(),sg=groupsV212(sold);
+    var pending=typeof ordersPendingRowsV59==='function'?ordersPendingRowsV59():[];
+    var history=typeof ordersHistoryRowsV59==='function'?ordersHistoryRowsV59():[];
+    var outstanding=sg.filter(function(g){return numV212(g.remaining)>0});
+    var paid=sg.filter(function(g){return numV212(g.remaining)<=0});
+    var amount=sg.reduce(function(a,g){return a+numV212(g.total)},0);
+    return '<div class="orders-v59-home" id="orders_v59_home"><div class="orders-v59-head"><div><h3>'+(lang==='ar'?'مركز أوامر البيع':'Sales Orders Center')+'</h3></div><span class="report-pill">'+money(amount)+'</span></div><div class="orders-v59-grid">'+
+      '<div class="orders-v59-tile" onclick="showOrdersDetailV59(\'all\')"><div><div class="orders-v59-icon">📦</div><div class="orders-v59-title">'+(lang==='ar'?'كل المبيعات':'All sales')+'</div></div><div class="orders-v59-count">'+sg.length+'</div></div>'+
+      '<div class="orders-v59-tile" onclick="showOrdersDetailV59(\'pending\')"><div><div class="orders-v59-icon">⏳</div><div class="orders-v59-title">'+(lang==='ar'?'منتظر الموافقة':'Pending approval')+'</div></div><div class="orders-v59-count">'+groupsV212(pending).length+'</div></div>'+
+      '<div class="orders-v59-tile" onclick="showOrdersDetailV59(\'history\')"><div><div class="orders-v59-icon">🧾</div><div class="orders-v59-title">'+(lang==='ar'?'سجل القرارات':'Decision history')+'</div></div><div class="orders-v59-count">'+groupsV212(history).length+'</div></div>'+
+      '<div class="orders-v59-tile" onclick="showOrdersDetailV59(\'outstanding\')"><div><div class="orders-v59-icon">💰</div><div class="orders-v59-title">'+(lang==='ar'?'عليها متبقي':'Outstanding')+'</div></div><div class="orders-v59-count">'+outstanding.length+'</div></div>'+
+      '<div class="orders-v59-tile" onclick="showOrdersDetailV59(\'paid\')"><div><div class="orders-v59-icon">✅</div><div class="orders-v59-title">'+(lang==='ar'?'مدفوع بالكامل':'Fully paid')+'</div></div><div class="orders-v59-count">'+paid.length+'</div></div>'+
+      '<div class="orders-v59-tile" onclick="showOrdersDetailV59(\'invoices\')"><div><div class="orders-v59-icon">📄</div><div class="orders-v59-title">'+(lang==='ar'?'الفواتير':'Invoices')+'</div></div><div class="orders-v59-count">'+sg.length+'</div></div>'+
+      '<div class="orders-v59-tile" onclick="showOrdersDetailV59(\'delivery\')"><div><div class="orders-v59-icon">🚚</div><div class="orders-v59-title">'+(lang==='ar'?'أذون التسليم':'Delivery notes')+'</div></div><div class="orders-v59-count">'+sg.length+'</div></div>'+
+      '<div class="orders-v59-tile" onclick="showOrdersDetailV59(\'report\')"><div><div class="orders-v59-icon">📊</div><div class="orders-v59-title">'+(lang==='ar'?'ملخص سريع':'Quick summary')+'</div></div><div class="orders-v59-count">'+money(amount)+'</div></div>'+
+      '</div></div><div class="orders-v59-detail" id="orders_v59_detail"></div>';
+  };
+  try{ordersTilesV59=window.ordersTilesV59}catch(e){}
+})();
+</script>
+<!-- v212 end -->
