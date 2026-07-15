@@ -15398,3 +15398,116 @@ html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!importan
 })();
 </script>
 <!-- v212 end -->
+
+
+<!-- ===== v213 SAFE Customer Statement ===== -->
+<style id="v213-customer-statement-style">
+.customer-statement-launch-v213{display:grid;grid-template-columns:minmax(220px,1.4fr) minmax(160px,.7fr) minmax(160px,.7fr) auto;gap:12px;align-items:end}
+.customer-statement-modal-v213{position:fixed;inset:0;z-index:10080;background:rgba(15,23,42,.72);display:none;padding:18px;overflow:auto}
+.customer-statement-modal-v213.show{display:block}
+.customer-statement-panel-v213{max-width:1180px;margin:0 auto;background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.28)}
+.customer-statement-head-v213{position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;align-items:flex-start;gap:14px;padding:20px 24px;background:linear-gradient(135deg,#0f172a,#0f766e);color:#fff}
+.customer-statement-head-v213 h2{margin:0;color:#fff!important}.customer-statement-head-v213 p{margin:6px 0 0;color:#d1fae5!important}
+.customer-statement-actions-v213{display:flex;gap:8px;flex-wrap:wrap}
+.customer-statement-body-v213{padding:22px;background:#f8fafc}
+.customer-statement-summary-v213{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.customer-statement-summary-v213 .stat{background:#fff!important;border:1px solid #e2e8f0!important}
+.customer-statement-table-v213{overflow:auto;background:#fff;border-radius:14px;border:1px solid #e2e8f0}
+.customer-statement-table-v213 table{min-width:900px!important;margin:0!important}
+.customer-statement-table-v213 td,.customer-statement-table-v213 th{white-space:normal!important}
+.customer-statement-balance-v213{font-weight:900}.customer-statement-debit-v213{color:#b91c1c;font-weight:900}.customer-statement-credit-v213{color:#166534;font-weight:900}
+@media(max-width:850px){.customer-statement-launch-v213,.customer-statement-summary-v213{grid-template-columns:1fr}.customer-statement-modal-v213{padding:0}.customer-statement-panel-v213{border-radius:0;min-height:100vh}.customer-statement-head-v213{position:relative;display:block}.customer-statement-actions-v213{margin-top:12px}}
+@media print{.customer-statement-modal-v213{position:static!important;display:block!important;background:#fff!important;padding:0!important}.customer-statement-panel-v213{box-shadow:none!important;max-width:none!important}.customer-statement-head-v213{position:static!important;background:#fff!important;color:#000!important;border-bottom:2px solid #0f766e}.customer-statement-head-v213 h2,.customer-statement-head-v213 p{color:#000!important}.customer-statement-actions-v213,.side,.nav,.no-print{display:none!important}.customer-statement-body-v213{background:#fff!important;padding:0!important}}
+</style>
+<script id="v213-customer-statement-safe">
+(function(){
+  'use strict';
+  function numV213(v){try{return typeof n==='function'?n(v):(Number(v)||0)}catch(e){return Number(v)||0}}
+  function escV213(v){try{return typeof esc==='function'?esc(v):String(v??'').replace(/[&<>\"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c]})}catch(e){return String(v??'')}}
+  function moneyV213(v){try{return typeof money==='function'?money(v):('EGP '+numV213(v).toLocaleString())}catch(e){return 'EGP '+numV213(v)}}
+  function customerNameV213(c){return String((c&&(c.name||c.customer_name||c.clinic_name))||'').trim()}
+  function dateValueV213(v){var s=String(v||'').slice(0,10);var t=Date.parse(s+'T00:00:00');return Number.isFinite(t)?t:0}
+  function invoiceKeyV213(r){var no=String((r&&r.invoice_no)||'').trim();if(no)return 'NO|'+no.toLowerCase();var gid=String((r&&r.invoice_group_id)||'').trim();if(gid)return 'GROUP|'+gid;return 'ROW|'+String((r&&r.id)||'')}
+  function customerMatchV213(row,c){if(!row||!c)return false;if(row.customer_id&&c.id)return String(row.customer_id)===String(c.id);var rn=String(row.customer_name||'').trim().toLowerCase();return rn&&rn===customerNameV213(c).toLowerCase()}
+  function groupedInvoicesV213(c){
+    var map=new Map();
+    (Array.isArray(db.sales)?db.sales:[]).filter(function(r){return customerMatchV213(r,c)}).forEach(function(r){
+      var k=invoiceKeyV213(r);if(!map.has(k))map.set(k,{key:k,first:r,rows:[],total:0,qty:0});
+      var g=map.get(k);g.rows.push(r);g.total+=numV213(r.total);g.qty+=numV213(r.qty);
+    });
+    map.forEach(function(g){
+      var paid=g.rows.map(function(r){return numV213(r.paid)}), rem=g.rows.map(function(r){return numV213(r.remaining)});
+      var samePaid=paid.length&&paid.every(function(v){return v===paid[0]});
+      var sameRem=rem.length&&rem.every(function(v){return v===rem[0]});
+      g.paid=samePaid?paid[0]:paid.reduce(function(a,b){return a+b},0);
+      g.remaining=sameRem?rem[0]:rem.reduce(function(a,b){return a+b},0);
+      var withNo=g.rows.find(function(r){return String(r.invoice_no||'').trim()});
+      g.invoice_no=withNo?String(withNo.invoice_no):'';
+      g.date=String(g.first.date||'').slice(0,10);
+      g.products=g.rows.map(function(r){return (r.product_name||'')+' × '+numV213(r.qty)}).join('، ');
+    });
+    return Array.from(map.values());
+  }
+  function collectionsV213(c){return (Array.isArray(db.collections)?db.collections:[]).filter(function(r){return customerMatchV213(r,c)}).map(function(r){return {date:String(r.date||'').slice(0,10),id:r.id||'',amount:numV213(r.amount),method:r.method||'',rep:r.rep_name||'',notes:r.notes||''}})}
+  function accountDataV213(customerId,from,to){
+    var c=(db.customers||[]).find(function(x){return String(x.id)===String(customerId)});if(!c)return null;
+    var invoices=groupedInvoicesV213(c), cols=collectionsV213(c);
+    var fromT=from?dateValueV213(from):-Infinity,toT=to?dateValueV213(to):Infinity;
+    var allDebit=invoices.reduce(function(a,g){return a+numV213(g.remaining)},0),allCredit=cols.reduce(function(a,r){return a+numV213(r.amount)},0);
+    var base=numV213(c.balance)-allDebit+allCredit;
+    var opening=base;
+    invoices.forEach(function(g){if(dateValueV213(g.date)<fromT)opening+=numV213(g.remaining)});
+    cols.forEach(function(r){if(dateValueV213(r.date)<fromT)opening-=numV213(r.amount)});
+    var moves=[];
+    invoices.forEach(function(g){var t=dateValueV213(g.date);if(t>=fromT&&t<=toT)moves.push({date:g.date,type:'invoice',doc:g.invoice_no||String(g.first.id||'').slice(-8).toUpperCase(),debit:numV213(g.remaining),credit:0,total:g.total,paid:g.paid,details:g.products,sort:1})});
+    cols.forEach(function(r){var t=dateValueV213(r.date);if(t>=fromT&&t<=toT)moves.push({date:r.date,type:'collection',doc:'COL-'+String(r.id||'').slice(-6).toUpperCase(),debit:0,credit:r.amount,method:r.method,rep:r.rep,details:r.notes,sort:2})});
+    moves.sort(function(a,b){return dateValueV213(a.date)-dateValueV213(b.date)||a.sort-b.sort||String(a.doc).localeCompare(String(b.doc))});
+    var balance=opening;moves.forEach(function(m){balance+=m.debit-m.credit;m.balance=balance});
+    return {customer:c,opening:opening,moves:moves,closing:balance,totalDebit:moves.reduce(function(a,m){return a+m.debit},0),totalCredit:moves.reduce(function(a,m){return a+m.credit},0)};
+  }
+  function launchCardV213(){
+    var ar=(typeof lang!=='undefined'&&lang==='ar');
+    var opts='<option value="">'+(ar?'اختر العميل':'Select customer')+'</option>'+(db.customers||[]).map(function(c){return '<option value="'+escV213(c.id)+'">'+escV213(customerNameV213(c))+'</option>'}).join('');
+    return '<div class="card" id="customer_statement_launch_v213"><div class="section-title"><h3>'+(ar?'كشف حساب عميل':'Customer statement')+'</h3></div><div class="customer-statement-launch-v213"><div><label>'+(ar?'العميل':'Customer')+'</label><select id="statement_customer_v213">'+opts+'</select></div><div><label>'+(ar?'من تاريخ':'From')+'</label><input type="date" id="statement_from_v213"></div><div><label>'+(ar?'إلى تاريخ':'To')+'</label><input type="date" id="statement_to_v213"></div><button class="btn blue" onclick="openCustomerStatementV213()">'+(ar?'عرض كشف الحساب':'View statement')+'</button></div></div>';
+  }
+  function modalV213(){var ar=(typeof lang!=='undefined'&&lang==='ar');return '<div id="customer_statement_modal_v213" class="customer-statement-modal-v213" onclick="if(event.target===this)closeCustomerStatementV213()"><div class="customer-statement-panel-v213"><div class="customer-statement-head-v213"><div><h2 id="statement_title_v213">'+(ar?'كشف حساب عميل':'Customer statement')+'</h2><p id="statement_subtitle_v213"></p></div><div class="customer-statement-actions-v213"><button class="btn secondary" onclick="printCustomerStatementV213()">'+(ar?'طباعة / PDF':'Print / PDF')+'</button><button class="btn danger" onclick="closeCustomerStatementV213()">'+(ar?'إغلاق':'Close')+'</button></div></div><div id="customer_statement_body_v213" class="customer-statement-body-v213"></div></div></div>'}
+  function renderStatementV213(data,from,to){
+    var ar=(typeof lang!=='undefined'&&lang==='ar'),c=data.customer;
+    document.getElementById('statement_title_v213').textContent=(ar?'كشف حساب: ':'Customer statement: ')+customerNameV213(c);
+    document.getElementById('statement_subtitle_v213').textContent=(from||to)?((ar?'الفترة: ':'Period: ')+(from||'—')+' '+(ar?'إلى':'to')+' '+(to||'—')):(ar?'جميع الحركات':'All transactions');
+    var rows='<tr><td>'+(from||'—')+'</td><td>'+(ar?'رصيد افتتاحي':'Opening balance')+'</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="customer-statement-balance-v213">'+moneyV213(data.opening)+'</td></tr>';
+    data.moves.forEach(function(m){
+      var desc=m.type==='invoice'?(ar?'فاتورة بيع':'Sales invoice')+(m.details?' — '+m.details:'')+(m.total!==undefined?' ('+(ar?'إجمالي':'Total')+' '+moneyV213(m.total)+(m.paid?'، '+(ar?'مدفوع':'Paid')+' '+moneyV213(m.paid):'')+')':''):(ar?'تحصيل':'Collection')+(m.method?' — '+m.method:'')+(m.rep?' — '+m.rep:'')+(m.details?' — '+m.details:'');
+      rows+='<tr><td>'+escV213(m.date)+'</td><td>'+escV213(desc)+'</td><td>'+escV213(m.doc)+'</td><td class="customer-statement-debit-v213">'+(m.debit?moneyV213(m.debit):'—')+'</td><td class="customer-statement-credit-v213">'+(m.credit?moneyV213(m.credit):'—')+'</td><td>'+escV213(m.type==='invoice'?(ar?'فاتورة':'Invoice'):(ar?'تحصيل':'Collection'))+'</td><td class="customer-statement-balance-v213">'+moneyV213(m.balance)+'</td></tr>';
+    });
+    if(!data.moves.length)rows+='<tr><td colspan="7" style="text-align:center;padding:28px">'+(ar?'لا توجد حركات في الفترة المحددة':'No transactions in selected period')+'</td></tr>';
+    document.getElementById('customer_statement_body_v213').innerHTML='<div class="customer-statement-summary-v213"><div class="stat"><span>'+(ar?'الرصيد الافتتاحي':'Opening balance')+'</span><strong>'+moneyV213(data.opening)+'</strong></div><div class="stat"><span>'+(ar?'مبيعات آجلة خلال الفترة':'Credit sales in period')+'</span><strong>'+moneyV213(data.totalDebit)+'</strong></div><div class="stat"><span>'+(ar?'التحصيلات خلال الفترة':'Collections in period')+'</span><strong>'+moneyV213(data.totalCredit)+'</strong></div><div class="stat"><span>'+(ar?'الرصيد الختامي':'Closing balance')+'</span><strong>'+moneyV213(data.closing)+'</strong></div></div><div class="card" style="margin-bottom:14px"><b>'+escV213(customerNameV213(c))+'</b><div style="margin-top:7px">'+escV213(c.phone||'')+(c.area?' — '+escV213(c.area):'')+(c.address?' — '+escV213(c.address):'')+'</div></div><div class="customer-statement-table-v213"><table><tr><th>'+(ar?'التاريخ':'Date')+'</th><th>'+(ar?'البيان':'Description')+'</th><th>'+(ar?'رقم المستند':'Document no.')+'</th><th>'+(ar?'مدين':'Debit')+'</th><th>'+(ar?'دائن':'Credit')+'</th><th>'+(ar?'نوع الحركة':'Type')+'</th><th>'+(ar?'الرصيد':'Balance')+'</th></tr>'+rows+'</table></div>';
+  }
+  window.openCustomerStatementV213=function(customerId){
+    var sel=document.getElementById('statement_customer_v213'),id=customerId||((sel||{}).value||'');
+    if(!id)return alert((typeof lang!=='undefined'&&lang==='ar')?'اختر العميل أولًا':'Select a customer first');
+    if(sel)sel.value=id;
+    var from=(document.getElementById('statement_from_v213')||{}).value||'',to=(document.getElementById('statement_to_v213')||{}).value||'';
+    if(from&&to&&from>to)return alert((typeof lang!=='undefined'&&lang==='ar')?'تاريخ البداية يجب أن يكون قبل تاريخ النهاية':'Start date must be before end date');
+    var data=accountDataV213(id,from,to);if(!data)return;
+    var modal=document.getElementById('customer_statement_modal_v213');if(!modal){document.body.insertAdjacentHTML('beforeend',modalV213());modal=document.getElementById('customer_statement_modal_v213')}
+    renderStatementV213(data,from,to);modal.classList.add('show');document.body.classList.add('modal-open');
+  };
+  window.closeCustomerStatementV213=function(){var m=document.getElementById('customer_statement_modal_v213');if(m)m.classList.remove('show');document.body.classList.remove('modal-open')};
+  window.printCustomerStatementV213=function(){window.print()};
+  window.customerAccountDataV213=accountDataV213;
+
+  var baseRenderCustomersV213=window.renderCustomers;
+  if(typeof baseRenderCustomersV213==='function'){
+    window.renderCustomers=function(){
+      var result=baseRenderCustomersV213.apply(this,arguments),target=document.getElementById('view-customers');
+      if(target&&!document.getElementById('customer_statement_launch_v213'))target.insertAdjacentHTML('afterbegin',launchCardV213());
+      if(!document.getElementById('customer_statement_modal_v213'))document.body.insertAdjacentHTML('beforeend',modalV213());
+      return result;
+    };
+    try{renderCustomers=window.renderCustomers}catch(e){}
+  }
+  try{var v=document.getElementById('view-customers');if(v&&!v.classList.contains('hidden'))window.renderCustomers()}catch(e){console.error('v213 customer statement',e)}
+})();
+</script>
+<!-- v213 end -->
