@@ -15513,7 +15513,26 @@ html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!importan
     renderStatementV213(data,from,to);modal.classList.add('show');document.body.classList.add('modal-open');
   };
   window.closeCustomerStatementV213=function(){var m=document.getElementById('customer_statement_modal_v213');if(m)m.classList.remove('show');document.body.classList.remove('modal-open')};
-  window.printCustomerStatementV213=function(){window.print()};
+  window.printCustomerStatementV213=function(){
+    var body=document.getElementById('customer_statement_body_v213');
+    if(!body)return alert('لا يوجد كشف حساب للطباعة');
+    var title=(document.getElementById('statement_title_v213')||{}).textContent||'كشف حساب عميل';
+    var popup=window.open('','_blank','width=1200,height=800');
+    if(!popup)return alert('يرجى السماح بالنوافذ المنبثقة للطباعة');
+    popup.document.open();
+    popup.document.write('<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8"><title>'+escV213(title)+'</title><style>'+
+      '*{box-sizing:border-box}body{margin:0;padding:18px;font-family:Tahoma,Arial,sans-serif;background:#fff;color:#000;direction:rtl}'+
+      '.print-wrap{width:100%;max-width:1100px;margin:0 auto}'+
+      '.stat{background:#fff!important;border:1px solid #d1d5db!important;border-radius:10px;padding:12px}'+
+      '.stat span{display:block;font-size:12px;color:#475569;margin-bottom:5px}.stat strong{color:#000}'+
+      'table{width:100%!important;min-width:0!important;border-collapse:collapse!important;margin-top:12px}'+
+      'th,td{border:1px solid #d1d5db!important;padding:9px!important;text-align:right!important;color:#000!important;background:#fff!important;white-space:normal!important;font-size:12px}'+
+      'th{background:#f1f5f9!important;font-weight:900!important}'+
+      'h1{color:#000!important}'+
+      '@page{size:A4 landscape;margin:10mm}@media print{body{padding:0}.print-wrap{max-width:none}}'+
+      '</style></head><body><div class="print-wrap">'+body.innerHTML+'</div><script>window.onload=function(){setTimeout(function(){window.print();},250)}<\/script></body></html>');
+    popup.document.close();
+  };
   window.customerAccountDataV213=accountDataV213;
 
   var baseRenderCustomersV213=window.renderCustomers;
@@ -15530,35 +15549,3 @@ html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!importan
 })();
 </script>
 <!-- v213 end -->
-
-
-<!-- v214 print customer statement section only -->
-<script id="v214-print-customer-statement-only">
-(function(){
-  window.printCustomerStatementV213=function(){
-    var body=document.getElementById('customer_statement_body_v213');
-    var title=document.getElementById('statement_title_v213');
-    var subtitle=document.getElementById('statement_subtitle_v213');
-    if(!body || !body.innerHTML.trim()){
-      alert('افتح كشف الحساب أولًا');
-      return;
-    }
-    var w=window.open('','_blank','width=1200,height=850');
-    if(!w){alert('يرجى السماح بفتح النوافذ المنبثقة للطباعة');return;}
-    var printable='<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8">'+
-      '<meta name="viewport" content="width=device-width,initial-scale=1.0">'+
-      '<title>'+(title?title.textContent:'كشف حساب عميل')+'</title>'+
-      '<style>'+ 
-      '@page{size:A4 landscape;margin:10mm}*{box-sizing:border-box}body{margin:0;background:#fff;color:#000;font-family:Tahoma,Arial,sans-serif;direction:rtl}'+
-      '.print-head{border-bottom:2px solid #0f766e;padding:0 0 12px;margin:0 0 16px;text-align:right}.print-head h2{margin:0 0 5px;font-size:24px}.print-head p{margin:0;color:#475569;font-size:13px}'+
-      '#customer_statement_body_v213{padding:0;background:#fff}#customer_statement_body_v213>div{border:0!important;border-radius:0!important;padding:0!important}'+
-      '.stat{background:#fff;border:1px solid #dbe2ea;border-radius:10px;padding:10px}.stat span{display:block;color:#64748b;font-size:11px;margin-bottom:5px}.stat strong{font-size:14px!important}'+
-      '.customer-statement-table-v213{overflow:visible!important;border:1px solid #dbe2ea;border-radius:10px}table{width:100%!important;min-width:0!important;border-collapse:collapse!important;table-layout:auto}th,td{border:1px solid #e5e7eb;padding:7px 6px;text-align:right;font-size:11px;white-space:normal!important;color:#000!important;background:#fff!important}th{background:#f8fafc!important;font-weight:900}tr{break-inside:avoid}h1{font-size:22px!important}'+
-      '@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}.no-print{display:none!important}}'+
-      '</style></head><body><div class="print-head"><h2>'+(title?title.textContent:'كشف حساب عميل')+'</h2><p>'+(subtitle?subtitle.textContent:'')+'</p></div><div id="customer_statement_body_v213">'+body.innerHTML+'</div>'+
-      '<script>window.onload=function(){setTimeout(function(){window.print();},150)}<\\/script></body></html>';
-    w.document.open();w.document.write(printable);w.document.close();w.focus();
-  };
-})();
-</script>
-<!-- v214 end -->
