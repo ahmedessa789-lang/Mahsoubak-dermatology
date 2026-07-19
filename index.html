@@ -15459,7 +15459,7 @@ html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!importan
     invoices.forEach(function(g){if(dateValueV213(g.date)<fromT)opening+=numV213(g.remaining)});
     cols.forEach(function(r){if(dateValueV213(r.date)<fromT)opening-=numV213(r.amount)});
     var moves=[];
-    invoices.forEach(function(g){var t=dateValueV213(g.date);if(t>=fromT&&t<=toT)moves.push({date:g.date,type:'invoice',doc:g.invoice_no||String(g.first.id||'').slice(-8).toUpperCase(),debit:numV213(g.remaining),credit:0,total:g.total,paid:g.paid,details:g.products,sort:1})});
+    invoices.forEach(function(g){var t=dateValueV213(g.date);if(t>=fromT&&t<=toT)moves.push({date:g.date,type:'invoice',doc:g.invoice_no||String(g.first.id||'').slice(-8).toUpperCase(),debit:numV213(g.remaining),credit:0,total:g.total,paid:g.paid,details:g.products,rows:g.rows,sort:1})});
     cols.forEach(function(r){var t=dateValueV213(r.date);if(t>=fromT&&t<=toT)moves.push({date:r.date,type:'collection',doc:'COL-'+String(r.id||'').slice(-6).toUpperCase(),debit:0,credit:r.amount,method:r.method,rep:r.rep,details:r.notes,sort:2})});
     moves.sort(function(a,b){return dateValueV213(a.date)-dateValueV213(b.date)||a.sort-b.sort||String(a.doc).localeCompare(String(b.doc))});
     var balance=opening;moves.forEach(function(m){balance+=m.debit-m.credit;m.balance=balance});
@@ -15472,16 +15472,35 @@ html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!importan
   }
   function modalV213(){var ar=(typeof lang!=='undefined'&&lang==='ar');return '<div id="customer_statement_modal_v213" class="customer-statement-modal-v213" onclick="if(event.target===this)closeCustomerStatementV213()"><div class="customer-statement-panel-v213"><div class="customer-statement-head-v213"><div><h2 id="statement_title_v213">'+(ar?'كشف حساب عميل':'Customer statement')+'</h2><p id="statement_subtitle_v213"></p></div><div class="customer-statement-actions-v213"><button class="btn secondary" onclick="printCustomerStatementV213()">'+(ar?'طباعة / PDF':'Print / PDF')+'</button><button class="btn danger" onclick="closeCustomerStatementV213()">'+(ar?'إغلاق':'Close')+'</button></div></div><div id="customer_statement_body_v213" class="customer-statement-body-v213"></div></div></div>'}
   function renderStatementV213(data,from,to){
-    var ar=(typeof lang!=='undefined'&&lang==='ar'),c=data.customer;
-    document.getElementById('statement_title_v213').textContent=(ar?'كشف حساب: ':'Customer statement: ')+customerNameV213(c);
-    document.getElementById('statement_subtitle_v213').textContent=(from||to)?((ar?'الفترة: ':'Period: ')+(from||'—')+' '+(ar?'إلى':'to')+' '+(to||'—')):(ar?'جميع الحركات':'All transactions');
-    var rows='<tr><td>'+(from||'—')+'</td><td>'+(ar?'رصيد افتتاحي':'Opening balance')+'</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="customer-statement-balance-v213">'+moneyV213(data.opening)+'</td></tr>';
+    var c=data.customer;
+    function typeOfRow(r){return String((r&&(r.order_type||r.sale_type||r.type||r.kind))||'sale').toLowerCase()}
+    function isSampleRow(r){var x=typeOfRow(r);return x.indexOf('bonus')>=0||x.indexOf('sample')>=0||x.indexOf('free')>=0||x.indexOf('display')>=0||x.indexOf('عرض')>=0||x.indexOf('بونص')>=0||x.indexOf('عين')>=0}
+    function productName(r){return String((r&&(r.product_name||r.product||r.item_name||r.name))||'—')}
+    function unitPrice(r){var q=numV213(r&&r.qty),p=numV213(r&&(r.price||r.unit_price||r.sale_price));if(p)return p;var total=numV213(r&&r.total);return q?total/q:0}
+    var balance=data.opening,totalSamples=0,totalQty=0,totalSales=0,totalPaid=0;
+    var rows='<tr><td>'+(from||'—')+'</td><td>—</td><td>رصيد افتتاحي</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="statement-balance-v213">'+moneyV213(balance)+'</td></tr>';
     data.moves.forEach(function(m){
-      var desc=m.type==='invoice'?(ar?'فاتورة بيع':'Sales invoice')+(m.details?' — '+m.details:'')+(m.total!==undefined?' ('+(ar?'إجمالي':'Total')+' '+moneyV213(m.total)+(m.paid?'، '+(ar?'مدفوع':'Paid')+' '+moneyV213(m.paid):'')+')':''):(ar?'تحصيل':'Collection')+(m.method?' — '+m.method:'')+(m.rep?' — '+m.rep:'')+(m.details?' — '+m.details:'');
-      rows+='<tr><td>'+escV213(m.date)+'</td><td>'+escV213(desc)+'</td><td>'+escV213(m.doc)+'</td><td class="customer-statement-debit-v213">'+(m.debit?moneyV213(m.debit):'—')+'</td><td class="customer-statement-credit-v213">'+(m.credit?moneyV213(m.credit):'—')+'</td><td>'+escV213(m.type==='invoice'?(ar?'فاتورة':'Invoice'):(ar?'تحصيل':'Collection'))+'</td><td class="customer-statement-balance-v213">'+moneyV213(m.balance)+'</td></tr>';
+      if(m.type==='invoice'){
+        var lines=Array.isArray(m.rows)&&m.rows.length?m.rows:[{}];
+        lines.forEach(function(r,idx){
+          var sample=isSampleRow(r),qty=numV213(r.qty),sales=sample?0:numV213(r.total),price=sample?0:unitPrice(r),last=idx===lines.length-1;
+          totalSamples+=sample?qty:0;totalQty+=sample?0:qty;totalSales+=sales;
+          rows+='<tr><td>'+escV213(m.date)+'</td><td>'+escV213(m.doc)+'</td><td>'+escV213(productName(r)+(sample?' — عينات مجانية':' — بيع'))+'</td><td>'+(sample?moneyV213(qty):'—')+'</td><td>'+(!sample?moneyV213(qty):'—')+'</td><td>'+(!sample?moneyV213(price):'—')+'</td><td>'+(!sample?moneyV213(sales):'—')+'</td><td>'+(last&&numV213(m.paid)?moneyV213(m.paid):'—')+'</td><td class="statement-balance-v213">'+(last?moneyV213(m.balance):'—')+'</td></tr>';
+        });
+        totalPaid+=numV213(m.paid);
+        balance=m.balance;
+      }else{
+        totalPaid+=numV213(m.credit);balance=m.balance;
+        var desc='تحصيل'+(m.method?' — '+m.method:'')+(m.rep?' — '+m.rep:'')+(m.details?' — '+m.details:'');
+        rows+='<tr><td>'+escV213(m.date)+'</td><td>'+escV213(m.doc)+'</td><td>'+escV213(desc)+'</td><td>—</td><td>—</td><td>—</td><td>—</td><td>'+moneyV213(m.credit)+'</td><td class="statement-balance-v213">'+moneyV213(m.balance)+'</td></tr>';
+      }
     });
-    if(!data.moves.length)rows+='<tr><td colspan="7" style="text-align:center;padding:28px">'+(ar?'لا توجد حركات في الفترة المحددة':'No transactions in selected period')+'</td></tr>';
-    document.getElementById('customer_statement_body_v213').innerHTML='<div class="customer-statement-summary-v213"><div class="stat"><span>'+(ar?'الرصيد الافتتاحي':'Opening balance')+'</span><strong>'+moneyV213(data.opening)+'</strong></div><div class="stat"><span>'+(ar?'مبيعات آجلة خلال الفترة':'Credit sales in period')+'</span><strong>'+moneyV213(data.totalDebit)+'</strong></div><div class="stat"><span>'+(ar?'التحصيلات خلال الفترة':'Collections in period')+'</span><strong>'+moneyV213(data.totalCredit)+'</strong></div><div class="stat"><span>'+(ar?'الرصيد الختامي':'Closing balance')+'</span><strong>'+moneyV213(data.closing)+'</strong></div></div><div class="card" style="margin-bottom:14px"><b>'+escV213(customerNameV213(c))+'</b><div style="margin-top:7px">'+escV213(c.phone||'')+(c.area?' — '+escV213(c.area):'')+(c.address?' — '+escV213(c.address):'')+'</div></div><div class="customer-statement-table-v213"><table><tr><th>'+(ar?'التاريخ':'Date')+'</th><th>'+(ar?'البيان':'Description')+'</th><th>'+(ar?'رقم المستند':'Document no.')+'</th><th>'+(ar?'مدين':'Debit')+'</th><th>'+(ar?'دائن':'Credit')+'</th><th>'+(ar?'نوع الحركة':'Type')+'</th><th>'+(ar?'الرصيد':'Balance')+'</th></tr>'+rows+'</table></div>';
+    if(!data.moves.length)rows+='<tr><td colspan="9" style="text-align:center;padding:28px">لا توجد حركات في الفترة المحددة</td></tr>';
+    rows+='<tr style="font-weight:900;background:#f8fafc"><td colspan="3">الإجمالي</td><td>'+moneyV213(totalSamples)+'</td><td>'+moneyV213(totalQty)+'</td><td>—</td><td>'+moneyV213(totalSales)+'</td><td>'+moneyV213(totalPaid)+'</td><td class="statement-balance-v213">'+moneyV213(balance)+'</td></tr>';
+    var period=(from||to)?('الفترة من '+(from||'—')+' إلى '+(to||'—')):'جميع الحركات';
+    document.getElementById('statement_title_v213').textContent='كشف حساب عميل';
+    document.getElementById('statement_subtitle_v213').textContent=period;
+    document.getElementById('customer_statement_body_v213').innerHTML='<div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:22px"><h1 style="margin:0 0 8px;text-align:center;font-size:25px">كشف حساب عيادات د / '+escV213(customerNameV213(c))+'</h1><div style="text-align:center;color:#64748b;margin-bottom:18px">'+escV213(period)+'</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px"><div class="stat"><span>اسم العميل</span><strong style="font-size:17px">'+escV213(customerNameV213(c))+'</strong></div><div class="stat"><span>الهاتف</span><strong style="font-size:17px">'+escV213(c.phone||'—')+'</strong></div><div class="stat"><span>المنطقة / العنوان</span><strong style="font-size:17px">'+escV213(((c.area||'')+(c.address?' — '+c.address:''))||'—')+'</strong></div></div><div class="customer-statement-table-v213"><table><thead><tr><th>التاريخ</th><th>رقم الفاتورة</th><th>البيان</th><th>عينات مجانية</th><th>الكمية المباعة</th><th>سعر بيع الوحدة</th><th>المبيعات</th><th>المسدد</th><th>الرصيد</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
   }
   window.openCustomerStatementV213=function(customerId){
     var sel=document.getElementById('statement_customer_v213'),id=customerId||((sel||{}).value||'');
