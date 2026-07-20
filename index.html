@@ -15474,7 +15474,9 @@ html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!importan
   function renderStatementV213(data,from,to){
     var c=data.customer;
     function typeOfRow(r){return String((r&&(r.order_type||r.sale_type||r.type||r.kind))||'sale').toLowerCase()}
-    function isSampleRow(r){var x=typeOfRow(r);return x.indexOf('bonus')>=0||x.indexOf('sample')>=0||x.indexOf('free')>=0||x.indexOf('display')>=0||x.indexOf('عرض')>=0||x.indexOf('بونص')>=0||x.indexOf('عين')>=0}
+    function isBonusRow(r){var x=typeOfRow(r);return x.indexOf('bonus')>=0||x.indexOf('بونص')>=0}
+    function isSampleRow(r){var x=typeOfRow(r);return isBonusRow(r)||x.indexOf('sample')>=0||x.indexOf('free')>=0||x.indexOf('display')>=0||x.indexOf('عرض')>=0||x.indexOf('عين')>=0}
+    function freeTypeLabel(r){return isBonusRow(r)?'بونص':'عينات مجانية'}
     function productName(r){return String((r&&(r.product_name||r.product||r.item_name||r.name))||'—')}
     function unitPrice(r){var q=numV213(r&&r.qty),p=numV213(r&&(r.price||r.unit_price||r.sale_price));if(p)return p;var total=numV213(r&&r.total);return q?total/q:0}
     var balance=data.opening,totalSamples=0,totalQty=0,totalSales=0,totalPaid=0;
@@ -15485,7 +15487,7 @@ html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!importan
         lines.forEach(function(r,idx){
           var sample=isSampleRow(r),qty=numV213(r.qty),sales=sample?0:numV213(r.total),price=sample?0:unitPrice(r),last=idx===lines.length-1;
           totalSamples+=sample?qty:0;totalQty+=sample?0:qty;totalSales+=sales;
-          rows+='<tr><td>'+escV213(m.date)+'</td><td>'+escV213(m.doc)+'</td><td>'+escV213(productName(r)+(sample?' — عينات مجانية':' — بيع'))+'</td><td>'+(sample?moneyV213(qty):'—')+'</td><td>'+(!sample?moneyV213(qty):'—')+'</td><td>'+(!sample?moneyV213(price):'—')+'</td><td>'+(!sample?moneyV213(sales):'—')+'</td><td>'+(last&&numV213(m.paid)?moneyV213(m.paid):'—')+'</td><td class="statement-balance-v213">'+(last?moneyV213(m.balance):'—')+'</td></tr>';
+          rows+='<tr><td>'+escV213(m.date)+'</td><td>'+escV213(m.doc)+'</td><td>'+escV213(productName(r)+(sample?' — '+freeTypeLabel(r):' — بيع'))+'</td><td>'+(sample?String(qty):'—')+'</td><td>'+(!sample?String(qty):'—')+'</td><td>'+(!sample?moneyV213(price):'—')+'</td><td>'+(!sample?moneyV213(sales):'—')+'</td><td>'+(last&&numV213(m.paid)?moneyV213(m.paid):'—')+'</td><td class="statement-balance-v213">'+(last?moneyV213(m.balance):'—')+'</td></tr>';
         });
         totalPaid+=numV213(m.paid);
         balance=m.balance;
@@ -15496,7 +15498,7 @@ html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!importan
       }
     });
     if(!data.moves.length)rows+='<tr><td colspan="9" style="text-align:center;padding:28px">لا توجد حركات في الفترة المحددة</td></tr>';
-    rows+='<tr style="font-weight:900;background:#f8fafc"><td colspan="3">الإجمالي</td><td>'+moneyV213(totalSamples)+'</td><td>'+moneyV213(totalQty)+'</td><td>—</td><td>'+moneyV213(totalSales)+'</td><td>'+moneyV213(totalPaid)+'</td><td class="statement-balance-v213">'+moneyV213(balance)+'</td></tr>';
+    rows+='<tr style="font-weight:900;background:#f8fafc"><td colspan="3">الإجمالي</td><td>'+String(totalSamples)+'</td><td>'+String(totalQty)+'</td><td>—</td><td>'+moneyV213(totalSales)+'</td><td>'+moneyV213(totalPaid)+'</td><td class="statement-balance-v213">'+moneyV213(balance)+'</td></tr>';
     var period=(from||to)?('الفترة من '+(from||'—')+' إلى '+(to||'—')):'جميع الحركات';
     document.getElementById('statement_title_v213').textContent='كشف حساب عميل';
     document.getElementById('statement_subtitle_v213').textContent=period;
@@ -15549,3 +15551,127 @@ html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!importan
 })();
 </script>
 <!-- v213 end -->
+
+
+<!-- ===== v214 Exact Excel/PDF invoice layout ===== -->
+<script id="v214-exact-invoice-layout">
+(function(){
+  const baseSaleDocumentV214 = window.saleDocumentHTML || (typeof saleDocumentHTML==='function' ? saleDocumentHTML : null);
+
+  function escV214(v){
+    return String(v==null?'':v).replace(/[&<>'"]/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]});
+  }
+  function numV214(v){const x=Number(v);return Number.isFinite(x)?x:0}
+  function invoiceRowsV214(s){
+    const groupId=s.invoice_group_id||s.id;
+    const invoiceNo=String(s.invoice_no||'').trim();
+    let rows=(db.sales||[]).filter(function(x){
+      if(invoiceNo && String(x.invoice_no||'').trim()===invoiceNo)return true;
+      return String(x.invoice_group_id||x.id)===String(groupId);
+    });
+    return rows.length?rows:[s];
+  }
+  function typeLabelV214(r){
+    const raw=String(r.order_type_label||r.order_type||r.sale_type||r.type||'Sale').toLowerCase();
+    if(raw.includes('bonus')||raw.includes('بونص'))return 'Bonus';
+    if(raw.includes('display')||raw.includes('عرض'))return 'Display';
+    if(raw.includes('sample')||raw.includes('free')||raw.includes('عين'))return 'Sample';
+    return 'Sale';
+  }
+  function invoiceNoV214(s){
+    return String(s.invoice_no||('INV-'+String(s.id||'').slice(-6).toUpperCase()));
+  }
+  function moneyV214(v){
+    return numV214(v).toLocaleString('en-US',{maximumFractionDigits:2})+' EGP';
+  }
+  function invoiceHTMLV214(s){
+    const rows=invoiceRowsV214(s);
+    const c=(db.customers||[]).find(function(x){return String(x.id)===String(s.customer_id)})||{};
+    const invNo=invoiceNoV214(s);
+    const deliveryNo='DN-'+invNo.replace(/^INV-/i,'');
+    const customer=String(s.customer_name||c.name||c.customer_name||'-');
+    const address=String(c.address||c.area||s.region_name||'-');
+    const city=String(c.city||c.area||s.region_name||'-');
+    const phone=String(c.phone||'-');
+    const payment=String(s.payment_method||s.method||'-');
+    const total=rows.reduce(function(a,r){return a+numV214(r.total)},0);
+    const company=(db.settings&&String(db.settings.company||'').trim()&&!/mahsoubak|محسوبك/i.test(String(db.settings.company)))?String(db.settings.company):'New Life Medical';
+    const companyCity=(db.settings&&db.settings.city)?String(db.settings.city):'New Cairo 1';
+    const productRows=rows.map(function(r){
+      const lot=String(r.lot||r.batch||r.product_expiry||'—');
+      const type=typeLabelV214(r);
+      const product=String(r.product_name||r.product||'-')+' — '+type;
+      return '<tr><td>'+escV214(lot)+'</td><td>'+escV214(product)+'</td><td>'+numV214(r.qty)+'</td><td>PCS</td><td>'+moneyV214(r.price)+'</td><td>'+moneyV214(r.total)+'</td></tr>';
+    }).join('');
+
+    return '<!DOCTYPE html><html lang="en" dir="ltr"><head><meta charset="UTF-8"><title>'+escV214(invNo)+'</title><style>'+` 
+      @page{size:A4 portrait;margin:8mm}
+      *{box-sizing:border-box}
+      html,body{margin:0;padding:0;background:#fff!important;color:#111!important;font-family:Arial,Tahoma,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      body{padding:12px}
+      .page{width:100%;max-width:794px;margin:0 auto;background:#fff;padding:16px 20px 10px}
+      .top{display:grid;grid-template-columns:1fr 90px;gap:20px;align-items:start}
+      .title{font-size:52px;line-height:1;font-weight:800;margin:8px 0 18px;letter-spacing:-1px}
+      .teal-line{height:4px;background:#12aeb4;width:100%;margin-bottom:22px}
+      .doc-icon{width:56px;height:72px;border:4px solid #222;background:#ffd52f;margin:0 auto;position:relative;box-shadow:inset 0 0 0 3px #fff}
+      .doc-icon:before{content:"";position:absolute;left:11px;right:11px;top:20px;height:4px;background:#222;box-shadow:0 10px 0 #222,0 20px 0 #222,0 30px 0 #222}
+      .company-name{font-family:Georgia,serif;font-size:20px;font-weight:900;text-transform:uppercase;margin:0 0 12px}
+      .company-city{font-size:15px;font-style:italic;margin:0}
+      .spacer{height:78px}
+      .party-grid{display:grid;grid-template-columns:1.08fr .82fr;gap:70px;align-items:start;margin-top:10px}
+      .info-box{background:#f0f0f0;padding:10px 28px 6px;min-height:205px}
+      .info-row{display:grid;grid-template-columns:185px 1fr;gap:10px;min-height:36px;align-items:center;font-size:15px}
+      .recipient h3{font-size:21px;margin:0 0 14px}
+      .recipient-row{display:grid;grid-template-columns:155px 1fr;gap:10px;min-height:37px;font-size:15px;align-items:start}
+      .recipient-row .label{font-weight:700}.recipient-row.italic .label{font-style:italic;font-weight:400}
+      .additional{margin-top:18px}
+      .additional h3{font-size:21px;margin:0 0 14px}
+      .additional p{font-size:15px;line-height:1.55;margin:0 0 10px}
+      .arabic-info{direction:rtl;text-align:right;width:58%;margin:28px 0 12px auto;font-family:Tahoma,Arial,sans-serif}
+      .arabic-info h3{font-size:17px;margin:0 0 13px}.arabic-info p{font-size:14px;margin:0 0 8px}
+      .table-line{height:4px;background:#12aeb4;width:77%;margin:8px 0 4px}
+      table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:13px}
+      th,td{border:1px solid #222;padding:8px 6px;text-align:center;vertical-align:middle;background:#fff;color:#111}
+      th{font-weight:800}
+      th:nth-child(1){width:26%}th:nth-child(2){width:18%}th:nth-child(3){width:9%}th:nth-child(4){width:9%}th:nth-child(5){width:22%}th:nth-child(6){width:16%}
+      tbody tr{height:36px}
+      .total-row td{font-weight:800;height:42px}.total-label{text-align:right!important;padding-right:18px!important}
+      .signatures{display:grid;grid-template-columns:1fr 1fr;gap:150px;margin-top:0;font-weight:800}
+      .sig-block{padding:0 3px}.sig-line{height:28px;border-bottom:1px solid #c8c8c8;margin-bottom:28px}
+      .receipt-title{font-size:14px;margin:0 0 14px}.ack{font-family:Georgia,serif;font-size:12px;margin:0 0 4px}
+      .footer-bar{height:19px;background:#12aeb4;margin:0 -20px -10px}
+      .print-actions{position:fixed;top:10px;right:10px;z-index:10}.print-actions button{padding:9px 13px;border:0;border-radius:6px;margin-left:6px;cursor:pointer;font-weight:700}.print-actions .print{background:#111;color:#fff}.print-actions .close{background:#ddd;color:#111}
+      @media print{body{padding:0}.page{max-width:none;padding:8px 10px 0}.print-actions{display:none!important}.title{font-size:48px}.spacer{height:62px}}
+    `+'</style></head><body><div class="print-actions"><button class="print" onclick="window.print()">Print / PDF</button><button class="close" onclick="window.close()">Close</button></div><main class="page">'+
+      '<section class="top"><div><div class="title">Proforma Invoice</div><div class="teal-line"></div><div class="company-name">'+escV214(company)+'</div><p class="company-city">City: '+escV214(companyCity)+'</p></div><div class="doc-icon"></div></section>'+
+      '<div class="spacer"></div>'+
+      '<section class="party-grid"><div class="info-box">'+
+        '<div class="info-row"><span>Date:</span><b>'+escV214(String(s.date||''))+'</b></div>'+
+        '<div class="info-row"><span>Location:</span><span>Egypt</span></div>'+
+        '<div class="info-row"><span>Order Number:</span><b>'+escV214(invNo)+'</b></div>'+
+        '<div class="info-row"><span>Goods Delivery number:</span><span>'+escV214(deliveryNo)+'</span></div>'+
+        '<div class="info-row"><span>Delivery Method:</span><span>Road transport</span></div>'+
+        '<div class="info-row"><span>Method Of Payment&nbsp; :</span><span>'+escV214(payment)+'</span></div>'+
+      '</div><div class="recipient"><h3>Recipient</h3>'+
+        '<div class="recipient-row"><span class="label">COMPANY Name :</span><b>'+escV214(customer)+'</b></div>'+
+        '<div class="recipient-row italic"><span class="label">Customer’s Name:</span><span>'+escV214(customer)+'</span></div>'+
+        '<div class="recipient-row italic"><span class="label">Address line:</span><span>'+escV214(address)+'</span></div>'+
+        '<div class="recipient-row italic"><span class="label">City:</span><span>'+escV214(city)+'</span></div>'+
+        '<div class="recipient-row italic"><span class="label">Phone:</span><span>'+escV214(phone)+'</span></div>'+
+      '</div></section>'+
+      '<section class="additional"><h3>Additional Information</h3><p>The mentioned goods must be kept in refrigerators by a cold temperature ....... .</p><p>We are not responsible for any damage resulting from a storage error.</p></section>'+
+      '<section class="arabic-info"><h3>معلومات إضافية</h3><p>يجب حفظ البضائع المذكورة في ثلاجات بدرجة حرارة باردة ....... .</p><p>نحن لسنا مسؤولين عن أي ضرر ناتج عن خطأ في التخزين.</p></section>'+
+      '<div class="table-line"></div><table><thead><tr><th>LOT</th><th>PRODUCT</th><th>Quantity</th><th>UN</th><th>Price</th><th>Total Price</th></tr></thead><tbody>'+productRows+'<tr class="total-row"><td colspan="5" class="total-label">Grand Total</td><td>'+moneyV214(total)+'</td></tr></tbody></table>'+
+      '<section class="signatures"><div class="sig-block">Goods received by:<div class="sig-line"></div></div><div class="sig-block">Approved :<div class="sig-line"></div></div></section>'+
+      '<p class="receipt-title">Signature of receipt:</p><p class="ack">Acknowledge i the recipient of the goods, that I have received all the mentioned goods as completely intact and undamaged.</p><div class="footer-bar"></div>'+
+      '</main><script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>';
+  }
+
+  window.saleDocumentHTML=function(s,type){
+    if(type!=='invoice' && typeof baseSaleDocumentV214==='function')return baseSaleDocumentV214.apply(this,arguments);
+    return invoiceHTMLV214(s);
+  };
+  try{saleDocumentHTML=window.saleDocumentHTML}catch(e){}
+})();
+</script>
+<!-- v214 end -->
