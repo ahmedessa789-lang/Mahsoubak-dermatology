@@ -15675,3 +15675,334 @@ html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!importan
 })();
 </script>
 <!-- v214 end -->
+
+<!-- ===== v215 LOT Number linked to stock / orders / invoice / delivery ===== -->
+<style id="v215-lot-style">
+.lot-stock-card-v215 table{min-width:850px!important}
+.lot-stock-card-v215 input,.lot-stock-card-v215 select{min-height:40px!important}
+.lot-order-field-v215{min-width:190px}
+.lot-badge-v215{display:inline-flex;padding:5px 9px;border-radius:999px;background:#e0f2fe;color:#075985;font-weight:900}
+</style>
+<script id="v215-lot-stock-order">
+(function(){
+  function numV215(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function textV215(v){return String(v==null?'':v).trim()}
+  function escV215(v){return typeof esc==='function'?esc(v):textV215(v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+  function uidV215(){return typeof uid==='function'?uid():'lot_'+Date.now()+'_'+Math.random().toString(36).slice(2)}
+  function persistV215(){try{if(typeof save==='function')save()}catch(e){}}
+
+  window.ensureInventoryLotsV215=function(){
+    if(!db || typeof db!=='object')return [];
+    if(!Array.isArray(db.inventory_lots))db.inventory_lots=[];
+    if(!db.meta || typeof db.meta!=='object')db.meta={};
+    (db.products||[]).forEach(function(p){
+      var existing=db.inventory_lots.filter(function(l){return l.product_id===p.id});
+      if(!existing.length && numV215(p.stock)>0){
+        db.inventory_lots.push({
+          id:uidV215(),product_id:p.id,product_name:p.name||'',
+          lot_number:textV215(p.lot_number||p.lot||p.batch)||('UNASSIGNED-'+textV215(p.code||p.id).slice(-8)),
+          expiry:p.expiry||'',qty:numV215(p.stock),created_at:new Date().toISOString(),legacy:true
+        });
+      }
+    });
+    return db.inventory_lots;
+  };
+  function lotsForProductV215(productId){
+    ensureInventoryLotsV215();
+    return db.inventory_lots.filter(function(l){return l.product_id===productId && numV215(l.qty)>0});
+  }
+  function lotByIdV215(id){ensureInventoryLotsV215();return db.inventory_lots.find(function(l){return l.id===id})}
+  function syncProductStockV215(productId){
+    var p=(db.products||[]).find(function(x){return x.id===productId});if(!p)return;
+    p.stock=db.inventory_lots.filter(function(l){return l.product_id===productId}).reduce(function(a,l){return a+numV215(l.qty)},0);
+  }
+  window.lotOptionsV215=function(productId,selected){
+    var rows=lotsForProductV215(productId);
+    if(!rows.length)return '<option value="">'+(lang==='ar'?'لا توجد تشغيلة متاحة':'No available LOT')+'</option>';
+    return '<option value="">'+(lang==='ar'?'اختر LOT Number':'Select LOT Number')+'</option>'+rows.map(function(l){
+      return '<option value="'+escV215(l.id)+'" '+(selected===l.id?'selected':'')+'>'+escV215(l.lot_number)+' — '+numV215(l.qty)+(l.expiry?' — '+escV215(l.expiry):'')+'</option>';
+    }).join('');
+  };
+  function normalizeLotV215(v){return textV215(v).toLowerCase()}
+  function lotByNumberV215(productId,lotNumber){
+    ensureInventoryLotsV215();
+    var wanted=normalizeLotV215(lotNumber);
+    if(!productId||!wanted)return null;
+    return db.inventory_lots.find(function(l){
+      return l.product_id===productId && normalizeLotV215(l.lot_number)===wanted;
+    })||null;
+  }
+  window.refreshOrderLotsV215=function(){
+    var input=document.getElementById('sa_lot_v215'),hint=document.getElementById('sa_lot_hint_v215');
+    if(input)input.value='';
+    if(hint)hint.textContent='';
+  };
+  window.orderLotInfoV215=function(){
+    var product=document.getElementById('sa_product'),input=document.getElementById('sa_lot_v215'),hint=document.getElementById('sa_lot_hint_v215');
+    var lot=(product&&input)?lotByNumberV215(product.value,input.value):null;
+    if(!hint)return;
+    if(!textV215(input&&input.value)){hint.textContent='';return;}
+    hint.innerHTML=lot?((lang==='ar'?'المتاح من التشغيلة: ':'Available in LOT: ')+'<b>'+numV215(lot.qty)+'</b>'+(lot.expiry?' | '+(lang==='ar'?'الصلاحية: ':'Expiry: ')+escV215(lot.expiry):'')):(lang==='ar'?'رقم LOT غير موجود لهذا المنتج.':'LOT Number not found for this product.');
+  };
+
+  function lotOrderFieldHTMLV215(){
+    return '<div class="lot-order-field-v215"><label>LOT Number</label><input id="sa_lot_v215" type="text" autocomplete="off" placeholder="'+(lang==='ar'?'اكتب رقم LOT':'Enter LOT Number')+'" oninput="orderLotInfoV215()"><div id="sa_lot_hint_v215" class="hint"></div></div>';
+  }
+  var renderSalesBaseV215=window.renderSales;
+  if(typeof renderSalesBaseV215==='function'){
+    window.renderSales=function(){
+      var r=renderSalesBaseV215.apply(this,arguments);
+      ensureInventoryLotsV215();
+      var product=document.getElementById('sa_product');
+      if(product && !document.getElementById('sa_lot_v215')){
+        var holder=product.closest('div');
+        if(holder)holder.insertAdjacentHTML('afterend',lotOrderFieldHTMLV215());
+        product.addEventListener('change',function(){setTimeout(refreshOrderLotsV215,0)});
+        refreshOrderLotsV215();
+      }
+      return r;
+    };
+    try{renderSales=window.renderSales}catch(e){}
+  }
+
+  var addSaleBaseV215=window.addSale;
+  if(typeof addSaleBaseV215==='function'){
+    window.addSale=function(){
+      ensureInventoryLotsV215();
+      var productEl=document.getElementById('sa_product');
+      var lotInput=document.getElementById('sa_lot_v215');
+      var lotNumber=textV215(lotInput&&lotInput.value);
+      var lot=(productEl&&lotNumber)?lotByNumberV215(productEl.value,lotNumber):null;
+      var qtyEl=document.getElementById('sa_qty');
+      var qty=numV215(qtyEl&&qtyEl.value);
+      if(!lotNumber)return alert(lang==='ar'?'اكتب LOT Number أولًا.':'Enter LOT Number first.');
+      if(!lot)return alert(lang==='ar'?'رقم LOT غير موجود في مخزون هذا المنتج.':'This LOT Number does not exist in the selected product stock.');
+      if(qty<=0)return alert(lang==='ar'?'أدخل كمية صحيحة.':'Enter a valid quantity.');
+      if(qty>numV215(lot.qty))return alert((lang==='ar'?'الكمية المطلوبة أكبر من المتاح في هذه التشغيلة. المتاح: ':'Requested quantity exceeds this LOT. Available: ')+numV215(lot.qty));
+      var beforeIds=new Set((db.sales_orders||[]).map(function(o){return o.id}));
+      var result=addSaleBaseV215.apply(this,arguments);
+      var created=(db.sales_orders||[]).find(function(o){return !beforeIds.has(o.id)});
+      if(created){
+        created.lot_id=lot.id;created.lot_number=lot.lot_number;created.lot=lot.lot_number;
+        created.lot_expiry=lot.expiry||'';created.product_expiry=lot.expiry||created.product_expiry||'';
+        persistV215();
+      }
+      return result;
+    };
+    try{addSale=window.addSale}catch(e){}
+  }
+
+  var approveBaseV215=window.createApprovedSaleFromOrder;
+  if(typeof approveBaseV215==='function'){
+    window.createApprovedSaleFromOrder=function(order){
+      ensureInventoryLotsV215();
+      var lot=lotByIdV215(order&&order.lot_id);
+      if(!lot && order&&order.lot_number){lot=db.inventory_lots.find(function(l){return l.product_id===order.product_id&&textV215(l.lot_number)===textV215(order.lot_number)})}
+      if(!lot)return alert(lang==='ar'?'لم يتم العثور على LOT Number الخاص بهذا الأوردر في المخزون.':'The order LOT Number was not found in stock.'),false;
+      if(numV215(order.qty)>numV215(lot.qty))return alert((lang==='ar'?'رصيد التشغيلة غير كافٍ. المتاح: ':'Insufficient LOT stock. Available: ')+numV215(lot.qty)),false;
+      var beforeIds=new Set((db.sales||[]).map(function(x){return x.id}));
+      var ok=approveBaseV215.apply(this,arguments);
+      if(ok){
+        lot.qty=numV215(lot.qty)-numV215(order.qty);
+        var sale=(db.sales||[]).find(function(x){return !beforeIds.has(x.id)}) || (db.sales||[]).find(function(x){return x.order_id===order.id});
+        if(sale){sale.lot_id=lot.id;sale.lot_number=lot.lot_number;sale.lot=lot.lot_number;sale.lot_expiry=lot.expiry||'';sale.product_expiry=lot.expiry||sale.product_expiry||''}
+        order.lot_id=lot.id;order.lot_number=lot.lot_number;order.lot=lot.lot_number;order.lot_expiry=lot.expiry||'';
+        syncProductStockV215(order.product_id);
+        persistV215();
+      }
+      return ok;
+    };
+    try{createApprovedSaleFromOrder=window.createApprovedSaleFromOrder}catch(e){}
+  }
+
+  /* Purchase LOT: incoming quantities create/update the same warehouse LOT */
+  var renderPurchasesBaseV215=window.renderPurchases;
+  if(typeof renderPurchasesBaseV215==='function'){
+    window.renderPurchases=function(){
+      var r=renderPurchasesBaseV215.apply(this,arguments);
+      var product=document.getElementById('pu_product');
+      if(product && !document.getElementById('pu_lot_v215')){
+        var holder=product.closest('div');
+        if(holder)holder.insertAdjacentHTML('afterend','<div><label>LOT Number</label><input id="pu_lot_v215" placeholder="LOT Number"></div><div><label>'+(lang==='ar'?'تاريخ الصلاحية':'Expiry Date')+'</label><input id="pu_lot_expiry_v215" type="date"></div>');
+      }
+      return r;
+    };
+    try{renderPurchases=window.renderPurchases}catch(e){}
+  }
+  var addPurchaseBaseV215=window.addPurchase;
+  if(typeof addPurchaseBaseV215==='function'){
+    window.addPurchase=function(){
+      ensureInventoryLotsV215();
+      var pEl=document.getElementById('pu_product'),qEl=document.getElementById('pu_qty'),lotEl=document.getElementById('pu_lot_v215'),expEl=document.getElementById('pu_lot_expiry_v215');
+      var pid=pEl&&pEl.value,qty=numV215(qEl&&qEl.value),lotNo=textV215(lotEl&&lotEl.value),expiry=textV215(expEl&&expEl.value);
+      if(!lotNo)return alert(lang==='ar'?'أدخل LOT Number للمشتريات.':'Enter the purchase LOT Number.');
+      var beforeStock=(db.products||[]).find(function(p){return p.id===pid});beforeStock=beforeStock?numV215(beforeStock.stock):0;
+      var result=addPurchaseBaseV215.apply(this,arguments);
+      var p=(db.products||[]).find(function(x){return x.id===pid});
+      if(p && numV215(p.stock)>beforeStock){
+        var added=numV215(p.stock)-beforeStock;
+        var lot=db.inventory_lots.find(function(l){return l.product_id===pid&&textV215(l.lot_number)===lotNo&&textV215(l.expiry)===expiry});
+        if(lot)lot.qty=numV215(lot.qty)+added;else db.inventory_lots.push({id:uidV215(),product_id:pid,product_name:p.name||'',lot_number:lotNo,expiry:expiry,qty:added,created_at:new Date().toISOString()});
+        p.lot_number=lotNo;if(expiry)p.expiry=expiry;
+        syncProductStockV215(pid);persistV215();
+      }
+      return result;
+    };
+    try{addPurchase=window.addPurchase}catch(e){}
+  }
+
+  window.addInventoryLotV215=function(){
+    ensureInventoryLotsV215();
+    var pid=(document.getElementById('lot_product_v215')||{}).value,lotNo=textV215((document.getElementById('lot_number_v215')||{}).value),expiry=textV215((document.getElementById('lot_expiry_v215')||{}).value),qty=numV215((document.getElementById('lot_qty_v215')||{}).value);
+    var p=(db.products||[]).find(function(x){return x.id===pid});if(!p||!lotNo||qty<=0)return alert(lang==='ar'?'اختر المنتج وأدخل رقم التشغيلة والكمية.':'Choose product and enter LOT and quantity.');
+    var lot=db.inventory_lots.find(function(l){return l.product_id===pid&&textV215(l.lot_number)===lotNo&&textV215(l.expiry)===expiry});
+    if(lot)lot.qty=numV215(lot.qty)+qty;else db.inventory_lots.push({id:uidV215(),product_id:pid,product_name:p.name||'',lot_number:lotNo,expiry:expiry,qty:qty,created_at:new Date().toISOString()});
+    syncProductStockV215(pid);persistV215();if(typeof renderProducts==='function')renderProducts();
+  };
+  window.editInventoryLotV215=function(id,field,value){
+    var lot=lotByIdV215(id);if(!lot)return;
+    if(field==='qty'){var q=numV215(value);if(q<0)return;lot.qty=q}else lot[field]=textV215(value);
+    syncProductStockV215(lot.product_id);persistV215();
+  };
+  window.deleteInventoryLotV215=function(id){
+    var lot=lotByIdV215(id);if(!lot)return;if(!confirm(lang==='ar'?'حذف التشغيلة من المخزون؟':'Delete this LOT from stock?'))return;
+    db.inventory_lots=db.inventory_lots.filter(function(l){return l.id!==id});syncProductStockV215(lot.product_id);persistV215();if(typeof renderProducts==='function')renderProducts();
+  };
+  function lotInventoryCardV215(){
+    ensureInventoryLotsV215();
+    var productOptions=(db.products||[]).map(function(p){return '<option value="'+escV215(p.id)+'">'+escV215(p.name)+'</option>'}).join('');
+    var rows=db.inventory_lots.map(function(l){return '<tr><td>'+escV215(l.product_name)+'</td><td><input value="'+escV215(l.lot_number)+'" onchange="editInventoryLotV215(\''+l.id+'\',\'lot_number\',this.value)"></td><td><input type="date" value="'+escV215(l.expiry||'')+'" onchange="editInventoryLotV215(\''+l.id+'\',\'expiry\',this.value)"></td><td><input type="number" min="0" step="any" value="'+numV215(l.qty)+'" onchange="editInventoryLotV215(\''+l.id+'\',\'qty\',this.value)"></td><td><button class="btn small danger" onclick="deleteInventoryLotV215(\''+l.id+'\')">'+(lang==='ar'?'حذف':'Delete')+'</button></td></tr>'}).join('');
+    return '<div class="card lot-stock-card-v215"><h3>'+(lang==='ar'?'المخزون حسب LOT Number':'Stock by LOT Number')+'</h3><div class="grid grid4"><div><label>'+T('product')+'</label><select id="lot_product_v215">'+productOptions+'</select></div><div><label>LOT Number</label><input id="lot_number_v215"></div><div><label>'+(lang==='ar'?'تاريخ الصلاحية':'Expiry Date')+'</label><input id="lot_expiry_v215" type="date"></div><div><label>'+T('qty')+'</label><input id="lot_qty_v215" type="number" min="0" step="any"></div></div><button class="btn ok" style="margin-top:12px" onclick="addInventoryLotV215()">'+(lang==='ar'?'إضافة للمخزون':'Add to stock')+'</button><div style="overflow:auto;margin-top:14px"><table><tr><th>'+T('product')+'</th><th>LOT Number</th><th>'+T('expiry')+'</th><th>'+T('availableQty')+'</th><th></th></tr>'+rows+'</table></div></div>';
+  }
+  var renderProductsBaseV215=window.renderProducts;
+  if(typeof renderProductsBaseV215==='function'){
+    window.renderProducts=function(){var r=renderProductsBaseV215.apply(this,arguments);var view=document.getElementById('view-products');if(view&&!view.querySelector('.lot-stock-card-v215'))view.insertAdjacentHTML('beforeend',lotInventoryCardV215());return r};
+    try{renderProducts=window.renderProducts}catch(e){}
+  }
+
+  /* Show LOT in order tables */
+  function addLotToOrderTablesV215(){
+    ['view-sales','view-orders'].forEach(function(id){var view=document.getElementById(id);if(!view)return;[].slice.call(view.querySelectorAll('table')).forEach(function(table){
+      var heads=[].slice.call(table.querySelectorAll('tr:first-child th')).map(function(th){return (th.textContent||'').trim()});
+      if(heads.some(function(h){return /LOT Number/i.test(h)}))return;
+      var productIndex=heads.findIndex(function(h){return h===T('product')||/product|المنتج/i.test(h)});if(productIndex<0)return;
+      var hr=table.rows[0];if(hr){var th=document.createElement('th');th.textContent='LOT Number';hr.insertBefore(th,hr.cells[productIndex+1]||null)}
+    })})
+  }
+
+  /* Delivery note: make LOT visible; invoice template already reads row.lot first */
+  var saleDocBaseV215=window.saleDocumentHTML;
+  if(typeof saleDocBaseV215==='function'){
+    window.saleDocumentHTML=function(s,type){
+      var html=saleDocBaseV215.apply(this,arguments);
+      var group=(db.sales||[]).filter(function(x){return (x.invoice_group_id||x.invoice_no||x.id)===(s.invoice_group_id||s.invoice_no||s.id)});
+      if(!group.length)group=[s];
+      var lots=group.map(function(x){return '<tr><td>'+escV215(x.product_name||'')+'</td><td>'+escV215(x.lot_number||x.lot||'—')+'</td><td>'+numV215(x.qty)+'</td></tr>'}).join('');
+      if(type==='delivery'){
+        var block='<div style="background:#fff;color:#000;margin:14px 0"><h3 style="margin:0 0 8px">LOT Number</h3><table style="width:100%;border-collapse:collapse"><tr><th style="border:1px solid #999;padding:7px">Product</th><th style="border:1px solid #999;padding:7px">LOT Number</th><th style="border:1px solid #999;padding:7px">Quantity</th></tr>'+lots+'</table></div>';
+        html=html.replace(/<\/body>/i,block+'</body>');
+      }
+      return html;
+    };
+    try{saleDocumentHTML=window.saleDocumentHTML}catch(e){}
+  }
+
+  ensureInventoryLotsV215();persistV215();
+  setTimeout(function(){try{if(current==='products')renderProducts();if(current==='sales')renderSales();addLotToOrderTablesV215()}catch(e){}},50);
+})();
+</script>
+<!-- v215 end -->
+
+<!-- ===== v216 Optional VAT on orders and invoice ===== -->
+<style id="v216-vat-style">
+.vat-order-field-v216{min-width:150px}
+.vat-order-field-v216 input{min-height:40px!important}
+</style>
+<script id="v216-optional-vat">
+(function(){
+  function numV216(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function escV216(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+  function persistV216(){try{if(typeof save==='function')save()}catch(e){}}
+  function vatFieldHTMLV216(){
+    return '<div class="vat-order-field-v216"><label>VAT %</label><input id="sa_vat_v216" type="number" min="0" max="100" step="0.01" value="0" placeholder="0"><div class="hint">'+(lang==='ar'?'اتركها 0 إذا كانت الفاتورة بدون ضريبة':'Leave 0 for a non-tax invoice')+'</div></div>';
+  }
+  function installVatFieldV216(){
+    var lot=document.getElementById('sa_lot_v215'),product=document.getElementById('sa_product');
+    if(document.getElementById('sa_vat_v216'))return;
+    var anchor=lot?lot.closest('div'):product&&product.closest('div');
+    if(anchor)anchor.insertAdjacentHTML('afterend',vatFieldHTMLV216());
+  }
+  var renderSalesBaseV216=window.renderSales;
+  if(typeof renderSalesBaseV216==='function'){
+    window.renderSales=function(){var r=renderSalesBaseV216.apply(this,arguments);installVatFieldV216();return r};
+    try{renderSales=window.renderSales}catch(e){}
+  }
+
+  var addSaleBaseV216=window.addSale;
+  if(typeof addSaleBaseV216==='function'){
+    window.addSale=function(){
+      var vatEl=document.getElementById('sa_vat_v216');
+      var vat=Math.max(0,Math.min(100,numV216(vatEl&&vatEl.value)));
+      var beforeIds=new Set((db.sales_orders||[]).map(function(o){return o.id}));
+      var result=addSaleBaseV216.apply(this,arguments);
+      var created=(db.sales_orders||[]).find(function(o){return !beforeIds.has(o.id)});
+      if(created){
+        created.vat_percent=vat;
+        created.vat_rate=vat;
+        created.vat_amount=numV216(created.total)*vat/100;
+        persistV216();
+      }
+      return result;
+    };
+    try{addSale=window.addSale}catch(e){}
+  }
+
+  var approveBaseV216=window.createApprovedSaleFromOrder;
+  if(typeof approveBaseV216==='function'){
+    window.createApprovedSaleFromOrder=function(order){
+      var beforeIds=new Set((db.sales||[]).map(function(x){return x.id}));
+      var ok=approveBaseV216.apply(this,arguments);
+      if(ok){
+        var sale=(db.sales||[]).find(function(x){return !beforeIds.has(x.id)}) || (db.sales||[]).find(function(x){return x.order_id===order.id});
+        if(sale){
+          sale.vat_percent=numV216(order&&order.vat_percent||order&&order.vat_rate);
+          sale.vat_rate=sale.vat_percent;
+          sale.vat_amount=numV216(sale.total)*sale.vat_percent/100;
+        }
+        persistV216();
+      }
+      return ok;
+    };
+    try{createApprovedSaleFromOrder=window.createApprovedSaleFromOrder}catch(e){}
+  }
+
+  function invoiceRowsV216(s){
+    var key=s.invoice_group_id||s.invoice_no||s.id;
+    var rows=(db.sales||[]).filter(function(x){return (x.invoice_group_id||x.invoice_no||x.id)===key});
+    return rows.length?rows:[s];
+  }
+  function moneyV216(v){return numV216(v).toLocaleString('en-US',{maximumFractionDigits:2})+' EGP'}
+  var saleDocBaseV216=window.saleDocumentHTML;
+  if(typeof saleDocBaseV216==='function'){
+    window.saleDocumentHTML=function(s,type){
+      var html=saleDocBaseV216.apply(this,arguments);
+      if(type!=='invoice')return html;
+      var rows=invoiceRowsV216(s);
+      var subtotal=rows.reduce(function(a,r){return a+numV216(r.total)},0);
+      var vatPercent=rows.reduce(function(m,r){return Math.max(m,numV216(r.vat_percent||r.vat_rate))},0);
+      var vatAmount=subtotal*vatPercent/100;
+      var netTotal=subtotal+vatAmount;
+      var oldRow='<tr class="total-row"><td colspan="5" class="total-label">Grand Total</td><td>'+moneyV216(subtotal)+'</td></tr>';
+      var newRows=oldRow+
+        '<tr class="total-row vat-row-v216"><td colspan="5" class="total-label">VAT ('+escV216(vatPercent.toLocaleString('en-US',{maximumFractionDigits:2}))+'%)</td><td>'+moneyV216(vatAmount)+'</td></tr>'+
+        '<tr class="total-row net-total-row-v216"><td colspan="5" class="total-label">Total Including VAT</td><td>'+moneyV216(netTotal)+'</td></tr>';
+      if(html.indexOf(oldRow)!==-1)html=html.replace(oldRow,newRows);
+      else html=html.replace(/(<tr class="total-row"><td colspan="5" class="total-label">Grand Total<\/td><td>.*?<\/td><\/tr>)/i,'$1'+newRows.substring(oldRow.length));
+      return html;
+    };
+    try{saleDocumentHTML=window.saleDocumentHTML}catch(e){}
+  }
+  setTimeout(function(){try{installVatFieldV216()}catch(e){}},50);
+})();
+</script>
+<!-- v216 end -->
