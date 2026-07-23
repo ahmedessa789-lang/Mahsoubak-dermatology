@@ -16945,3 +16945,371 @@ html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!importan
 })();
 </script>
 <!-- v225 end -->
+
+
+<!-- ===== v226 Complete LOT lifecycle: stock in, orders, approval, invoice ===== -->
+<style id="v226-lot-lifecycle-style">
+.lot-select-v226{min-width:180px}
+.lot-badge-v226{display:inline-block;padding:3px 8px;border-radius:999px;background:#e8f5f3;color:#116b63;font-weight:700}
+.lot-stock-v226{font-size:12px;margin-top:4px;opacity:.8}
+</style>
+<script id="v226-complete-lot-lifecycle">
+(function(){
+  function num(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function txt(v){return String(v==null?'':v).trim()}
+  function esc(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function newId(){return typeof uid==='function'?uid():'LOT_'+Date.now()+'_'+Math.random().toString(36).slice(2)}
+  function saveDb(){try{if(typeof save==='function')save()}catch(e){}}
+  function ensureLots(){
+    if(!Array.isArray(db.inventory_lots))db.inventory_lots=[];
+    return db.inventory_lots;
+  }
+  function product(id){return (db.products||[]).find(function(p){return p.id===id})}
+  function lotsOf(productId,includeZero){
+    ensureLots();
+    return db.inventory_lots.filter(function(l){
+      return l.product_id===productId && (includeZero || num(l.qty)>0);
+    }).sort(function(a,b){
+      var ea=txt(a.expiry)||'9999-12-31', eb=txt(b.expiry)||'9999-12-31';
+      return ea.localeCompare(eb);
+    });
+  }
+  function lotById(id){ensureLots();return db.inventory_lots.find(function(l){return l.id===id})||null}
+  function lotByNumber(productId,lotNo){
+    var wanted=txt(lotNo).toLowerCase();
+    return lotsOf(productId,true).find(function(l){return txt(l.lot_number).toLowerCase()===wanted})||null;
+  }
+  function defaultLot(productId){
+    var p=product(productId);
+    var preferred=txt(p&&(p.lot_number||p.lot||p.batch));
+    return (preferred&&lotByNumber(productId,preferred)) || lotsOf(productId,false)[0] || null;
+  }
+  function syncProductStock(productId){
+    var p=product(productId);
+    if(!p)return;
+    p.stock=lotsOf(productId,true).reduce(function(sum,l){return sum+num(l.qty)},0);
+  }
+  function addToLot(productId,lotNo,qty,expiry){
+    var p=product(productId);
+    if(!p||!txt(lotNo)||num(qty)<=0)return null;
+    var lot=lotByNumber(productId,lotNo);
+    if(!lot){
+      lot={
+        id:newId(),
+        product_id:productId,
+        product_name:p.name||'',
+        lot_number:txt(lotNo),
+        expiry:txt(expiry)||p.expiry||'',
+        qty:0,
+        created_at:new Date().toISOString()
+      };
+      ensureLots().push(lot);
+    }
+    lot.qty=num(lot.qty)+num(qty);
+    lot.expiry=txt(expiry)||lot.expiry||p.expiry||'';
+    lot.product_name=p.name||lot.product_name||'';
+    p.lot_number=lot.lot_number;
+    p.lot=lot.lot_number;
+    syncProductStock(productId);
+    return lot;
+  }
+  function deductFromLot(productId,lotId,qty){
+    var lot=lotById(lotId)||defaultLot(productId);
+    if(!lot)return false;
+    if(num(qty)>num(lot.qty))return false;
+    lot.qty=num(lot.qty)-num(qty);
+    syncProductStock(productId);
+    return true;
+  }
+
+  /* Inventory LOT input: add or replenish stock by LOT. */
+  function installInventoryLotControls(){
+    var productSelect=document.getElementById('pu_product')||
+                      document.getElementById('purchase_product')||
+                      document.querySelector('#view-purchases select[id*="product"]');
+    var qtyInput=document.getElementById('pu_qty')||
+                 document.getElementById('purchase_qty')||
+                 document.querySelector('#view-purchases input[id*="qty"]');
+    if(!productSelect||!qtyInput)return;
+    var card=productSelect.closest('.card')||productSelect.parentElement;
+    if(!card||card.querySelector('#pu_lot_v226'))return;
+    var wrap=document.createElement('div');
+    wrap.className='grid grid3';
+    wrap.style.marginTop='10px';
+    wrap.innerHTML=
+      '<div><label>'+(lang==='ar'?'رقم LOT':'LOT Number')+'</label><input id="pu_lot_v226" type="text"></div>'+
+      '<div><label>'+(lang==='ar'?'تاريخ انتهاء LOT':'LOT Expiry')+'</label><input id="pu_lot_expiry_v226" type="date"></div>'+
+      '<div class="lot-stock-v226" id="pu_lot_stock_v226"></div>';
+    var button=card.querySelector('button[onclick*="addPurchase"],button[onclick*="purchase"],button.btn');
+    if(button)button.parentElement.insertBefore(wrap,button);
+    else card.appendChild(wrap);
+  }
+
+  function selectedPurchaseData(){
+    var productSelect=document.getElementById('pu_product')||
+                      document.getElementById('purchase_product')||
+                      document.querySelector('#view-purchases select[id*="product"]');
+    var qtyInput=document.getElementById('pu_qty')||
+                 document.getElementById('purchase_qty')||
+                 document.querySelector('#view-purchases input[id*="qty"]');
+    return {
+      product_id:productSelect&&productSelect.value,
+      qty:num(qtyInput&&qtyInput.value),
+      lot_number:txt((document.getElementById('pu_lot_v226')||{}).value),
+      expiry:txt((document.getElementById('pu_lot_expiry_v226')||{}).value)
+    };
+  }
+
+  ['addPurchase','savePurchase','addStock','receivePurchase'].forEach(function(name){
+    var base=window[name];
+    if(typeof base!=='function')return;
+    window[name]=function(){
+      var data=selectedPurchaseData();
+      var p=product(data.product_id);
+      var beforeStock=p?num(p.stock):0;
+      var result=base.apply(this,arguments);
+      if(p&&data.lot_number&&data.qty>0){
+        /* Base purchase normally already raises product.stock; LOT becomes source of truth. */
+        var baseAdded=Math.max(0,num(p.stock)-beforeStock);
+        addToLot(data.product_id,data.lot_number,data.qty||baseAdded,data.expiry);
+        saveDb();
+      }
+      return result;
+    };
+    try{eval(name+'=window[name]')}catch(e){}
+  });
+
+  /* LOT selector on new order. */
+  window.refreshOrderLotsV226=function(){
+    var productEl=document.getElementById('sa_product');
+    var select=document.getElementById('sa_lot_select_v226');
+    var legacy=document.getElementById('sa_lot_v215');
+    var hint=document.getElementById('sa_lot_hint_v226');
+    if(!productEl||!select)return;
+    var lots=lotsOf(productEl.value,false);
+    select.innerHTML=lots.length?lots.map(function(l){
+      return '<option value="'+esc(l.id)+'">'+esc(l.lot_number)+' | '+num(l.qty)+' '+(l.expiry?'| '+esc(l.expiry):'')+'</option>';
+    }).join(''):'<option value="">'+(lang==='ar'?'لا يوجد LOT متاح':'No available LOT')+'</option>';
+    var preferred=defaultLot(productEl.value);
+    if(preferred)select.value=preferred.id;
+    var current=lotById(select.value);
+    if(legacy)legacy.value=current?current.lot_number:'';
+    if(hint)hint.textContent=current?
+      ((lang==='ar'?'المتاح في LOT: ':'Available in LOT: ')+num(current.qty)+(current.expiry?' | '+current.expiry:'')):'';
+  };
+
+  window.orderLotChangedV226=function(){
+    var select=document.getElementById('sa_lot_select_v226');
+    var legacy=document.getElementById('sa_lot_v215');
+    var hint=document.getElementById('sa_lot_hint_v226');
+    var lot=select&&lotById(select.value);
+    if(legacy)legacy.value=lot?lot.lot_number:'';
+    if(hint)hint.textContent=lot?
+      ((lang==='ar'?'المتاح في LOT: ':'Available in LOT: ')+num(lot.qty)+(lot.expiry?' | '+lot.expiry:'')):'';
+  };
+
+  function installOrderLotSelector(){
+    var productEl=document.getElementById('sa_product');
+    if(!productEl)return;
+    var old=document.getElementById('sa_lot_v215');
+    var anchor=(old&&old.closest('div'))||productEl.closest('div');
+    if(!anchor)return;
+    if(!document.getElementById('sa_lot_select_v226')){
+      var div=document.createElement('div');
+      div.className='lot-select-v226';
+      div.innerHTML='<label>LOT Number</label><select id="sa_lot_select_v226" onchange="orderLotChangedV226()"></select><div id="sa_lot_hint_v226" class="hint"></div>';
+      anchor.insertAdjacentElement('afterend',div);
+      if(old)old.closest('div').style.display='none';
+    }
+    if(!productEl.dataset.v226Bound){
+      productEl.addEventListener('change',function(){setTimeout(refreshOrderLotsV226,0)});
+      productEl.dataset.v226Bound='1';
+    }
+    refreshOrderLotsV226();
+  }
+
+  var renderSalesBase=window.renderSales || (typeof renderSales==='function'?renderSales:null);
+  if(typeof renderSalesBase==='function'){
+    window.renderSales=function(){
+      var result=renderSalesBase.apply(this,arguments);
+      setTimeout(installOrderLotSelector,30);
+      return result;
+    };
+    try{renderSales=window.renderSales}catch(e){}
+  }
+
+  /* Store exact LOT on draft order line. */
+  var addLineBase=window.addInvoiceLineV150;
+  if(typeof addLineBase==='function'){
+    window.addInvoiceLineV150=function(){
+      var productEl=document.getElementById('sa_product');
+      var lotSelect=document.getElementById('sa_lot_select_v226');
+      var lot=lotSelect&&lotById(lotSelect.value);
+      var qty=num((document.getElementById('sa_qty')||{}).value);
+      if(!lot)return alert(lang==='ar'?'اختر LOT متاح للصنف.':'Select an available LOT.');
+      if(qty<=0)return addLineBase.apply(this,arguments);
+      if(qty>num(lot.qty))return alert((lang==='ar'?'الكمية أكبر من المتاح في LOT. المتاح: ':'Quantity exceeds LOT stock. Available: ')+num(lot.qty));
+
+      var before=(window.salesInvoiceDraftV150||[]).map(function(x){return {id:x.line_id,qty:num(x.qty)}});
+      var result=addLineBase.apply(this,arguments);
+      var draft=window.salesInvoiceDraftV150||[];
+      var changed=draft.find(function(x){
+        var old=before.find(function(b){return b.id===x.line_id});
+        return x.product_id===productEl.value&&(!old||num(x.qty)>old.qty);
+      })||draft[draft.length-1];
+      if(changed){
+        changed.lot_id=lot.id;
+        changed.lot_number=lot.lot_number;
+        changed.lot=lot.lot_number;
+        changed.lot_expiry=lot.expiry||'';
+        changed.product_expiry=lot.expiry||changed.product_expiry||'';
+        changed.available_lot_qty=num(lot.qty);
+      }
+      return result;
+    };
+  }
+
+  /* Copy LOT from draft to order/sale rows. */
+  var saveMultiBase=window.saveMultiInvoiceV150;
+  if(typeof saveMultiBase==='function'){
+    window.saveMultiInvoiceV150=function(){
+      var snapshot=(window.salesInvoiceDraftV150||[]).map(function(line){return {
+        product_id:line.product_id,
+        order_type:line.order_type||'sale',
+        lot_id:line.lot_id||'',
+        lot_number:line.lot_number||line.lot||'',
+        lot_expiry:line.lot_expiry||line.product_expiry||''
+      }});
+      var beforeOrders=new Set((db.sales_orders||[]).map(function(x){return x.id}));
+      var beforeSales=new Set((db.sales||[]).map(function(x){return x.id}));
+      var result=saveMultiBase.apply(this,arguments);
+      var createdOrders=(db.sales_orders||[]).filter(function(x){return !beforeOrders.has(x.id)});
+      var createdSales=(db.sales||[]).filter(function(x){return !beforeSales.has(x.id)});
+      createdOrders.concat(createdSales).forEach(function(row){
+        var match=snapshot.find(function(s){
+          return s.product_id===row.product_id&&(s.order_type||'sale')===(row.order_type||'sale');
+        })||snapshot.find(function(s){return s.product_id===row.product_id});
+        if(match){
+          row.lot_id=match.lot_id;
+          row.lot_number=match.lot_number;
+          row.lot=match.lot_number;
+          row.lot_expiry=match.lot_expiry;
+          row.product_expiry=match.lot_expiry||row.product_expiry||'';
+        }
+      });
+      if(createdOrders.length||createdSales.length)saveDb();
+      return result;
+    };
+  }
+
+  /* Approval: validate and deduct exact LOT, then preserve it in sale. */
+  var approveBase=window.createApprovedSaleFromOrder ||
+                  (typeof createApprovedSaleFromOrder==='function'?createApprovedSaleFromOrder:null);
+  if(typeof approveBase==='function'){
+    window.createApprovedSaleFromOrder=function(order){
+      var lot=order&&(lotById(order.lot_id)||lotByNumber(order.product_id,order.lot_number||order.lot));
+      if(order&&!lot)return alert(lang==='ar'?'رقم LOT غير موجود لهذا الأوردر.':'LOT not found for this order.'),false;
+      if(order&&num(order.qty)>num(lot.qty)){
+        alert((lang==='ar'?'رصيد LOT غير كافٍ. المتاح: ':'Insufficient LOT stock. Available: ')+num(lot.qty));
+        return false;
+      }
+
+      var p=order&&product(order.product_id);
+      var stockBefore=p?num(p.stock):0;
+      var beforeSales=new Set((db.sales||[]).map(function(x){return x.id}));
+      var ok=approveBase.apply(this,arguments);
+      if(!ok)return ok;
+
+      /* Base function may deduct product stock. Deduct LOT once and re-sync product total. */
+      if(order&&lot){
+        deductFromLot(order.product_id,lot.id,num(order.qty));
+        var created=(db.sales||[]).filter(function(x){return !beforeSales.has(x.id)});
+        created.forEach(function(s){
+          s.lot_id=lot.id;
+          s.lot_number=lot.lot_number;
+          s.lot=lot.lot_number;
+          s.lot_expiry=lot.expiry||'';
+          s.product_expiry=lot.expiry||s.product_expiry||'';
+        });
+        order.lot_id=lot.id;
+        order.lot_number=lot.lot_number;
+        order.lot=lot.lot_number;
+        order.lot_expiry=lot.expiry||'';
+        syncProductStock(order.product_id);
+        saveDb();
+      }else if(p){
+        p.stock=stockBefore;
+      }
+      return ok;
+    };
+    try{createApprovedSaleFromOrder=window.createApprovedSaleFromOrder}catch(e){}
+  }
+
+  /* Show LOT in pending approval and order history tables. */
+  function addLotColumnToHtml(html){
+    if(typeof html!=='string'||html.indexOf('<table')<0)return html;
+    if(/<th[^>]*>\s*LOT/i.test(html))return html;
+    html=html.replace(/(<tr[^>]*>\s*<th[^>]*>[^<]*(?:المنتج|Product)[^<]*<\/th>)/i,'$1<th>LOT</th>');
+    var orders=(db.sales_orders||[]);
+    orders.forEach(function(o){
+      var name=esc(o.product_name||'');
+      var lot=esc(o.lot_number||o.lot||'—');
+      if(!name)return;
+      var pattern=new RegExp('(<tr[^>]*>[\\s\\S]*?<td[^>]*>\\s*'+name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\s*</td>)','i');
+      html=html.replace(pattern,'$1<td><span class="lot-badge-v226">'+lot+'</span></td>');
+    });
+    return html;
+  }
+
+  ['salesPendingTable','salesOrdersPendingTable','ordersPendingTable','salesOrdersHistoryTable','ordersHistoryTable'].forEach(function(name){
+    var base=window[name];
+    if(typeof base!=='function')return;
+    window[name]=function(){return addLotColumnToHtml(base.apply(this,arguments))};
+    try{eval(name+'=window[name]')}catch(e){}
+  });
+
+  /* Invoice and delivery note must always read row LOT. */
+  var docBase=window.saleDocumentHTML || (typeof saleDocumentHTML==='function'?saleDocumentHTML:null);
+  if(typeof docBase==='function'){
+    window.saleDocumentHTML=function(s,type){
+      var html=docBase.apply(this,arguments);
+      var key=s.invoice_group_id||s.invoice_no||s.id;
+      var rows=(db.sales||[]).filter(function(x){return (x.invoice_group_id||x.invoice_no||x.id)===key});
+      if(!rows.length)rows=[s];
+      var lots=rows.map(function(r){return txt(r.lot_number||r.lot||r.batch||r.product_expiry||'—')});
+      var i=0;
+      html=html.replace(/(<tbody>[\s\S]*?)(<tr><td>)([\s\S]*?)(<\/td><td>)/gi,function(all,prefix,start,old,end){
+        if(i>=lots.length)return all;
+        return prefix+start+esc(lots[i++])+end;
+      });
+      return html;
+    };
+    try{saleDocumentHTML=window.saleDocumentHTML}catch(e){}
+  }
+
+  /* Re-render hooks. */
+  var renderBase=window.render;
+  if(typeof renderBase==='function'){
+    window.render=function(){
+      var result=renderBase.apply(this,arguments);
+      setTimeout(function(){
+        try{installInventoryLotControls();installOrderLotSelector()}catch(e){}
+      },50);
+      return result;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  setTimeout(function(){
+    ensureLots();
+    (db.products||[]).forEach(function(p){
+      if(!lotsOf(p.id,true).length && txt(p.lot_number||p.lot||p.batch) && num(p.stock)>0){
+        addToLot(p.id,txt(p.lot_number||p.lot||p.batch),num(p.stock),p.expiry||'');
+      }
+    });
+    saveDb();
+    try{installInventoryLotControls();installOrderLotSelector()}catch(e){}
+  },120);
+})();
+</script>
+<!-- v226 end -->
