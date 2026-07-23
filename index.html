@@ -18469,7 +18469,7 @@ html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!importan
       '<div class="grid grid3">'+
         '<div><label>من تاريخ</label><input id="exp_from_v231" type="date" onchange="renderFinanceReportsV231()"></div>'+
         '<div><label>إلى تاريخ</label><input id="exp_to_v231" type="date" onchange="renderFinanceReportsV231()"></div>'+
-        '<div><label>طباعة</label><button class="btn blue" onclick="window.print()">طباعة البيان</button></div>'+
+        '<div><label>طباعة</label><button class="btn blue" type="button" onclick="printFinancePaneV300(\'expense-analysis\')">طباعة تحليل المصروفات فقط</button></div>'+
       '</div></div>'+
       '<div class="finance-report-summary-v231">'+
         '<div class="card stat"><span>إجمالي المصروفات</span><strong>'+money(total)+'</strong></div>'+
@@ -18530,7 +18530,7 @@ html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!importan
       '<div class="card stat"><span>عدد الفواتير المتأخرة</span><strong>'+rows.length+'</strong></div>'+
       '<div class="card stat"><span>عدد العملاء المتأخرين</span><strong>'+customers+'</strong></div>'+
       '</div>'+
-      '<div class="card"><div class="section-title"><h3>التحصيلات التي مر عليها 30 يومًا أو أكثر</h3><button class="btn blue" onclick="window.print()">طباعة البيان</button></div>'+
+      '<div class="card"><div class="section-title"><h3>التحصيلات التي مر عليها 30 يومًا أو أكثر</h3><button class="btn blue" type="button" onclick="printFinancePaneV300(&quot;overdue-collections&quot;)">طباعة التحصيلات المتأخرة فقط</button></div>'+
       (rows.length?'<table><tr><th>تاريخ الفاتورة</th><th>رقم الفاتورة</th><th>العميل</th><th>الإجمالي</th><th>المحصل</th><th>المتبقي</th><th>عدد الأيام</th></tr>'+
         rows.map(function(r){return '<tr><td>'+esc(r.date||'-')+'</td><td>'+esc(r.invoice)+'</td><td><b>'+esc(r.customer_name)+'</b></td><td>'+money(r.total)+'</td><td>'+money(r.paid)+'</td><td class="balance-v231">'+money(r.remaining)+'</td><td class="overdue-v231">'+r.age+' يوم</td></tr>'}).join('')+
         '</table>':'<div class="empty">لا توجد تحصيلات متأخرة أكثر من 30 يوم</div>')+
@@ -18559,7 +18559,7 @@ html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!importan
       '<div class="card stat"><span>عدد الفواتير غير المحصلة</span><strong>'+totalInvoices+'</strong></div>'+
       '<div class="card stat"><span>أعلى عميل مديونية</span><strong>'+esc(biggest.name)+'</strong><div class="hint">'+money(biggest.remaining)+'</div></div>'+
       '</div>'+
-      '<div class="card"><div class="section-title"><h3>المتبقي على كل عميل</h3><button class="btn blue" onclick="window.print()">طباعة التقرير</button></div>'+
+      '<div class="card"><div class="section-title"><h3>المتبقي على كل عميل</h3><button class="btn blue" type="button" onclick="printFinancePaneV300(&quot;outstanding-customers&quot;)">طباعة المتبقي على العملاء فقط</button></div>'+
       (groups.length?'<table><tr><th>العميل</th><th>عدد الفواتير</th><th>إجمالي الفواتير</th><th>المحصل</th><th>المتبقي</th><th>أقدم مديونية</th></tr>'+
         groups.map(function(g){return '<tr><td><b>'+esc(g.name)+'</b></td><td>'+g.invoices+'</td><td>'+money(g.total)+'</td><td>'+money(g.paid)+'</td><td class="balance-v231">'+money(g.remaining)+'</td><td>'+(g.oldest?g.oldest+' يوم':'—')+'</td></tr>'}).join('')+
         '</table>':'<div class="empty">لا توجد مبالغ متبقية على العملاء</div>')+
@@ -18854,3 +18854,196 @@ html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!importan
 })();
 </script>
 <!-- v232 end -->
+
+<!-- ===== v300 Clean Finance Printing + Payable Papers ===== -->
+<style id="v300-finance-clean-style">
+.finance-pane-v227>.v300-printbar{display:flex;justify-content:flex-end;gap:8px;margin:0 0 12px}
+.v300-payable-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:12px 0}
+.v300-status{display:inline-flex;padding:5px 9px;border-radius:999px;font-weight:900;font-size:12px}
+.v300-status.pending{background:#fef3c7;color:#92400e}.v300-status.submitted{background:#dbeafe;color:#1d4ed8}
+.v300-status.paid{background:#dcfce7;color:#166534}.v300-status.returned{background:#fee2e2;color:#991b1b}.v300-status.cancelled{background:#e5e7eb;color:#374151}
+@media(max-width:850px){.v300-payable-summary{grid-template-columns:1fr}}
+@media print{.v300-printbar,.v300-no-print{display:none!important}}
+</style>
+<script id="v300-finance-clean-script">
+(function(){
+  'use strict';
+  function n(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function e(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function val(id){var x=document.getElementById(id);return x?String(x.value||'').trim():''}
+  function todayV300(){return typeof today==='function'?today():new Date().toISOString().slice(0,10)}
+  function uidV300(){return typeof id==='function'?id():('v300_'+Date.now()+'_'+Math.random().toString(36).slice(2))}
+  function moneyV300(v){return n(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' EGP'}
+  function saveV300(){if(typeof saveDb==='function')saveDb()}
+  function ensureV300(){
+    if(typeof db==='undefined')return false;
+    if(!Array.isArray(db.finance_payable_papers))db.finance_payable_papers=[];
+    if(!Array.isArray(db.cash_receipts_out))db.cash_receipts_out=[];
+    return true;
+  }
+  function payableTypeV300(v){return v==='promissory'?'كمبيالة':v==='trust_receipt'?'إيصال أمانة':'شيك'}
+  function payableStatusV300(v){return ({pending:'تحت الاستحقاق',submitted:'مقدم للبنك',paid:'تم الصرف',returned:'مرتجع',cancelled:'ملغي'})[v]||'تحت الاستحقاق'}
+
+  window.printFinancePaneV300=function(paneName){
+    var pane=document.querySelector('.finance-pane-v227[data-pane="'+paneName+'"]');
+    if(!pane)return alert('افتح الكشف المطلوب أولاً');
+    var copy=pane.cloneNode(true);
+    copy.querySelectorAll('button,input,select,textarea,.v300-printbar,.v300-no-print').forEach(function(x){
+      if(x.matches('input,select,textarea')){
+        var span=document.createElement('span');span.textContent=x.value||'';x.replaceWith(span);
+      }else{x.remove()}
+    });
+    var title=(copy.querySelector('h3')||{}).textContent||'كشف مالي';
+    var w=window.open('','_blank','width=1100,height=780');
+    if(!w)return alert('اسمح بفتح النوافذ المنبثقة للطباعة');
+    w.document.open();
+    w.document.write('<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>'+e(title)+'</title><style>body{font-family:Tahoma,Arial,sans-serif;color:#111;padding:24px}h1{text-align:center;margin:0 0 6px}p.meta{text-align:center;color:#555;margin:0 0 20px}.card{border:1px solid #ddd;border-radius:10px;padding:12px;margin:10px 0}.finance-summary-v227,.finance-report-summary-v231,.v300-payable-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.stat span{display:block;color:#666;font-size:12px}.stat strong{font-size:20px}table{width:100%;border-collapse:collapse;margin-top:14px}th,td{border:1px solid #bbb;padding:8px;text-align:right;font-size:12px}th{background:#f1f5f9}.empty{text-align:center;padding:25px;border:1px dashed #aaa}@page{size:A4 landscape;margin:10mm}</style></head><body><h1>'+e(title)+'</h1><p class="meta">Mahsoubak Business — تاريخ الطباعة: '+new Date().toLocaleString('ar-EG')+'</p>'+copy.innerHTML+'<script>window.onload=function(){setTimeout(function(){window.print();window.close()},250)}<\/script></body></html>');
+    w.document.close();
+  };
+
+  function addPrintBarsV300(){
+    document.querySelectorAll('.finance-pane-v227').forEach(function(pane){
+      if(pane.querySelector(':scope > .v300-printbar'))return;
+      var name=pane.dataset.pane||'';
+      var bar=document.createElement('div');bar.className='v300-printbar';
+      bar.innerHTML='<button class="btn blue" type="button">طباعة الكشف الظاهر فقط</button>';
+      bar.querySelector('button').onclick=function(){window.printFinancePaneV300(name)};
+      pane.insertBefore(bar,pane.firstChild);
+    });
+  }
+
+  window.addPayablePaperV300=function(){
+    if(!ensureV300())return;
+    var amount=n(val('pp_amount_v300')),number=val('pp_number_v300');
+    if(!number||amount<=0)return alert('اكتب رقم الورقة والمبلغ بصورة صحيحة');
+    db.finance_payable_papers.unshift({
+      id:uidV300(),instrument_type:val('pp_type_v300')||'cheque',number:number,
+      issue_date:val('pp_issue_v300')||todayV300(),due_date:val('pp_due_v300'),party:val('pp_party_v300'),
+      bank:val('pp_bank_v300'),amount:amount,payment_source:val('pp_source_v300')||'bank',
+      status:'pending',notes:val('pp_notes_v300'),created_at:new Date().toISOString(),posted_receipt_id:''
+    });
+    saveV300();renderPayablePaneV300();
+  };
+  window.setPayableStatusV300=function(pid,status){
+    if(!ensureV300())return;
+    var p=db.finance_payable_papers.find(function(x){return x.id===pid});if(!p)return;
+    if(status==='paid'&&!p.posted_receipt_id){
+      var rid=uidV300();
+      db.cash_receipts_out.unshift({id:rid,serial:'PAY-'+String(p.number||rid),date:todayV300(),party:p.party||'',purpose:'صرف ورقة دفع رقم '+(p.number||''),amount:n(p.amount),method:p.payment_source==='cash'?'cash':'bank',bank:p.bank||'',cheque:p.number||'',due_date:p.due_date||'',instrument_type:p.instrument_type||'cheque',finance_account:p.bank||'',source_payable_paper_id:p.id,created_at:new Date().toISOString()});
+      p.posted_receipt_id=rid;p.paid_date=todayV300();
+    }
+    p.status=status;saveV300();
+    if(typeof renderFinanceToolsV227==='function')renderFinanceToolsV227();else renderPayablePaneV300();
+  };
+  window.deletePayablePaperV300=function(pid){
+    if(!confirm('هل تريد مسح ورقة الدفع؟'))return;
+    var p=(db.finance_payable_papers||[]).find(function(x){return x.id===pid});
+    if(p&&p.posted_receipt_id)return alert('لا يمكن مسح ورقة تم صرفها وتسجيلها في الحركة المالية');
+    db.finance_payable_papers=(db.finance_payable_papers||[]).filter(function(x){return x.id!==pid});saveV300();renderPayablePaneV300();
+  };
+
+  function payableHTMLV300(){
+    ensureV300();var rows=db.finance_payable_papers.slice().sort(function(a,b){return String(a.due_date||'9999').localeCompare(String(b.due_date||'9999'))});
+    var pending=rows.filter(function(x){return x.status==='pending'||x.status==='submitted'}).reduce(function(s,x){return s+n(x.amount)},0);
+    var paid=rows.filter(function(x){return x.status==='paid'}).reduce(function(s,x){return s+n(x.amount)},0);
+    var returned=rows.filter(function(x){return x.status==='returned'}).reduce(function(s,x){return s+n(x.amount)},0);
+    return '<div class="card v300-no-print"><h3>إضافة ورقة دفع</h3><div class="grid grid4">'+
+      '<div><label>نوع الورقة</label><select id="pp_type_v300"><option value="cheque">شيك</option><option value="promissory">كمبيالة</option><option value="trust_receipt">إيصال أمانة</option></select></div>'+
+      '<div><label>رقم الورقة</label><input id="pp_number_v300"></div><div><label>تاريخ الإصدار</label><input id="pp_issue_v300" type="date" value="'+todayV300()+'"></div>'+
+      '<div><label>تاريخ الاستحقاق</label><input id="pp_due_v300" type="date"></div><div><label>المورد / الطرف</label><input id="pp_party_v300"></div>'+
+      '<div><label>البنك</label><input id="pp_bank_v300"></div><div><label>القيمة</label><input id="pp_amount_v300" type="number" step="0.01"></div>'+
+      '<div><label>مصدر السداد</label><select id="pp_source_v300"><option value="bank">البنك</option><option value="cash">الخزينة</option></select></div>'+
+      '<div><label>ملاحظات</label><input id="pp_notes_v300"></div></div><button class="btn ok" style="margin-top:10px" onclick="addPayablePaperV300()">إضافة ورقة دفع</button></div>'+
+      '<div class="v300-payable-summary"><div class="card stat"><span>تحت الاستحقاق</span><strong>'+moneyV300(pending)+'</strong></div><div class="card stat"><span>تم الصرف</span><strong>'+moneyV300(paid)+'</strong></div><div class="card stat"><span>مرتجع</span><strong>'+moneyV300(returned)+'</strong></div></div>'+
+      (rows.length?'<table><tr><th>النوع</th><th>الرقم</th><th>المورد / الطرف</th><th>البنك</th><th>القيمة</th><th>الإصدار</th><th>الاستحقاق</th><th>المصدر</th><th>الحالة</th><th class="v300-no-print">إجراءات</th></tr>'+rows.map(function(r){return '<tr><td>'+payableTypeV300(r.instrument_type)+'</td><td><b>'+e(r.number)+'</b></td><td>'+e(r.party||'-')+'</td><td>'+e(r.bank||'-')+'</td><td>'+moneyV300(r.amount)+'</td><td>'+e(r.issue_date||'-')+'</td><td>'+e(r.due_date||'-')+'</td><td>'+(r.payment_source==='cash'?'خزينة':'بنك')+'</td><td><span class="v300-status '+e(r.status||'pending')+'">'+payableStatusV300(r.status)+'</span></td><td class="v300-no-print"><div class="actions"><button class="btn small blue" onclick="setPayableStatusV300(\''+r.id+'\',\'submitted\')">مقدم للبنك</button><button class="btn small ok" onclick="setPayableStatusV300(\''+r.id+'\',\'paid\')">تم الصرف</button><button class="btn small warn" onclick="setPayableStatusV300(\''+r.id+'\',\'returned\')">مرتجع</button><button class="btn small secondary" onclick="setPayableStatusV300(\''+r.id+'\',\'cancelled\')">إلغاء</button><button class="btn small danger" onclick="deletePayablePaperV300(\''+r.id+'\')">مسح</button></div></td></tr>'}).join('')+'</table>':'<div class="empty">لا توجد أوراق دفع</div>');
+  }
+  window.renderPayablePaneV300=function(){var pane=document.querySelector('.finance-pane-v227[data-pane="payable-papers"]');if(pane){pane.innerHTML='<h3>كشف أوراق الدفع</h3>'+payableHTMLV300();addPrintBarsV300()}};
+
+  function installV300(){
+    if(!ensureV300())return;
+    var tools=document.getElementById('finance_tools_v227'),nav=tools&&tools.querySelector('.finance-nav-v227'),card=nav&&nav.closest('.card');if(!nav||!card)return;
+    if(!nav.querySelector('[data-pane="payable-papers"]')){var b=document.createElement('button');b.className='btn secondary';b.dataset.pane='payable-papers';b.textContent='كشف أوراق الدفع';b.onclick=function(){showFinancePaneV227('payable-papers');renderPayablePaneV300()};nav.appendChild(b)}
+    if(!card.querySelector('.finance-pane-v227[data-pane="payable-papers"]')){var p=document.createElement('div');p.className='finance-pane-v227';p.dataset.pane='payable-papers';card.appendChild(p)}
+    renderPayablePaneV300();addPrintBarsV300();
+    var current=localStorage.getItem('finance_pane_v227');if(current==='payable-papers')showFinancePaneV227(current);
+  }
+
+  var baseV300=window.renderFinanceToolsV227;
+  if(typeof baseV300==='function')window.renderFinanceToolsV227=function(){var r=baseV300.apply(this,arguments);setTimeout(installV300,80);return r};
+  setTimeout(installV300,350);setTimeout(installV300,900);
+})();
+</script>
+<!-- v300 end -->
+
+<!-- v303-safe liquidity flow start -->
+<style>
+#mb-liquidity-flow-v303-safe{margin:20px 0;background:#fff;border:1px solid #d9e2ec;border-radius:20px;padding:20px;color:#101828;box-shadow:0 14px 34px rgba(16,24,40,.08);direction:rtl}
+#mb-liquidity-flow-v303-safe *{box-sizing:border-box}
+.liq-head{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:18px}.liq-head h3{margin:0 0 6px;font-size:24px;color:#101828!important}.liq-head p{margin:0;color:#667085}.liq-coverage{min-width:125px;text-align:center;border-radius:16px;padding:12px 16px}.liq-coverage span{display:block;font-size:12px;font-weight:800}.liq-coverage b{display:block;font-size:28px}.liq-coverage.good{background:#ecfdf3;color:#067647}.liq-coverage.bad{background:#fef3f2;color:#b42318}
+.liq-flow-grid{display:grid;grid-template-columns:minmax(0,1fr) 70px minmax(0,1fr);gap:18px;align-items:center}.liq-column{border-radius:18px;padding:16px;min-height:100%}.liq-column.resources{background:linear-gradient(180deg,#eff8ff,#f8fbff);border:1px solid #b2ddff}.liq-column.obligations{background:linear-gradient(180deg,#fff4ed,#fffbfa);border:1px solid #ffd6ae}.liq-column h4{text-align:center;margin:0 0 14px;font-size:18px;color:#101828}
+.liq-card{background:#fff;border:1px solid #e4e7ec;border-radius:14px;padding:12px 14px;display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center}.liq-card span{font-weight:900;color:#344054}.liq-card strong{font-size:18px;color:#101828}.liq-card small{grid-column:1/-1;color:#667085}.liq-arrow{text-align:center;font-size:24px;font-weight:900;color:#98a2b3;line-height:1.3}.liq-vs{display:flex;justify-content:center;align-items:center}.liq-vs span{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#101828;color:#fff;font-weight:900;box-shadow:0 10px 25px rgba(16,24,40,.2)}
+.liq-total{margin-top:14px;border-radius:14px;padding:14px;display:flex;justify-content:space-between;align-items:center}.liq-total span{font-weight:900}.liq-total strong{font-size:22px}.resources-total{background:#175cd3;color:#fff}.obligations-total{background:#b42318;color:#fff}.liq-due-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:12px}.liq-due-grid div{background:#fff;border:1px solid #fecdca;border-radius:12px;padding:10px}.liq-due-grid span{display:block;color:#667085;font-size:11px}.liq-due-grid b{display:block;color:#b42318;margin-top:4px}
+.liq-result{margin-top:18px;border-radius:16px;padding:16px 18px;display:flex;align-items:center;justify-content:space-between;gap:18px}.liq-result.good{background:#ecfdf3;border:1px solid #abefc6;color:#067647}.liq-result.bad{background:#fef3f2;border:1px solid #fecdca;color:#b42318}.liq-result span{display:block;font-size:12px;font-weight:800}.liq-result strong{font-size:26px}.liq-result p{margin:0;font-weight:800;text-align:left}
+@media(max-width:900px){.liq-flow-grid{grid-template-columns:1fr}.liq-vs{height:40px}.liq-head,.liq-result{align-items:stretch;flex-direction:column}.liq-result p{text-align:right}}@media print{#mb-liquidity-flow-v303-safe{box-shadow:none;break-inside:avoid}}
+</style>
+<script>
+(function(){
+  'use strict';
+  var PATCH_ID='mb-liquidity-flow-v303-safe';
+  function num(v){v=Number(v);return Number.isFinite(v)?v:0}
+  function arr(v){return Array.isArray(v)?v:[]}
+  function money2(v){try{return new Intl.NumberFormat(lang==='ar'?'ar-EG':'en-US',{style:'currency',currency:'EGP',maximumFractionDigits:0}).format(num(v))}catch(e){return 'EGP '+Math.round(num(v)).toLocaleString()}}
+  function dateOnly(v){if(!v)return null;var d=new Date(String(v).slice(0,10)+'T00:00:00');return isNaN(d.getTime())?null:d}
+  function daysTo(v){var d=dateOnly(v);if(!d)return 99999;var t=new Date();t.setHours(0,0,0,0);return Math.round((d-t)/86400000)}
+  function pendingStatus(s){s=String(s||'pending').toLowerCase();return ['paid','collected','cancelled','canceled','void'].indexOf(s)===-1}
+  function currentLiquidity(){
+    var cash=0,bank=0;
+    arr(db&&db.financeFunds).forEach(function(f){if(String(f.type)==='bank')bank+=num(f.balance);else cash+=num(f.balance)});
+    return {cash:cash,bank:bank,total:cash+bank};
+  }
+  function receivables(){return arr(db&&db.finance_receivable_papers).filter(function(x){return pendingStatus(x.status)}).reduce(function(s,x){return s+num(x.amount)},0)}
+  function payables(){return arr(db&&db.finance_payable_papers).filter(function(x){return pendingStatus(x.status)}).reduce(function(s,x){return s+num(x.amount)},0)}
+  function customerMoney(){return arr(db&&db.customers).reduce(function(s,x){return s+Math.max(0,num(x.balance))},0)}
+  function supplierMoney(){return arr(db&&db.suppliers).reduce(function(s,x){return s+Math.max(0,num(x.balance))},0)}
+  function dueBuckets(){
+    var rows=arr(db&&db.finance_payable_papers).filter(function(x){return pendingStatus(x.status)}),b={overdue:0,d7:0,d30:0,d60:0};
+    rows.forEach(function(x){var d=daysTo(x.due_date),a=num(x.amount);if(d<0)b.overdue+=a;else if(d<=7)b.d7+=a;else if(d<=30)b.d30+=a;else if(d<=60)b.d60+=a});return b;
+  }
+  function esc2(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+  function card(title,value,cls,sub){return '<div class="liq-card '+cls+'"><span>'+esc2(title)+'</span><strong>'+money2(value)+'</strong><small>'+esc2(sub||'')+'</small></div>'}
+  function build(){
+    if(typeof db==='undefined'||!db)return '';
+    var l=currentLiquidity(),customers=customerMoney(),receivable=receivables(),suppliers=supplierMoney(),payable=payables();
+    var resources=l.total+customers+receivable,obligations=suppliers+payable,net=resources-obligations;
+    var coverage=obligations>0?Math.round(resources/obligations*100):100,b=dueBuckets();
+    var statusClass=net>=0?'good':'bad',statusText=net>=0?(lang==='ar'?'السيولة والموارد المتوقعة تغطي الالتزامات':'Resources cover obligations'):(lang==='ar'?'يوجد عجز متوقع يحتاج ترتيب التحصيلات والمدفوعات':'Expected shortfall: review collections and payments');
+    return '<section id="'+PATCH_ID+'" class="liquidity-flow-box">'+
+      '<div class="liq-head"><div><h3>'+(lang==='ar'?'خريطة السيولة والالتزامات':'Liquidity & Obligations Map')+'</h3><p>'+(lang==='ar'?'مقارنة الأموال المتاحة والمتوقعة بالالتزامات القائمة لاتخاذ قرار مالي واضح':'Compare available and expected funds with current obligations')+'</p></div><div class="liq-coverage '+statusClass+'"><span>'+(lang==='ar'?'نسبة التغطية':'Coverage')+'</span><b>'+coverage+'%</b></div></div>'+
+      '<div class="liq-flow-grid"><div class="liq-column resources"><h4>'+(lang==='ar'?'الأموال المتاحة والمتوقعة':'Available & Expected Funds')+'</h4>'+
+        card(lang==='ar'?'الخزينة':'Cashboxes',l.cash,'cash',lang==='ar'?'متاح حاليًا':'Available now')+
+        '<div class="liq-arrow">＋</div>'+card(lang==='ar'?'البنوك':'Banks',l.bank,'bank',lang==='ar'?'متاح حاليًا':'Available now')+
+        '<div class="liq-arrow">＋</div>'+card(lang==='ar'?'المتبقي على العملاء':'Customer Receivables',customers,'customers',lang==='ar'?'منتظر التحصيل':'Expected collection')+
+        '<div class="liq-arrow">＋</div>'+card(lang==='ar'?'أوراق القبض':'Receivable Papers',receivable,'receivable',lang==='ar'?'غير محصلة':'Uncollected')+
+        '<div class="liq-total resources-total"><span>'+(lang==='ar'?'إجمالي الموارد':'Total Resources')+'</span><strong>'+money2(resources)+'</strong></div></div>'+
+      '<div class="liq-vs"><span>VS</span></div><div class="liq-column obligations"><h4>'+(lang==='ar'?'الالتزامات القائمة':'Current Obligations')+'</h4>'+
+        card(lang==='ar'?'مستحقات الموردين':'Supplier Dues',suppliers,'suppliers',lang==='ar'?'رصيد مستحق':'Outstanding balance')+
+        '<div class="liq-arrow">＋</div>'+card(lang==='ar'?'أوراق الدفع':'Payable Papers',payable,'payable',lang==='ar'?'غير مصروفة':'Unpaid')+
+        '<div class="liq-total obligations-total"><span>'+(lang==='ar'?'إجمالي الالتزامات':'Total Obligations')+'</span><strong>'+money2(obligations)+'</strong></div>'+ 
+        '<div class="liq-due-grid"><div><span>'+(lang==='ar'?'متأخر':'Overdue')+'</span><b>'+money2(b.overdue)+'</b></div><div><span>'+(lang==='ar'?'خلال 7 أيام':'Within 7 days')+'</span><b>'+money2(b.d7)+'</b></div><div><span>'+(lang==='ar'?'خلال 30 يوم':'Within 30 days')+'</span><b>'+money2(b.d30)+'</b></div><div><span>'+(lang==='ar'?'خلال 60 يوم':'Within 60 days')+'</span><b>'+money2(b.d60)+'</b></div></div></div></div>'+
+      '<div class="liq-result '+statusClass+'"><div><span>'+(lang==='ar'?'صافي التغطية بعد الالتزامات':'Net Coverage After Obligations')+'</span><strong>'+money2(net)+'</strong></div><p>'+esc2(statusText)+'</p></div></section>';
+  }
+  function inject(){
+    var host=document.getElementById('view-dashboard');if(!host)return;
+    var old=document.getElementById(PATCH_ID);if(old)old.remove();
+    var html=build();if(!html)return;
+    var marker=host.querySelector('.clean-dashboard-sections');
+    if(marker)marker.insertAdjacentHTML('beforebegin',html);else host.insertAdjacentHTML('beforeend',html);
+  }
+  var base=window.renderDashboard;
+  if(typeof base==='function'){
+    window.renderDashboard=function(){var r=base.apply(this,arguments);try{inject()}catch(e){console.warn('Liquidity flow patch:',e)}return r};
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(inject,100)});else setTimeout(inject,100);
+})();
+</script>
+<!-- v303-safe liquidity flow end -->
