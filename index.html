@@ -7395,8 +7395,18 @@ html body .doc-total{
   function orderTypeLabelV150(v){
     return ({sale:'بيع',bonus:'بونص',display:'للعرض'}[v]||'بيع');
   }
-  function lineTotalV150(line){
+  function vatRateForLineV150(line){
+    let rate=n(line&&((line.vat_percent!=null)?line.vat_percent:line.vat_rate));
+    return Math.max(0,Math.min(100,rate));
+  }
+  function lineSubtotalV150(line){
     return line.order_type==='sale' ? n(line.qty)*n(line.price) : 0;
+  }
+  function lineVatValueV150(line){
+    return lineSubtotalV150(line)*vatRateForLineV150(line)/100;
+  }
+  function lineTotalV150(line){
+    return lineSubtotalV150(line)+lineVatValueV150(line);
   }
   function draftTotalV150(){
     return salesInvoiceDraftV150.reduce((sum,line)=>sum+lineTotalV150(line),0);
@@ -7447,11 +7457,19 @@ html body .doc-total{
     let qty=n((document.getElementById('sa_qty')||{}).value);
     let type=(document.getElementById('sa_order_type')||{}).value||'sale';
     let price=type==='sale'?n((document.getElementById('sa_price')||{}).value||p?.sale):0;
+    let vatRate=Math.max(0,Math.min(100,n((document.getElementById('sa_vat_v216')||{}).value)));
     if(!p)return alert(T('product'));
     if(qty<=0)return alert(T('qty'));
 
-    let old=salesInvoiceDraftV150.find(x=>x.product_id===p.id&&x.order_type===type&&n(x.price)===price);
-    if(old) old.qty=n(old.qty)+qty;
+    let old=salesInvoiceDraftV150.find(x=>x.product_id===p.id&&x.order_type===type&&n(x.price)===price&&vatRateForLineV150(x)===vatRate);
+    if(old){
+      old.qty=n(old.qty)+qty;
+      old.vat_percent=vatRate;
+      old.vat_rate=vatRate;
+      old.subtotal_before_vat=lineSubtotalV150(old);
+      old.vat_amount=lineVatValueV150(old);
+      old.total_including_vat=lineTotalV150(old);
+    }
     else salesInvoiceDraftV150.push({
       line_id:uid(),
       product_id:p.id,
@@ -7459,7 +7477,12 @@ html body .doc-total{
       product_expiry:p.expiry||'',
       qty,
       price,
-      order_type:type
+      order_type:type,
+      vat_percent:vatRate,
+      vat_rate:vatRate,
+      subtotal_before_vat:type==='sale'?qty*price:0,
+      vat_amount:type==='sale'?(qty*price*vatRate/100):0,
+      total_including_vat:type==='sale'?(qty*price*(1+vatRate/100)):0
     });
     renderSales();
   };
@@ -7561,6 +7584,22 @@ html body .doc-total{
       if(required[pid]>n(p.stock)&&!confirm((lang==='ar'?'الكمية المطلوبة أكبر من مخزون ':'Requested quantity exceeds stock for ')+p.name+'. '+(lang==='ar'?'تكمل؟':'Continue?')))return;
     }
 
+    let currentVatRate=Math.max(0,Math.min(100,n((document.getElementById('sa_vat_v216')||{}).value)));
+    salesInvoiceDraftV150.forEach(function(line){
+      if((line.order_type||'sale')==='sale'){
+        line.vat_percent=currentVatRate;
+        line.vat_rate=currentVatRate;
+        line.subtotal_before_vat=lineSubtotalV150(line);
+        line.vat_amount=lineVatValueV150(line);
+        line.total_including_vat=lineTotalV150(line);
+      }else{
+        line.vat_percent=0;
+        line.vat_rate=0;
+        line.subtotal_before_vat=0;
+        line.vat_amount=0;
+        line.total_including_vat=0;
+      }
+    });
     let region=typeof customerRegionSnapshot==='function'?customerRegionSnapshot(c):{id:'',name:c.area||''};
     let groupId='INV_'+uid();
     let invoiceTotal=draftTotalV150();
@@ -7572,6 +7611,9 @@ html body .doc-total{
       let totalCost=0,totalRemaining=0;
       salesInvoiceDraftV150.forEach(line=>{
         let p=db.products.find(x=>x.id===line.product_id);
+        let subtotal=lineSubtotalV150(line);
+        let vatRate=vatRateForLineV150(line);
+        let vatAmount=lineVatValueV150(line);
         let total=lineTotalV150(line);
         let paid=Math.min(paidLeft,total);
         paidLeft-=paid;
@@ -7594,6 +7636,11 @@ html body .doc-total{
           product_expiry:p.expiry||'',
           qty:n(line.qty),
           price:line.order_type==='sale'?n(line.price):0,
+          subtotal_before_vat:subtotal,
+          vat_percent:vatRate,
+          vat_rate:vatRate,
+          vat_amount:vatAmount,
+          total_including_vat:total,
           total,
           paid,
           remaining,
@@ -7617,6 +7664,9 @@ html body .doc-total{
       if(typeof ensureSalesOrders==='function')ensureSalesOrders();
       salesInvoiceDraftV150.forEach(line=>{
         let p=db.products.find(x=>x.id===line.product_id);
+        let subtotal=lineSubtotalV150(line);
+        let vatRate=vatRateForLineV150(line);
+        let vatAmount=lineVatValueV150(line);
         let total=lineTotalV150(line);
         let paid=Math.min(paidLeft,total);
         paidLeft-=paid;
@@ -7635,6 +7685,11 @@ html body .doc-total{
           product_expiry:p.expiry||'',
           qty:n(line.qty),
           price:line.order_type==='sale'?n(line.price):0,
+          subtotal_before_vat:subtotal,
+          vat_percent:vatRate,
+          vat_rate:vatRate,
+          vat_amount:vatAmount,
+          total_including_vat:total,
           total,
           paid,
           remaining:total-paid,
@@ -7677,8 +7732,18 @@ html body .doc-total{
         created.region_name=order.region_name||created.region_name||'';
         created.order_type=order.order_type||'sale';
         created.order_type_label=orderTypeLabelV150(created.order_type);
+        created.subtotal_before_vat=n(order.subtotal_before_vat);
+        created.vat_percent=n((order.vat_percent!=null)?order.vat_percent:order.vat_rate);
+        created.vat_rate=created.vat_percent;
+        created.vat_amount=n(order.vat_amount);
+        created.total_including_vat=n(order.total_including_vat||order.total);
         if(created.order_type!=='sale'){
           created.price=0;
+          created.subtotal_before_vat=0;
+          created.vat_percent=0;
+          created.vat_rate=0;
+          created.vat_amount=0;
+          created.total_including_vat=0;
           created.total=0;
           created.paid=0;
           created.remaining=0;
@@ -15594,14 +15659,33 @@ html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!importan
     const city=String(c.city||c.area||s.region_name||'-');
     const phone=String(c.phone||'-');
     const payment=String(s.payment_method||s.method||'-');
-    const total=rows.reduce(function(a,r){return a+numV214(r.total)},0);
+    function vatRateForInvoiceRowV223(r){
+      let rate=numV214((r.vat_percent!=null)?r.vat_percent:r.vat_rate);
+      if(rate>0)return Math.max(0,Math.min(100,rate));
+      const orders=Array.isArray(db.sales_orders)?db.sales_orders:[];
+      const order=orders.find(function(o){return r.order_id&&o.id===r.order_id}) ||
+                  orders.find(function(o){
+                    return r.invoice_group_id&&o.invoice_group_id===r.invoice_group_id &&
+                           String(o.product_id||'')===String(r.product_id||'');
+                  });
+      rate=numV214(order&&((order.vat_percent!=null)?order.vat_percent:order.vat_rate));
+      return Math.max(0,Math.min(100,rate));
+    }
+    function totalAfterVatV223(r){
+      if((r.order_type||'sale')!=='sale')return 0;
+      const base=numV214(r.subtotal_before_vat)||numV214(r.qty)*numV214(r.price);
+      const rate=vatRateForInvoiceRowV223(r);
+      return base+(base*rate/100);
+    }
+    const total=rows.reduce(function(a,r){return a+totalAfterVatV223(r)},0);
     const company=(db.settings&&String(db.settings.company||'').trim()&&!/mahsoubak|محسوبك/i.test(String(db.settings.company)))?String(db.settings.company):'New Life Medical';
     const companyCity=(db.settings&&db.settings.city)?String(db.settings.city):'New Cairo 1';
     const productRows=rows.map(function(r){
       const lot=String(r.lot||r.batch||r.product_expiry||'—');
       const type=typeLabelV214(r);
       const product=String(r.product_name||r.product||'-')+' — '+type;
-      return '<tr><td>'+escV214(lot)+'</td><td>'+escV214(product)+'</td><td>'+numV214(r.qty)+'</td><td>PCS</td><td>'+moneyV214(r.price)+'</td><td>'+moneyV214(r.total)+'</td></tr>';
+      const finalTotal=totalAfterVatV223(r);
+      return '<tr><td>'+escV214(lot)+'</td><td>'+escV214(product)+'</td><td>'+numV214(r.qty)+'</td><td>PCS</td><td>'+moneyV214(r.price)+'</td><td>'+moneyV214(finalTotal)+'</td></tr>';
     }).join('');
 
     return '<!DOCTYPE html><html lang="en" dir="ltr"><head><meta charset="UTF-8"><title>'+escV214(invNo)+'</title><style>'+` 
@@ -15900,19 +15984,302 @@ html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!importan
       var lots=group.map(function(x){return '<tr><td>'+escV215(x.product_name||'')+'</td><td>'+escV215(x.lot_number||x.lot||'—')+'</td><td>'+numV215(x.qty)+'</td></tr>'}).join('');
       if(type==='delivery'){
         var block='<div style="background:#fff;color:#000;margin:14px 0"><h3 style="margin:0 0 8px">LOT Number</h3><table style="width:100%;border-collapse:collapse"><tr><th style="border:1px solid #999;padding:7px">Product</th><th style="border:1px solid #999;padding:7px">LOT Number</th><th style="border:1px solid #999;padding:7px">Quantity</th></tr>'+lots+'</table></div>';
-        html=html.replace(/<\/body>/i,block+'</body>');
+        html=html.replace(/<\/body>/i,block+'
+
+<!-- ===== v217 VAT calculation reliability fix ===== -->
+<script id="v217-vat-calculation-fix">
+(function(){
+  function n217(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function save217(){try{if(typeof save==='function')save()}catch(e){}}
+  function orderForSale217(s){
+    var orders=(db&&Array.isArray(db.sales_orders))?db.sales_orders:[];
+    return orders.find(function(o){return o.id===s.order_id||o.sale_id===s.id}) ||
+           orders.find(function(o){return o.invoice_no&&s.invoice_no&&o.invoice_no===s.invoice_no}) || null;
+  }
+  function vatRate217(row){
+    var direct=n217(row&&((row.vat_percent!=null)?row.vat_percent:row.vat_rate));
+    if(direct>0)return direct;
+    var o=row?orderForSale217(row):null;
+    return n217(o&&((o.vat_percent!=null)?o.vat_percent:o.vat_rate));
+  }
+
+  /* Store VAT on the newly created order even when render() runs inside addSale. */
+  var addBase217=window.addSale;
+  if(typeof addBase217==='function'){
+    window.addSale=function(){
+      var el=document.getElementById('sa_vat_v216');
+      var rate=Math.max(0,Math.min(100,n217(el&&el.value)));
+      var before=(db.sales_orders||[]).map(function(o){return o.id});
+      var result=addBase217.apply(this,arguments);
+      var created=(db.sales_orders||[]).find(function(o){return before.indexOf(o.id)<0});
+      if(created){
+        created.vat_percent=rate;
+        created.vat_rate=rate;
+        created.vat_amount=n217(created.total)*rate/100;
+        created.total_including_vat=n217(created.total)+created.vat_amount;
+        save217();
       }
+      return result;
+    };
+    try{addSale=window.addSale}catch(e){}
+  }
+
+  /* Copy VAT to approved sales regardless of the base function return value. */
+  var approveBase217=window.createApprovedSaleFromOrder;
+  if(typeof approveBase217==='function'){
+    window.createApprovedSaleFromOrder=function(order){
+      var before=(db.sales||[]).map(function(x){return x.id});
+      var result=approveBase217.apply(this,arguments);
+      var sale=(db.sales||[]).find(function(x){return before.indexOf(x.id)<0}) ||
+               (db.sales||[]).find(function(x){return x.order_id===order.id||x.id===order.sale_id});
+      if(sale){
+        var rate=n217(order&&((order.vat_percent!=null)?order.vat_percent:order.vat_rate));
+        sale.vat_percent=rate;
+        sale.vat_rate=rate;
+        sale.vat_amount=n217(sale.total)*rate/100;
+        sale.total_including_vat=n217(sale.total)+sale.vat_amount;
+        save217();
+      }
+      return result;
+    };
+    try{createApprovedSaleFromOrder=window.createApprovedSaleFromOrder}catch(e){}
+  }
+
+  /* Rebuild invoice totals from product value: subtotal × VAT%. */
+  var docBase217=window.saleDocumentHTML;
+  if(typeof docBase217==='function'){
+    window.saleDocumentHTML=function(s,type){
+      var html=docBase217.apply(this,arguments);
+      if(type!=='invoice')return html;
+      var key=s.invoice_group_id||s.invoice_no||s.id;
+      var rows=(db.sales||[]).filter(function(x){return (x.invoice_group_id||x.invoice_no||x.id)===key});
+      if(!rows.length)rows=[s];
+      var subtotal=rows.reduce(function(sum,r){
+        var line=n217(r.total);
+        if(!line)line=n217(r.qty)*n217(r.price);
+        return sum+line;
+      },0);
+      var rate=rows.reduce(function(max,r){return Math.max(max,vatRate217(r))},0);
+      var vat=subtotal*rate/100;
+      var inclusive=subtotal+vat;
+      var money=function(v){return n217(v).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:2})+' EGP'};
+      var totals='<tr class="total-row"><td colspan="5" class="total-label">Grand Total</td><td>'+money(subtotal)+'</td></tr>'+
+        '<tr class="total-row vat-row-v217"><td colspan="5" class="total-label">VAT ('+rate.toLocaleString('en-US',{maximumFractionDigits:2})+'%)</td><td>'+money(vat)+'</td></tr>'+
+        '<tr class="total-row total-vat-v217"><td colspan="5" class="total-label">Total Including VAT</td><td>'+money(inclusive)+'</td></tr>';
+      html=html.replace(/<tr class="total-row"><td colspan="5" class="total-label">Grand Total<\/td><td>.*?<\/td><\/tr>(?:\s*<tr class="total-row vat-row-v216">.*?<\/tr>)?(?:\s*<tr class="total-row net-total-row-v216">.*?<\/tr>)?/i,totals);
+      return html;
+    };
+    try{saleDocumentHTML=window.saleDocumentHTML}catch(e){}
+  }
+})();
+</script>
+<!-- v217 end -->
+
+<!-- ===== v218 definitive VAT storage and invoice calculation fix ===== -->
+<script id="v218-definitive-vat-fix">
+(function(){
+  function num(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function rateFromOrder(o){return Math.max(0,Math.min(100,num(o&&((o.vat_percent!=null)?o.vat_percent:o.vat_rate))))}
+  function persist(){try{if(typeof save==='function')save()}catch(e){}}
+  function installField(){
+    if(document.getElementById('sa_vat_v216'))return;
+    var lot=document.getElementById('sa_lot_v215');
+    var product=document.getElementById('sa_product');
+    var anchor=(lot&&lot.closest('div'))||(product&&product.closest('div'));
+    if(anchor)anchor.insertAdjacentHTML('afterend','<div class="vat-order-field-v216"><label>VAT %</label><input id="sa_vat_v216" type="number" min="0" max="100" step="0.01" value="0" placeholder="0"><div class="hint">'+((typeof lang!=='undefined'&&lang==='ar')?'اتركها 0 إذا كانت الفاتورة بدون ضريبة':'Leave 0 for a non-tax invoice')+'</div></div>');
+  }
+
+  var renderBase=window.renderSales;
+  if(typeof renderBase==='function'){
+    window.renderSales=function(){var r=renderBase.apply(this,arguments);installField();return r};
+    try{renderSales=window.renderSales}catch(e){}
+  }
+
+  var addBase=window.addSale;
+  if(typeof addBase==='function'){
+    window.addSale=function(){
+      var input=document.getElementById('sa_vat_v216');
+      var rate=Math.max(0,Math.min(100,num(input&&input.value)));
+      var before=new Set((db.sales_orders||[]).map(function(o){return o.id}));
+      var result=addBase.apply(this,arguments);
+      var created=(db.sales_orders||[]).filter(function(o){return !before.has(o.id)});
+      created.forEach(function(o){
+        var subtotal=num(o.total)||num(o.qty)*num(o.price);
+        o.vat_percent=rate;o.vat_rate=rate;
+        o.vat_amount=subtotal*rate/100;
+        o.total_including_vat=subtotal+o.vat_amount;
+      });
+      if(created.length)persist();
+      return result;
+    };
+    try{addSale=window.addSale}catch(e){}
+  }
+
+  var approveBase=window.createApprovedSaleFromOrder;
+  if(typeof approveBase==='function'){
+    window.createApprovedSaleFromOrder=function(order){
+      var before=new Set((db.sales||[]).map(function(s){return s.id}));
+      var result=approveBase.apply(this,arguments);
+      var rate=rateFromOrder(order);
+      var created=(db.sales||[]).filter(function(s){return !before.has(s.id)});
+      created.forEach(function(s){
+        var subtotal=num(s.subtotal_before_vat||s.base_total);
+        if(!subtotal && (s.order_type||'sale')==='sale')subtotal=num(s.qty)*num(s.price);
+        s.vat_percent=rate;s.vat_rate=rate;
+        s.vat_amount=subtotal*rate/100;
+        s.total_including_vat=subtotal+s.vat_amount;
+      });
+      if(order){
+        var subtotal=num(order.total)||num(order.qty)*num(order.price);
+        order.vat_percent=rate;order.vat_rate=rate;
+        order.vat_amount=subtotal*rate/100;
+        order.total_including_vat=subtotal+order.vat_amount;
+      }
+      if(created.length)persist();
+      return result;
+    };
+    try{createApprovedSaleFromOrder=window.createApprovedSaleFromOrder}catch(e){}
+  }
+
+  function orderForSale(s){
+    var orders=db.sales_orders||[];
+    return orders.find(function(o){return o.id===s.order_id})||
+      orders.find(function(o){return o.invoice_group_id&&s.invoice_group_id&&o.invoice_group_id===s.invoice_group_id})||
+      orders.find(function(o){return o.invoice_no&&s.invoice_no&&o.invoice_no===s.invoice_no})||null;
+  }
+
+  var docBase=window.saleDocumentHTML;
+  if(typeof docBase==='function'){
+    window.saleDocumentHTML=function(s,type){
+      var html=docBase.apply(this,arguments);
+      if(type!=='invoice')return html;
+      var key=s.invoice_group_id||s.invoice_no||s.id;
+      var rows=(db.sales||[]).filter(function(x){return (x.invoice_group_id||x.invoice_no||x.id)===key});
+      if(!rows.length)rows=[s];
+      var subtotal=rows.reduce(function(sum,r){return sum+(num(r.total)||num(r.qty)*num(r.price))},0);
+      var rate=rows.reduce(function(max,r){
+        var direct=Math.max(0,Math.min(100,num((r.vat_percent!=null)?r.vat_percent:r.vat_rate)));
+        if(!direct){direct=rateFromOrder(orderForSale(r))}
+        return Math.max(max,direct);
+      },0);
+      var vat=subtotal*rate/100;
+      var inclusive=subtotal+vat;
+      var money=function(v){return num(v).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:2})+' EGP'};
+      var totals='<tr class="total-row"><td colspan="5" class="total-label">Grand Total</td><td>'+money(subtotal)+'</td></tr>'+ 
+        '<tr class="total-row vat-row-v218"><td colspan="5" class="total-label">VAT ('+rate.toLocaleString('en-US',{maximumFractionDigits:2})+'%)</td><td>'+money(vat)+'</td></tr>'+ 
+        '<tr class="total-row total-vat-v218"><td colspan="5" class="total-label">Total Including VAT</td><td>'+money(inclusive)+'</td></tr>';
+      html=html.replace(/<tr class="total-row"><td colspan="5" class="total-label">Grand Total<\/td><td>.*?<\/td><\/tr>(?:\s*<tr class="total-row [^"]*vat[^\"]*">.*?<\/tr>)*(?:\s*<tr class="total-row [^"]*(?:net|total-vat)[^\"]*">.*?<\/tr>)*/i,totals);
       return html;
     };
     try{saleDocumentHTML=window.saleDocumentHTML}catch(e){}
   }
 
-  ensureInventoryLotsV215();persistV215();
-  setTimeout(function(){try{if(current==='products')renderProducts();if(current==='sales')renderSales();addLotToOrderTablesV215()}catch(e){}},50);
+  setTimeout(installField,80);
 })();
 </script>
-<!-- v215 end -->
+<!-- v218 end -->
 
+<!-- ===== v219 final VAT persistence + invoice totals patch ===== -->
+<script id="v219-final-vat-persistence">
+(function(){
+  function num(v){var x=parseFloat(v);return Number.isFinite(x)?x:0}
+  function clamp(v){return Math.max(0,Math.min(100,num(v)))}
+  function saveDb(){try{if(typeof save==='function')save()}catch(e){}}
+  var pendingVat=0;
+
+  function vatInput(){return document.getElementById('sa_vat_v216')}
+  function readVat(){var el=vatInput();return clamp(el?el.value:pendingVat)}
+  function restoreVat(){var el=vatInput();if(el){el.value=String(pendingVat||0);el.oninput=function(){pendingVat=clamp(this.value)}}}
+
+  /* Keep the entered VAT visible even when render() rebuilds the order form. */
+  var render0=window.renderSales || (typeof renderSales==='function'?renderSales:null);
+  if(typeof render0==='function'){
+    var renderFixed=function(){var r=render0.apply(this,arguments);setTimeout(restoreVat,0);return r};
+    window.renderSales=renderFixed;try{renderSales=renderFixed}catch(e){}
+  }
+
+  /* Save VAT on every newly-created order line. */
+  var add0=window.addSale || (typeof addSale==='function'?addSale:null);
+  if(typeof add0==='function'){
+    var addFixed=function(){
+      var rate=readVat(); pendingVat=rate;
+      var list=(db&&db.sales_orders)||[];
+      var ids=new Set(list.map(function(x){return x.id}));
+      var result=add0.apply(this,arguments);
+      var created=((db&&db.sales_orders)||[]).filter(function(x){return !ids.has(x.id)});
+      created.forEach(function(o){
+        var subtotal=num(o.total) || num(o.qty)*num(o.price);
+        o.vat_percent=rate; o.vat_rate=rate;
+        o.vat_amount=subtotal*rate/100;
+        o.total_including_vat=subtotal+o.vat_amount;
+      });
+      if(created.length)saveDb();
+      setTimeout(restoreVat,0);
+      return result;
+    };
+    window.addSale=addFixed;try{addSale=addFixed}catch(e){}
+  }
+
+  /* Carry VAT from the order into the approved sale. */
+  var approve0=window.createApprovedSaleFromOrder || (typeof createApprovedSaleFromOrder==='function'?createApprovedSaleFromOrder:null);
+  if(typeof approve0==='function'){
+    var approveFixed=function(order){
+      var before=new Set(((db&&db.sales)||[]).map(function(x){return x.id}));
+      var result=approve0.apply(this,arguments);
+      var rate=clamp(order&&((order.vat_percent!=null)?order.vat_percent:order.vat_rate));
+      var created=((db&&db.sales)||[]).filter(function(x){return !before.has(x.id)});
+      created.forEach(function(s){
+        var subtotal=num(s.total)||num(s.qty)*num(s.price);
+        s.vat_percent=rate;s.vat_rate=rate;
+        s.vat_amount=subtotal*rate/100;
+        s.total_including_vat=subtotal+s.vat_amount;
+      });
+      if(created.length)saveDb();
+      return result;
+    };
+    window.createApprovedSaleFromOrder=approveFixed;try{createApprovedSaleFromOrder=approveFixed}catch(e){}
+  }
+
+  function relatedOrder(row){
+    var orders=(db&&db.sales_orders)||[];
+    return orders.find(function(o){return row.order_id&&o.id===row.order_id}) ||
+      orders.find(function(o){return row.invoice_group_id&&o.invoice_group_id===row.invoice_group_id}) ||
+      orders.find(function(o){return row.invoice_no&&o.invoice_no===row.invoice_no}) || null;
+  }
+  function money(v){return num(v).toLocaleString('en-US',{maximumFractionDigits:2})+' EGP'}
+
+  /* Always calculate VAT from product subtotal when the invoice is printed. */
+  var doc0=window.saleDocumentHTML || (typeof saleDocumentHTML==='function'?saleDocumentHTML:null);
+  if(typeof doc0==='function'){
+    var docFixed=function(s,type){
+      var html=doc0.apply(this,arguments);
+      if(type!=='invoice')return html;
+      var key=s.invoice_group_id||s.invoice_no||s.id;
+      var rows=((db&&db.sales)||[]).filter(function(x){return (x.invoice_group_id||x.invoice_no||x.id)===key});
+      if(!rows.length)rows=[s];
+      var subtotal=rows.reduce(function(a,r){
+        var base=num(r.subtotal_before_vat||r.base_total);
+        if(!base && (r.order_type||'sale')==='sale')base=num(r.qty)*num(r.price);
+        return a+base;
+      },0);
+      var rate=rows.reduce(function(m,r){
+        var x=clamp((r.vat_percent!=null)?r.vat_percent:r.vat_rate);
+        if(!x){var o=relatedOrder(r);x=clamp(o&&((o.vat_percent!=null)?o.vat_percent:o.vat_rate))}
+        return Math.max(m,x);
+      },0);
+      var vat=subtotal*rate/100, net=subtotal+vat;
+      var totals='<tr class="total-row"><td colspan="5" class="total-label">Grand Total</td><td>'+money(subtotal)+'</td></tr>'+
+        '<tr class="total-row vat-row-v219"><td colspan="5" class="total-label">VAT ('+rate.toLocaleString('en-US',{maximumFractionDigits:2})+'%)</td><td>'+money(vat)+'</td></tr>'+
+        '<tr class="total-row total-vat-v219"><td colspan="5" class="total-label">Total Including VAT</td><td>'+money(net)+'</td></tr>';
+      html=html.replace(/<tr class="total-row"><td colspan="5" class="total-label">Grand Total<\/td><td>.*?<\/td><\/tr>(?:\s*<tr class="total-row [^"]*(?:vat|net|total-vat)[^"]*">.*?<\/tr>)*/gi,totals);
+      return html;
+    };
+    window.saleDocumentHTML=docFixed;try{saleDocumentHTML=docFixed}catch(e){}
+  }
+  setTimeout(restoreVat,100);
+})();
+</script>
+<!-- v219 end -->
 <!-- ===== v216 Optional VAT on orders and invoice ===== -->
 <style id="v216-vat-style">
 .vat-order-field-v216{min-width:150px}
@@ -16006,3 +16373,575 @@ html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!importan
 })();
 </script>
 <!-- v216 end -->
+
+
+<!-- ===== v220 final VAT added to product total fix ===== -->
+<script id="v220-vat-added-to-product-total-fix">
+(function(){
+  function num(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function clamp(v){return Math.max(0,Math.min(100,num(v)))}
+  function baseTotal(row){
+    if(!row)return 0;
+    var base=num(row.subtotal_before_vat||row.base_total);
+    if(!base && (row.order_type||'sale')==='sale') base=num(row.qty)*num(row.price);
+    return base;
+  }
+  function relatedOrder(row){
+    var orders=(db&&Array.isArray(db.sales_orders))?db.sales_orders:[];
+    return orders.find(function(o){return row&&row.order_id&&o.id===row.order_id}) ||
+           orders.find(function(o){return row&&row.invoice_group_id&&o.invoice_group_id===row.invoice_group_id}) ||
+           orders.find(function(o){return row&&row.invoice_no&&o.invoice_no===row.invoice_no}) || null;
+  }
+  function rowVatRate(row){
+    var rate=clamp(row&&((row.vat_percent!=null)?row.vat_percent:row.vat_rate));
+    if(!rate){
+      var order=relatedOrder(row);
+      rate=clamp(order&&((order.vat_percent!=null)?order.vat_percent:order.vat_rate));
+    }
+    return rate;
+  }
+  function money(v){return num(v).toLocaleString('en-US',{maximumFractionDigits:2})+' EGP'}
+
+  var approveBase=window.createApprovedSaleFromOrder || (typeof createApprovedSaleFromOrder==='function'?createApprovedSaleFromOrder:null);
+  if(typeof approveBase==='function'){
+    window.createApprovedSaleFromOrder=function(order){
+      var before=new Set(((db&&db.sales)||[]).map(function(x){return x.id}));
+      var ok=approveBase.apply(this,arguments);
+      var created=((db&&db.sales)||[]).filter(function(x){return !before.has(x.id)});
+      var rate=clamp(order&&((order.vat_percent!=null)?order.vat_percent:order.vat_rate));
+      created.forEach(function(s){
+        var subtotal=baseTotal(s)||baseTotal(order);
+        s.subtotal_before_vat=subtotal;
+        s.vat_percent=rate;
+        s.vat_rate=rate;
+        s.vat_amount=subtotal*rate/100;
+        s.total_including_vat=subtotal+s.vat_amount;
+        if(!num(s.total) && (s.order_type||'sale')==='sale') s.total=s.total_including_vat;
+      });
+      try{if(created.length && typeof save==='function')save()}catch(e){}
+      return ok;
+    };
+    try{createApprovedSaleFromOrder=window.createApprovedSaleFromOrder}catch(e){}
+  }
+
+  var docBase=window.saleDocumentHTML || (typeof saleDocumentHTML==='function'?saleDocumentHTML:null);
+  if(typeof docBase==='function'){
+    window.saleDocumentHTML=function(s,type){
+      var html=docBase.apply(this,arguments);
+      if(type!=='invoice')return html;
+      var key=s.invoice_group_id||s.invoice_no||s.id;
+      var rows=((db&&db.sales)||[]).filter(function(x){return (x.invoice_group_id||x.invoice_no||x.id)===key});
+      if(!rows.length)rows=[s];
+      var subtotal=rows.reduce(function(sum,row){return sum+baseTotal(row)},0);
+      var rate=rows.reduce(function(max,row){return Math.max(max,rowVatRate(row))},0);
+      var vat=subtotal*rate/100;
+      var net=subtotal+vat;
+      var totals='<tr class="total-row"><td colspan="5" class="total-label">Grand Total</td><td>'+money(subtotal)+'</td></tr>'+
+        '<tr class="total-row vat-row-v220"><td colspan="5" class="total-label">VAT ('+rate.toLocaleString('en-US',{maximumFractionDigits:2})+'%)</td><td>'+money(vat)+'</td></tr>'+
+        '<tr class="total-row total-vat-v220"><td colspan="5" class="total-label">Total Including VAT</td><td>'+money(net)+'</td></tr>';
+      html=html.replace(/<tr class="total-row"><td colspan="5" class="total-label">Grand Total<\/td><td>.*?<\/td><\/tr>(?:\s*<tr class="total-row [^"]*(?:vat|net|total-vat)[^"]*">.*?<\/tr>)*/gi,totals);
+      return html;
+    };
+    try{saleDocumentHTML=window.saleDocumentHTML}catch(e){}
+  }
+})();
+</script>
+<!-- v220 end -->
+
+
+<!-- ===== v221 show VAT-inclusive amount only on printed invoice ===== -->
+<script id="v221-vat-inclusive-invoice-display">
+(function(){
+  function num(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function clamp(v){return Math.max(0,Math.min(100,num(v)))}
+  function invoiceRows(s){
+    var key=s.invoice_group_id||s.invoice_no||s.id;
+    var rows=((db&&db.sales)||[]).filter(function(x){return (x.invoice_group_id||x.invoice_no||x.id)===key});
+    return rows.length?rows:[s];
+  }
+  function base(row){
+    var b=num(row&&row.subtotal_before_vat);
+    if(!b && row && (row.order_type||'sale')==='sale')b=num(row.qty)*num(row.price);
+    return b;
+  }
+  function rate(row){return clamp(row&&((row.vat_percent!=null)?row.vat_percent:row.vat_rate))}
+  function gross(row){
+    var saved=num(row&&row.total_including_vat);
+    if(saved)return saved;
+    var b=base(row);
+    return b+(b*rate(row)/100);
+  }
+  function money(v){return num(v).toLocaleString('en-US',{maximumFractionDigits:2})+' EGP'}
+
+  var docBase=window.saleDocumentHTML || (typeof saleDocumentHTML==='function'?saleDocumentHTML:null);
+  if(typeof docBase==='function'){
+    window.saleDocumentHTML=function(s,type){
+      var html=docBase.apply(this,arguments);
+      if(type!=='invoice')return html;
+      var rows=invoiceRows(s);
+      var grossTotal=rows.reduce(function(sum,row){return sum+gross(row)},0);
+
+      /* Product line total column: show amount including VAT. */
+      var grossValues=rows.map(gross);
+      var lineIndex=0;
+      html=html.replace(/(<tbody>)([\s\S]*?)(<tr class="total-row">)/i,function(all,open,body,totalStart){
+        body=body.replace(/(<tr><td>[\s\S]*?<\/td><td>[\s\S]*?<\/td><td>[\s\S]*?<\/td><td>[\s\S]*?<\/td><td>[\s\S]*?<\/td><td>)([\s\S]*?)(<\/td><\/tr>)/gi,function(rowAll,prefix,oldValue,suffix){
+          var value=lineIndex<grossValues.length?grossValues[lineIndex++]:null;
+          return value==null?rowAll:prefix+money(value)+suffix;
+        });
+        return open+body+totalStart;
+      });
+
+      /* Show one final total only, and it is the amount after VAT. */
+      var finalRow='<tr class="total-row"><td colspan="5" class="total-label">Grand Total Including VAT</td><td>'+money(grossTotal)+'</td></tr>';
+      html=html.replace(/<tr class="total-row"><td colspan="5" class="total-label">Grand Total<\/td><td>.*?<\/td><\/tr>(?:\s*<tr class="total-row [^"]*(?:vat|net|total-vat)[^"]*">.*?<\/tr>)*/gi,finalRow);
+      html=html.replace(/<tr class="total-row"><td colspan="5" class="total-label">Grand Total Including VAT<\/td><td>.*?<\/td><\/tr>(?:\s*<tr class="total-row [^"]*(?:vat|net|total-vat)[^"]*">.*?<\/tr>)*/gi,finalRow);
+      return html;
+    };
+    try{saleDocumentHTML=window.saleDocumentHTML}catch(e){}
+  }
+})();
+</script>
+<!-- v221 end -->
+
+
+<!-- ===== v222 definitive printed invoice VAT-inclusive values ===== -->
+<script id="v222-definitive-vat-inclusive-invoice">
+(function(){
+  function num(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function clamp(v){return Math.max(0,Math.min(100,num(v)))}
+  function esc(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function money(v){return num(v).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:2})+' EGP'}
+  function rowsFor(s){
+    var group=s.invoice_group_id||s.id;
+    var invoiceNo=String(s.invoice_no||'').trim();
+    var rows=((db&&db.sales)||[]).filter(function(x){
+      if(invoiceNo && String(x.invoice_no||'').trim()===invoiceNo)return true;
+      return String(x.invoice_group_id||x.id)===String(group);
+    });
+    return rows.length?rows:[s];
+  }
+  function rateFor(row){
+    var rate=clamp(row&&((row.vat_percent!=null)?row.vat_percent:row.vat_rate));
+    if(rate)return rate;
+    var orders=(db&&Array.isArray(db.sales_orders))?db.sales_orders:[];
+    var order=orders.find(function(o){return row&&row.order_id&&o.id===row.order_id}) ||
+              orders.find(function(o){return row&&row.invoice_group_id&&o.invoice_group_id===row.invoice_group_id});
+    return clamp(order&&((order.vat_percent!=null)?order.vat_percent:order.vat_rate));
+  }
+  function baseFor(row){
+    var base=num(row&&row.subtotal_before_vat);
+    if(!base && row && (row.order_type||'sale')==='sale')base=num(row.qty)*num(row.price);
+    return base;
+  }
+  function grossFor(row){
+    var base=baseFor(row);
+    var saved=num(row&&row.total_including_vat);
+    return saved || (base + base*rateFor(row)/100);
+  }
+  function typeLabel(row){
+    var raw=String(row.order_type_label||row.order_type||'Sale').toLowerCase();
+    if(raw.indexOf('bonus')>=0||raw.indexOf('بونص')>=0)return 'Bonus';
+    if(raw.indexOf('display')>=0||raw.indexOf('عرض')>=0)return 'Display';
+    if(raw.indexOf('sample')>=0||raw.indexOf('free')>=0||raw.indexOf('عين')>=0)return 'Sample';
+    return 'Sale';
+  }
+
+  var baseDoc=window.saleDocumentHTML || (typeof saleDocumentHTML==='function'?saleDocumentHTML:null);
+  if(typeof baseDoc==='function'){
+    window.saleDocumentHTML=function(s,type){
+      var html=baseDoc.apply(this,arguments);
+      if(type!=='invoice')return html;
+
+      var rows=rowsFor(s);
+      var productRows=rows.map(function(row){
+        var qty=num(row.qty);
+        var rate=rateFor(row);
+        var gross=grossFor(row);
+        var unitGross=qty?gross/qty:0;
+        var lot=String(row.lot||row.lot_number||row.batch||row.product_expiry||'—');
+        var product=String(row.product_name||row.product||'-')+' — '+typeLabel(row);
+        return '<tr>'+
+          '<td>'+esc(lot)+'</td>'+
+          '<td>'+esc(product)+'</td>'+
+          '<td>'+qty+'</td>'+
+          '<td>PCS</td>'+
+          '<td>'+money(unitGross)+'</td>'+
+          '<td>'+money(gross)+'</td>'+
+        '</tr>';
+      }).join('');
+
+      var grossTotal=rows.reduce(function(sum,row){return sum+grossFor(row)},0);
+      var finalRow='<tr class="total-row"><td colspan="5" class="total-label">Grand Total Including VAT</td><td>'+money(grossTotal)+'</td></tr>';
+
+      html=html.replace(
+        /(<table><thead><tr><th>LOT<\/th><th>PRODUCT<\/th><th>Quantity<\/th><th>UN<\/th><th>Price<\/th><th>Total Price<\/th><\/tr><\/thead><tbody>)[\s\S]*?(<\/tbody><\/table>)/i,
+        '$1'+productRows+finalRow+'$2'
+      );
+      return html;
+    };
+    try{saleDocumentHTML=window.saleDocumentHTML}catch(e){}
+  }
+})();
+</script>
+<!-- v222 end -->
+
+
+<!-- ===== v224 VAT approval total + invoice final fix ===== -->
+<script id="v224-vat-approval-invoice-final-fix">
+(function(){
+  function num(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function clamp(v){return Math.max(0,Math.min(100,num(v)))}
+  function saveDb(){try{if(typeof save==='function')save()}catch(e){}}
+
+  function getVatRate(row){
+    var rate=clamp(row&&((row.vat_percent!=null)?row.vat_percent:row.vat_rate));
+    if(rate)return rate;
+    var base=num(row&&row.subtotal_before_vat)||num(row&&row.qty)*num(row&&row.price);
+    var vat=num(row&&row.vat_amount);
+    if(base>0&&vat>0)return clamp(vat/base*100);
+    var gross=num(row&&row.total_including_vat);
+    if(base>0&&gross>base)return clamp((gross-base)/base*100);
+    return 0;
+  }
+
+  function baseAmount(row){
+    var base=num(row&&row.subtotal_before_vat);
+    if(!base && row && (row.order_type||'sale')==='sale')base=num(row.qty)*num(row.price);
+    return base;
+  }
+
+  function grossAmount(row){
+    if(!row || (row.order_type||'sale')!=='sale')return 0;
+    var base=baseAmount(row);
+    var rate=getVatRate(row);
+    return base+(base*rate/100);
+  }
+
+  /* Keep VAT entered for draft lines and do not replace it with zero after rerender. */
+  var addLineBase=window.addInvoiceLineV150;
+  if(typeof addLineBase==='function'){
+    window.addInvoiceLineV150=function(){
+      var input=document.getElementById('sa_vat_v216');
+      var rate=clamp(input&&input.value);
+      var before=(window.salesInvoiceDraftV150||[]).map(function(x){return x.line_id});
+      var result=addLineBase.apply(this,arguments);
+      (window.salesInvoiceDraftV150||[]).forEach(function(line){
+        if(before.indexOf(line.line_id)<0 || getVatRate(line)===0){
+          line.vat_percent=rate;
+          line.vat_rate=rate;
+          line.subtotal_before_vat=baseAmount(line);
+          line.vat_amount=line.subtotal_before_vat*rate/100;
+          line.total_including_vat=line.subtotal_before_vat+line.vat_amount;
+        }
+      });
+      return result;
+    };
+  }
+
+  var saveInvoiceBase=window.saveMultiInvoiceV150;
+  if(typeof saveInvoiceBase==='function'){
+    window.saveMultiInvoiceV150=function(){
+      var input=document.getElementById('sa_vat_v216');
+      var inputRate=clamp(input&&input.value);
+      var draft=window.salesInvoiceDraftV150||[];
+      var savedRate=draft.reduce(function(max,line){return Math.max(max,getVatRate(line))},0);
+      var finalRate=inputRate||savedRate;
+
+      draft.forEach(function(line){
+        if((line.order_type||'sale')==='sale'){
+          line.vat_percent=finalRate;
+          line.vat_rate=finalRate;
+          line.subtotal_before_vat=baseAmount(line);
+          line.vat_amount=line.subtotal_before_vat*finalRate/100;
+          line.total_including_vat=line.subtotal_before_vat+line.vat_amount;
+        }
+      });
+      if(input)input.value=String(finalRate);
+      return saveInvoiceBase.apply(this,arguments);
+    };
+  }
+
+  /* Convert the order total itself to the VAT-inclusive amount before approval. */
+  var approveBase=window.createApprovedSaleFromOrder ||
+                  (typeof createApprovedSaleFromOrder==='function'?createApprovedSaleFromOrder:null);
+  if(typeof approveBase==='function'){
+    window.createApprovedSaleFromOrder=function(order){
+      if(order && (order.order_type||'sale')==='sale'){
+        var base=baseAmount(order);
+        var rate=getVatRate(order);
+        var vat=base*rate/100;
+        var gross=base+vat;
+        var paid=Math.min(num(order.paid),gross);
+
+        order.subtotal_before_vat=base;
+        order.vat_percent=rate;
+        order.vat_rate=rate;
+        order.vat_amount=vat;
+        order.total_including_vat=gross;
+
+        /* The approval screen and original approval function read order.total. */
+        order.total=gross;
+        order.paid=paid;
+        order.remaining=gross-paid;
+      }
+
+      var before=new Set(((db&&db.sales)||[]).map(function(x){return x.id}));
+      var ok=approveBase.apply(this,arguments);
+      var created=((db&&db.sales)||[]).filter(function(x){return !before.has(x.id)});
+
+      created.forEach(function(s){
+        var rate=getVatRate(order)||getVatRate(s);
+        var base=baseAmount(order)||baseAmount(s);
+        var gross=base+(base*rate/100);
+        var paid=Math.min(num(s.paid||order.paid),gross);
+
+        s.subtotal_before_vat=base;
+        s.vat_percent=rate;
+        s.vat_rate=rate;
+        s.vat_amount=base*rate/100;
+        s.total_including_vat=gross;
+
+        /* Invoice templates and reports that read total now receive final amount. */
+        s.total=gross;
+        s.paid=paid;
+        s.remaining=gross-paid;
+      });
+
+      if(order){
+        order.total=order.total_including_vat||order.total;
+        order.remaining=num(order.total)-num(order.paid);
+      }
+      if(created.length||order)saveDb();
+      return ok;
+    };
+    try{createApprovedSaleFromOrder=window.createApprovedSaleFromOrder}catch(e){}
+  }
+
+  /* Printed invoice: Total Price beside each product is always final after VAT. */
+  var docBase=window.saleDocumentHTML ||
+              (typeof saleDocumentHTML==='function'?saleDocumentHTML:null);
+  if(typeof docBase==='function'){
+    window.saleDocumentHTML=function(s,type){
+      var html=docBase.apply(this,arguments);
+      if(type!=='invoice')return html;
+
+      var key=s.invoice_group_id||s.invoice_no||s.id;
+      var rows=((db&&db.sales)||[]).filter(function(x){
+        return (x.invoice_group_id||x.invoice_no||x.id)===key;
+      });
+      if(!rows.length)rows=[s];
+
+      var grossValues=rows.map(function(row){
+        return num(row.total_including_vat)||num(row.total)||grossAmount(row);
+      });
+      var index=0;
+
+      html=html.replace(/(<tbody>)([\s\S]*?)(<\/tbody>)/i,function(all,open,body,close){
+        body=body.replace(/(<tr><td>[\s\S]*?<\/td><td>[\s\S]*?<\/td><td>[\s\S]*?<\/td><td>[\s\S]*?<\/td><td>[\s\S]*?<\/td><td>)([\s\S]*?)(<\/td><\/tr>)/gi,
+          function(rowAll,prefix,oldValue,suffix){
+            if(index>=grossValues.length)return rowAll;
+            var value=grossValues[index++];
+            return prefix+num(value).toLocaleString('en-US',{maximumFractionDigits:2})+' EGP'+suffix;
+          });
+        return open+body+close;
+      });
+
+      var grand=grossValues.reduce(function(sum,v){return sum+num(v)},0);
+      var finalRow='<tr class="total-row"><td colspan="5" class="total-label">Grand Total Including VAT</td><td>'+
+        grand.toLocaleString('en-US',{maximumFractionDigits:2})+' EGP</td></tr>';
+
+      html=html.replace(/<tr class="total-row"><td colspan="5" class="total-label">[^<]*<\/td><td>.*?<\/td><\/tr>(?:\s*<tr class="total-row [^"]*">.*?<\/tr>)*/gi,finalRow);
+      return html;
+    };
+    try{saleDocumentHTML=window.saleDocumentHTML}catch(e){}
+  }
+})();
+</script>
+<!-- v224 end -->
+
+
+<!-- ===== v225 Product LOT input + automatic LOT in new orders ===== -->
+<style id="v225-product-lot-style">
+.product-lot-field-v225{min-width:170px}
+</style>
+<script id="v225-product-lot-autofill">
+(function(){
+  function num(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function txt(v){return String(v==null?'':v).trim()}
+  function uidLot(){return typeof uid==='function'?uid():'lot_'+Date.now()+'_'+Math.random().toString(36).slice(2)}
+  function persist(){try{if(typeof save==='function')save()}catch(e){}}
+  function ensureLots(){
+    if(typeof ensureInventoryLotsV215==='function')return ensureInventoryLotsV215();
+    if(!Array.isArray(db.inventory_lots))db.inventory_lots=[];
+    return db.inventory_lots;
+  }
+  function productById(id){return (db.products||[]).find(function(p){return p.id===id})}
+  function lotsForProduct(id){
+    ensureLots();
+    return (db.inventory_lots||[]).filter(function(l){return l.product_id===id&&num(l.qty)>0});
+  }
+  function preferredLot(id){
+    var p=productById(id);
+    var wanted=txt(p&&(p.lot_number||p.lot||p.batch)).toLowerCase();
+    var lots=lotsForProduct(id);
+    return lots.find(function(l){return txt(l.lot_number).toLowerCase()===wanted}) || lots[0] || null;
+  }
+  function findLot(id,number){
+    var wanted=txt(number).toLowerCase();
+    return lotsForProduct(id).find(function(l){return txt(l.lot_number).toLowerCase()===wanted})||null;
+  }
+
+  /* Add LOT Number directly to the new-product form. */
+  var productFormBase=window.productForm || (typeof productForm==='function'?productForm:null);
+  if(typeof productFormBase==='function'){
+    window.productForm=function(){
+      var html=productFormBase.apply(this,arguments);
+      if(html.indexOf('id="pr_lot_v225"')<0){
+        html=html.replace(
+          /(<input id="pr_exp"[^>]*>)/i,
+          '$1<div class="product-lot-field-v225"><label>LOT Number</label><input id="pr_lot_v225" type="text" placeholder="'+(lang==='ar'?'رقم التشغيلة':'LOT Number')+'"></div>'
+        );
+      }
+      return html;
+    };
+    try{productForm=window.productForm}catch(e){}
+  }
+
+  /* Save the LOT on the product and create its warehouse LOT automatically. */
+  var addProductBase=window.addProduct || (typeof addProduct==='function'?addProduct:null);
+  if(typeof addProductBase==='function'){
+    window.addProduct=function(){
+      var lotNo=txt((document.getElementById('pr_lot_v225')||{}).value);
+      var before=new Set((db.products||[]).map(function(p){return p.id}));
+      var result=addProductBase.apply(this,arguments);
+      var product=(db.products||[]).find(function(p){return !before.has(p.id)});
+      if(product&&lotNo){
+        product.lot_number=lotNo;
+        product.lot=lotNo;
+        ensureLots();
+        var existing=(db.inventory_lots||[]).find(function(l){
+          return l.product_id===product.id&&txt(l.lot_number).toLowerCase()===lotNo.toLowerCase();
+        });
+        if(existing){
+          existing.qty=num(product.stock);
+          existing.expiry=product.expiry||existing.expiry||'';
+          existing.product_name=product.name||existing.product_name||'';
+        }else{
+          db.inventory_lots.push({
+            id:uidLot(),
+            product_id:product.id,
+            product_name:product.name||'',
+            lot_number:lotNo,
+            expiry:product.expiry||'',
+            qty:num(product.stock),
+            created_at:new Date().toISOString()
+          });
+        }
+        persist();
+      }
+      return result;
+    };
+    try{addProduct=window.addProduct}catch(e){}
+  }
+
+  window.autoFillProductLotV225=function(){
+    var productEl=document.getElementById('sa_product');
+    var lotInput=document.getElementById('sa_lot_v215');
+    var hint=document.getElementById('sa_lot_hint_v215');
+    if(!productEl||!lotInput)return;
+    var lot=preferredLot(productEl.value);
+    lotInput.value=lot?txt(lot.lot_number):'';
+    if(typeof orderLotInfoV215==='function')orderLotInfoV215();
+    else if(hint)hint.textContent=lot?'LOT: '+lot.lot_number:'';
+  };
+
+  /* Fill LOT automatically whenever the sales/order screen or product changes. */
+  var renderSalesBase=window.renderSales || (typeof renderSales==='function'?renderSales:null);
+  if(typeof renderSalesBase==='function'){
+    window.renderSales=function(){
+      var result=renderSalesBase.apply(this,arguments);
+      setTimeout(function(){
+        var productEl=document.getElementById('sa_product');
+        if(productEl&&!productEl.dataset.v225LotBound){
+          productEl.addEventListener('change',function(){setTimeout(autoFillProductLotV225,0)});
+          productEl.dataset.v225LotBound='1';
+        }
+        autoFillProductLotV225();
+      },30);
+      return result;
+    };
+    try{renderSales=window.renderSales}catch(e){}
+  }
+
+  /* Store the selected automatic LOT on every multi-invoice draft line. */
+  var addLineBase=window.addInvoiceLineV150;
+  if(typeof addLineBase==='function'){
+    window.addInvoiceLineV150=function(){
+      var productEl=document.getElementById('sa_product');
+      var lotInput=document.getElementById('sa_lot_v215');
+      var productId=productEl&&productEl.value;
+      var lot=findLot(productId,lotInput&&lotInput.value)||preferredLot(productId);
+      if(!lot)return alert(lang==='ar'?'لا يوجد LOT متاح لهذا المنتج.':'No available LOT for this product.');
+      var qty=num((document.getElementById('sa_qty')||{}).value);
+      if(qty>num(lot.qty))return alert((lang==='ar'?'الكمية أكبر من المتاح في LOT. المتاح: ':'Quantity exceeds LOT stock. Available: ')+num(lot.qty));
+      var before=(window.salesInvoiceDraftV150||[]).map(function(x){return {id:x.line_id,qty:num(x.qty)}});
+      var result=addLineBase.apply(this,arguments);
+      var draft=window.salesInvoiceDraftV150||[];
+      var line=draft.find(function(x){
+        var old=before.find(function(b){return b.id===x.line_id});
+        return x.product_id===productId&&(!old||num(x.qty)>old.qty);
+      }) || draft.find(function(x){return x.product_id===productId});
+      if(line){
+        line.lot_id=lot.id;
+        line.lot_number=lot.lot_number;
+        line.lot=lot.lot_number;
+        line.lot_expiry=lot.expiry||'';
+        line.product_expiry=lot.expiry||line.product_expiry||'';
+      }
+      return result;
+    };
+  }
+
+  /* Copy each draft line LOT into the actual pending order or approved sale. */
+  var saveMultiBase=window.saveMultiInvoiceV150;
+  if(typeof saveMultiBase==='function'){
+    window.saveMultiInvoiceV150=function(){
+      var snapshot=(window.salesInvoiceDraftV150||[]).map(function(line){return {
+        product_id:line.product_id,
+        order_type:line.order_type||'sale',
+        lot_id:line.lot_id,
+        lot_number:line.lot_number||line.lot||'',
+        lot_expiry:line.lot_expiry||line.product_expiry||''
+      }});
+      var beforeOrders=new Set((db.sales_orders||[]).map(function(x){return x.id}));
+      var beforeSales=new Set((db.sales||[]).map(function(x){return x.id}));
+      var result=saveMultiBase.apply(this,arguments);
+      var created=(db.sales_orders||[]).filter(function(x){return !beforeOrders.has(x.id)})
+        .concat((db.sales||[]).filter(function(x){return !beforeSales.has(x.id)}));
+      created.forEach(function(row){
+        var match=snapshot.find(function(line){
+          return line.product_id===row.product_id&&(line.order_type||'sale')===(row.order_type||'sale');
+        }) || snapshot.find(function(line){return line.product_id===row.product_id});
+        if(match&&match.lot_number){
+          row.lot_id=match.lot_id||'';
+          row.lot_number=match.lot_number;
+          row.lot=match.lot_number;
+          row.lot_expiry=match.lot_expiry||'';
+          row.product_expiry=match.lot_expiry||row.product_expiry||'';
+        }
+      });
+      if(created.length)persist();
+      return result;
+    };
+  }
+
+  setTimeout(function(){
+    try{
+      if(typeof renderProducts==='function'&&current==='products')renderProducts();
+      if(typeof renderSales==='function'&&current==='sales')renderSales();
+    }catch(e){}
+  },100);
+})();
+</script>
+<!-- v225 end -->
