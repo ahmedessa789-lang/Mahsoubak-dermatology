@@ -17313,3 +17313,1544 @@ html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!importan
 })();
 </script>
 <!-- v226 end -->
+
+
+<!-- ===== v227 Finance statements, amount in words, receivable papers and due alerts ===== -->
+<style id="v227-finance-statements-style">
+.finance-tools-v227{margin-top:18px}
+.finance-nav-v227{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.finance-nav-v227 button.active{background:#0f766e!important;color:#fff!important}
+.finance-pane-v227{display:none}
+.finance-pane-v227.active{display:block}
+.due-alerts-v227{position:sticky;top:10px;z-index:50;margin:12px 0}
+.due-alert-v227{display:flex;justify-content:space-between;gap:14px;align-items:center;background:#fff3cd;border:2px solid #f59e0b;border-radius:14px;padding:13px 16px;margin-bottom:8px;box-shadow:0 5px 18px rgba(0,0,0,.12)}
+.due-alert-v227.overdue{background:#fee2e2;border-color:#dc2626}
+.due-alert-v227 b{font-size:16px}
+.finance-summary-v227{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:12px 0}
+.finance-summary-v227 .stat{padding:14px}
+.instrument-status-v227{display:inline-block;padding:3px 9px;border-radius:999px;font-weight:800}
+.instrument-status-v227.pending{background:#fff3cd;color:#92400e}
+.instrument-status-v227.collected{background:#dcfce7;color:#166534}
+.instrument-status-v227.returned{background:#fee2e2;color:#991b1b}
+@media(max-width:850px){.finance-summary-v227{grid-template-columns:1fr}}
+</style>
+
+<script id="v227-finance-statements-due-alerts">
+(function(){
+  function num(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function txt(v){return String(v==null?'':v).trim()}
+  function esc(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function id(){return typeof uid==='function'?uid():'FIN_'+Date.now()+'_'+Math.random().toString(36).slice(2)}
+  function todayIso(){return typeof today==='function'?today():new Date().toISOString().slice(0,10)}
+  function money2(v){return num(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' EGP'}
+  function saveDb(){try{if(typeof save==='function')save()}catch(e){}}
+  function ensure(){
+    if(!Array.isArray(db.cash_receipts_in))db.cash_receipts_in=[];
+    if(!Array.isArray(db.cash_receipts_out))db.cash_receipts_out=[];
+    if(!Array.isArray(db.finance_receivable_papers))db.finance_receivable_papers=[];
+    if(!Array.isArray(db.finance_due_alert_dismissals))db.finance_due_alert_dismissals=[];
+  }
+
+  /* Arabic number to words for Egyptian receipts. */
+  var ones=['','واحد','اثنان','ثلاثة','أربعة','خمسة','ستة','سبعة','ثمانية','تسعة','عشرة','أحد عشر','اثنا عشر','ثلاثة عشر','أربعة عشر','خمسة عشر','ستة عشر','سبعة عشر','ثمانية عشر','تسعة عشر'];
+  var tens=['','','عشرون','ثلاثون','أربعون','خمسون','ستون','سبعون','ثمانون','تسعون'];
+  var hundreds=['','مائة','مائتان','ثلاثمائة','أربعمائة','خمسمائة','ستمائة','سبعمائة','ثمانمائة','تسعمائة'];
+  function under1000(n){
+    n=Math.floor(n);var parts=[],h=Math.floor(n/100),r=n%100;
+    if(h)parts.push(hundreds[h]);
+    if(r){
+      if(r<20)parts.push(ones[r]);
+      else{
+        var u=r%10,t=Math.floor(r/10);
+        if(u)parts.push(ones[u]);
+        if(t)parts.push(tens[t]);
+      }
+    }
+    return parts.join(' و ');
+  }
+  function scaleWords(n,singular,dual,plural){
+    if(n===1)return singular;
+    if(n===2)return dual;
+    if(n>=3&&n<=10)return under1000(n)+' '+plural;
+    return under1000(n)+' '+singular;
+  }
+  window.amountToArabicWordsV227=function(value){
+    var amount=Math.abs(num(value));
+    var pounds=Math.floor(amount);
+    var piastres=Math.round((amount-pounds)*100);
+    var parts=[];
+    var millions=Math.floor(pounds/1000000);
+    var thousands=Math.floor((pounds%1000000)/1000);
+    var rest=pounds%1000;
+    if(millions)parts.push(scaleWords(millions,'مليون','مليونان','ملايين'));
+    if(thousands)parts.push(scaleWords(thousands,'ألف','ألفان','آلاف'));
+    if(rest)parts.push(under1000(rest));
+    if(!parts.length)parts.push('صفر');
+    var result=parts.join(' و ')+' جنيه مصري';
+    if(piastres)result+=' و '+under1000(piastres)+' قرشًا';
+    return 'فقط '+result+' لا غير';
+  };
+
+  function bindAmountWords(){
+    [['cr_in_amount_v159','cr_in_words_v159'],['cr_out_amount_v159','cr_out_words_v159']].forEach(function(pair){
+      var amount=document.getElementById(pair[0]),words=document.getElementById(pair[1]);
+      if(!amount||!words)return;
+      words.readOnly=true;
+      function update(){words.value=amountToArabicWordsV227(amount.value)}
+      if(!amount.dataset.wordsV227){
+        amount.addEventListener('input',update);
+        amount.addEventListener('change',update);
+        amount.dataset.wordsV227='1';
+      }
+      if(amount.value)update();
+    });
+  }
+
+  function injectReceiptExtraFields(){
+    [['in','cr_in'],['out','cr_out']].forEach(function(item){
+      var kind=item[0],prefix=item[1];
+      var cheque=document.getElementById(prefix+'_cheque_v159');
+      if(!cheque)return;
+      var grid=cheque.closest('.grid');
+      if(!grid||grid.querySelector('[data-extra-v227="'+kind+'"]'))return;
+      var holder=document.createElement('div');
+      holder.setAttribute('data-extra-v227',kind);
+      holder.style.display='contents';
+      holder.innerHTML=
+        '<div><label>نوع الورقة</label><select id="'+prefix+'_instrument_type_v227">'+
+          '<option value="cheque">شيك</option><option value="promissory">كمبيالة</option><option value="trust_receipt">إيصال أمانة</option>'+
+        '</select></div>'+
+        '<div><label>تاريخ الاستحقاق</label><input id="'+prefix+'_due_date_v227" type="date"></div>'+
+        '<div><label>اسم الخزينة / الحساب البنكي</label><input id="'+prefix+'_account_v227" placeholder="الخزينة الرئيسية أو اسم الحساب"></div>';
+      grid.appendChild(holder);
+    });
+  }
+
+  function instrumentLabel(type){
+    return type==='promissory'?'كمبيالة':type==='trust_receipt'?'إيصال أمانة':'شيك';
+  }
+  function statusLabel(status){
+    return status==='collected'?'تم التحصيل':status==='returned'?'مرتجع':'تحت التحصيل';
+  }
+
+  /* Capture the automatic words and financial-paper data when saving receipts. */
+  var saveReceiptBase=window.saveCashReceiptV159;
+  if(typeof saveReceiptBase==='function'){
+    window.saveCashReceiptV159=function(type){
+      ensure();
+      var prefix=type==='in'?'cr_in':'cr_out';
+      var amountEl=document.getElementById(prefix+'_amount_v159');
+      var wordsEl=document.getElementById(prefix+'_words_v159');
+      if(wordsEl)wordsEl.value=amountToArabicWordsV227(amountEl&&amountEl.value);
+
+      var extra={
+        instrument_type:(document.getElementById(prefix+'_instrument_type_v227')||{}).value||'cheque',
+        due_date:(document.getElementById(prefix+'_due_date_v227')||{}).value||'',
+        finance_account:(document.getElementById(prefix+'_account_v227')||{}).value||''
+      };
+      var beforeIn=new Set(db.cash_receipts_in.map(function(r){return r.id}));
+      var beforeOut=new Set(db.cash_receipts_out.map(function(r){return r.id}));
+      var result=saveReceiptBase.apply(this,arguments);
+      var row=(type==='in'?db.cash_receipts_in:db.cash_receipts_out).find(function(r){
+        return !(type==='in'?beforeIn:beforeOut).has(r.id);
+      });
+      if(row){
+        row.amount_words=amountToArabicWordsV227(row.amount);
+        row.instrument_type=extra.instrument_type;
+        row.due_date=extra.due_date;
+        row.finance_account=extra.finance_account;
+        if(type==='in'&&row.method==='bank'&&row.cheque){
+          var existing=db.finance_receivable_papers.find(function(p){return p.source_receipt_id===row.id});
+          if(!existing){
+            db.finance_receivable_papers.unshift({
+              id:id(),source_receipt_id:row.id,date:row.date||todayIso(),
+              instrument_type:extra.instrument_type,number:row.cheque||'',
+              party:row.party||'',bank:row.bank||'',amount:num(row.amount),
+              due_date:extra.due_date||'',status:'pending',notes:row.purpose||'',
+              dismissed:false,created_at:new Date().toISOString()
+            });
+          }
+        }
+        saveDb();
+      }
+      return result;
+    };
+  }
+
+  window.showFinancePaneV227=function(name){
+    document.querySelectorAll('.finance-pane-v227').forEach(function(p){p.classList.toggle('active',p.dataset.pane===name)});
+    document.querySelectorAll('.finance-nav-v227 button').forEach(function(b){b.classList.toggle('active',b.dataset.pane===name)});
+    localStorage.setItem('finance_pane_v227',name);
+  };
+
+  function receiptsAll(){
+    ensure();
+    return db.cash_receipts_in.map(function(r){return Object.assign({},r,{direction:'in'})})
+      .concat(db.cash_receipts_out.map(function(r){return Object.assign({},r,{direction:'out'})}))
+      .sort(function(a,b){return String(a.date||'').localeCompare(String(b.date||''))});
+  }
+
+  function cashRows(){
+    return receiptsAll().filter(function(r){return (r.method||'cash')==='cash'});
+  }
+  function bankRows(){
+    return receiptsAll().filter(function(r){return r.method==='bank'});
+  }
+  function statementData(rows){
+    var balance=0;
+    return rows.map(function(r){
+      var incoming=r.direction==='in'?num(r.amount):0;
+      var outgoing=r.direction==='out'?num(r.amount):0;
+      balance+=incoming-outgoing;
+      return {row:r,incoming:incoming,outgoing:outgoing,balance:balance};
+    });
+  }
+  function statementSummary(rows){
+    var incoming=rows.reduce(function(s,x){return s+(x.direction==='in'?num(x.amount):0)},0);
+    var outgoing=rows.reduce(function(s,x){return s+(x.direction==='out'?num(x.amount):0)},0);
+    return {incoming:incoming,outgoing:outgoing,balance:incoming-outgoing};
+  }
+
+  function cashStatementHTML(){
+    var rows=cashRows(),data=statementData(rows),s=statementSummary(rows);
+    return '<div class="finance-summary-v227">'+
+      '<div class="card stat"><span>إجمالي المقبوضات</span><strong>'+money2(s.incoming)+'</strong></div>'+
+      '<div class="card stat"><span>إجمالي المدفوعات</span><strong>'+money2(s.outgoing)+'</strong></div>'+
+      '<div class="card stat"><span>رصيد الخزينة</span><strong>'+money2(s.balance)+'</strong></div></div>'+
+      (data.length?'<table><tr><th>التاريخ</th><th>رقم الإيصال</th><th>البيان</th><th>الطرف</th><th>داخل</th><th>خارج</th><th>الرصيد</th></tr>'+
+      data.map(function(x){var r=x.row;return '<tr><td>'+esc(r.date)+'</td><td>'+esc(r.serial)+'</td><td>'+esc(r.purpose||'-')+'</td><td>'+esc(r.party||'-')+'</td><td>'+money2(x.incoming)+'</td><td>'+money2(x.outgoing)+'</td><td><b>'+money2(x.balance)+'</b></td></tr>'}).join('')+
+      '</table>':'<div class="empty">لا توجد حركة خزينة</div>');
+  }
+
+  function bankStatementHTML(){
+    var rows=bankRows(),data=statementData(rows),s=statementSummary(rows);
+    return '<div class="finance-summary-v227">'+
+      '<div class="card stat"><span>إيداعات / وارد</span><strong>'+money2(s.incoming)+'</strong></div>'+
+      '<div class="card stat"><span>مسحوبات / صادر</span><strong>'+money2(s.outgoing)+'</strong></div>'+
+      '<div class="card stat"><span>صافي حركة البنك</span><strong>'+money2(s.balance)+'</strong></div></div>'+
+      (data.length?'<table><tr><th>التاريخ</th><th>البنك</th><th>رقم الورقة</th><th>الطرف</th><th>الاستحقاق</th><th>وارد</th><th>صادر</th><th>الرصيد</th></tr>'+
+      data.map(function(x){var r=x.row;return '<tr><td>'+esc(r.date)+'</td><td>'+esc(r.bank||r.finance_account||'-')+'</td><td>'+esc(r.cheque||'-')+'</td><td>'+esc(r.party||'-')+'</td><td>'+esc(r.due_date||'-')+'</td><td>'+money2(x.incoming)+'</td><td>'+money2(x.outgoing)+'</td><td><b>'+money2(x.balance)+'</b></td></tr>'}).join('')+
+      '</table>':'<div class="empty">لا توجد حركة بنك</div>');
+  }
+
+  window.addReceivablePaperV227=function(){
+    ensure();
+    var amount=num((document.getElementById('rp_amount_v227')||{}).value);
+    var number=txt((document.getElementById('rp_number_v227')||{}).value);
+    if(amount<=0||!number)return alert('اكتب رقم الورقة والمبلغ');
+    db.finance_receivable_papers.unshift({
+      id:id(),date:(document.getElementById('rp_date_v227')||{}).value||todayIso(),
+      instrument_type:(document.getElementById('rp_type_v227')||{}).value||'cheque',
+      number:number,party:txt((document.getElementById('rp_party_v227')||{}).value),
+      bank:txt((document.getElementById('rp_bank_v227')||{}).value),amount:amount,
+      due_date:(document.getElementById('rp_due_v227')||{}).value||'',
+      status:'pending',notes:txt((document.getElementById('rp_notes_v227')||{}).value),
+      dismissed:false,created_at:new Date().toISOString()
+    });
+    saveDb();renderFinanceToolsV227();
+  };
+  window.setPaperStatusV227=function(pid,status){
+    var p=db.finance_receivable_papers.find(function(x){return x.id===pid});
+    if(!p)return;
+    p.status=status;
+    if(status!=='pending')p.dismissed=true;
+    saveDb();renderFinanceToolsV227();
+  };
+  window.deletePaperV227=function(pid){
+    if(!confirm('مسح ورقة القبض؟'))return;
+    db.finance_receivable_papers=db.finance_receivable_papers.filter(function(x){return x.id!==pid});
+    saveDb();renderFinanceToolsV227();
+  };
+
+  function papersStatementHTML(){
+    ensure();
+    var rows=db.finance_receivable_papers.slice().sort(function(a,b){return String(a.due_date||'9999').localeCompare(String(b.due_date||'9999'))});
+    var pending=rows.filter(function(r){return r.status==='pending'}).reduce(function(s,r){return s+num(r.amount)},0);
+    var collected=rows.filter(function(r){return r.status==='collected'}).reduce(function(s,r){return s+num(r.amount)},0);
+    var returned=rows.filter(function(r){return r.status==='returned'}).reduce(function(s,r){return s+num(r.amount)},0);
+    return '<div class="card"><h3>إضافة ورقة قبض</h3><div class="grid grid4">'+
+      '<div><label>النوع</label><select id="rp_type_v227"><option value="cheque">شيك</option><option value="promissory">كمبيالة</option><option value="trust_receipt">إيصال أمانة</option></select></div>'+
+      '<div><label>رقم الورقة</label><input id="rp_number_v227"></div>'+
+      '<div><label>تاريخ الاستلام</label><input id="rp_date_v227" type="date" value="'+todayIso()+'"></div>'+
+      '<div><label>تاريخ الاستحقاق</label><input id="rp_due_v227" type="date"></div>'+
+      '<div><label>الطرف</label><input id="rp_party_v227"></div>'+
+      '<div><label>البنك / الجهة</label><input id="rp_bank_v227"></div>'+
+      '<div><label>المبلغ</label><input id="rp_amount_v227" type="number" step="0.01"></div>'+
+      '<div><label>ملاحظات</label><input id="rp_notes_v227"></div></div>'+
+      '<button class="btn ok" style="margin-top:10px" onclick="addReceivablePaperV227()">إضافة ورقة قبض</button></div>'+
+      '<div class="finance-summary-v227">'+
+      '<div class="card stat"><span>تحت التحصيل</span><strong>'+money2(pending)+'</strong></div>'+
+      '<div class="card stat"><span>تم التحصيل</span><strong>'+money2(collected)+'</strong></div>'+
+      '<div class="card stat"><span>مرتجع</span><strong>'+money2(returned)+'</strong></div></div>'+
+      (rows.length?'<table><tr><th>النوع</th><th>الرقم</th><th>الطرف</th><th>البنك / الجهة</th><th>المبلغ</th><th>الاستحقاق</th><th>الحالة</th><th>إجراءات</th></tr>'+
+      rows.map(function(r){return '<tr><td>'+instrumentLabel(r.instrument_type)+'</td><td><b>'+esc(r.number)+'</b></td><td>'+esc(r.party||'-')+'</td><td>'+esc(r.bank||'-')+'</td><td>'+money2(r.amount)+'</td><td>'+esc(r.due_date||'-')+'</td><td><span class="instrument-status-v227 '+esc(r.status||'pending')+'">'+statusLabel(r.status)+'</span></td><td><div class="actions">'+
+        '<button class="btn small ok" onclick="setPaperStatusV227(\''+r.id+'\',\'collected\')">تحصيل</button>'+
+        '<button class="btn small warn" onclick="setPaperStatusV227(\''+r.id+'\',\'returned\')">مرتجع</button>'+
+        '<button class="btn small danger" onclick="deletePaperV227(\''+r.id+'\')">مسح</button></div></td></tr>'}).join('')+
+      '</table>':'<div class="empty">لا توجد أوراق قبض</div>');
+  }
+
+  function dateDiffDays(date){
+    if(!date)return 99999;
+    var a=new Date(todayIso()+'T00:00:00'),b=new Date(date+'T00:00:00');
+    return Math.ceil((b-a)/86400000);
+  }
+  function duePapers(){
+    ensure();
+    return db.finance_receivable_papers.filter(function(p){
+      var d=dateDiffDays(p.due_date);
+      return p.status==='pending'&&!p.dismissed&&p.due_date&&d<=3;
+    }).sort(function(a,b){return String(a.due_date).localeCompare(String(b.due_date))});
+  }
+  window.dismissDueAlertV227=function(pid){
+    var p=db.finance_receivable_papers.find(function(x){return x.id===pid});
+    if(p)p.dismissed=true;
+    if(db.finance_due_alert_dismissals.indexOf(pid)<0)db.finance_due_alert_dismissals.push(pid);
+    saveDb();renderFinanceToolsV227();
+  };
+  function alertsHTML(){
+    var rows=duePapers();
+    if(!rows.length)return '';
+    return '<div class="due-alerts-v227">'+rows.map(function(p){
+      var d=dateDiffDays(p.due_date),over=d<0;
+      var when=over?('متأخر '+Math.abs(d)+' يوم'):(d===0?'مستحق اليوم':('متبقي '+d+' يوم'));
+      return '<div class="due-alert-v227 '+(over?'overdue':'')+'"><div><b>⚠️ '+instrumentLabel(p.instrument_type)+' رقم '+esc(p.number)+'</b><div>'+esc(p.party||'-')+' — '+money2(p.amount)+' — '+esc(p.due_date)+' — '+when+'</div></div>'+
+      '<button class="btn small secondary" onclick="dismissDueAlertV227(\''+p.id+'\')">إغلاق التنبيه يدويًا</button></div>';
+    }).join('')+'</div>';
+  }
+
+  window.renderFinanceToolsV227=function(){
+    ensure();
+    var view=document.getElementById('view-accounts');
+    if(!view)return;
+    var old=document.getElementById('finance_tools_v227');
+    if(old)old.remove();
+    var wrap=document.createElement('div');
+    wrap.id='finance_tools_v227';
+    wrap.className='finance-tools-v227';
+    wrap.innerHTML=alertsHTML()+
+      '<div class="card"><div class="section-title"><div><h3>كشوف الحركة المالية</h3><p class="hint">الخزينة، البنك، وأوراق القبض مع تنبيهات الاستحقاق</p></div><button class="btn blue" onclick="window.print()">طباعة الكشف الحالي</button></div>'+
+      '<div class="finance-nav-v227">'+
+        '<button class="btn secondary" data-pane="cash" onclick="showFinancePaneV227(\'cash\')">كشف حركة الخزينة</button>'+
+        '<button class="btn secondary" data-pane="bank" onclick="showFinancePaneV227(\'bank\')">كشف حركة البنك</button>'+
+        '<button class="btn secondary" data-pane="papers" onclick="showFinancePaneV227(\'papers\')">كشف أوراق القبض</button>'+
+      '</div>'+
+      '<div class="finance-pane-v227" data-pane="cash"><h3>كشف حركة الخزينة</h3>'+cashStatementHTML()+'</div>'+
+      '<div class="finance-pane-v227" data-pane="bank"><h3>كشف حركة البنك</h3>'+bankStatementHTML()+'</div>'+
+      '<div class="finance-pane-v227" data-pane="papers"><h3>كشف حركة أوراق القبض</h3>'+papersStatementHTML()+'</div></div>';
+    view.appendChild(wrap);
+    var current=localStorage.getItem('finance_pane_v227')||'cash';
+    showFinancePaneV227(current);
+    bindAmountWords();
+    injectReceiptExtraFields();
+  };
+
+  var renderAccountsBase=window.renderAccounts || (typeof renderAccounts==='function'?renderAccounts:null);
+  if(typeof renderAccountsBase==='function'){
+    window.renderAccounts=function(){
+      var result=renderAccountsBase.apply(this,arguments);
+      setTimeout(function(){
+        bindAmountWords();
+        injectReceiptExtraFields();
+        renderFinanceToolsV227();
+      },80);
+      return result;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  var renderBase=window.render;
+  if(typeof renderBase==='function'){
+    window.render=function(){
+      var result=renderBase.apply(this,arguments);
+      setTimeout(function(){
+        bindAmountWords();
+        injectReceiptExtraFields();
+        if(document.getElementById('view-accounts')&&!document.getElementById('view-accounts').classList.contains('hidden'))renderFinanceToolsV227();
+      },100);
+      return result;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  setTimeout(function(){
+    ensure();
+    bindAmountWords();
+    injectReceiptExtraFields();
+    if(document.getElementById('view-accounts'))renderFinanceToolsV227();
+  },150);
+})();
+</script>
+<!-- v227 end -->
+
+
+<!-- ===== v228 Customer Cost Center ===== -->
+<style id="v228-customer-cost-center-style">
+.customer-cost-summary-v228{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+  margin:14px 0
+}
+.customer-cost-summary-v228 .stat{padding:14px}
+.customer-cost-category-v228{
+  display:inline-block;
+  padding:3px 9px;
+  border-radius:999px;
+  background:#ede9fe;
+  color:#5b21b6;
+  font-weight:700
+}
+@media(max-width:850px){
+  .customer-cost-summary-v228{grid-template-columns:1fr}
+}
+</style>
+
+<script id="v228-customer-cost-center">
+(function(){
+  function num(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function txt(v){return String(v==null?'':v).trim()}
+  function esc(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]
+  })}
+  function newId(){return typeof uid==='function'?uid():'CCC_'+Date.now()+'_'+Math.random().toString(36).slice(2)}
+  function todayIso(){return typeof today==='function'?today():new Date().toISOString().slice(0,10)}
+  function money(v){return num(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' EGP'}
+  function saveDb(){try{if(typeof save==='function')save()}catch(e){}}
+
+  function ensure(){
+    if(!Array.isArray(db.customer_cost_center))db.customer_cost_center=[];
+  }
+
+  function customerOptions(){
+    return '<option value="">اختر العميل</option>'+
+      (db.customers||[]).map(function(c){
+        return '<option value="'+esc(c.id)+'">'+esc(c.name||'-')+'</option>';
+      }).join('');
+  }
+
+  function categoryLabel(v){
+    return ({
+      gifts:'هدايا',
+      conferences:'مؤتمرات',
+      hospitality:'ضيافة',
+      travel:'سفر وانتقالات',
+      samples:'عينات مجانية',
+      marketing:'دعاية وتسويق',
+      discounts:'خصومات ودعم',
+      other:'أخرى'
+    })[v]||'أخرى';
+  }
+
+  function filteredRows(){
+    ensure();
+    var customerId=(document.getElementById('ccc_filter_customer_v228')||{}).value||'';
+    var category=(document.getElementById('ccc_filter_category_v228')||{}).value||'';
+    var from=(document.getElementById('ccc_filter_from_v228')||{}).value||'';
+    var to=(document.getElementById('ccc_filter_to_v228')||{}).value||'';
+
+    return db.customer_cost_center.filter(function(r){
+      if(customerId&&r.customer_id!==customerId)return false;
+      if(category&&r.category!==category)return false;
+      if(from&&String(r.date||'')<from)return false;
+      if(to&&String(r.date||'')>to)return false;
+      return true;
+    }).sort(function(a,b){
+      return String(b.date||'').localeCompare(String(a.date||''));
+    });
+  }
+
+  window.addCustomerCostV228=function(){
+    ensure();
+
+    var customerId=(document.getElementById('ccc_customer_v228')||{}).value||'';
+    var customer=(db.customers||[]).find(function(c){return c.id===customerId});
+    var amount=num((document.getElementById('ccc_amount_v228')||{}).value);
+    var category=(document.getElementById('ccc_category_v228')||{}).value||'other';
+    var description=txt((document.getElementById('ccc_description_v228')||{}).value);
+
+    if(!customer)return alert('اختر العميل');
+    if(amount<=0)return alert('اكتب قيمة المصروف');
+    if(!description)return alert('اكتب بيان المصروف');
+
+    var row={
+      id:newId(),
+      date:(document.getElementById('ccc_date_v228')||{}).value||todayIso(),
+      customer_id:customer.id,
+      customer_name:customer.name||'',
+      category:category,
+      category_label:categoryLabel(category),
+      amount:amount,
+      payment_source:(document.getElementById('ccc_source_v228')||{}).value||'cash',
+      reference:txt((document.getElementById('ccc_reference_v228')||{}).value),
+      description:description,
+      notes:txt((document.getElementById('ccc_notes_v228')||{}).value),
+      created_by:(typeof currentUser==='function'?(currentUser()||{}).name:'')||'',
+      created_at:new Date().toISOString()
+    };
+
+    db.customer_cost_center.unshift(row);
+
+    try{
+      if(typeof postEntry==='function'){
+        postEntry(
+          'customer_cost',
+          row.id,
+          'مركز تكلفة العميل - '+row.customer_name+' - '+row.description,
+          [
+            {account:'5200',debit:row.amount},
+            {account:row.payment_source==='bank'?'1110':'1100',credit:row.amount}
+          ]
+        );
+      }
+    }catch(e){}
+
+    saveDb();
+    renderCustomerCostCenterV228();
+  };
+
+  window.deleteCustomerCostV228=function(id){
+    if(!confirm('هل تريد مسح المصروف من مركز تكلفة العميل؟'))return;
+    ensure();
+    db.customer_cost_center=db.customer_cost_center.filter(function(r){return r.id!==id});
+    saveDb();
+    renderCustomerCostCenterV228();
+  };
+
+  window.clearCustomerCostFiltersV228=function(){
+    ['ccc_filter_customer_v228','ccc_filter_category_v228','ccc_filter_from_v228','ccc_filter_to_v228']
+      .forEach(function(id){
+        var el=document.getElementById(id);
+        if(el)el.value='';
+      });
+    renderCustomerCostCenterV228();
+  };
+
+  function summaryHTML(rows){
+    var total=rows.reduce(function(s,r){return s+num(r.amount)},0);
+    var customers=new Set(rows.map(function(r){return r.customer_id})).size;
+    var biggest=0,biggestName='—';
+    var totals={};
+
+    rows.forEach(function(r){
+      totals[r.customer_name]=(totals[r.customer_name]||0)+num(r.amount);
+    });
+
+    Object.keys(totals).forEach(function(name){
+      if(totals[name]>biggest){
+        biggest=totals[name];
+        biggestName=name;
+      }
+    });
+
+    return '<div class="customer-cost-summary-v228">'+
+      '<div class="card stat"><span>إجمالي مصروفات العملاء</span><strong>'+money(total)+'</strong></div>'+
+      '<div class="card stat"><span>عدد العملاء</span><strong>'+customers+'</strong></div>'+
+      '<div class="card stat"><span>أعلى عميل تكلفة</span><strong>'+esc(biggestName)+'</strong><div class="hint">'+money(biggest)+'</div></div>'+
+    '</div>';
+  }
+
+  function customerTotalsHTML(rows){
+    var map={};
+    rows.forEach(function(r){
+      var key=r.customer_id||r.customer_name;
+      if(!map[key])map[key]={name:r.customer_name||'-',total:0,count:0};
+      map[key].total+=num(r.amount);
+      map[key].count+=1;
+    });
+
+    var list=Object.keys(map).map(function(k){return map[k]}).sort(function(a,b){return b.total-a.total});
+    if(!list.length)return '<div class="empty">لا توجد بيانات</div>';
+
+    return '<table><tr><th>العميل</th><th>عدد الحركات</th><th>إجمالي التكلفة</th></tr>'+
+      list.map(function(x){
+        return '<tr><td><b>'+esc(x.name)+'</b></td><td>'+x.count+'</td><td><b>'+money(x.total)+'</b></td></tr>';
+      }).join('')+
+    '</table>';
+  }
+
+  function transactionsHTML(rows){
+    if(!rows.length)return '<div class="empty">لا توجد مصروفات مسجلة على العملاء</div>';
+
+    return '<table><tr>'+
+      '<th>التاريخ</th><th>العميل</th><th>نوع المصروف</th><th>البيان</th>'+
+      '<th>مصدر الدفع</th><th>المرجع</th><th>القيمة</th><th>إجراء</th>'+
+    '</tr>'+
+    rows.map(function(r){
+      return '<tr>'+
+        '<td>'+esc(r.date||'-')+'</td>'+
+        '<td><b>'+esc(r.customer_name||'-')+'</b></td>'+
+        '<td><span class="customer-cost-category-v228">'+esc(r.category_label||categoryLabel(r.category))+'</span></td>'+
+        '<td>'+esc(r.description||'-')+(r.notes?'<div class="hint">'+esc(r.notes)+'</div>':'')+'</td>'+
+        '<td>'+(r.payment_source==='bank'?'بنك':'خزينة')+'</td>'+
+        '<td>'+esc(r.reference||'-')+'</td>'+
+        '<td><b>'+money(r.amount)+'</b></td>'+
+        '<td><button class="btn small danger" onclick="deleteCustomerCostV228(\''+r.id+'\')">مسح</button></td>'+
+      '</tr>';
+    }).join('')+
+    '</table>';
+  }
+
+  window.renderCustomerCostCenterV228=function(){
+    ensure();
+    var pane=document.querySelector('.finance-pane-v227[data-pane="customer-cost"]');
+    if(!pane)return;
+
+    var rows=filteredRows();
+
+    pane.innerHTML=
+      '<div class="card">'+
+        '<h3>تسجيل مصروف على عميل</h3>'+
+        '<div class="grid grid4">'+
+          '<div><label>العميل</label><select id="ccc_customer_v228">'+customerOptions()+'</select></div>'+
+          '<div><label>نوع المصروف</label><select id="ccc_category_v228">'+
+            '<option value="gifts">هدايا</option>'+
+            '<option value="conferences">مؤتمرات</option>'+
+            '<option value="hospitality">ضيافة</option>'+
+            '<option value="travel">سفر وانتقالات</option>'+
+            '<option value="samples">عينات مجانية</option>'+
+            '<option value="marketing">دعاية وتسويق</option>'+
+            '<option value="discounts">خصومات ودعم</option>'+
+            '<option value="other">أخرى</option>'+
+          '</select></div>'+
+          '<div><label>التاريخ</label><input id="ccc_date_v228" type="date" value="'+todayIso()+'"></div>'+
+          '<div><label>القيمة</label><input id="ccc_amount_v228" type="number" min="0" step="0.01"></div>'+
+          '<div><label>مصدر الدفع</label><select id="ccc_source_v228"><option value="cash">خزينة</option><option value="bank">بنك</option></select></div>'+
+          '<div><label>رقم المرجع / الإيصال</label><input id="ccc_reference_v228"></div>'+
+          '<div><label>بيان المصروف</label><input id="ccc_description_v228" placeholder="مثال: هدية افتتاح فرع جديد"></div>'+
+          '<div><label>ملاحظات</label><input id="ccc_notes_v228"></div>'+
+        '</div>'+
+        '<button class="btn ok" style="margin-top:12px" onclick="addCustomerCostV228()">تسجيل المصروف</button>'+
+      '</div>'+
+
+      '<div class="card">'+
+        '<div class="section-title"><h3>فلترة كشف مركز تكلفة العملاء</h3>'+
+          '<button class="btn secondary" onclick="clearCustomerCostFiltersV228()">مسح الفلاتر</button>'+
+        '</div>'+
+        '<div class="grid grid4">'+
+          '<div><label>العميل</label><select id="ccc_filter_customer_v228" onchange="renderCustomerCostCenterV228()">'+customerOptions()+'</select></div>'+
+          '<div><label>نوع المصروف</label><select id="ccc_filter_category_v228" onchange="renderCustomerCostCenterV228()">'+
+            '<option value="">كل الأنواع</option>'+
+            '<option value="gifts">هدايا</option>'+
+            '<option value="conferences">مؤتمرات</option>'+
+            '<option value="hospitality">ضيافة</option>'+
+            '<option value="travel">سفر وانتقالات</option>'+
+            '<option value="samples">عينات مجانية</option>'+
+            '<option value="marketing">دعاية وتسويق</option>'+
+            '<option value="discounts">خصومات ودعم</option>'+
+            '<option value="other">أخرى</option>'+
+          '</select></div>'+
+          '<div><label>من تاريخ</label><input id="ccc_filter_from_v228" type="date" onchange="renderCustomerCostCenterV228()"></div>'+
+          '<div><label>إلى تاريخ</label><input id="ccc_filter_to_v228" type="date" onchange="renderCustomerCostCenterV228()"></div>'+
+        '</div>'+
+      '</div>'+
+
+      summaryHTML(rows)+
+
+      '<div class="card"><h3>إجمالي التكلفة حسب العميل</h3>'+customerTotalsHTML(rows)+'</div>'+
+      '<div class="card"><h3>تفاصيل مصروفات العملاء</h3>'+transactionsHTML(rows)+'</div>';
+  };
+
+  function installCustomerCostPane(){
+    var tools=document.getElementById('finance_tools_v227');
+    if(!tools)return;
+
+    var nav=tools.querySelector('.finance-nav-v227');
+    if(nav&&!nav.querySelector('[data-pane="customer-cost"]')){
+      var btn=document.createElement('button');
+      btn.className='btn secondary';
+      btn.setAttribute('data-pane','customer-cost');
+      btn.setAttribute('onclick',"showFinancePaneV227('customer-cost');renderCustomerCostCenterV228()");
+      btn.textContent='مركز تكلفة العملاء';
+      nav.appendChild(btn);
+    }
+
+    var card=nav&&nav.closest('.card');
+    if(card&&!card.querySelector('.finance-pane-v227[data-pane="customer-cost"]')){
+      var pane=document.createElement('div');
+      pane.className='finance-pane-v227';
+      pane.setAttribute('data-pane','customer-cost');
+      card.appendChild(pane);
+    }
+
+    renderCustomerCostCenterV228();
+  }
+
+  var financeRenderBase=window.renderFinanceToolsV227;
+  if(typeof financeRenderBase==='function'){
+    window.renderFinanceToolsV227=function(){
+      var result=financeRenderBase.apply(this,arguments);
+      setTimeout(installCustomerCostPane,20);
+      return result;
+    };
+  }
+
+  var accountsBase=window.renderAccounts || (typeof renderAccounts==='function'?renderAccounts:null);
+  if(typeof accountsBase==='function'){
+    window.renderAccounts=function(){
+      var result=accountsBase.apply(this,arguments);
+      setTimeout(installCustomerCostPane,120);
+      return result;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  setTimeout(function(){
+    ensure();
+    installCustomerCostPane();
+  },250);
+})();
+</script>
+<!-- v228 end -->
+
+
+<!-- ===== v229 Customer Cost Center as a standalone main-menu module ===== -->
+<script id="v229-customer-cost-main-menu">
+(function(){
+  function num(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function txt(v){return String(v==null?'':v).trim()}
+  function esc2(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]
+  })}
+  function money2(v){return num(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' EGP'}
+  function today2(){return typeof today==='function'?today():new Date().toISOString().slice(0,10)}
+  function ensure2(){if(!Array.isArray(db.customer_cost_center))db.customer_cost_center=[]}
+
+  function categoryLabel2(v){
+    return ({
+      gifts:'هدايا',
+      conferences:'مؤتمرات',
+      hospitality:'ضيافة',
+      travel:'سفر وانتقالات',
+      samples:'عينات مجانية',
+      marketing:'دعاية وتسويق',
+      discounts:'خصومات ودعم',
+      other:'أخرى'
+    })[v]||'أخرى';
+  }
+
+  function customerOptions2(includeAll){
+    return '<option value="">'+(includeAll?'كل العملاء':'اختر العميل')+'</option>'+
+      (db.customers||[]).map(function(c){
+        return '<option value="'+esc2(c.id)+'">'+esc2(c.name||'-')+'</option>';
+      }).join('');
+  }
+
+  function removeFinanceCopyV229(){
+    document.querySelectorAll('.finance-nav-v227 [data-pane="customer-cost"]').forEach(function(x){x.remove()});
+    document.querySelectorAll('.finance-pane-v227[data-pane="customer-cost"]').forEach(function(x){x.remove()});
+  }
+
+  function ensureMainViewV229(){
+    var main=document.querySelector('main.main')||document.querySelector('main');
+    if(!main)return null;
+    var view=document.getElementById('view-customerCost');
+    if(!view){
+      view=document.createElement('section');
+      view.id='view-customerCost';
+      view.className='hidden';
+      var settings=document.getElementById('view-settings');
+      if(settings)main.insertBefore(view,settings);
+      else main.appendChild(view);
+    }
+    return view;
+  }
+
+  function selectedFilterV229(){
+    return {
+      customer:(document.getElementById('ccc_main_filter_customer_v229')||{}).value||'',
+      category:(document.getElementById('ccc_main_filter_category_v229')||{}).value||'',
+      from:(document.getElementById('ccc_main_filter_from_v229')||{}).value||'',
+      to:(document.getElementById('ccc_main_filter_to_v229')||{}).value||''
+    };
+  }
+
+  function rowsV229(){
+    ensure2();
+    var f=selectedFilterV229();
+    return db.customer_cost_center.filter(function(r){
+      if(f.customer&&r.customer_id!==f.customer)return false;
+      if(f.category&&r.category!==f.category)return false;
+      if(f.from&&String(r.date||'')<f.from)return false;
+      if(f.to&&String(r.date||'')>f.to)return false;
+      return true;
+    }).sort(function(a,b){return String(b.date||'').localeCompare(String(a.date||''))});
+  }
+
+  window.clearCustomerCostMainFiltersV229=function(){
+    ['ccc_main_filter_customer_v229','ccc_main_filter_category_v229','ccc_main_filter_from_v229','ccc_main_filter_to_v229']
+      .forEach(function(id){var el=document.getElementById(id);if(el)el.value=''});
+    renderCustomerCostCenterV228();
+  };
+
+  window.renderCustomerCostCenterV228=function(){
+    ensure2();
+    removeFinanceCopyV229();
+    var view=ensureMainViewV229();
+    if(!view)return;
+
+    var rows=rowsV229();
+    var total=rows.reduce(function(s,r){return s+num(r.amount)},0);
+    var customers=new Set(rows.map(function(r){return r.customer_id})).size;
+    var totals={};
+    rows.forEach(function(r){totals[r.customer_name]=(totals[r.customer_name]||0)+num(r.amount)});
+    var topName='—',topValue=0;
+    Object.keys(totals).forEach(function(k){if(totals[k]>topValue){topName=k;topValue=totals[k]}});
+
+    var grouped={};
+    rows.forEach(function(r){
+      var key=r.customer_id||r.customer_name;
+      if(!grouped[key])grouped[key]={name:r.customer_name||'-',count:0,total:0};
+      grouped[key].count++;
+      grouped[key].total+=num(r.amount);
+    });
+    var groupedRows=Object.keys(grouped).map(function(k){return grouped[k]}).sort(function(a,b){return b.total-a.total});
+
+    view.innerHTML=
+      '<div class="card">'+
+        '<div class="section-title"><div><h2 style="margin:0">مركز تكلفة العملاء</h2>'+
+        '<p class="hint">تسجيل ومتابعة المصروفات الخاصة بكل عميل مثل الهدايا والمؤتمرات والضيافة والدعاية</p></div>'+
+        '<button class="btn blue" onclick="window.print()">طباعة الكشف</button></div>'+
+      '</div>'+
+
+      '<div class="card">'+
+        '<h3>تسجيل مصروف على عميل</h3>'+
+        '<div class="grid grid4">'+
+          '<div><label>العميل</label><select id="ccc_customer_v228">'+customerOptions2(false)+'</select></div>'+
+          '<div><label>نوع المصروف</label><select id="ccc_category_v228">'+
+            '<option value="gifts">هدايا</option>'+
+            '<option value="conferences">مؤتمرات</option>'+
+            '<option value="hospitality">ضيافة</option>'+
+            '<option value="travel">سفر وانتقالات</option>'+
+            '<option value="samples">عينات مجانية</option>'+
+            '<option value="marketing">دعاية وتسويق</option>'+
+            '<option value="discounts">خصومات ودعم</option>'+
+            '<option value="other">أخرى</option>'+
+          '</select></div>'+
+          '<div><label>التاريخ</label><input id="ccc_date_v228" type="date" value="'+today2()+'"></div>'+
+          '<div><label>القيمة</label><input id="ccc_amount_v228" type="number" min="0" step="0.01"></div>'+
+          '<div><label>مصدر الدفع</label><select id="ccc_source_v228"><option value="cash">خزينة</option><option value="bank">بنك</option></select></div>'+
+          '<div><label>رقم المرجع / الإيصال</label><input id="ccc_reference_v228"></div>'+
+          '<div><label>بيان المصروف</label><input id="ccc_description_v228" placeholder="مثال: هدية افتتاح فرع جديد"></div>'+
+          '<div><label>ملاحظات</label><input id="ccc_notes_v228"></div>'+
+        '</div>'+
+        '<button class="btn ok" style="margin-top:12px" onclick="addCustomerCostV228()">تسجيل المصروف</button>'+
+      '</div>'+
+
+      '<div class="card">'+
+        '<div class="section-title"><h3>فلترة كشف مركز تكلفة العملاء</h3>'+
+          '<button class="btn secondary" onclick="clearCustomerCostMainFiltersV229()">مسح الفلاتر</button>'+
+        '</div>'+
+        '<div class="grid grid4">'+
+          '<div><label>العميل</label><select id="ccc_main_filter_customer_v229" onchange="renderCustomerCostCenterV228()">'+customerOptions2(true)+'</select></div>'+
+          '<div><label>نوع المصروف</label><select id="ccc_main_filter_category_v229" onchange="renderCustomerCostCenterV228()">'+
+            '<option value="">كل الأنواع</option>'+
+            '<option value="gifts">هدايا</option>'+
+            '<option value="conferences">مؤتمرات</option>'+
+            '<option value="hospitality">ضيافة</option>'+
+            '<option value="travel">سفر وانتقالات</option>'+
+            '<option value="samples">عينات مجانية</option>'+
+            '<option value="marketing">دعاية وتسويق</option>'+
+            '<option value="discounts">خصومات ودعم</option>'+
+            '<option value="other">أخرى</option>'+
+          '</select></div>'+
+          '<div><label>من تاريخ</label><input id="ccc_main_filter_from_v229" type="date" onchange="renderCustomerCostCenterV228()"></div>'+
+          '<div><label>إلى تاريخ</label><input id="ccc_main_filter_to_v229" type="date" onchange="renderCustomerCostCenterV228()"></div>'+
+        '</div>'+
+      '</div>'+
+
+      '<div class="customer-cost-summary-v228">'+
+        '<div class="card stat"><span>إجمالي مصروفات العملاء</span><strong>'+money2(total)+'</strong></div>'+
+        '<div class="card stat"><span>عدد العملاء</span><strong>'+customers+'</strong></div>'+
+        '<div class="card stat"><span>أعلى عميل تكلفة</span><strong>'+esc2(topName)+'</strong><div class="hint">'+money2(topValue)+'</div></div>'+
+      '</div>'+
+
+      '<div class="card"><h3>إجمالي التكلفة حسب العميل</h3>'+
+        (groupedRows.length?
+          '<table><tr><th>العميل</th><th>عدد الحركات</th><th>إجمالي التكلفة</th></tr>'+
+          groupedRows.map(function(x){return '<tr><td><b>'+esc2(x.name)+'</b></td><td>'+x.count+'</td><td><b>'+money2(x.total)+'</b></td></tr>'}).join('')+
+          '</table>':'<div class="empty">لا توجد بيانات</div>')+
+      '</div>'+
+
+      '<div class="card"><h3>تفاصيل مصروفات العملاء</h3>'+
+        (rows.length?
+          '<table><tr><th>التاريخ</th><th>العميل</th><th>نوع المصروف</th><th>البيان</th><th>مصدر الدفع</th><th>المرجع</th><th>القيمة</th><th>إجراء</th></tr>'+
+          rows.map(function(r){
+            return '<tr>'+
+              '<td>'+esc2(r.date||'-')+'</td>'+
+              '<td><b>'+esc2(r.customer_name||'-')+'</b></td>'+
+              '<td><span class="customer-cost-category-v228">'+esc2(r.category_label||categoryLabel2(r.category))+'</span></td>'+
+              '<td>'+esc2(r.description||'-')+(r.notes?'<div class="hint">'+esc2(r.notes)+'</div>':'')+'</td>'+
+              '<td>'+(r.payment_source==='bank'?'بنك':'خزينة')+'</td>'+
+              '<td>'+esc2(r.reference||'-')+'</td>'+
+              '<td><b>'+money2(r.amount)+'</b></td>'+
+              '<td><button class="btn small danger" onclick="deleteCustomerCostV228(\''+r.id+'\')">مسح</button></td>'+
+            '</tr>';
+          }).join('')+'</table>':
+          '<div class="empty">لا توجد مصروفات مسجلة على العملاء</div>')+
+      '</div>';
+  };
+
+  function installModuleV229(){
+    ensureMainViewV229();
+    removeFinanceCopyV229();
+
+    if(typeof TR!=='undefined'){
+      TR.ar.customerCost='مركز تكلفة العملاء';
+      TR.ar.customerCostSub='مصروفات الهدايا والمؤتمرات والدعاية والدعم الخاصة بكل عميل';
+      TR.en.customerCost='Customer Cost Center';
+      TR.en.customerCostSub='Track gifts, conferences, marketing and other customer-related expenses';
+    }
+    if(typeof titleMap!=='undefined')titleMap.customerCost='customerCostSub';
+    if(typeof icons!=='undefined')icons.customerCost='🎯';
+  }
+
+  installModuleV229();
+
+  var renderBaseV229=window.render;
+  if(typeof renderBaseV229==='function'){
+    window.render=function(){
+      installModuleV229();
+      var result=renderBaseV229.apply(this,arguments);
+      removeFinanceCopyV229();
+      if(current==='customerCost')renderCustomerCostCenterV228();
+      return result;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  var financeBaseV229=window.renderFinanceToolsV227;
+  if(typeof financeBaseV229==='function'){
+    window.renderFinanceToolsV227=function(){
+      var result=financeBaseV229.apply(this,arguments);
+      setTimeout(removeFinanceCopyV229,0);
+      return result;
+    };
+  }
+
+  setTimeout(function(){
+    installModuleV229();
+    removeFinanceCopyV229();
+    if(current==='customerCost')renderCustomerCostCenterV228();
+    if(typeof render==='function')render();
+  },180);
+})();
+</script>
+<!-- v229 end -->
+
+
+<!-- ===== v230 Definitive standalone Customer Cost Center menu fix ===== -->
+<script id="v230-customer-cost-menu-definitive">
+(function(){
+  function installCustomerCostModuleV230(){
+    /* Register the module in the same fixed objects used to build the sidebar. */
+    if(typeof TR!=='undefined'){
+      TR.ar.customerCost='مركز تكلفة العملاء';
+      TR.en.customerCost='Customer Cost Center';
+      TR.ar.customerCostSub='تسجيل ومتابعة المصروفات الخاصة بكل عميل';
+      TR.en.customerCostSub='Record and track expenses for each customer';
+    }
+    if(typeof titleMap!=='undefined'){
+      titleMap.customerCost='customerCostSub';
+    }
+    if(typeof icons!=='undefined'){
+      icons.customerCost='🎯';
+    }
+
+    /* Create the actual independent main screen. */
+    var main=document.querySelector('main.main');
+    if(main&&!document.getElementById('view-customerCost')){
+      var section=document.createElement('section');
+      section.id='view-customerCost';
+      section.className='hidden';
+      var settings=document.getElementById('view-settings');
+      if(settings)main.insertBefore(section,settings);
+      else main.appendChild(section);
+    }
+
+    /* Existing users were created before this module existed, so grant its permissions. */
+    try{
+      if(typeof ensureUsers==='function')ensureUsers();
+      (db.users||[]).forEach(function(user){
+        user.permissions=user.permissions||{};
+        if(!user.permissions.customerCost){
+          user.permissions.customerCost={
+            view:true,
+            add:true,
+            edit:true,
+            delete:user.role==='admin'||user.role==='finance'||user.role==='manager'
+          };
+        }else{
+          user.permissions.customerCost.view=true;
+          if(typeof user.permissions.customerCost.add!=='boolean')user.permissions.customerCost.add=true;
+          if(typeof user.permissions.customerCost.edit!=='boolean')user.permissions.customerCost.edit=true;
+          if(typeof user.permissions.customerCost.delete!=='boolean'){
+            user.permissions.customerCost.delete=user.role==='admin'||user.role==='finance'||user.role==='manager';
+          }
+        }
+      });
+      if(typeof save==='function')save();
+    }catch(e){}
+
+    /* Remove the old copy from Finance. */
+    document.querySelectorAll('.finance-nav-v227 [data-pane="customer-cost"]').forEach(function(el){el.remove()});
+    document.querySelectorAll('.finance-pane-v227[data-pane="customer-cost"]').forEach(function(el){el.remove()});
+  }
+
+  installCustomerCostModuleV230();
+
+  /* Force sidebar rebuild using the registered module. */
+  function rebuildCustomerCostMenuV230(){
+    installCustomerCostModuleV230();
+    var nav=document.getElementById('nav');
+    if(!nav||typeof titleMap==='undefined')return;
+
+    var keys=Object.keys(titleMap);
+    var allowed=keys.filter(function(k){
+      try{return typeof can!=='function'||can(k,'view')}catch(e){return true}
+    });
+
+    nav.innerHTML=allowed.map(function(k){
+      var label;
+      try{label=typeof T==='function'?T(k):k}catch(e){label=k}
+      return '<button class="'+(current===k?'active':'')+'" onclick="show(\''+k+'\')">'+
+        ((icons&&icons[k])||'')+' '+label+'</button>';
+    }).join('');
+  }
+
+  var renderBaseV230=window.render;
+  if(typeof renderBaseV230==='function'){
+    window.render=function(){
+      installCustomerCostModuleV230();
+      var result=renderBaseV230.apply(this,arguments);
+      rebuildCustomerCostMenuV230();
+
+      if(current==='customerCost'){
+        var view=document.getElementById('view-customerCost');
+        if(view)view.classList.remove('hidden');
+        if(typeof renderCustomerCostCenterV228==='function')renderCustomerCostCenterV228();
+      }
+      return result;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  var showBaseV230=window.show;
+  if(typeof showBaseV230==='function'){
+    window.show=function(v){
+      installCustomerCostModuleV230();
+      if(v==='customerCost'){
+        current='customerCost';
+        document.querySelectorAll('main section').forEach(function(s){s.classList.add('hidden')});
+        var view=document.getElementById('view-customerCost');
+        if(view)view.classList.remove('hidden');
+
+        var title=document.getElementById('title');
+        var sub=document.getElementById('sub');
+        if(title)title.textContent=lang==='ar'?'مركز تكلفة العملاء':'Customer Cost Center';
+        if(sub)sub.textContent=lang==='ar'?'تسجيل ومتابعة المصروفات الخاصة بكل عميل':'Record and track expenses for each customer';
+
+        rebuildCustomerCostMenuV230();
+        if(typeof renderCustomerCostCenterV228==='function')renderCustomerCostCenterV228();
+        return;
+      }
+      return showBaseV230.apply(this,arguments);
+    };
+    try{show=window.show}catch(e){}
+  }
+
+  setTimeout(function(){
+    installCustomerCostModuleV230();
+    rebuildCustomerCostMenuV230();
+    if(current==='customerCost'&&typeof renderCustomerCostCenterV228==='function'){
+      renderCustomerCostCenterV228();
+    }
+  },250);
+})();
+</script>
+<!-- v230 end -->
+
+
+<!-- ===== v231 Finance expense analysis + overdue and outstanding collections ===== -->
+<style id="v231-finance-report-style">
+.finance-report-summary-v231{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+  margin:14px 0
+}
+.finance-report-summary-v231 .stat{padding:14px}
+.overdue-v231{color:#b91c1c;font-weight:800}
+.balance-v231{font-weight:800;color:#92400e}
+.report-filter-v231{margin-bottom:14px}
+@media(max-width:850px){
+  .finance-report-summary-v231{grid-template-columns:1fr}
+}
+</style>
+
+<script id="v231-finance-expense-collection-reports">
+(function(){
+  function num(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function txt(v){return String(v==null?'':v).trim()}
+  function esc(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]
+  })}
+  function money(v){return num(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' EGP'}
+  function todayIso(){return typeof today==='function'?today():new Date().toISOString().slice(0,10)}
+  function daysOld(date){
+    if(!date)return 0;
+    var a=new Date(date+'T00:00:00');
+    var b=new Date(todayIso()+'T00:00:00');
+    return Math.max(0,Math.floor((b-a)/86400000));
+  }
+  function categoryLabel(v){
+    return ({
+      gifts:'هدايا',
+      conferences:'مؤتمرات',
+      hospitality:'ضيافة',
+      travel:'سفر وانتقالات',
+      samples:'عينات مجانية',
+      marketing:'دعاية وتسويق',
+      discounts:'خصومات ودعم',
+      other:'أخرى'
+    })[v]||v||'مصروفات أخرى';
+  }
+  function dateInRange(date,from,to){
+    if(from&&String(date||'')<from)return false;
+    if(to&&String(date||'')>to)return false;
+    return true;
+  }
+
+  function expenseRowsV231(){
+    var from=(document.getElementById('exp_from_v231')||{}).value||'';
+    var to=(document.getElementById('exp_to_v231')||{}).value||'';
+    var rows=[];
+
+    (db.cash_receipts_out||[]).forEach(function(r){
+      if(!dateInRange(r.date,from,to))return;
+      rows.push({
+        date:r.date||'',
+        category:r.expense_category||r.category||r.purpose||'مصروفات عامة',
+        description:r.purpose||r.notes||'إيصال صرف',
+        party:r.party||'-',
+        source:r.method==='bank'?'بنك':'خزينة',
+        amount:num(r.amount),
+        reference:r.serial||r.cheque||''
+      });
+    });
+
+    (db.customer_cost_center||[]).forEach(function(r){
+      if(!dateInRange(r.date,from,to))return;
+      rows.push({
+        date:r.date||'',
+        category:categoryLabel(r.category),
+        description:r.description||'مصروف عميل',
+        party:r.customer_name||'-',
+        source:r.payment_source==='bank'?'بنك':'خزينة',
+        amount:num(r.amount),
+        reference:r.reference||''
+      });
+    });
+
+    return rows.sort(function(a,b){return String(b.date).localeCompare(String(a.date))});
+  }
+
+  function expenseAnalysisHTMLV231(){
+    var rows=expenseRowsV231();
+    var totals={};
+    rows.forEach(function(r){totals[r.category]=(totals[r.category]||0)+num(r.amount)});
+    var groups=Object.keys(totals).map(function(k){return {name:k,total:totals[k]}})
+      .sort(function(a,b){return b.total-a.total});
+    var total=rows.reduce(function(s,r){return s+num(r.amount)},0);
+    var largest=groups[0]||{name:'—',total:0};
+
+    return '<div class="card report-filter-v231">'+
+      '<div class="section-title"><h3>فترة تحليل المصروفات</h3><button class="btn secondary" onclick="clearExpenseFiltersV231()">مسح الفلاتر</button></div>'+
+      '<div class="grid grid3">'+
+        '<div><label>من تاريخ</label><input id="exp_from_v231" type="date" onchange="renderFinanceReportsV231()"></div>'+
+        '<div><label>إلى تاريخ</label><input id="exp_to_v231" type="date" onchange="renderFinanceReportsV231()"></div>'+
+        '<div><label>طباعة</label><button class="btn blue" onclick="window.print()">طباعة البيان</button></div>'+
+      '</div></div>'+
+      '<div class="finance-report-summary-v231">'+
+        '<div class="card stat"><span>إجمالي المصروفات</span><strong>'+money(total)+'</strong></div>'+
+        '<div class="card stat"><span>عدد حركات الصرف</span><strong>'+rows.length+'</strong></div>'+
+        '<div class="card stat"><span>أعلى بند مصروف</span><strong>'+esc(largest.name)+'</strong><div class="hint">'+money(largest.total)+'</div></div>'+
+      '</div>'+
+      '<div class="card"><h3>ملخص المصروفات حسب النوع</h3>'+
+        (groups.length?'<table><tr><th>نوع المصروف</th><th>عدد الحركات</th><th>الإجمالي</th><th>النسبة</th></tr>'+
+          groups.map(function(g){
+            var count=rows.filter(function(r){return r.category===g.name}).length;
+            var pct=total>0?(g.total/total*100):0;
+            return '<tr><td><b>'+esc(g.name)+'</b></td><td>'+count+'</td><td><b>'+money(g.total)+'</b></td><td>'+pct.toFixed(1)+'%</td></tr>';
+          }).join('')+'</table>':'<div class="empty">لا توجد مصروفات في الفترة المحددة</div>')+
+      '</div>'+
+      '<div class="card"><h3>تفاصيل المصروفات</h3>'+
+        (rows.length?'<table><tr><th>التاريخ</th><th>النوع</th><th>البيان</th><th>الطرف</th><th>مصدر الدفع</th><th>المرجع</th><th>القيمة</th></tr>'+
+          rows.map(function(r){return '<tr><td>'+esc(r.date||'-')+'</td><td>'+esc(r.category)+'</td><td>'+esc(r.description)+'</td><td>'+esc(r.party)+'</td><td>'+esc(r.source)+'</td><td>'+esc(r.reference||'-')+'</td><td><b>'+money(r.amount)+'</b></td></tr>'}).join('')+
+          '</table>':'<div class="empty">لا توجد مصروفات</div>')+
+      '</div>';
+  }
+
+  function saleRowsV231(){
+    var list=(db.sales||[]).filter(function(s){
+      if((s.order_type||'sale')!=='sale')return false;
+      var total=num(s.total_including_vat||s.total);
+      var paid=num(s.paid);
+      var remaining=num(s.remaining);
+      if(!remaining)remaining=Math.max(0,total-paid);
+      return remaining>0;
+    }).map(function(s){
+      var total=num(s.total_including_vat||s.total);
+      var paid=num(s.paid);
+      var remaining=num(s.remaining);
+      if(!remaining)remaining=Math.max(0,total-paid);
+      return {
+        id:s.id,
+        date:s.date||s.created_at&&String(s.created_at).slice(0,10)||'',
+        invoice:s.invoice_no||s.invoice_group_id||s.id||'-',
+        customer_id:s.customer_id||'',
+        customer_name:s.customer_name||s.customer||'-',
+        total:total,
+        paid:paid,
+        remaining:remaining,
+        age:daysOld(s.date||s.created_at&&String(s.created_at).slice(0,10))
+      };
+    });
+    return list;
+  }
+
+  function overdueCollectionsHTMLV231(){
+    var rows=saleRowsV231().filter(function(r){return r.age>=30})
+      .sort(function(a,b){return b.age-a.age});
+    var total=rows.reduce(function(s,r){return s+r.remaining},0);
+    var customers=new Set(rows.map(function(r){return r.customer_id||r.customer_name})).size;
+
+    return '<div class="finance-report-summary-v231">'+
+      '<div class="card stat"><span>إجمالي متأخر أكثر من 30 يوم</span><strong>'+money(total)+'</strong></div>'+
+      '<div class="card stat"><span>عدد الفواتير المتأخرة</span><strong>'+rows.length+'</strong></div>'+
+      '<div class="card stat"><span>عدد العملاء المتأخرين</span><strong>'+customers+'</strong></div>'+
+      '</div>'+
+      '<div class="card"><div class="section-title"><h3>التحصيلات التي مر عليها 30 يومًا أو أكثر</h3><button class="btn blue" onclick="window.print()">طباعة البيان</button></div>'+
+      (rows.length?'<table><tr><th>تاريخ الفاتورة</th><th>رقم الفاتورة</th><th>العميل</th><th>الإجمالي</th><th>المحصل</th><th>المتبقي</th><th>عدد الأيام</th></tr>'+
+        rows.map(function(r){return '<tr><td>'+esc(r.date||'-')+'</td><td>'+esc(r.invoice)+'</td><td><b>'+esc(r.customer_name)+'</b></td><td>'+money(r.total)+'</td><td>'+money(r.paid)+'</td><td class="balance-v231">'+money(r.remaining)+'</td><td class="overdue-v231">'+r.age+' يوم</td></tr>'}).join('')+
+        '</table>':'<div class="empty">لا توجد تحصيلات متأخرة أكثر من 30 يوم</div>')+
+      '</div>';
+  }
+
+  function outstandingCustomersHTMLV231(){
+    var rows=saleRowsV231();
+    var map={};
+    rows.forEach(function(r){
+      var key=r.customer_id||r.customer_name;
+      if(!map[key])map[key]={name:r.customer_name,total:0,paid:0,remaining:0,invoices:0,oldest:0};
+      map[key].total+=r.total;
+      map[key].paid+=r.paid;
+      map[key].remaining+=r.remaining;
+      map[key].invoices+=1;
+      map[key].oldest=Math.max(map[key].oldest,r.age);
+    });
+    var groups=Object.keys(map).map(function(k){return map[k]}).sort(function(a,b){return b.remaining-a.remaining});
+    var totalRemaining=groups.reduce(function(s,g){return s+g.remaining},0);
+    var totalInvoices=groups.reduce(function(s,g){return s+g.invoices},0);
+    var biggest=groups[0]||{name:'—',remaining:0};
+
+    return '<div class="finance-report-summary-v231">'+
+      '<div class="card stat"><span>إجمالي المتبقي على العملاء</span><strong>'+money(totalRemaining)+'</strong></div>'+
+      '<div class="card stat"><span>عدد الفواتير غير المحصلة</span><strong>'+totalInvoices+'</strong></div>'+
+      '<div class="card stat"><span>أعلى عميل مديونية</span><strong>'+esc(biggest.name)+'</strong><div class="hint">'+money(biggest.remaining)+'</div></div>'+
+      '</div>'+
+      '<div class="card"><div class="section-title"><h3>المتبقي على كل عميل</h3><button class="btn blue" onclick="window.print()">طباعة التقرير</button></div>'+
+      (groups.length?'<table><tr><th>العميل</th><th>عدد الفواتير</th><th>إجمالي الفواتير</th><th>المحصل</th><th>المتبقي</th><th>أقدم مديونية</th></tr>'+
+        groups.map(function(g){return '<tr><td><b>'+esc(g.name)+'</b></td><td>'+g.invoices+'</td><td>'+money(g.total)+'</td><td>'+money(g.paid)+'</td><td class="balance-v231">'+money(g.remaining)+'</td><td>'+(g.oldest?g.oldest+' يوم':'—')+'</td></tr>'}).join('')+
+        '</table>':'<div class="empty">لا توجد مبالغ متبقية على العملاء</div>')+
+      '</div>'+
+      '<div class="card"><h3>تفاصيل الفواتير المتبقية</h3>'+
+      (rows.length?'<table><tr><th>التاريخ</th><th>رقم الفاتورة</th><th>العميل</th><th>الإجمالي</th><th>المحصل</th><th>المتبقي</th><th>العمر</th></tr>'+
+        rows.sort(function(a,b){return b.age-a.age}).map(function(r){return '<tr><td>'+esc(r.date||'-')+'</td><td>'+esc(r.invoice)+'</td><td>'+esc(r.customer_name)+'</td><td>'+money(r.total)+'</td><td>'+money(r.paid)+'</td><td class="balance-v231">'+money(r.remaining)+'</td><td>'+r.age+' يوم</td></tr>'}).join('')+
+        '</table>':'<div class="empty">لا توجد فواتير متبقية</div>')+
+      '</div>';
+  }
+
+  window.clearExpenseFiltersV231=function(){
+    ['exp_from_v231','exp_to_v231'].forEach(function(id){var e=document.getElementById(id);if(e)e.value=''});
+    renderFinanceReportsV231();
+  };
+
+  window.renderFinanceReportsV231=function(){
+    var expensePane=document.querySelector('.finance-pane-v227[data-pane="expense-analysis"]');
+    var overduePane=document.querySelector('.finance-pane-v227[data-pane="overdue-collections"]');
+    var outstandingPane=document.querySelector('.finance-pane-v227[data-pane="outstanding-customers"]');
+    if(expensePane)expensePane.innerHTML=expenseAnalysisHTMLV231();
+    if(overduePane)overduePane.innerHTML=overdueCollectionsHTMLV231();
+    if(outstandingPane)outstandingPane.innerHTML=outstandingCustomersHTMLV231();
+  };
+
+  function installFinanceReportsV231(){
+    var tools=document.getElementById('finance_tools_v227');
+    if(!tools)return;
+    var nav=tools.querySelector('.finance-nav-v227');
+    var card=nav&&nav.closest('.card');
+    if(!nav||!card)return;
+
+    [
+      ['expense-analysis','تحليل المصروفات'],
+      ['overdue-collections','تحصيلات أكثر من 30 يوم'],
+      ['outstanding-customers','المتبقي على العملاء']
+    ].forEach(function(item){
+      var paneName=item[0],label=item[1];
+      if(!nav.querySelector('[data-pane="'+paneName+'"]')){
+        var btn=document.createElement('button');
+        btn.className='btn secondary';
+        btn.dataset.pane=paneName;
+        btn.textContent=label;
+        btn.onclick=function(){showFinancePaneV227(paneName);renderFinanceReportsV231()};
+        nav.appendChild(btn);
+      }
+      if(!card.querySelector('.finance-pane-v227[data-pane="'+paneName+'"]')){
+        var pane=document.createElement('div');
+        pane.className='finance-pane-v227';
+        pane.dataset.pane=paneName;
+        card.appendChild(pane);
+      }
+    });
+
+    renderFinanceReportsV231();
+  }
+
+  var financeBase=window.renderFinanceToolsV227;
+  if(typeof financeBase==='function'){
+    window.renderFinanceToolsV227=function(){
+      var result=financeBase.apply(this,arguments);
+      setTimeout(installFinanceReportsV231,30);
+      return result;
+    };
+  }
+
+  var accountsBase=window.renderAccounts || (typeof renderAccounts==='function'?renderAccounts:null);
+  if(typeof accountsBase==='function'){
+    window.renderAccounts=function(){
+      var result=accountsBase.apply(this,arguments);
+      setTimeout(installFinanceReportsV231,140);
+      return result;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  setTimeout(installFinanceReportsV231,300);
+})();
+</script>
+<!-- v231 end -->
+
+
+<!-- ===== v232 Cash Flow redesigned like daily cash Excel sheet ===== -->
+<style id="v232-cash-flow-excel-style">
+.cashflow-sheet-v232{overflow:auto;background:#fff;padding:12px;border-radius:14px}
+.cashflow-grid-v232{border-collapse:collapse;min-width:1450px;width:100%;font-size:12px}
+.cashflow-grid-v232 th,.cashflow-grid-v232 td{border:1px solid #222;padding:5px 7px;text-align:center;white-space:nowrap}
+.cashflow-grid-v232 th:first-child,.cashflow-grid-v232 td:first-child{
+  position:sticky;left:0;z-index:3;background:#fff;text-align:start;min-width:210px;font-weight:700
+}
+[dir="rtl"] .cashflow-grid-v232 th:first-child,[dir="rtl"] .cashflow-grid-v232 td:first-child{left:auto;right:0}
+.cashflow-grid-v232 .main-title-v232{font-size:18px;font-weight:900;background:#fff}
+.cashflow-grid-v232 .section-v232 td{font-size:15px;font-weight:900;text-align:start;background:#f3f4f6}
+.cashflow-grid-v232 .income-total-v232 td:first-child{background:#7CFC00!important}
+.cashflow-grid-v232 .income-total-v232 td{font-weight:900}
+.cashflow-grid-v232 .expense-total-v232 td:first-child{background:#dbeafe!important}
+.cashflow-grid-v232 .expense-total-v232 td,.cashflow-grid-v232 .surplus-v232 td{font-weight:900}
+.cashflow-grid-v232 .weekend-v232{background:#fff98c}
+.cashflow-grid-v232 .negative-v232{color:#dc2626;font-weight:800}
+.cashflow-grid-v232 .editable-label-v232{background:#fff}
+.cashflow-balances-v232{max-width:520px;margin:20px 0 0 auto}
+[dir="rtl"] .cashflow-balances-v232{margin-left:0;margin-right:auto}
+.cashflow-balances-v232 table{width:100%;border-collapse:collapse}
+.cashflow-balances-v232 td,.cashflow-balances-v232 th{border:1px solid #222;padding:7px 10px}
+.cashflow-balances-v232 th{font-weight:900;text-align:center}
+.cashflow-toolbar-v232{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+@media print{
+  .cashflow-sheet-v232{overflow:visible;padding:0}
+  .cashflow-grid-v232{font-size:9px;min-width:0}
+  .cashflow-grid-v232 th:first-child,.cashflow-grid-v232 td:first-child{position:static}
+}
+</style>
+
+<script id="v232-cash-flow-excel-layout">
+(function(){
+  function nn(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function ee(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]
+  })}
+  function fmtV232(v){
+    var x=nn(v);
+    if(Math.abs(x)<0.005)return '0.00';
+    return x<0?'<span class="negative-v232">('+Math.abs(x).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+')</span>':
+      x.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  }
+  function isoDateV232(d){return d.toISOString().slice(0,10)}
+  function dateListV232(from,to){
+    var arr=[],a=new Date(from+'T00:00:00'),b=new Date(to+'T00:00:00');
+    if(isNaN(a)||isNaN(b))return arr;
+    while(a<=b&&arr.length<31){arr.push(new Date(a));a.setDate(a.getDate()+1)}
+    return arr;
+  }
+  function dayNameV232(d){
+    var ar=['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+    var en=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    return (lang==='ar'?ar:en)[d.getDay()];
+  }
+  function shortDateV232(d){
+    return d.toLocaleDateString('en-GB',{day:'numeric',month:'short'}).replace(' ','-');
+  }
+  function isWeekendV232(d){return d.getDay()===5||d.getDay()===6}
+  function accountNameV232(j){
+    var a=(typeof accountByCode==='function'?accountByCode(j.account):null)||{};
+    return String(a.name||a.name_ar||a.name_en||j.account||'');
+  }
+  function sourceBucketV232(j){
+    var desc=(String(j.description||'')+' '+accountNameV232(j)+' '+String(j.bank||'')).toLowerCase();
+    if(desc.includes('qnb'))return 'QNB';
+    if(desc.includes('fab'))return 'FAB';
+    if(desc.includes('abk'))return 'ABK';
+    if(desc.includes('cib'))return 'CIB';
+    if(desc.includes('wallet')||desc.includes('محفظ'))return lang==='ar'?'المحفظة':'Wallet';
+    if(String(j.account)==='1110'||desc.includes('bank')||desc.includes('بنك'))return lang==='ar'?'بنوك أخرى':'Other Banks';
+    return 'cash';
+  }
+  function expenseLabelV232(j){
+    var s=String(j.source||'').toLowerCase();
+    var d=String(j.description||'').toLowerCase();
+    if(d.includes('logistic')||d.includes('لوجست'))return lang==='ar'?'مصروفات لوجستية':'Logistic Expenses';
+    if(d.includes('finance')||d.includes('bank fee')||d.includes('بنكية'))return lang==='ar'?'مصروفات مالية':'Finance Expenses';
+    if(s==='purchase'||d.includes('purchase')||d.includes('مشتريات'))return lang==='ar'?'مشتريات':'Purchases';
+    if(d.includes('salary')||d.includes('مرتبات'))return lang==='ar'?'مرتبات وأجور':'Salaries';
+    if(d.includes('transport')||d.includes('انتقال'))return lang==='ar'?'انتقالات':'Transportation';
+    if(d.includes('marketing')||d.includes('دعاية'))return lang==='ar'?'دعاية وتسويق':'Marketing';
+    return lang==='ar'?'مصروفات أخرى':'Other Expenses';
+  }
+  function allMoneyLinesV232(){
+    try{if(typeof ensureAccounting==='function')ensureAccounting()}catch(e){}
+    return (db.journal||[]).filter(function(j){
+      return String(j.account)==='1100'||String(j.account)==='1110';
+    });
+  }
+  function dailyDataV232(dates){
+    var lines=allMoneyLinesV232();
+    var from=isoDateV232(dates[0]),to=isoDateV232(dates[dates.length-1]);
+    var openingCash=nn((typeof accountByCode==='function'&&accountByCode('1100')||{}).opening);
+    var openingBank=nn((typeof accountByCode==='function'&&accountByCode('1110')||{}).opening);
+    var prior=lines.filter(function(j){return j.date<from}).reduce(function(s,j){return s+nn(j.debit)-nn(j.credit)},0);
+    var opening=openingCash+openingBank+prior;
+    var inBuckets=['cash','QNB','CIB','FAB','ABK',lang==='ar'?'بنوك أخرى':'Other Banks',lang==='ar'?'المحفظة':'Wallet'];
+    var expenseBuckets=[
+      lang==='ar'?'مشتريات':'Purchases',
+      lang==='ar'?'مصروفات لوجستية':'Logistic Expenses',
+      lang==='ar'?'مصروفات مالية':'Finance Expenses',
+      lang==='ar'?'مرتبات وأجور':'Salaries',
+      lang==='ar'?'انتقالات':'Transportation',
+      lang==='ar'?'دعاية وتسويق':'Marketing',
+      lang==='ar'?'مصروفات أخرى':'Other Expenses'
+    ];
+    var data={};
+    dates.forEach(function(d){
+      var key=isoDateV232(d);
+      data[key]={opening:0,income:{},expense:{},inTotal:0,outTotal:0,closing:0};
+      inBuckets.forEach(function(b){data[key].income[b]=0});
+      expenseBuckets.forEach(function(b){data[key].expense[b]=0});
+    });
+    lines.filter(function(j){return j.date>=from&&j.date<=to}).forEach(function(j){
+      var day=data[j.date];if(!day)return;
+      if(nn(j.debit)>0){
+        var b=sourceBucketV232(j);if(day.income[b]==null)day.income[b]=0;
+        day.income[b]+=nn(j.debit);
+      }
+      if(nn(j.credit)>0){
+        var e=expenseLabelV232(j);if(day.expense[e]==null)day.expense[e]=0;
+        day.expense[e]+=nn(j.credit);
+      }
+    });
+    var running=opening;
+    dates.forEach(function(d){
+      var x=data[isoDateV232(d)];
+      x.opening=running;
+      x.inTotal=Object.keys(x.income).reduce(function(s,k){return s+nn(x.income[k])},0);
+      x.outTotal=Object.keys(x.expense).reduce(function(s,k){return s+nn(x.expense[k])},0);
+      x.closing=x.opening+x.inTotal-x.outTotal;
+      running=x.closing;
+    });
+    return {data:data,inBuckets:inBuckets,expenseBuckets:expenseBuckets,opening:opening,closing:running};
+  }
+  function rowV232(label,dates,values,cls){
+    return '<tr class="'+(cls||'')+'"><td>'+ee(label)+'</td>'+dates.map(function(d,i){
+      return '<td class="'+(isWeekendV232(d)?'weekend-v232':'')+'">'+fmtV232(values[i])+'</td>';
+    }).join('')+'</tr>';
+  }
+  function cashBalancesV232(toDate){
+    var lines=allMoneyLinesV232().filter(function(j){return !toDate||j.date<=toDate});
+    var map={cash:nn((typeof accountByCode==='function'&&accountByCode('1100')||{}).opening)};
+    lines.forEach(function(j){
+      var b=sourceBucketV232(j);
+      map[b]=(map[b]||0)+nn(j.debit)-nn(j.credit);
+    });
+    var rows=Object.keys(map).filter(function(k){return Math.abs(map[k])>.004||k==='cash'}).sort();
+    var total=rows.reduce(function(s,k){return s+nn(map[k])},0);
+    return '<div class="cashflow-balances-v232"><table><tr><th colspan="2">'+
+      (lang==='ar'?'النقدية بالجنيه المصري':'Cash balances in EGP')+'</th></tr>'+
+      rows.map(function(k){return '<tr><td><b>'+ee(k)+'</b></td><td>'+fmtV232(map[k])+'</td></tr>'}).join('')+
+      '<tr><td><b>'+(lang==='ar'?'الإجمالي':'Total')+'</b></td><td><b>'+fmtV232(total)+'</b></td></tr></table></div>';
+  }
+
+  window.renderCashFlow=function(){
+    var el=document.getElementById('view-cashflow');
+    if(!el)return;
+    if(typeof can==='function'&&!can('cashflow','view')){
+      el.innerHTML='<div class="card locked-screen"><h3>'+(lang==='ar'?'لا توجد صلاحية':'No permission')+'</h3></div>';return;
+    }
+    var r=typeof cashFlowRange==='function'?cashFlowRange():{from:'',to:''};
+    var from=r.from||new Date().toISOString().slice(0,8)+'01';
+    var to=r.to||new Date().toISOString().slice(0,10);
+    var dates=dateListV232(from,to);
+    if(!dates.length){
+      el.innerHTML='<div class="card">اختر فترة صحيحة</div>';return;
+    }
+    var x=dailyDataV232(dates),data=x.data;
+    var openings=dates.map(function(d){return data[isoDateV232(d)].opening});
+    var inTotals=dates.map(function(d){return data[isoDateV232(d)].inTotal});
+    var outTotals=dates.map(function(d){return data[isoDateV232(d)].outTotal});
+    var closing=dates.map(function(d){return data[isoDateV232(d)].closing});
+
+    var html='<div class="card no-print"><div class="section-title"><div><h3>'+
+      (lang==='ar'?'التدفقات النقدية اليومية':'Daily Cash Flow')+'</h3><p class="hint">'+
+      (lang==='ar'?'بنفس تصميم ملف النقدية اليومية، بحد أقصى 31 يومًا في العرض':'Excel-style daily cash sheet, up to 31 days')+
+      '</p></div><div class="actions"><button class="btn blue" onclick="window.print()">'+
+      (typeof T==='function'?T('print'):'Print')+'</button><button class="btn secondary" onclick="exportCashFlowCSV()">Export CSV</button></div></div>'+
+      '<div class="cashflow-toolbar-v232"><div><label>'+(lang==='ar'?'من تاريخ':'From')+
+      '</label><input id="cf_from" type="date" value="'+ee(from)+'"></div><div><label>'+
+      (lang==='ar'?'إلى تاريخ':'To')+'</label><input id="cf_to" type="date" value="'+ee(to)+
+      '"></div><button class="btn ok" onclick="applyCashFlowRange()">'+(lang==='ar'?'تطبيق':'Apply')+
+      '</button></div></div>';
+
+    html+='<div class="cashflow-sheet-v232"><table class="cashflow-grid-v232">';
+    html+='<tr><th class="main-title-v232">'+(lang==='ar'?'الأيام':'Days')+'</th>'+
+      dates.map(function(d){return '<th class="'+(isWeekendV232(d)?'weekend-v232':'')+'">'+shortDateV232(d)+'</th>'}).join('')+'</tr>';
+    html+='<tr><th></th>'+dates.map(function(d){return '<th class="'+(isWeekendV232(d)?'weekend-v232':'')+'">'+dayNameV232(d)+'</th>'}).join('')+'</tr>';
+    html+=rowV232(lang==='ar'?'رصيد أول المدة':'Opening Balance',dates,openings,'');
+    html+='<tr class="section-v232"><td colspan="'+(dates.length+1)+'">'+(lang==='ar'?'الوارد / التحصيلات':'Income / Collections')+'</td></tr>';
+    x.inBuckets.forEach(function(b){
+      html+=rowV232(b,dates,dates.map(function(d){return data[isoDateV232(d)].income[b]||0}));
+    });
+    html+=rowV232(lang==='ar'?'إجمالي الوارد':'Total Income',dates,inTotals,'income-total-v232');
+    html+='<tr class="section-v232"><td colspan="'+(dates.length+1)+'">'+(lang==='ar'?'المنصرف':'Cash Out')+'</td></tr>';
+    x.expenseBuckets.forEach(function(b){
+      html+=rowV232(b,dates,dates.map(function(d){return data[isoDateV232(d)].expense[b]||0}));
+    });
+    html+=rowV232(lang==='ar'?'إجمالي المنصرف':'Total Cash Out',dates,outTotals,'expense-total-v232');
+    html+=rowV232(lang==='ar'?'الفائض أو العجز / رصيد آخر اليوم':'Surplus or Deficit / Closing',dates,closing,'surplus-v232');
+    html+='</table>'+cashBalancesV232(to)+'</div>';
+    el.innerHTML=html;
+  };
+
+  setTimeout(function(){
+    try{if(typeof current!=='undefined'&&current==='cashflow')renderCashFlow()}catch(e){}
+  },150);
+})();
+</script>
+<!-- v232 end -->
