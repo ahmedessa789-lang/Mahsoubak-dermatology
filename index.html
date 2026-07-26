@@ -19509,3 +19509,185 @@ html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!importan
 })();
 </script>
 <!-- v303-safe liquidity flow end -->
+
+
+<!-- ===== v237 Auto allocate cash payment to customer cost center or G&A ===== -->
+<script id="v237-cash-payment-auto-cost-allocation">
+(function(){
+  function num(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function txt(v){return String(v==null?'':v).trim()}
+  function newId(){return typeof uid==='function'?uid():'EXP_'+Date.now()+'_'+Math.random().toString(36).slice(2)}
+  function saveDb(){try{if(typeof save==='function')save()}catch(e){}}
+
+  function ensureV237(){
+    if(!Array.isArray(db.customer_cost_center))db.customer_cost_center=[];
+    if(!Array.isArray(db.general_admin_expenses))db.general_admin_expenses=[];
+  }
+
+  function findOutCustomerFieldV237(){
+    var ids=['cr_out_to_v159','cr_out_party_v159','cr_out_party','cr_out_customer'];
+    for(var i=0;i<ids.length;i++){
+      var el=document.getElementById(ids[i]);
+      if(el)return el;
+    }
+    return null;
+  }
+
+  function selectedCustomerV237(){
+    var field=findOutCustomerFieldV237();
+    if(!field||!field.value)return null;
+
+    var customerId='';
+    if(field.tagName==='SELECT'){
+      var option=field.options[field.selectedIndex];
+      customerId=(option&&option.dataset.customerId)||field.dataset.customerId||'';
+    }
+
+    var customer=(db.customers||[]).find(function(c){
+      return customerId && String(c.id)===String(customerId);
+    });
+
+    if(!customer){
+      customer=(db.customers||[]).find(function(c){
+        return txt(c.name||c.customer_name).toLowerCase()===txt(field.value).toLowerCase();
+      });
+    }
+
+    return customer||null;
+  }
+
+  function expenseTypeV237(row){
+    var purpose=txt(row.purpose||row.description||row.notes).toLowerCase();
+    if(purpose.indexOf('gift')>=0||purpose.indexOf('هد')>=0)return 'gifts';
+    if(purpose.indexOf('conference')>=0||purpose.indexOf('مؤتمر')>=0)return 'conferences';
+    if(purpose.indexOf('hospitality')>=0||purpose.indexOf('ضياف')>=0)return 'hospitality';
+    if(purpose.indexOf('travel')>=0||purpose.indexOf('انتقال')>=0||purpose.indexOf('سفر')>=0)return 'travel';
+    if(purpose.indexOf('sample')>=0||purpose.indexOf('عين')>=0)return 'samples';
+    if(purpose.indexOf('marketing')>=0||purpose.indexOf('دعا')>=0||purpose.indexOf('تسويق')>=0)return 'marketing';
+    if(purpose.indexOf('discount')>=0||purpose.indexOf('خصم')>=0)return 'discounts';
+    return 'other';
+  }
+
+  function categoryLabelV237(type){
+    return ({
+      gifts:'هدايا',
+      conferences:'مؤتمرات',
+      hospitality:'ضيافة',
+      travel:'سفر وانتقالات',
+      samples:'عينات مجانية',
+      marketing:'دعاية وتسويق',
+      discounts:'خصومات ودعم',
+      other:'أخرى'
+    })[type]||'أخرى';
+  }
+
+  function allocateReceiptV237(row,customer){
+    ensureV237();
+    if(!row)return;
+
+    /* Prevent duplicate allocation when the same receipt is saved or rendered again. */
+    var alreadyCustomer=db.customer_cost_center.some(function(x){return x.source_receipt_id===row.id});
+    var alreadyGeneral=db.general_admin_expenses.some(function(x){return x.source_receipt_id===row.id});
+    if(alreadyCustomer||alreadyGeneral)return;
+
+    var paymentSource=row.method==='bank'?'bank':'cash';
+    var description=txt(row.purpose||row.description||row.notes)||'إيصال صرف نقدية';
+
+    if(customer){
+      var category=expenseTypeV237(row);
+      db.customer_cost_center.unshift({
+        id:newId(),
+        source_receipt_id:row.id,
+        source_receipt_serial:row.serial||'',
+        date:row.date||new Date().toISOString().slice(0,10),
+        customer_id:customer.id,
+        customer_name:txt(customer.name||customer.customer_name),
+        category:category,
+        category_label:categoryLabelV237(category),
+        amount:num(row.amount),
+        payment_source:paymentSource,
+        reference:row.serial||row.cheque||'',
+        description:description,
+        notes:txt(row.notes),
+        created_by:row.created_by||'',
+        created_at:new Date().toISOString(),
+        auto_allocated:true
+      });
+
+      row.customer_id=customer.id;
+      row.customer_name=txt(customer.name||customer.customer_name);
+      row.expense_allocation='customer_cost_center';
+      row.expense_account_name='مركز تكلفة العملاء';
+    }else{
+      db.general_admin_expenses.unshift({
+        id:newId(),
+        source_receipt_id:row.id,
+        source_receipt_serial:row.serial||'',
+        date:row.date||new Date().toISOString().slice(0,10),
+        category:'general_admin',
+        category_label:'مصاريف عمومية وإدارية',
+        amount:num(row.amount),
+        payment_source:paymentSource,
+        reference:row.serial||row.cheque||'',
+        description:description,
+        party:txt(row.party),
+        notes:txt(row.notes),
+        created_by:row.created_by||'',
+        created_at:new Date().toISOString(),
+        auto_allocated:true
+      });
+
+      row.customer_id='';
+      row.customer_name='';
+      row.expense_allocation='general_admin';
+      row.expense_category='مصاريف عمومية وإدارية';
+      row.expense_account_name='مصاريف عمومية وإدارية';
+    }
+
+    saveDb();
+  }
+
+  var saveBaseV237=window.saveCashReceiptV159;
+  if(typeof saveBaseV237==='function'){
+    window.saveCashReceiptV159=function(type){
+      var customer=type==='out'?selectedCustomerV237():null;
+      var before=new Set((db.cash_receipts_out||[]).map(function(r){return r.id}));
+      var result=saveBaseV237.apply(this,arguments);
+
+      if(type==='out'){
+        var created=(db.cash_receipts_out||[]).find(function(r){return !before.has(r.id)});
+        if(created)allocateReceiptV237(created,customer);
+      }
+      return result;
+    };
+  }
+
+  /* Include G&A expenses in the expense-analysis report without duplicating receipts. */
+  var expenseRowsBaseV237=window.expenseRowsV231;
+  if(typeof expenseRowsBaseV237==='function'){
+    window.expenseRowsV231=function(){
+      var rows=expenseRowsBaseV237.apply(this,arguments);
+      ensureV237();
+      var receiptIds=new Set(rows.map(function(r){return r.source_receipt_id||r.receipt_id||''}).filter(Boolean));
+
+      db.general_admin_expenses.forEach(function(r){
+        if(receiptIds.has(r.source_receipt_id))return;
+        rows.push({
+          source_receipt_id:r.source_receipt_id,
+          date:r.date||'',
+          category:'مصاريف عمومية وإدارية',
+          description:r.description||'إيصال صرف نقدية',
+          party:r.party||'-',
+          source:r.payment_source==='bank'?'بنك':'خزينة',
+          amount:num(r.amount),
+          reference:r.reference||''
+        });
+      });
+      return rows;
+    };
+  }
+
+  ensureV237();
+})();
+</script>
+<!-- v237 end -->
