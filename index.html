@@ -19691,3 +19691,339 @@ html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!importan
 })();
 </script>
 <!-- v237 end -->
+
+
+<!-- ===== v238 Beneficiary free text with customer suggestions ===== -->
+<script id="v238-beneficiary-free-input">
+(function(){
+  function txt(v){return String(v==null?'':v).trim()}
+  function esc(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]
+  })}
+
+  function customersV238(){
+    return Array.isArray(db.customers)?db.customers:[];
+  }
+
+  function findBeneficiaryV238(){
+    var ids=['cr_out_to_v159','cr_out_party_v159','cr_out_party','cr_out_customer'];
+    for(var i=0;i<ids.length;i++){
+      var el=document.getElementById(ids[i]);
+      if(el)return el;
+    }
+    return null;
+  }
+
+  function installBeneficiaryInputV238(){
+    var field=findBeneficiaryV238();
+    if(!field)return;
+
+    /* Replace the forced dropdown with a normal input while preserving the same ID. */
+    if(field.tagName==='SELECT'){
+      var input=document.createElement('input');
+      Array.from(field.attributes).forEach(function(a){
+        if(a.name!=='onchange'&&a.name!=='type')input.setAttribute(a.name,a.value);
+      });
+      input.type='text';
+      input.id=field.id;
+      input.value=field.value||'';
+      input.placeholder='اتركها فارغة أو اكتب اسم المستفيد';
+      input.setAttribute('list','cr_out_beneficiary_customers_v238');
+      input.setAttribute('autocomplete','off');
+      field.replaceWith(input);
+      field=input;
+    }else{
+      field.setAttribute('list','cr_out_beneficiary_customers_v238');
+      field.setAttribute('autocomplete','off');
+      field.placeholder='اتركها فارغة أو اكتب اسم المستفيد';
+    }
+
+    var list=document.getElementById('cr_out_beneficiary_customers_v238');
+    if(!list){
+      list=document.createElement('datalist');
+      list.id='cr_out_beneficiary_customers_v238';
+      document.body.appendChild(list);
+    }
+
+    list.innerHTML=customersV238().map(function(c){
+      return '<option value="'+esc(c.name||c.customer_name||'')+'"></option>';
+    }).join('');
+
+    /* Store a customer ID only when the typed value exactly matches a registered customer. */
+    function resolve(){
+      var value=txt(field.value).toLowerCase();
+      var customer=customersV238().find(function(c){
+        return txt(c.name||c.customer_name).toLowerCase()===value;
+      });
+      field.dataset.customerId=customer?customer.id:'';
+    }
+
+    if(!field.dataset.v238Bound){
+      field.addEventListener('input',resolve);
+      field.addEventListener('change',resolve);
+      field.dataset.v238Bound='1';
+    }
+    resolve();
+  }
+
+  /* Override customer resolution used by automatic expense allocation. */
+  window.selectedCustomerV238=function(){
+    var field=findBeneficiaryV238();
+    if(!field||!txt(field.value))return null;
+    var value=txt(field.value).toLowerCase();
+    return customersV238().find(function(c){
+      return txt(c.name||c.customer_name).toLowerCase()===value;
+    })||null;
+  };
+
+  /*
+    v237 captures selectedCustomerV237 inside its closure.
+    Before saving, expose exact-match customer ID on the field so the existing
+    selector logic can resolve it. Any free text that is not an exact customer
+    match remains unlinked and is treated as G&A.
+  */
+  var saveBaseV238=window.saveCashReceiptV159;
+  if(typeof saveBaseV238==='function'){
+    window.saveCashReceiptV159=function(type){
+      if(type==='out'){
+        installBeneficiaryInputV238();
+        var field=findBeneficiaryV238();
+        var customer=window.selectedCustomerV238();
+        if(field)field.dataset.customerId=customer?customer.id:'';
+      }
+      return saveBaseV238.apply(this,arguments);
+    };
+  }
+
+  var renderAccountsBaseV238=window.renderAccounts || (typeof renderAccounts==='function'?renderAccounts:null);
+  if(typeof renderAccountsBaseV238==='function'){
+    window.renderAccounts=function(){
+      var result=renderAccountsBaseV238.apply(this,arguments);
+      setTimeout(installBeneficiaryInputV238,180);
+      return result;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  var renderBaseV238=window.render;
+  if(typeof renderBaseV238==='function'){
+    window.render=function(){
+      var result=renderBaseV238.apply(this,arguments);
+      setTimeout(installBeneficiaryInputV238,190);
+      return result;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  setTimeout(installBeneficiaryInputV238,350);
+})();
+</script>
+<!-- v238 end -->
+
+
+<!-- ===== v239 Make cash-payment beneficiary truly optional ===== -->
+<script id="v239-beneficiary-optional-save-fix">
+(function(){
+  function findBeneficiaryV239(){
+    var ids=['cr_out_to_v159','cr_out_party_v159','cr_out_party','cr_out_customer'];
+    for(var i=0;i<ids.length;i++){
+      var el=document.getElementById(ids[i]);
+      if(el)return el;
+    }
+    return null;
+  }
+
+  var saveBaseV239=window.saveCashReceiptV159;
+  if(typeof saveBaseV239==='function'){
+    window.saveCashReceiptV159=function(type){
+      if(type!=='out')return saveBaseV239.apply(this,arguments);
+
+      var field=findBeneficiaryV239();
+      var originalValue=field?field.value:'';
+      var wasBlank=!String(originalValue||'').trim();
+      var before=new Set((db.cash_receipts_out||[]).map(function(r){return r.id}));
+
+      /*
+        Older receipt code still validates this field as mandatory.
+        A temporary internal value lets it complete, then the saved
+        receipt is restored to a genuinely blank beneficiary.
+      */
+      if(field&&wasBlank)field.value='بدون مستفيد محدد';
+
+      var result=saveBaseV239.apply(this,arguments);
+
+      if(field&&wasBlank)field.value='';
+
+      if(wasBlank){
+        var created=(db.cash_receipts_out||[]).find(function(r){return !before.has(r.id)});
+        if(created){
+          created.party='';
+          created.customer_id='';
+          created.customer_name='';
+          created.expense_allocation='general_admin';
+          created.expense_category='مصاريف عمومية وإدارية';
+          created.expense_account_name='مصاريف عمومية وإدارية';
+
+          if(Array.isArray(db.general_admin_expenses)){
+            var linked=db.general_admin_expenses.find(function(x){
+              return x.source_receipt_id===created.id;
+            });
+            if(linked)linked.party='';
+          }
+
+          try{if(typeof save==='function')save()}catch(e){}
+        }
+      }
+      return result;
+    };
+    try{saveCashReceiptV159=window.saveCashReceiptV159}catch(e){}
+  }
+})();
+</script>
+<!-- v239 end -->
+
+
+<!-- ===== v240 Make cash-receipt sender free text and optional ===== -->
+<script id="v240-receipt-sender-optional">
+(function(){
+  function txt(v){return String(v==null?'':v).trim()}
+  function esc(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]
+  })}
+  function customersV240(){
+    return Array.isArray(db.customers)?db.customers:[];
+  }
+  function findSenderV240(){
+    var ids=['cr_in_from_v159','cr_in_party_v159','cr_in_party','cr_in_customer'];
+    for(var i=0;i<ids.length;i++){
+      var el=document.getElementById(ids[i]);
+      if(el)return el;
+    }
+    return null;
+  }
+
+  function installSenderInputV240(){
+    var field=findSenderV240();
+    if(!field)return;
+
+    if(field.tagName==='SELECT'){
+      var input=document.createElement('input');
+      Array.from(field.attributes).forEach(function(a){
+        if(a.name!=='onchange'&&a.name!=='type')input.setAttribute(a.name,a.value);
+      });
+      input.type='text';
+      input.id=field.id;
+      input.value=field.value||'';
+      input.placeholder='اتركها فارغة أو اكتب اسم المستلم منه';
+      input.setAttribute('list','cr_in_sender_customers_v240');
+      input.setAttribute('autocomplete','off');
+      field.replaceWith(input);
+      field=input;
+    }else{
+      field.setAttribute('list','cr_in_sender_customers_v240');
+      field.setAttribute('autocomplete','off');
+      field.placeholder='اتركها فارغة أو اكتب اسم المستلم منه';
+    }
+
+    var list=document.getElementById('cr_in_sender_customers_v240');
+    if(!list){
+      list=document.createElement('datalist');
+      list.id='cr_in_sender_customers_v240';
+      document.body.appendChild(list);
+    }
+    list.innerHTML=customersV240().map(function(c){
+      return '<option value="'+esc(c.name||c.customer_name||'')+'"></option>';
+    }).join('');
+
+    function resolve(){
+      var value=txt(field.value).toLowerCase();
+      var customer=customersV240().find(function(c){
+        return txt(c.name||c.customer_name).toLowerCase()===value;
+      });
+      field.dataset.customerId=customer?customer.id:'';
+    }
+
+    if(!field.dataset.v240Bound){
+      field.addEventListener('input',resolve);
+      field.addEventListener('change',resolve);
+      field.dataset.v240Bound='1';
+    }
+    resolve();
+  }
+
+  function selectedCustomerV240(){
+    var field=findSenderV240();
+    if(!field||!txt(field.value))return null;
+    var value=txt(field.value).toLowerCase();
+    return customersV240().find(function(c){
+      return txt(c.name||c.customer_name).toLowerCase()===value;
+    })||null;
+  }
+
+  var saveBaseV240=window.saveCashReceiptV159;
+  if(typeof saveBaseV240==='function'){
+    window.saveCashReceiptV159=function(type){
+      if(type!=='in')return saveBaseV240.apply(this,arguments);
+
+      installSenderInputV240();
+
+      var field=findSenderV240();
+      var originalValue=field?field.value:'';
+      var wasBlank=!txt(originalValue);
+      var customer=selectedCustomerV240();
+      var before=new Set((db.cash_receipts_in||[]).map(function(r){return r.id}));
+
+      /* Older save logic still validates the sender as mandatory. */
+      if(field&&wasBlank)field.value='بدون اسم محدد';
+
+      var result=saveBaseV240.apply(this,arguments);
+
+      if(field&&wasBlank)field.value='';
+
+      var created=(db.cash_receipts_in||[]).find(function(r){return !before.has(r.id)});
+      if(created){
+        if(wasBlank){
+          created.party='';
+          created.customer_id='';
+          created.customer_name='';
+        }else if(customer){
+          created.party=txt(customer.name||customer.customer_name);
+          created.customer_id=customer.id;
+          created.customer_name=txt(customer.name||customer.customer_name);
+        }else{
+          created.party=txt(originalValue);
+          created.customer_id='';
+          created.customer_name='';
+        }
+        try{if(typeof save==='function')save()}catch(e){}
+      }
+
+      return result;
+    };
+    try{saveCashReceiptV159=window.saveCashReceiptV159}catch(e){}
+  }
+
+  var renderAccountsBaseV240=window.renderAccounts || (typeof renderAccounts==='function'?renderAccounts:null);
+  if(typeof renderAccountsBaseV240==='function'){
+    window.renderAccounts=function(){
+      var result=renderAccountsBaseV240.apply(this,arguments);
+      setTimeout(installSenderInputV240,190);
+      return result;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  var renderBaseV240=window.render;
+  if(typeof renderBaseV240==='function'){
+    window.render=function(){
+      var result=renderBaseV240.apply(this,arguments);
+      setTimeout(installSenderInputV240,200);
+      return result;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  setTimeout(installSenderInputV240,380);
+})();
+</script>
+<!-- v240 end -->
