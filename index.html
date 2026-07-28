@@ -20027,3 +20027,1036 @@ html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!importan
 })();
 </script>
 <!-- v240 end -->
+
+
+<!-- ===== v241 Client finance updates: filters, debt aging, collection KPIs, avg days, cost TB, FX ===== -->
+<style id="v241-client-finance-style">
+.v241-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:12px 0}
+.v241-summary .stat{padding:14px}
+.v241-filter{display:grid;grid-template-columns:repeat(4,minmax(170px,1fr));gap:12px;align-items:end;margin:12px 0}
+.v241-note{background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:12px;color:#1e3a8a;font-weight:700}
+.v241-danger{color:#b91c1c;font-weight:900}
+.v241-good{color:#166534;font-weight:900}
+@media(max-width:900px){.v241-summary,.v241-filter{grid-template-columns:1fr}}
+</style>
+
+<script id="v241-client-finance-updates">
+(function(){
+  function n(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function s(v){return String(v==null?'':v).trim()}
+  function e(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function m(v){return n(v).toLocaleString('en-EG',{minimumFractionDigits:2,maximumFractionDigits:2})+' EGP'}
+  function today(){return new Date().toISOString().slice(0,10)}
+  function daysBetween(a,b){
+    if(!a||!b)return 0;
+    return Math.max(0,Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000));
+  }
+  function inRange(date,from,to){
+    if(from&&String(date||'')<from)return false;
+    if(to&&String(date||'')>to)return false;
+    return true;
+  }
+  function saveDb(){try{if(typeof save==='function')save()}catch(_e){}}
+  function ensure(){
+    if(!Array.isArray(db.customer_cost_center))db.customer_cost_center=[];
+    if(!Array.isArray(db.cash_receipts_in))db.cash_receipts_in=[];
+    if(!Array.isArray(db.cash_receipts_out))db.cash_receipts_out=[];
+    if(!Array.isArray(db.collections))db.collections=[];
+  }
+
+  function saleAmount(row){return n(row.total_including_vat||row.total)}
+  function saleRemaining(row){
+    var total=saleAmount(row),paid=n(row.paid),remaining=n(row.remaining);
+    return remaining>0?remaining:Math.max(0,total-paid);
+  }
+  function saleDate(row){return String(row.date||row.created_at||'').slice(0,10)}
+  function customerName(row){return s(row.customer_name||row.customer||'-')}
+  function repName(row){
+    if(s(row.rep_name))return s(row.rep_name);
+    var r=(db.reps||[]).find(function(x){return x.id===row.rep_id});
+    return r?s(r.name):'بدون بياع';
+  }
+
+  /* ===== 1) Date filters for cash, bank and outstanding customers ===== */
+  function addRangeFilter(pane,prefix,onchange){
+    if(!pane||pane.querySelector('[data-v241-filter="'+prefix+'"]'))return;
+    var box=document.createElement('div');
+    box.className='card';
+    box.setAttribute('data-v241-filter',prefix);
+    box.innerHTML='<div class="v241-filter">'+
+      '<div><label>من تاريخ</label><input id="'+prefix+'_from_v241" type="date"></div>'+
+      '<div><label>إلى تاريخ</label><input id="'+prefix+'_to_v241" type="date"></div>'+
+      '<div><button class="btn ok" onclick="'+onchange+'">تطبيق</button></div>'+
+      '<div><button class="btn secondary" onclick="clearV241Range(\''+prefix+'\',\''+onchange.replace(/\(\)$/,'')+'\')">مسح الفترة</button></div>'+
+      '</div>';
+    pane.insertBefore(box,pane.firstChild);
+  }
+  window.clearV241Range=function(prefix,fn){
+    var f=document.getElementById(prefix+'_from_v241'),t=document.getElementById(prefix+'_to_v241');
+    if(f)f.value='';if(t)t.value='';
+    if(typeof window[fn]==='function')window[fn]();
+  };
+
+  function receiptRows(kind){
+    ensure();
+    var rows=(db.cash_receipts_in||[]).map(function(r){return Object.assign({},r,{direction:'in'})})
+      .concat((db.cash_receipts_out||[]).map(function(r){return Object.assign({},r,{direction:'out'})}));
+    if(kind==='cash')rows=rows.filter(function(r){return (r.method||'cash')==='cash'});
+    if(kind==='bank')rows=rows.filter(function(r){return r.method==='bank'});
+    return rows.sort(function(a,b){return String(a.date||'').localeCompare(String(b.date||''))});
+  }
+  function statementHTML(kind,prefix){
+    var from=(document.getElementById(prefix+'_from_v241')||{}).value||'';
+    var to=(document.getElementById(prefix+'_to_v241')||{}).value||'';
+    var rows=receiptRows(kind).filter(function(r){return inRange(r.date,from,to)});
+    var bal=0,inc=0,out=0;
+    var body=rows.map(function(r){
+      var i=r.direction==='in'?n(r.amount):0,o=r.direction==='out'?n(r.amount):0;
+      inc+=i;out+=o;bal+=i-o;
+      return '<tr><td>'+e(r.date||'-')+'</td><td>'+e(r.serial||'-')+'</td><td>'+e(r.purpose||'-')+'</td><td>'+e(r.party||'-')+'</td>'+
+        (kind==='bank'?'<td>'+e(r.bank||'-')+'</td>':'')+
+        '<td>'+m(i)+'</td><td>'+m(o)+'</td><td><b>'+m(bal)+'</b></td></tr>';
+    }).join('');
+    return '<div class="v241-summary">'+
+      '<div class="card stat"><span>إجمالي الوارد</span><strong>'+m(inc)+'</strong></div>'+
+      '<div class="card stat"><span>إجمالي المنصرف</span><strong>'+m(out)+'</strong></div>'+
+      '<div class="card stat"><span>صافي الحركة</span><strong>'+m(inc-out)+'</strong></div>'+
+      '<div class="card stat"><span>عدد الحركات</span><strong>'+rows.length+'</strong></div></div>'+
+      (rows.length?'<table><tr><th>التاريخ</th><th>الرقم</th><th>البيان</th><th>الطرف</th>'+
+      (kind==='bank'?'<th>البنك</th>':'')+'<th>وارد</th><th>منصرف</th><th>الرصيد</th></tr>'+body+'</table>':
+      '<div class="empty">لا توجد حركات في الفترة المحددة</div>');
+  }
+
+  window.renderCashStatementV241=function(){
+    var pane=document.querySelector('.finance-pane-v227[data-pane="cash"]');if(!pane)return;
+    var filter=pane.querySelector('[data-v241-filter="cash"]');
+    var from=(document.getElementById('cash_from_v241')||{}).value||'',to=(document.getElementById('cash_to_v241')||{}).value||'';
+    pane.innerHTML='<h3>كشف حركة الخزينة</h3>';
+    addRangeFilter(pane,'cash','renderCashStatementV241()');
+    var f=document.getElementById('cash_from_v241'),t=document.getElementById('cash_to_v241');if(f)f.value=from;if(t)t.value=to;
+    pane.insertAdjacentHTML('beforeend',statementHTML('cash','cash'));
+  };
+  window.renderBankStatementV241=function(){
+    var pane=document.querySelector('.finance-pane-v227[data-pane="bank"]');if(!pane)return;
+    var from=(document.getElementById('bank_from_v241')||{}).value||'',to=(document.getElementById('bank_to_v241')||{}).value||'';
+    pane.innerHTML='<h3>كشف حركة البنك</h3>';
+    addRangeFilter(pane,'bank','renderBankStatementV241()');
+    var f=document.getElementById('bank_from_v241'),t=document.getElementById('bank_to_v241');if(f)f.value=from;if(t)t.value=to;
+    pane.insertAdjacentHTML('beforeend',statementHTML('bank','bank'));
+  };
+
+  /* ===== 2,3,4) debt >30, collection ratios, average collection days ===== */
+  function allSales(){return (db.sales||[]).filter(function(x){return (x.order_type||'sale')==='sale'})}
+  function collections(){
+    return (db.collections||[]).map(function(c){return {
+      amount:n(c.amount),date:String(c.date||'').slice(0,10),customer_id:c.customer_id||'',customer_name:s(c.customer_name||c.customer),rep_id:c.rep_id||'',rep_name:s(c.rep_name||'')
+    }});
+  }
+  function collectionStats(from,to){
+    var sales=allSales().filter(function(x){return inRange(saleDate(x),from,to)});
+    var cols=collections().filter(function(x){return inRange(x.date,from,to)});
+    var totalSales=sales.reduce(function(a,x){return a+saleAmount(x)},0);
+    var totalCollections=cols.reduce(function(a,x){return a+n(x.amount)},0);
+    var reps={};
+    sales.forEach(function(x){
+      var key=x.rep_id||repName(x);
+      if(!reps[key])reps[key]={name:repName(x),sales:0,collections:0};
+      reps[key].sales+=saleAmount(x);
+    });
+    cols.forEach(function(x){
+      var key=x.rep_id||x.rep_name||'بدون بياع';
+      if(!reps[key])reps[key]={name:x.rep_name||'بدون بياع',sales:0,collections:0};
+      reps[key].collections+=n(x.amount);
+    });
+    return {sales:totalSales,collections:totalCollections,rate:totalSales?totalCollections/totalSales*100:0,reps:Object.keys(reps).map(function(k){return reps[k]})};
+  }
+  function averageCollectionDays(){
+    var sales=allSales(),cols=collections(),values=[];
+    sales.forEach(function(inv){
+      var invDate=saleDate(inv),cust=inv.customer_id||customerName(inv),remaining=saleAmount(inv);
+      var related=cols.filter(function(c){return (c.customer_id||c.customer_name)===cust&&c.date>=invDate}).sort(function(a,b){return a.date.localeCompare(b.date)});
+      var paid=0,finish='';
+      related.some(function(c){paid+=c.amount;if(paid>=remaining){finish=c.date;return true}return false});
+      if(finish)values.push(daysBetween(invDate,finish));
+      else if(saleRemaining(inv)<=0&&invDate)values.push(daysBetween(invDate,inv.payment_date||inv.updated_at&&String(inv.updated_at).slice(0,10)||invDate));
+    });
+    return values.length?values.reduce(function(a,b){return a+b},0)/values.length:0;
+  }
+
+  window.renderCollectionPerformanceV241=function(){
+    var pane=document.querySelector('.finance-pane-v227[data-pane="collection-performance"]');if(!pane)return;
+    var from=(document.getElementById('cp_from_v241')||{}).value||'',to=(document.getElementById('cp_to_v241')||{}).value||'';
+    var st=collectionStats(from,to),avg=averageCollectionDays();
+    pane.innerHTML='<div class="card"><div class="v241-filter">'+
+      '<div><label>من تاريخ</label><input id="cp_from_v241" type="date" value="'+e(from)+'"></div>'+
+      '<div><label>إلى تاريخ</label><input id="cp_to_v241" type="date" value="'+e(to)+'"></div>'+
+      '<div><button class="btn ok" onclick="renderCollectionPerformanceV241()">تطبيق</button></div>'+
+      '<div><button class="btn secondary" onclick="document.getElementById(\'cp_from_v241\').value=\'\';document.getElementById(\'cp_to_v241\').value=\'\';renderCollectionPerformanceV241()">مسح الفترة</button></div>'+
+      '</div><div class="v241-note">نسبة التحصيل = إجمالي المبالغ المحصلة ÷ إجمالي المبيعات × 100. كلما ارتفعت النسبة كان تحصيل المبيعات أفضل.</div></div>'+
+      '<div class="v241-summary"><div class="card stat"><span>إجمالي المبيعات</span><strong>'+m(st.sales)+'</strong></div>'+
+      '<div class="card stat"><span>إجمالي التحصيلات</span><strong>'+m(st.collections)+'</strong></div>'+
+      '<div class="card stat"><span>نسبة التحصيل الإجمالية</span><strong>'+st.rate.toFixed(1)+'%</strong></div>'+
+      '<div class="card stat"><span>متوسط مدة التحصيل الفعلية</span><strong>'+avg.toFixed(1)+' يوم</strong></div></div>'+
+      '<div class="card"><h3>نسبة التحصيل من مبيعات كل بياع</h3>'+
+      (st.reps.length?'<table><tr><th>اسم البياع</th><th>المبيعات</th><th>التحصيلات</th><th>نسبة التحصيل</th></tr>'+
+      st.reps.sort(function(a,b){return b.sales-a.sales}).map(function(r){var rate=r.sales?r.collections/r.sales*100:0;return '<tr><td><b>'+e(r.name)+'</b></td><td>'+m(r.sales)+'</td><td>'+m(r.collections)+'</td><td><b>'+rate.toFixed(1)+'%</b></td></tr>'}).join('')+'</table>':'<div class="empty">لا توجد بيانات</div>')+'</div>';
+  };
+
+  window.renderOutstandingV241=function(){
+    var pane=document.querySelector('.finance-pane-v227[data-pane="outstanding-customers"]');if(!pane)return;
+    var from=(document.getElementById('out_from_v241')||{}).value||'',to=(document.getElementById('out_to_v241')||{}).value||'';
+    var rows=allSales().filter(function(x){return saleRemaining(x)>0&&inRange(saleDate(x),from,to)});
+    var map={};rows.forEach(function(r){var k=r.customer_id||customerName(r);if(!map[k])map[k]={name:customerName(r),count:0,total:0,remaining:0};map[k].count++;map[k].total+=saleAmount(r);map[k].remaining+=saleRemaining(r)});
+    var groups=Object.keys(map).map(function(k){return map[k]}).sort(function(a,b){return b.remaining-a.remaining});
+    pane.innerHTML='<h3>المتبقي على العملاء</h3><div class="card"><div class="v241-filter">'+
+      '<div><label>من تاريخ</label><input id="out_from_v241" type="date" value="'+e(from)+'"></div><div><label>إلى تاريخ</label><input id="out_to_v241" type="date" value="'+e(to)+'"></div>'+
+      '<div><button class="btn ok" onclick="renderOutstandingV241()">تطبيق</button></div><div><button class="btn secondary" onclick="document.getElementById(\'out_from_v241\').value=\'\';document.getElementById(\'out_to_v241\').value=\'\';renderOutstandingV241()">مسح الفترة</button></div></div></div>'+
+      '<div class="v241-summary"><div class="card stat"><span>إجمالي المتبقي</span><strong>'+m(groups.reduce(function(a,x){return a+x.remaining},0))+'</strong></div><div class="card stat"><span>عدد العملاء</span><strong>'+groups.length+'</strong></div></div>'+
+      (groups.length?'<table><tr><th>العميل</th><th>عدد الفواتير</th><th>إجمالي المبيعات</th><th>المتبقي</th></tr>'+groups.map(function(g){return '<tr><td><b>'+e(g.name)+'</b></td><td>'+g.count+'</td><td>'+m(g.total)+'</td><td class="v241-danger">'+m(g.remaining)+'</td></tr>'}).join('')+'</table>':'<div class="empty">لا توجد مديونيات</div>');
+  };
+
+  window.renderDebtOver30V241=function(){
+    var pane=document.querySelector('.finance-pane-v227[data-pane="overdue-collections"]');if(!pane)return;
+    var rows=allSales().map(function(r){return {date:saleDate(r),invoice:r.invoice_no||r.invoice_group_id||r.id,customer:customerName(r),remaining:saleRemaining(r),days:daysBetween(saleDate(r),today())}}).filter(function(r){return r.remaining>0&&r.days>=30}).sort(function(a,b){return b.days-a.days});
+    pane.innerHTML='<h3>مديونيات أكثر من 30 يوم</h3><div class="v241-summary"><div class="card stat"><span>إجمالي المديونيات</span><strong>'+m(rows.reduce(function(a,x){return a+x.remaining},0))+'</strong></div><div class="card stat"><span>عدد الفواتير</span><strong>'+rows.length+'</strong></div></div>'+
+      (rows.length?'<table><tr><th>التاريخ</th><th>الفاتورة</th><th>العميل</th><th>المتبقي</th><th>العمر</th></tr>'+rows.map(function(r){return '<tr><td>'+e(r.date)+'</td><td>'+e(r.invoice)+'</td><td>'+e(r.customer)+'</td><td class="v241-danger">'+m(r.remaining)+'</td><td>'+r.days+' يوم</td></tr>'}).join('')+'</table>':'<div class="empty">لا توجد مديونيات أكثر من 30 يوم</div>');
+  };
+
+  /* ===== 5) Customer cost center in trial balance, by expense type and period ===== */
+  window.renderCustomerCostTrialV241=function(){
+    var pane=document.querySelector('.finance-pane-v227[data-pane="customer-cost-trial"]');if(!pane)return;
+    var from=(document.getElementById('cct_from_v241')||{}).value||'',to=(document.getElementById('cct_to_v241')||{}).value||'',cat=(document.getElementById('cct_cat_v241')||{}).value||'';
+    var rows=(db.customer_cost_center||[]).filter(function(r){return inRange(r.date,from,to)&&(!cat||r.category===cat)});
+    var map={};rows.forEach(function(r){var k=r.category_label||r.category||'أخرى';map[k]=(map[k]||0)+n(r.amount)});
+    var groups=Object.keys(map).map(function(k){return {name:k,amount:map[k]}}).sort(function(a,b){return b.amount-a.amount});
+    pane.innerHTML='<div class="card"><div class="v241-filter"><div><label>من تاريخ</label><input id="cct_from_v241" type="date" value="'+e(from)+'"></div><div><label>إلى تاريخ</label><input id="cct_to_v241" type="date" value="'+e(to)+'"></div>'+
+      '<div><label>نوع المصروف</label><select id="cct_cat_v241"><option value="">كل الأنواع</option><option value="gifts">هدايا</option><option value="conferences">مؤتمرات</option><option value="hospitality">ضيافة</option><option value="travel">سفر وانتقالات</option><option value="samples">عينات مجانية</option><option value="marketing">دعاية وتسويق</option><option value="discounts">خصومات ودعم</option><option value="other">أخرى</option></select></div>'+
+      '<div><button class="btn ok" onclick="renderCustomerCostTrialV241()">تطبيق</button></div></div></div>'+
+      '<div class="v241-summary"><div class="card stat"><span>إجمالي مدين مركز تكلفة العملاء</span><strong>'+m(rows.reduce(function(a,x){return a+n(x.amount)},0))+'</strong></div><div class="card stat"><span>عدد القيود</span><strong>'+rows.length+'</strong></div></div>'+
+      (groups.length?'<table><tr><th>نوع المصروف</th><th>مدين</th><th>دائن</th><th>الرصيد</th></tr>'+groups.map(function(g){return '<tr><td><b>'+e(g.name)+'</b></td><td>'+m(g.amount)+'</td><td>'+m(0)+'</td><td>'+m(g.amount)+'</td></tr>'}).join('')+'</table>':'<div class="empty">لا توجد مصروفات في الفترة المحددة</div>');
+    var sel=document.getElementById('cct_cat_v241');if(sel)sel.value=cat;
+  };
+
+  /* ===== 6) Manual currency and exchange rate on cash receipts + TB currency summary ===== */
+  function installCurrencyFields(){
+    [['cr_in','in'],['cr_out','out']].forEach(function(x){
+      var prefix=x[0],amount=document.getElementById(prefix+'_amount_v159');if(!amount)return;
+      var grid=amount.closest('.grid');if(!grid||grid.querySelector('[data-fx-v241="'+prefix+'"]'))return;
+      var wrap=document.createElement('div');wrap.style.display='contents';wrap.setAttribute('data-fx-v241',prefix);
+      wrap.innerHTML='<div><label>العملة</label><select id="'+prefix+'_currency_v241"><option value="EGP">EGP</option><option value="USD">USD</option><option value="EUR">EUR</option><option value="SAR">SAR</option><option value="AED">AED</option></select></div>'+
+        '<div><label>معامل التحويل إلى EGP</label><input id="'+prefix+'_fx_v241" type="number" step="0.0001" value="1"></div>';
+      grid.appendChild(wrap);
+    });
+  }
+  var saveReceiptBase=window.saveCashReceiptV159;
+  if(typeof saveReceiptBase==='function'){
+    window.saveCashReceiptV159=function(type){
+      var prefix=type==='in'?'cr_in':'cr_out';
+      var currency=(document.getElementById(prefix+'_currency_v241')||{}).value||'EGP';
+      var rate=n((document.getElementById(prefix+'_fx_v241')||{}).value)||1;
+      var before=new Set((type==='in'?db.cash_receipts_in:db.cash_receipts_out).map(function(r){return r.id}));
+      var result=saveReceiptBase.apply(this,arguments);
+      var row=(type==='in'?db.cash_receipts_in:db.cash_receipts_out).find(function(r){return !before.has(r.id)});
+      if(row){row.currency=currency;row.exchange_rate=rate;row.amount_original=n(row.amount);row.amount_egp=n(row.amount)*rate;saveDb()}
+      return result;
+    };
+  }
+  function addFxSummaryToTrial(){
+    var view=document.getElementById('view-trial');if(!view||view.querySelector('#tb_fx_v241'))return;
+    var rows=(db.cash_receipts_in||[]).concat(db.cash_receipts_out||[]).filter(function(r){return r.currency&&r.currency!=='EGP'});
+    var box=document.createElement('div');box.id='tb_fx_v241';box.className='card';box.innerHTML='<h3>ملخص العملات ومعاملات التحويل</h3>'+
+      (rows.length?'<table><tr><th>التاريخ</th><th>العملة</th><th>المبلغ بالعملة</th><th>معامل التحويل</th><th>القيمة بالجنيه</th></tr>'+rows.map(function(r){return '<tr><td>'+e(r.date||'-')+'</td><td>'+e(r.currency)+'</td><td>'+n(r.amount_original||r.amount).toLocaleString('en-EG',{minimumFractionDigits:2})+'</td><td>'+n(r.exchange_rate||1).toLocaleString('en-EG',{maximumFractionDigits:4})+'</td><td>'+m(r.amount_egp||n(r.amount)*n(r.exchange_rate||1))+'</td></tr>'}).join('')+'</table>':'<div class="empty">لا توجد حركات بعملة أجنبية</div>');
+    view.appendChild(box);
+  }
+
+  function installPanes(){
+    var tools=document.getElementById('finance_tools_v227');if(!tools)return;
+    var nav=tools.querySelector('.finance-nav-v227'),card=nav&&nav.closest('.card');if(!nav||!card)return;
+    [['collection-performance','أداء التحصيل'],['customer-cost-trial','ميزان مراجعة مركز تكلفة العملاء']].forEach(function(it){
+      if(!nav.querySelector('[data-pane="'+it[0]+'"]')){var b=document.createElement('button');b.className='btn secondary';b.dataset.pane=it[0];b.textContent=it[1];b.onclick=function(){showFinancePaneV227(it[0]);it[0]==='collection-performance'?renderCollectionPerformanceV241():renderCustomerCostTrialV241()};nav.appendChild(b)}
+      if(!card.querySelector('.finance-pane-v227[data-pane="'+it[0]+'"]')){var p=document.createElement('div');p.className='finance-pane-v227';p.dataset.pane=it[0];card.appendChild(p)}
+    });
+    var old=nav.querySelector('[data-pane="overdue-collections"]');if(old)old.textContent='مديونيات أكثر من 30 يوم';
+    renderCashStatementV241();renderBankStatementV241();renderOutstandingV241();renderDebtOver30V241();renderCollectionPerformanceV241();renderCustomerCostTrialV241();
+  }
+
+  var financeBase=window.renderFinanceToolsV227;
+  if(typeof financeBase==='function')window.renderFinanceToolsV227=function(){var r=financeBase.apply(this,arguments);setTimeout(installPanes,80);return r};
+  var accountsBase=window.renderAccounts;
+  if(typeof accountsBase==='function')window.renderAccounts=function(){var r=accountsBase.apply(this,arguments);setTimeout(function(){installCurrencyFields();installPanes()},140);return r};
+  var trialBase=window.renderTrialBalance;
+  if(typeof trialBase==='function')window.renderTrialBalance=function(){var r=trialBase.apply(this,arguments);setTimeout(addFxSummaryToTrial,80);return r};
+  var renderBase=window.render;
+  if(typeof renderBase==='function')window.render=function(){var r=renderBase.apply(this,arguments);setTimeout(function(){installCurrencyFields();installPanes();addFxSummaryToTrial()},180);return r};
+
+  setTimeout(function(){ensure();installCurrencyFields();installPanes();addFxSummaryToTrial()},450);
+})();
+</script>
+<!-- v241 end -->
+
+
+<!-- ===== v242 Integrate customer cost expenses into original trial balance ===== -->
+<script id="v242-customer-cost-integrated-trial-balance">
+(function(){
+  function n(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function s(v){return String(v==null?'':v).trim()}
+  function esc2(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]
+  })}
+  function uid2(){return typeof uid==='function'?uid():'J_'+Date.now()+'_'+Math.random().toString(36).slice(2)}
+  function money2(v){return typeof money==='function'?money(v):n(v).toLocaleString('en-EG',{minimumFractionDigits:2,maximumFractionDigits:2})+' EGP'}
+  function saveDb(){try{if(typeof save==='function')save()}catch(e){}}
+
+  var COST_ACCOUNTS_V242={
+    gifts:{code:'6211',ar:'هدايا العملاء',en:'Customer Gifts'},
+    conferences:{code:'6212',ar:'مؤتمرات العملاء',en:'Customer Conferences'},
+    hospitality:{code:'6213',ar:'ضيافة العملاء',en:'Customer Hospitality'},
+    travel:{code:'6214',ar:'سفر وانتقالات العملاء',en:'Customer Travel & Transportation'},
+    samples:{code:'6215',ar:'عينات مجانية للعملاء',en:'Customer Free Samples'},
+    marketing:{code:'6216',ar:'دعاية وتسويق للعملاء',en:'Customer Marketing'},
+    discounts:{code:'6217',ar:'خصومات ودعم العملاء',en:'Customer Discounts & Support'},
+    other:{code:'6218',ar:'مصروفات عملاء أخرى',en:'Other Customer Expenses'}
+  };
+
+  function categoryKey(row){
+    var key=s(row&&row.category);
+    return COST_ACCOUNTS_V242[key]?key:'other';
+  }
+
+  function ensureCustomerCostAccountsV242(){
+    if(typeof ensureAccounting==='function')ensureAccounting();
+    if(!Array.isArray(db.accounts))db.accounts=[];
+
+    if(!db.accounts.some(function(a){return String(a.code)==='6200'})){
+      db.accounts.push({
+        id:uid2(),code:'6200',
+        name:'مركز تكلفة العملاء / Customer Cost Center',
+        type:'Expense',parent:'6000',level:1,normal:'debit',opening:0,
+        notes:'مصروفات مرتبطة بالعملاء'
+      });
+    }
+
+    Object.keys(COST_ACCOUNTS_V242).forEach(function(key){
+      var cfg=COST_ACCOUNTS_V242[key];
+      if(!db.accounts.some(function(a){return String(a.code)===cfg.code})){
+        db.accounts.push({
+          id:uid2(),code:cfg.code,
+          name:cfg.ar+' / '+cfg.en,
+          type:'Expense',parent:'6200',level:2,normal:'debit',opening:0,
+          notes:'Customer cost category: '+key
+        });
+      }
+    });
+  }
+
+  function syncCustomerCostJournalV242(){
+    ensureCustomerCostAccountsV242();
+    if(!Array.isArray(db.customer_cost_center))db.customer_cost_center=[];
+    if(!Array.isArray(db.journal))db.journal=[];
+
+    var ids=new Set(db.customer_cost_center.map(function(r){return String(r.id)}));
+
+    /* Remove old generic entries for these exact customer-cost records. */
+    db.journal=db.journal.filter(function(j){
+      var same=ids.has(String(j.sourceId||j.source_id||''));
+      var source=String(j.source||'');
+      return !(same&&(source==='customer_cost'||source==='customer_cost_center_v242'));
+    });
+
+    db.customer_cost_center.forEach(function(row){
+      var amount=n(row.amount);
+      if(amount<=0)return;
+
+      var key=categoryKey(row);
+      var account=COST_ACCOUNTS_V242[key].code;
+      var credit=row.payment_source==='bank'?'1110':'1100';
+      var description='مركز تكلفة العملاء - '+s(row.customer_name||'بدون عميل')+' - '+s(row.description||COST_ACCOUNTS_V242[key].ar);
+      var date=s(row.date)||new Date().toISOString().slice(0,10);
+
+      db.journal.push({
+        id:uid2(),date:date,source:'customer_cost_center_v242',sourceId:row.id,
+        cost_category:key,customer_id:row.customer_id||'',description:description,
+        account:account,debit:amount,credit:0
+      });
+      db.journal.push({
+        id:uid2(),date:date,source:'customer_cost_center_v242',sourceId:row.id,
+        cost_category:key,customer_id:row.customer_id||'',description:description,
+        account:credit,debit:0,credit:amount
+      });
+    });
+    saveDb();
+  }
+
+  function removeSeparateCustomerCostTrialV242(){
+    document.querySelectorAll('.finance-nav-v227 [data-pane="customer-cost-trial"]').forEach(function(el){el.remove()});
+    document.querySelectorAll('.finance-pane-v227[data-pane="customer-cost-trial"]').forEach(function(el){el.remove()});
+  }
+
+  function filteredTrialRowsV242(from,to,category){
+    ensureCustomerCostAccountsV242();
+
+    var selectedJournal=(db.journal||[]).filter(function(j){
+      if(from&&String(j.date||'')<from)return false;
+      if(to&&String(j.date||'')>to)return false;
+
+      /* When a cost type is selected, keep all ordinary journal entries,
+         but among customer-cost entries keep only the selected type. */
+      if(category&&j.source==='customer_cost_center_v242'){
+        return String(j.cost_category||'other')===category;
+      }
+      return true;
+    });
+
+    return (db.accounts||[]).slice().sort(function(a,b){
+      return String(a.code).localeCompare(String(b.code));
+    }).map(function(a){
+      var lines=selectedJournal.filter(function(j){return String(j.account)===String(a.code)});
+      var debit=lines.reduce(function(x,j){return x+n(j.debit)},0);
+      var credit=lines.reduce(function(x,j){return x+n(j.credit)},0);
+      var opening=from?0:n(a.opening);
+      var balance=opening+(a.normal==='credit'?credit-debit:debit-credit);
+      return {account:a,debit:debit,credit:credit,opening:opening,balance:balance};
+    }).filter(function(r){
+      /* Hide unselected customer-cost category accounts, but keep all normal accounts. */
+      var code=String(r.account.code);
+      var isCategory=Object.keys(COST_ACCOUNTS_V242).some(function(k){return COST_ACCOUNTS_V242[k].code===code});
+      if(category&&isCategory)return code===COST_ACCOUNTS_V242[category].code;
+      return true;
+    });
+  }
+
+  function filteredJournalTableV242(from,to,category){
+    var rows=(db.journal||[]).filter(function(j){
+      if(from&&String(j.date||'')<from)return false;
+      if(to&&String(j.date||'')>to)return false;
+      if(category&&j.source==='customer_cost_center_v242'&&String(j.cost_category||'other')!==category)return false;
+      return true;
+    }).sort(function(a,b){return String(b.date||'').localeCompare(String(a.date||''))});
+
+    if(!rows.length)return '<div class="empty">لا توجد قيود في الفترة المحددة</div>';
+
+    return '<table><tr><th>التاريخ</th><th>المصدر</th><th>البيان</th><th>الحساب</th><th>مدين</th><th>دائن</th></tr>'+
+      rows.map(function(j){
+        var acc=(db.accounts||[]).find(function(a){return String(a.code)===String(j.account)});
+        return '<tr><td>'+esc2(j.date||'-')+'</td><td>'+esc2(j.source||'-')+'</td><td>'+esc2(j.description||'-')+'</td>'+
+          '<td><span class="account-code">'+esc2(j.account)+'</span> '+esc2(acc&&acc.name||'')+'</td>'+
+          '<td>'+money2(j.debit)+'</td><td>'+money2(j.credit)+'</td></tr>';
+      }).join('')+'</table>';
+  }
+
+  window.renderTrialBalance=function(){
+    syncCustomerCostJournalV242();
+
+    var oldFrom=(document.getElementById('tb_from')||{}).value||'';
+    var oldTo=(document.getElementById('tb_to')||{}).value||'';
+    var oldCategory=(document.getElementById('tb_customer_cost_type_v242')||{}).value||'';
+
+    var rows=filteredTrialRowsV242(oldFrom,oldTo,oldCategory);
+    var totalDebit=rows.reduce(function(a,r){return a+n(r.debit)},0);
+    var totalCredit=rows.reduce(function(a,r){return a+n(r.credit)},0);
+    var diff=Math.abs(totalDebit-totalCredit);
+
+    var categoryOptions='<option value="">كل أنواع مصروفات مركز تكلفة العملاء</option>'+
+      Object.keys(COST_ACCOUNTS_V242).map(function(key){
+        return '<option value="'+key+'">'+esc2(COST_ACCOUNTS_V242[key].ar)+'</option>';
+      }).join('');
+
+    var view=document.getElementById('view-trial');
+    if(!view)return;
+
+    view.innerHTML=
+      '<div class="card no-print">'+
+        '<div class="section-title"><h3>'+(typeof T==='function'?T('trial'):'ميزان المراجعة')+'</h3>'+
+          '<div class="actions"><button class="btn blue" onclick="window.print()">طباعة</button>'+
+          '<button class="btn secondary" onclick="exportTrialBalanceCSV()">Export CSV</button></div>'+
+        '</div>'+
+        '<div class="grid grid4">'+
+          '<div><label>من تاريخ</label><input type="date" id="tb_from" value="'+esc2(oldFrom)+'" onchange="renderTrialBalance()"></div>'+
+          '<div><label>إلى تاريخ</label><input type="date" id="tb_to" value="'+esc2(oldTo)+'" onchange="renderTrialBalance()"></div>'+
+          '<div><label>نوع مصروف مركز تكلفة العملاء</label><select id="tb_customer_cost_type_v242" onchange="renderTrialBalance()">'+categoryOptions+'</select></div>'+
+          '<div class="stat"><span>حالة الميزان</span><strong>'+(diff<0.01?'متزن':'غير متزن')+'</strong></div>'+
+        '</div>'+
+        '<div class="hint">مصروفات مركز تكلفة العملاء أصبحت جزءًا من ميزان المراجعة الأصلي. اختيار نوع مصروف يفلتر قيوده داخل الميزان مع الحساب المقابل.</div>'+
+      '</div>'+
+      '<div class="grid grid3">'+
+        '<div class="card stat"><span>إجمالي المدين</span><strong>'+money2(totalDebit)+'</strong></div>'+
+        '<div class="card stat"><span>إجمالي الدائن</span><strong>'+money2(totalCredit)+'</strong></div>'+
+        '<div class="card stat"><span>فرق الميزان</span><strong>'+money2(diff)+'</strong></div>'+
+      '</div>'+
+      '<div class="card"><h3>'+(typeof T==='function'?T('trial'):'ميزان المراجعة')+'</h3>'+
+        (typeof trialBalanceTable==='function'?trialBalanceTable(rows):'')+
+      '</div>'+
+      '<div class="card"><h3>تفاصيل القيود</h3>'+filteredJournalTableV242(oldFrom,oldTo,oldCategory)+'</div>';
+
+    var select=document.getElementById('tb_customer_cost_type_v242');
+    if(select)select.value=oldCategory;
+
+    /* Keep the FX summary added by the prior version. */
+    setTimeout(function(){
+      try{if(typeof addFxSummaryToTrial==='function')addFxSummaryToTrial()}catch(e){}
+    },20);
+  };
+
+  /* Remove the incorrect separate report every time Finance renders. */
+  var financeBaseV242=window.renderFinanceToolsV227;
+  if(typeof financeBaseV242==='function'){
+    window.renderFinanceToolsV227=function(){
+      var result=financeBaseV242.apply(this,arguments);
+      setTimeout(removeSeparateCustomerCostTrialV242,120);
+      return result;
+    };
+  }
+
+  var renderBaseV242=window.render;
+  if(typeof renderBaseV242==='function'){
+    window.render=function(){
+      syncCustomerCostJournalV242();
+      var result=renderBaseV242.apply(this,arguments);
+      setTimeout(removeSeparateCustomerCostTrialV242,180);
+      return result;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  syncCustomerCostJournalV242();
+  setTimeout(removeSeparateCustomerCostTrialV242,500);
+})();
+</script>
+<!-- v242 end -->
+
+
+<!-- ===== v243 Fund currency support and correct display ===== -->
+<script id="v243-fund-currency-fix">
+(function(){
+  function n(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function s(v){return String(v==null?'':v).trim()}
+  function esc(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]
+  })}
+  function fmtCurrency(amount,currency){
+    currency=s(currency||'EGP').toUpperCase();
+    try{
+      return new Intl.NumberFormat('en-EG',{
+        style:'currency',currency:currency,
+        minimumFractionDigits:2,maximumFractionDigits:2
+      }).format(n(amount));
+    }catch(e){
+      return currency+' '+n(amount).toLocaleString('en-EG',{minimumFractionDigits:2,maximumFractionDigits:2});
+    }
+  }
+  function funds(){
+    if(!Array.isArray(db.funds))db.funds=[];
+    return db.funds;
+  }
+  function saveDb(){try{if(typeof save==='function')save()}catch(e){}}
+
+  function ensureCurrencyFields(){
+    funds().forEach(function(f){
+      if(!f.currency){
+        var nm=s(f.name).toLowerCase();
+        if(/dollar|doller|usd|دولار/.test(nm))f.currency='USD';
+        else if(/euro|eur|يورو/.test(nm))f.currency='EUR';
+        else if(/sar|ريال سعودي/.test(nm))f.currency='SAR';
+        else if(/aed|درهم/.test(nm))f.currency='AED';
+        else f.currency='EGP';
+      }
+      if(!f.exchange_rate)f.exchange_rate=f.currency==='EGP'?1:0;
+    });
+    saveDb();
+  }
+
+  function installFundCurrencyInput(){
+    var name=document.getElementById('fund_name_v65');
+    if(!name)return;
+    var form=name.closest('.mb-v65-finance-form')||name.closest('.grid');
+    if(!form||form.querySelector('[data-fund-currency-v243]'))return;
+
+    var wrap=document.createElement('div');
+    wrap.setAttribute('data-fund-currency-v243','1');
+    wrap.innerHTML='<label>العملة</label><select id="fund_currency_v243">'+
+      '<option value="EGP">EGP - جنيه مصري</option>'+
+      '<option value="USD">USD - دولار أمريكي</option>'+
+      '<option value="EUR">EUR - يورو</option>'+
+      '<option value="SAR">SAR - ريال سعودي</option>'+
+      '<option value="AED">AED - درهم إماراتي</option>'+
+      '</select>';
+    form.insertBefore(wrap,name.parentElement.nextSibling);
+
+    var fx=document.createElement('div');
+    fx.setAttribute('data-fund-currency-v243','1');
+    fx.innerHTML='<label>معامل التحويل إلى EGP</label><input id="fund_fx_v243" type="number" step="0.0001" value="1">';
+    form.insertBefore(fx,wrap.nextSibling);
+
+    var cur=document.getElementById('fund_currency_v243');
+    var rate=document.getElementById('fund_fx_v243');
+    if(cur&&rate){
+      cur.addEventListener('change',function(){
+        if(cur.value==='EGP')rate.value='1';
+      });
+    }
+  }
+
+  var addFundBase=window.addFundV65;
+  if(typeof addFundBase==='function'){
+    window.addFundV65=function(){
+      var before=new Set(funds().map(function(f){return f.id}));
+      var cur=(document.getElementById('fund_currency_v243')||{}).value||'EGP';
+      var fx=n((document.getElementById('fund_fx_v243')||{}).value);
+      var result=addFundBase.apply(this,arguments);
+      var created=funds().find(function(f){return !before.has(f.id)});
+      if(created){
+        created.currency=cur;
+        created.exchange_rate=cur==='EGP'?1:fx;
+        saveDb();
+      }
+      return result;
+    };
+    try{addFundV65=window.addFundV65}catch(e){}
+  }
+
+  function renderFundTableV243(){
+    ensureCurrencyFields();
+    var body=document.querySelector('#funds_table_v65 tbody')||
+             document.querySelector('.mb-v65-finance-table tbody');
+    if(!body)return;
+
+    body.innerHTML=funds().map(function(f){
+      return '<tr>'+
+        '<td><span class="badge '+(f.type==='bank'?'blue':'ok')+'">'+(f.type==='bank'?'بنك':'خزنة')+'</span></td>'+
+        '<td><b>'+esc(f.name||'-')+'</b></td>'+
+        '<td>'+fmtCurrency(f.balance,f.currency)+'</td>'+
+        '<td>'+esc(f.currency||'EGP')+'</td>'+
+        '<td>'+((f.currency||'EGP')==='EGP'?'1':n(f.exchange_rate).toLocaleString('en-EG',{maximumFractionDigits:4}))+'</td>'+
+        '<td>'+esc(f.account||f.code||'-')+'</td>'+
+      '</tr>';
+    }).join('');
+  }
+
+  function replaceWrongCurrencyLabels(){
+    ensureCurrencyFields();
+    document.querySelectorAll('table tbody tr').forEach(function(tr){
+      var cells=tr.querySelectorAll('td');
+      if(cells.length<3)return;
+      var name=s(cells[1]&&cells[1].textContent).toLowerCase();
+      var f=funds().find(function(x){return s(x.name).toLowerCase()===name});
+      if(!f)return;
+      for(var i=0;i<cells.length;i++){
+        var t=s(cells[i].textContent);
+        if(/^EGP\s/i.test(t)||/ج\.?م/i.test(t)){
+          var match=t.replace(/[^0-9.,-]/g,'').replace(/,/g,'');
+          if(match){
+            cells[i].textContent=fmtCurrency(n(match),f.currency);
+            break;
+          }
+        }
+      }
+    });
+  }
+
+  function updateTotalsByCurrency(){
+    ensureCurrencyFields();
+    var grouped={};
+    funds().forEach(function(f){
+      var c=s(f.currency||'EGP').toUpperCase();
+      if(!grouped[c])grouped[c]={cash:0,bank:0,total:0};
+      grouped[c][f.type==='bank'?'bank':'cash']+=n(f.balance);
+      grouped[c].total+=n(f.balance);
+    });
+
+    document.querySelectorAll('.mb-v65-summary').forEach(function(box){
+      box.innerHTML=Object.keys(grouped).map(function(c){
+        var g=grouped[c];
+        return '<div class="mb-v65-box"><span>إجمالي الخزن - '+c+'</span><b>'+fmtCurrency(g.cash,c)+'</b></div>'+
+               '<div class="mb-v65-box"><span>إجمالي البنوك - '+c+'</span><b>'+fmtCurrency(g.bank,c)+'</b></div>'+
+               '<div class="mb-v65-box"><span>إجمالي السيولة - '+c+'</span><b>'+fmtCurrency(g.total,c)+'</b></div>';
+      }).join('');
+    });
+  }
+
+  var renderFundsBase=window.renderFundsV65;
+  if(typeof renderFundsBase==='function'){
+    window.renderFundsV65=function(){
+      var r=renderFundsBase.apply(this,arguments);
+      setTimeout(function(){
+        installFundCurrencyInput();
+        renderFundTableV243();
+        replaceWrongCurrencyLabels();
+        updateTotalsByCurrency();
+      },100);
+      return r;
+    };
+    try{renderFundsV65=window.renderFundsV65}catch(e){}
+  }
+
+  var renderAccountsBase=window.renderAccounts;
+  if(typeof renderAccountsBase==='function'){
+    window.renderAccounts=function(){
+      var r=renderAccountsBase.apply(this,arguments);
+      setTimeout(function(){
+        installFundCurrencyInput();
+        renderFundTableV243();
+        replaceWrongCurrencyLabels();
+        updateTotalsByCurrency();
+      },180);
+      return r;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  ensureCurrencyFields();
+  setTimeout(function(){
+    installFundCurrencyInput();
+    renderFundTableV243();
+    replaceWrongCurrencyLabels();
+    updateTotalsByCurrency();
+  },500);
+})();
+</script>
+<!-- v243 end -->
+
+
+<!-- ===== v244 Correct multi-currency support for actual financeFunds data ===== -->
+<script id="v244-finance-funds-multi-currency">
+(function(){
+  function n(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function s(v){return String(v==null?'':v).trim()}
+  function esc3(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]
+  })}
+  function uid3(){return typeof uid==='function'?uid():'F_'+Date.now()+'_'+Math.random().toString(36).slice(2)}
+  function saveDb(){try{if(typeof save==='function')save()}catch(e){}}
+  function fmt(v,c){
+    c=s(c||'EGP').toUpperCase();
+    try{return new Intl.NumberFormat('en-EG',{style:'currency',currency:c,minimumFractionDigits:2,maximumFractionDigits:2}).format(n(v))}
+    catch(e){return c+' '+n(v).toLocaleString('en-EG',{minimumFractionDigits:2,maximumFractionDigits:2})}
+  }
+  function inferCurrency(name){
+    var x=s(name).toLowerCase();
+    if(/dollar|doller|usd|دولار/.test(x))return 'USD';
+    if(/euro|eur|يورو/.test(x))return 'EUR';
+    if(/sar|ريال سعودي/.test(x))return 'SAR';
+    if(/aed|درهم/.test(x))return 'AED';
+    return 'EGP';
+  }
+  function ensureFunds(){
+    if(!Array.isArray(db.financeFunds))db.financeFunds=[];
+    db.financeFunds=db.financeFunds.map(function(f){
+      return {
+        id:f.id||uid3(),type:f.type||'cash',name:f.name||'',
+        balance:n(f.balance),currency:s(f.currency||inferCurrency(f.name)).toUpperCase(),
+        exchange_rate:n(f.exchange_rate)||(s(f.currency||inferCurrency(f.name)).toUpperCase()==='EGP'?1:0),
+        account:f.account||'',branch:f.branch||'',notes:f.notes||'',created_at:f.created_at||new Date().toISOString().slice(0,10)
+      };
+    });
+  }
+
+  function totalsByCurrency(){
+    ensureFunds();
+    var g={};
+    db.financeFunds.forEach(function(f){
+      var c=f.currency||'EGP';
+      if(!g[c])g[c]={cash:0,bank:0,total:0};
+      g[c][f.type==='bank'?'bank':'cash']+=n(f.balance);
+      g[c].total+=n(f.balance);
+    });
+    return g;
+  }
+
+  function currencyOptions(selected){
+    return [
+      ['EGP','EGP - جنيه مصري'],['USD','USD - دولار أمريكي'],['EUR','EUR - يورو'],
+      ['SAR','SAR - ريال سعودي'],['AED','AED - درهم إماراتي']
+    ].map(function(x){return '<option value="'+x[0]+'"'+(x[0]===selected?' selected':'')+'>'+x[1]+'</option>'}).join('');
+  }
+
+  function html(){
+    ensureFunds();
+    var totals=totalsByCurrency();
+    var summary=Object.keys(totals).sort().map(function(c){
+      var t=totals[c];
+      return '<div class="mb-v65-box"><span>إجمالي الخزن - '+c+'</span><b>'+fmt(t.cash,c)+'</b></div>'+
+             '<div class="mb-v65-box"><span>إجمالي البنوك - '+c+'</span><b>'+fmt(t.bank,c)+'</b></div>'+
+             '<div class="mb-v65-box"><span>إجمالي السيولة - '+c+'</span><b>'+fmt(t.total,c)+'</b></div>';
+    }).join('');
+
+    var rows=db.financeFunds.map(function(f){
+      return '<tr>'+
+        '<td><span class="mb-v65-type '+(f.type==='bank'?'bank':'cash')+'">'+(f.type==='bank'?'بنك':'خزنة')+'</span></td>'+
+        '<td>'+esc3(f.name)+'</td>'+
+        '<td><b>'+fmt(f.balance,f.currency)+'</b></td>'+
+        '<td>'+esc3(f.currency)+'</td>'+
+        '<td>'+((f.currency==='EGP')?'1':(f.exchange_rate?n(f.exchange_rate).toLocaleString('en-EG',{maximumFractionDigits:4}):'-'))+'</td>'+
+        '<td>'+esc3(f.account||'-')+'</td>'+
+        '<td>'+esc3(f.branch||'-')+'</td>'+
+        '<td>'+esc3(f.notes||'')+'</td>'+
+        '<td><div class="actions"><button class="btn small blue" onclick="editFinanceFundV244(\''+f.id+'\')">تعديل</button><button class="btn small danger" onclick="deleteFinanceFundV65(\''+f.id+'\')">حذف</button></div></td>'+
+      '</tr>';
+    }).join('') || '<tr><td colspan="9"><div class="empty">لا توجد خزن أو بنوك مسجلة</div></td></tr>';
+
+    return '<div class="card"><div class="section-title"><div><h3>الخزن والبنوك</h3><p class="mb-v65-note">كل خزنة أو بنك له عملته المستقلة، ويمكن إدخال معامل التحويل يدويًا عند الحاجة.</p></div><button class="btn secondary" onclick="showModuleHomeV60(\'accounts\')">← رجوع للأيقونات</button></div>'+
+      '<div class="mb-v65-summary">'+summary+'</div>'+
+      '<div class="mb-v65-finance-form">'+
+        '<div><label>النوع</label><select id="fund_type_v65"><option value="cash">خزنة</option><option value="bank">بنك</option></select></div>'+
+        '<div><label>اسم الخزنة / البنك</label><input id="fund_name_v65" placeholder="مثال: خزنة الدولار"></div>'+
+        '<div><label>الرصيد الحالي</label><input id="fund_balance_v65" type="number" step="0.01" value="0"></div>'+
+        '<div><label>العملة</label><select id="fund_currency_v244">'+currencyOptions('EGP')+'</select></div>'+
+        '<div><label>معامل التحويل إلى EGP</label><input id="fund_fx_v244" type="number" step="0.0001" value="1"></div>'+
+        '<div><label>رقم الحساب / الكود</label><input id="fund_account_v65" placeholder="اختياري"></div>'+
+        '<div><label>الفرع</label><input id="fund_branch_v65" placeholder="اختياري"></div>'+
+        '<div style="grid-column:1/-1"><label>ملاحظات</label><textarea id="fund_notes_v65"></textarea></div>'+
+        '<div class="mb-v65-finance-actions"><button class="btn ok" onclick="addFinanceFundV244()">إضافة خزنة / بنك</button><button class="btn secondary" onclick="clearFinanceFundFormV244()">تفريغ</button></div>'+
+      '</div>'+
+      '<div class="mb-v60-table-scroll"><table><tr><th>النوع</th><th>الاسم</th><th>الرصيد</th><th>العملة</th><th>معامل التحويل</th><th>رقم الحساب / الكود</th><th>الفرع</th><th>ملاحظات</th><th>إجراءات</th></tr>'+rows+'</table></div></div>';
+  }
+
+  window.openFinanceFundsV65=function(){
+    ensureFunds();
+    var h=document.getElementById('mb_v60_home_accounts'),d=document.getElementById('mb_v60_detail_accounts');
+    if(h)h.style.display='none';
+    if(!d){
+      var v=document.getElementById('view-accounts');
+      if(v)v.insertAdjacentHTML('beforeend','<div class="mb-v60-detail" id="mb_v60_detail_accounts"></div>');
+      d=document.getElementById('mb_v60_detail_accounts');
+    }
+    if(d){
+      d.innerHTML=html();
+      d.classList.add('show');
+      d.scrollIntoView({behavior:'smooth',block:'start'});
+      var cur=document.getElementById('fund_currency_v244'),fx=document.getElementById('fund_fx_v244');
+      if(cur&&fx)cur.onchange=function(){if(cur.value==='EGP')fx.value='1';else if(fx.value==='1')fx.value=''};
+    }
+  };
+
+  window.addFinanceFundV244=function(){
+    ensureFunds();
+    var name=s((document.getElementById('fund_name_v65')||{}).value);
+    if(!name)return alert('اكتب اسم الخزنة أو البنك');
+    var currency=s((document.getElementById('fund_currency_v244')||{}).value||'EGP').toUpperCase();
+    var fx=n((document.getElementById('fund_fx_v244')||{}).value);
+    if(currency!=='EGP'&&fx<=0)return alert('اكتب معامل التحويل للعملة الأجنبية');
+    db.financeFunds.push({
+      id:uid3(),
+      type:(document.getElementById('fund_type_v65')||{}).value||'cash',
+      name:name,
+      balance:n((document.getElementById('fund_balance_v65')||{}).value),
+      currency:currency,
+      exchange_rate:currency==='EGP'?1:fx,
+      account:s((document.getElementById('fund_account_v65')||{}).value),
+      branch:s((document.getElementById('fund_branch_v65')||{}).value),
+      notes:s((document.getElementById('fund_notes_v65')||{}).value),
+      created_at:new Date().toISOString().slice(0,10)
+    });
+    saveDb();openFinanceFundsV65();
+  };
+
+  window.editFinanceFundV244=function(id){
+    ensureFunds();
+    var f=db.financeFunds.find(function(x){return x.id===id});if(!f)return;
+    var name=prompt('اسم الخزنة / البنك',f.name);if(name===null)return;
+    var bal=prompt('الرصيد الحالي',String(f.balance));if(bal===null)return;
+    var cur=prompt('العملة: EGP / USD / EUR / SAR / AED',f.currency||'EGP');if(cur===null)return;
+    cur=s(cur).toUpperCase();
+    if(['EGP','USD','EUR','SAR','AED'].indexOf(cur)<0)return alert('العملة غير صحيحة');
+    var fx=prompt('معامل التحويل إلى EGP',String(cur==='EGP'?1:(f.exchange_rate||'')));if(fx===null)return;
+    if(cur!=='EGP'&&n(fx)<=0)return alert('اكتب معامل تحويل صحيح');
+    f.name=s(name);f.balance=n(bal);f.currency=cur;f.exchange_rate=cur==='EGP'?1:n(fx);
+    saveDb();openFinanceFundsV65();
+  };
+
+  window.clearFinanceFundFormV244=function(){
+    ['fund_name_v65','fund_account_v65','fund_branch_v65','fund_notes_v65'].forEach(function(id){var el=document.getElementById(id);if(el)el.value=''});
+    var b=document.getElementById('fund_balance_v65');if(b)b.value='0';
+    var t=document.getElementById('fund_type_v65');if(t)t.value='cash';
+    var c=document.getElementById('fund_currency_v244');if(c)c.value='EGP';
+    var x=document.getElementById('fund_fx_v244');if(x)x.value='1';
+  };
+
+  ensureFunds();
+  saveDb();
+})();
+</script>
+<!-- v244 end -->
+
+
+<!-- ===== v245 Trial balance filter for every expense account in the system ===== -->
+<script id="v245-trial-balance-all-expenses-filter">
+(function(){
+  function n(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function s(v){return String(v==null?'':v).trim()}
+  function esc(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]
+  })}
+  function moneyV245(v){
+    return typeof money==='function'
+      ? money(v)
+      : 'EGP '+n(v).toLocaleString('en-EG',{minimumFractionDigits:2,maximumFractionDigits:2});
+  }
+
+  function ensureAccountsV245(){
+    try{if(typeof ensureAccounting==='function')ensureAccounting()}catch(e){}
+    if(!Array.isArray(db.accounts))db.accounts=[];
+    if(!Array.isArray(db.journal))db.journal=[];
+  }
+
+  function expenseAccountsV245(){
+    ensureAccountsV245();
+    return db.accounts
+      .filter(function(a){
+        var type=s(a.type).toLowerCase();
+        var code=s(a.code);
+        return type==='expense' || /^6/.test(code);
+      })
+      .sort(function(a,b){return s(a.code).localeCompare(s(b.code))});
+  }
+
+  function accountNameV245(code){
+    var a=(db.accounts||[]).find(function(x){return String(x.code)===String(code)});
+    return a?s(a.name||a.name_ar||a.name_en):'';
+  }
+
+  function journalKeyV245(j){
+    return [
+      s(j.sourceId||j.source_id||''),
+      s(j.date||''),
+      s(j.description||''),
+      s(j.source||'')
+    ].join('|');
+  }
+
+  function filteredJournalV245(from,to,expenseCode){
+    ensureAccountsV245();
+    var all=(db.journal||[]).filter(function(j){
+      if(from&&s(j.date)<from)return false;
+      if(to&&s(j.date)>to)return false;
+      return true;
+    });
+
+    if(!expenseCode)return all;
+
+    var matchingKeys=new Set();
+    all.forEach(function(j){
+      if(String(j.account)===String(expenseCode)){
+        matchingKeys.add(journalKeyV245(j));
+      }
+    });
+
+    return all.filter(function(j){
+      return matchingKeys.has(journalKeyV245(j));
+    });
+  }
+
+  function buildTrialRowsV245(journalRows){
+    ensureAccountsV245();
+    return (db.accounts||[])
+      .slice()
+      .sort(function(a,b){return s(a.code).localeCompare(s(b.code))})
+      .map(function(a){
+        var lines=journalRows.filter(function(j){
+          return String(j.account)===String(a.code);
+        });
+        var debit=lines.reduce(function(sum,j){return sum+n(j.debit)},0);
+        var credit=lines.reduce(function(sum,j){return sum+n(j.credit)},0);
+        var opening=0;
+        var normal=s(a.normal).toLowerCase();
+        var balance=normal==='credit'?credit-debit:debit-credit;
+        return {account:a,debit:debit,credit:credit,opening:opening,balance:balance};
+      })
+      .filter(function(r){
+        return Math.abs(r.debit)>0.0001 || Math.abs(r.credit)>0.0001 || Math.abs(r.balance)>0.0001;
+      });
+  }
+
+  function tableV245(rows){
+    if(!rows.length)return '<div class="empty">لا توجد قيود مطابقة للفترة ونوع المصروف المحدد</div>';
+    return '<table><tr><th>كود الحساب</th><th>اسم الحساب</th><th>مدين</th><th>دائن</th><th>الرصيد</th></tr>'+
+      rows.map(function(r){
+        return '<tr>'+
+          '<td><span class="account-code">'+esc(r.account.code||'')+'</span></td>'+
+          '<td>'+esc(r.account.name||r.account.name_ar||r.account.name_en||'')+'</td>'+
+          '<td>'+moneyV245(r.debit)+'</td>'+
+          '<td>'+moneyV245(r.credit)+'</td>'+
+          '<td>'+moneyV245(r.balance)+'</td>'+
+        '</tr>';
+      }).join('')+
+    '</table>';
+  }
+
+  function detailsV245(rows){
+    if(!rows.length)return '<div class="empty">لا توجد تفاصيل قيود</div>';
+    return '<table><tr><th>التاريخ</th><th>المصدر</th><th>البيان</th><th>الحساب</th><th>مدين</th><th>دائن</th></tr>'+
+      rows
+        .slice()
+        .sort(function(a,b){return s(b.date).localeCompare(s(a.date))})
+        .map(function(j){
+          return '<tr>'+
+            '<td>'+esc(j.date||'-')+'</td>'+
+            '<td>'+esc(j.source||'-')+'</td>'+
+            '<td>'+esc(j.description||'-')+'</td>'+
+            '<td><span class="account-code">'+esc(j.account||'')+'</span> '+esc(accountNameV245(j.account))+'</td>'+
+            '<td>'+moneyV245(j.debit)+'</td>'+
+            '<td>'+moneyV245(j.credit)+'</td>'+
+          '</tr>';
+        }).join('')+
+    '</table>';
+  }
+
+  window.renderTrialBalance=function(){
+    ensureAccountsV245();
+
+    try{
+      if(typeof syncCustomerCostJournalV242==='function')syncCustomerCostJournalV242();
+    }catch(e){}
+
+    var from=(document.getElementById('tb_from')||{}).value||'';
+    var to=(document.getElementById('tb_to')||{}).value||'';
+    var expenseCode=(document.getElementById('tb_expense_account_v245')||{}).value||'';
+
+    var journalRows=filteredJournalV245(from,to,expenseCode);
+    var rows=buildTrialRowsV245(journalRows);
+
+    var totalDebit=rows.reduce(function(a,r){return a+n(r.debit)},0);
+    var totalCredit=rows.reduce(function(a,r){return a+n(r.credit)},0);
+    var diff=Math.abs(totalDebit-totalCredit);
+
+    var options='<option value="">كل أنواع المصروفات</option>'+
+      expenseAccountsV245().map(function(a){
+        return '<option value="'+esc(a.code)+'">'+esc(a.code+' - '+(a.name||a.name_ar||a.name_en||''))+'</option>';
+      }).join('');
+
+    var view=document.getElementById('view-trial');
+    if(!view)return;
+
+    view.innerHTML=
+      '<div class="card no-print">'+
+        '<div class="section-title"><h3>ميزان المراجعة</h3>'+
+          '<div class="actions"><button class="btn blue" onclick="window.print()">طباعة</button>'+
+          '<button class="btn secondary" onclick="exportTrialBalanceCSV()">Export CSV</button></div>'+
+        '</div>'+
+        '<div class="grid grid4">'+
+          '<div><label>من تاريخ</label><input type="date" id="tb_from" value="'+esc(from)+'" onchange="renderTrialBalance()"></div>'+
+          '<div><label>إلى تاريخ</label><input type="date" id="tb_to" value="'+esc(to)+'" onchange="renderTrialBalance()"></div>'+
+          '<div><label>نوع المصروف</label><select id="tb_expense_account_v245" onchange="renderTrialBalance()">'+options+'</select></div>'+
+          '<div class="stat"><span>حالة الميزان</span><strong>'+(diff<0.01?'متزن':'غير متزن')+'</strong></div>'+
+        '</div>'+
+        '<div class="hint">القائمة تعرض كل حسابات المصروفات الموجودة فعليًا داخل دليل الحسابات. عند اختيار نوع مصروف، يظهر القيد كاملًا بالحساب المقابل حتى يظل الميزان متزنًا.</div>'+
+      '</div>'+
+      '<div class="grid grid3">'+
+        '<div class="card stat"><span>إجمالي المدين</span><strong>'+moneyV245(totalDebit)+'</strong></div>'+
+        '<div class="card stat"><span>إجمالي الدائن</span><strong>'+moneyV245(totalCredit)+'</strong></div>'+
+        '<div class="card stat"><span>فرق الميزان</span><strong>'+moneyV245(diff)+'</strong></div>'+
+      '</div>'+
+      '<div class="card"><h3>ميزان المراجعة</h3>'+tableV245(rows)+'</div>'+
+      '<div class="card"><h3>تفاصيل القيود</h3>'+detailsV245(journalRows)+'</div>';
+
+    var select=document.getElementById('tb_expense_account_v245');
+    if(select)select.value=expenseCode;
+
+    setTimeout(function(){
+      try{if(typeof addFxSummaryToTrial==='function')addFxSummaryToTrial()}catch(e){}
+    },30);
+  };
+
+  try{renderTrialBalance=window.renderTrialBalance}catch(e){}
+})();
+</script>
+<!-- v245 end -->
