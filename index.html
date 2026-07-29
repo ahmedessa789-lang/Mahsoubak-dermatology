@@ -15984,7 +15984,14 @@ html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!importan
       var lots=group.map(function(x){return '<tr><td>'+escV215(x.product_name||'')+'</td><td>'+escV215(x.lot_number||x.lot||'—')+'</td><td>'+numV215(x.qty)+'</td></tr>'}).join('');
       if(type==='delivery'){
         var block='<div style="background:#fff;color:#000;margin:14px 0"><h3 style="margin:0 0 8px">LOT Number</h3><table style="width:100%;border-collapse:collapse"><tr><th style="border:1px solid #999;padding:7px">Product</th><th style="border:1px solid #999;padding:7px">LOT Number</th><th style="border:1px solid #999;padding:7px">Quantity</th></tr>'+lots+'</table></div>';
-        html=html.replace(/<\/body>/i,block+'
+        html=html.replace(/<\/body>/i,block+'</body>');
+      }
+      return html;
+    };
+    try{saleDocumentHTML=window.saleDocumentHTML}catch(e){}
+  }
+})();
+</script>
 
 <!-- ===== v217 VAT calculation reliability fix ===== -->
 <script id="v217-vat-calculation-fix">
@@ -21281,12 +21288,87 @@ html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!importan
   }
 
   function agingHTML(){
-    var debt=customerDebtMap(),groups={'0 - 30 يوم':0,'31 - 60 يوم':0,'61 - 90 يوم':0,'أكثر من 90 يوم':0};
-    debt.forEach(function(x){var age=x.oldest?daysBetween(x.oldest,today()):0;groups[agingBucket(age)]+=x.debt});
-    return '<div class="v248-grid">'+Object.keys(groups).map(function(k){return '<div class="v248-card"><span>'+k+'</span><strong>'+money2(groups[k])+'</strong></div>'}).join('')+'</div>'+
-      '<table><tr><th>العميل</th><th>البياع</th><th>المديونية</th><th>العمر</th><th>الفئة</th><th>المخاطرة</th><th>الأولوية</th></tr>'+
-      debt.sort(function(a,b){return b.debt-a.debt}).map(function(x){var age=x.oldest?daysBetween(x.oldest,today()):0,r=riskFor(x);return '<tr><td>'+e(x.name)+'</td><td>'+e(x.rep)+'</td><td>'+money2(x.debt)+'</td><td>'+age+' يوم</td><td>'+agingBucket(age)+'</td><td><span class="v248-badge '+r.cls+'">'+r.level+'</span></td><td>'+(priorityFor(x)?'<span class="v248-badge v248-priority">أولوية</span>':'-')+'</td></tr>'}).join('')+'</table>';
+    var debt=customerDebtMap().sort(function(a,b){return b.debt-a.debt});
+    var groups={'0 - 30 يوم':0,'31 - 60 يوم':0,'61 - 90 يوم':0,'أكثر من 90 يوم':0};
+
+    debt.forEach(function(x){
+      var age=x.oldest?daysBetween(x.oldest,today()):0;
+      groups[agingBucket(age)]+=x.debt;
+    });
+
+    var rows=debt.map(function(x){
+      var age=x.oldest?daysBetween(x.oldest,today()):0;
+      var r=riskFor(x);
+      var bucketCode=age<=30?'0-30':age<=60?'31-60':age<=90?'61-90':'90+';
+      return '<tr data-v257-name="'+e(String(x.name||'').toLowerCase())+'" data-v257-age="'+bucketCode+'" data-v257-debt="'+x.debt+'">'+
+        '<td><b>'+e(x.name)+'</b></td>'+
+        '<td>'+e(x.rep)+'</td>'+
+        '<td>'+money2(x.debt)+'</td>'+
+        '<td>'+age+' يوم</td>'+
+        '<td>'+agingBucket(age)+'</td>'+
+        '<td><span class="v248-badge '+r.cls+'">'+r.level+'</span></td>'+
+        '<td>'+(priorityFor(x)?'<span class="v248-badge v248-priority">أولوية</span>':'-')+'</td>'+
+      '</tr>';
+    }).join('');
+
+    return '<div class="v248-grid">'+
+      Object.keys(groups).map(function(k){
+        return '<div class="v248-card"><span>'+k+'</span><strong>'+money2(groups[k])+'</strong></div>';
+      }).join('')+
+    '</div>'+
+    '<div class="card" style="margin-bottom:14px">'+
+      '<div style="display:grid;grid-template-columns:2fr 1fr auto;gap:12px;align-items:end">'+
+        '<div><label>البحث باسم العميل</label><input id="v257_customer_search" type="text" placeholder="اكتب اسم العميل" oninput="applyAgingSearchV257()"></div>'+
+        '<div><label>عمر الدين</label><select id="v257_age_filter" onchange="applyAgingSearchV257()">'+
+          '<option value="">كل الأعمار</option>'+
+          '<option value="0-30">0 - 30 يوم</option>'+
+          '<option value="31-60">31 - 60 يوم</option>'+
+          '<option value="61-90">61 - 90 يوم</option>'+
+          '<option value="90+">أكثر من 90 يوم</option>'+
+        '</select></div>'+
+        '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+          '<button class="btn secondary" onclick="clearAgingSearchV257()">مسح البحث</button>'+
+          '<button class="btn blue" onclick="printFilteredAgingV258()">طباعة النتائج المحددة</button>'+
+        '</div>'+
+      '</div>'+
+      '<div class="grid grid2" style="margin-top:12px">'+
+        '<div class="card stat"><span>عدد العملاء الظاهرين</span><strong id="v257_visible_count">'+debt.length+'</strong></div>'+
+        '<div class="card stat"><span>إجمالي المديونية الظاهرة</span><strong id="v257_visible_total">'+money2(debt.reduce(function(a,x){return a+x.debt},0))+'</strong></div>'+
+      '</div>'+
+    '</div>'+
+    '<table id="v257_aging_table"><thead><tr>'+
+      '<th>العميل</th><th>البياع</th><th>المديونية</th><th>العمر</th><th>الفئة</th><th>المخاطرة</th><th>الأولوية</th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table>';
   }
+
+  window.applyAgingSearchV257=function(){
+    var q=String((document.getElementById('v257_customer_search')||{}).value||'').trim().toLowerCase();
+    var age=String((document.getElementById('v257_age_filter')||{}).value||'');
+    var count=0,total=0;
+
+    document.querySelectorAll('#v257_aging_table tbody tr').forEach(function(tr){
+      var ok=(!q||String(tr.dataset.v257Name||'').indexOf(q)>=0)&&
+             (!age||String(tr.dataset.v257Age||'')===age);
+      tr.style.display=ok?'':'none';
+      if(ok){
+        count++;
+        total+=Number(tr.dataset.v257Debt||0)||0;
+      }
+    });
+
+    var c=document.getElementById('v257_visible_count');
+    var t=document.getElementById('v257_visible_total');
+    if(c)c.textContent=count;
+    if(t)t.textContent=money2(total);
+  };
+
+  window.clearAgingSearchV257=function(){
+    var q=document.getElementById('v257_customer_search');
+    var a=document.getElementById('v257_age_filter');
+    if(q)q.value='';
+    if(a)a.value='';
+    window.applyAgingSearchV257();
+  };
 
   function classificationHTML(){
     var debt=customerDebtMap();
@@ -21920,63 +22002,690 @@ html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!importan
 <!-- v253 end -->
 
 
-<!-- ===== v254 Receipt amount in words uses final EGP value after exchange rate ===== -->
-<script id="v254-receipt-words-after-fx">
+
+
+
+<!-- ===== v255 Debt aging search by customer and age bucket ===== -->
+<style id="v255-aging-filters-style">
+.v255-aging-filters{
+  display:grid;
+  grid-template-columns:2fr 1fr auto;
+  gap:12px;
+  align-items:end;
+  margin:12px 0 16px;
+}
+@media(max-width:800px){
+  .v255-aging-filters{grid-template-columns:1fr}
+}
+</style>
+
+<script id="v255-aging-customer-age-filter">
+(function(){
+  function s(v){return String(v==null?'':v).trim()}
+  function n(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function esc(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]
+  })}
+  function moneyV255(v){
+    return 'EGP '+n(v).toLocaleString('en-EG',{minimumFractionDigits:2,maximumFractionDigits:2});
+  }
+  function todayV255(){return new Date().toISOString().slice(0,10)}
+  function daysV255(a,b){
+    if(!a||!b)return 0;
+    return Math.max(0,Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000));
+  }
+  function agingBucketV255(age){
+    if(age<=30)return '0-30';
+    if(age<=60)return '31-60';
+    if(age<=90)return '61-90';
+    return '90+';
+  }
+  function agingLabelV255(age){
+    if(age<=30)return '0 - 30 يوم';
+    if(age<=60)return '31 - 60 يوم';
+    if(age<=90)return '61 - 90 يوم';
+    return 'أكثر من 90 يوم';
+  }
+  function debtRowsV255(){
+    var map={};
+    (db.sales||[]).forEach(function(x){
+      var total=n(x.total_including_vat||x.total);
+      var remain=n(x.remaining);
+      if(remain<=0)remain=Math.max(0,total-n(x.paid));
+      if(remain<=0)return;
+
+      var key=x.customer_id||x.customer_name||'unknown';
+      if(!map[key]){
+        map[key]={
+          name:s(x.customer_name||x.customer||'-'),
+          rep:s(x.rep_name||'-'),
+          debt:0,
+          oldest:''
+        };
+      }
+      map[key].debt+=remain;
+      var d=s(x.date||x.created_at).slice(0,10);
+      if(d&&(!map[key].oldest||d<map[key].oldest))map[key].oldest=d;
+    });
+    return Object.keys(map).map(function(k){return map[k]});
+  }
+  function riskV255(row){
+    var age=row.oldest?daysV255(row.oldest,todayV255()):0;
+    if(row.debt>=100000||age>90)return {label:'مرتفع',cls:'v249-high'};
+    if(row.debt>=50000||age>60)return {label:'متوسط',cls:'v249-medium'};
+    return {label:'منخفض',cls:'v249-low'};
+  }
+
+  window.applyDebtAgingFiltersV255=function(){
+    var search=s((document.getElementById('v255_aging_customer')||{}).value).toLowerCase();
+    var bucket=s((document.getElementById('v255_aging_bucket')||{}).value);
+
+    document.querySelectorAll('#v255_aging_table tbody tr').forEach(function(tr){
+      var name=s(tr.dataset.customer).toLowerCase();
+      var rowBucket=s(tr.dataset.bucket);
+      var visible=(!search||name.indexOf(search)>=0)&&(!bucket||bucket===rowBucket);
+      tr.style.display=visible?'':'none';
+    });
+
+    var visibleRows=Array.from(document.querySelectorAll('#v255_aging_table tbody tr'))
+      .filter(function(tr){return tr.style.display!=='none'});
+    var total=visibleRows.reduce(function(sum,tr){return sum+n(tr.dataset.debt)},0);
+
+    var countEl=document.getElementById('v255_aging_count');
+    var totalEl=document.getElementById('v255_aging_total');
+    if(countEl)countEl.textContent=visibleRows.length;
+    if(totalEl)totalEl.textContent=moneyV255(total);
+  };
+
+  window.clearDebtAgingFiltersV255=function(){
+    var a=document.getElementById('v255_aging_customer');
+    var b=document.getElementById('v255_aging_bucket');
+    if(a)a.value='';
+    if(b)b.value='';
+    window.applyDebtAgingFiltersV255();
+  };
+
+  function agingHTMLV255(){
+    var rows=debtRowsV255().sort(function(a,b){return b.debt-a.debt});
+
+    var table=rows.length
+      ? '<table id="v255_aging_table"><thead><tr>'+
+          '<th>العميل</th><th>البياع</th><th>المديونية</th><th>العمر</th>'+
+          '<th>فئة عمر الدين</th><th>المخاطرة</th><th>الأولوية</th>'+
+        '</tr></thead><tbody>'+
+        rows.map(function(x){
+          var age=x.oldest?daysV255(x.oldest,todayV255()):0;
+          var r=riskV255(x);
+          var priority=r.label!=='منخفض'||x.debt>=50000;
+          return '<tr data-customer="'+esc(x.name)+'" data-bucket="'+agingBucketV255(age)+'" data-debt="'+x.debt+'">'+
+            '<td><b>'+esc(x.name)+'</b></td>'+
+            '<td>'+esc(x.rep)+'</td>'+
+            '<td>'+moneyV255(x.debt)+'</td>'+
+            '<td>'+age+' يوم</td>'+
+            '<td>'+agingLabelV255(age)+'</td>'+
+            '<td><span class="v249-badge '+r.cls+'">'+r.label+'</span></td>'+
+            '<td>'+(priority?'<span class="v249-badge v249-priority">أولوية</span>':'-')+'</td>'+
+          '</tr>';
+        }).join('')+
+        '</tbody></table>'
+      : '<div class="empty">لا توجد مديونيات</div>';
+
+    return '<div class="card">'+
+      '<div class="v255-aging-filters">'+
+        '<div><label>البحث باسم العميل</label><input id="v255_aging_customer" type="text" placeholder="اكتب اسم العميل" oninput="applyDebtAgingFiltersV255()"></div>'+
+        '<div><label>عمر الدين</label><select id="v255_aging_bucket" onchange="applyDebtAgingFiltersV255()">'+
+          '<option value="">كل الأعمار</option>'+
+          '<option value="0-30">0 - 30 يوم</option>'+
+          '<option value="31-60">31 - 60 يوم</option>'+
+          '<option value="61-90">61 - 90 يوم</option>'+
+          '<option value="90+">أكثر من 90 يوم</option>'+
+        '</select></div>'+
+        '<div><button class="btn secondary" onclick="clearDebtAgingFiltersV255()">مسح البحث</button></div>'+
+      '</div>'+
+      '<div class="grid grid2">'+
+        '<div class="card stat"><span>عدد العملاء الظاهرين</span><strong id="v255_aging_count">'+rows.length+'</strong></div>'+
+        '<div class="card stat"><span>إجمالي المديونية الظاهرة</span><strong id="v255_aging_total">'+moneyV255(rows.reduce(function(a,x){return a+x.debt},0))+'</strong></div>'+
+      '</div>'+
+      table+
+    '</div>';
+  }
+
+  function installV255(){
+    var panel=document.getElementById('v249-aging');
+    if(!panel)return;
+    panel.innerHTML=agingHTMLV255();
+    setTimeout(window.applyDebtAgingFiltersV255,20);
+  }
+
+  var renderCollectionsBaseV255=window.renderCollections;
+  if(typeof renderCollectionsBaseV255==='function'){
+    window.renderCollections=function(){
+      var result=renderCollectionsBaseV255.apply(this,arguments);
+      setTimeout(installV255,220);
+      setTimeout(installV255,500);
+      return result;
+    };
+    try{renderCollections=window.renderCollections}catch(e){}
+  }
+
+  var renderBaseV255=window.render;
+  if(typeof renderBaseV255==='function'){
+    window.render=function(){
+      var result=renderBaseV255.apply(this,arguments);
+      setTimeout(installV255,300);
+      return result;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  setTimeout(installV255,700);
+})();
+</script>
+<!-- v255 end -->
+
+
+<!-- ===== v256 Force visible filters inside debt aging tab ===== -->
+<style id="v256-aging-filter-visible-style">
+#v249-aging .v256-filter-box{
+  display:grid!important;
+  grid-template-columns:2fr 1fr auto!important;
+  gap:12px!important;
+  align-items:end!important;
+  margin:12px 0 16px!important;
+}
+@media(max-width:800px){
+  #v249-aging .v256-filter-box{grid-template-columns:1fr!important}
+}
+</style>
+
+<script id="v256-aging-filter-visible">
+(function(){
+  function s(v){return String(v==null?'':v).trim()}
+  function n(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function esc(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]
+  })}
+  function money(v){return 'EGP '+n(v).toLocaleString('en-EG',{minimumFractionDigits:2,maximumFractionDigits:2})}
+  function today(){return new Date().toISOString().slice(0,10)}
+  function days(a,b){
+    if(!a||!b)return 0;
+    return Math.max(0,Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000));
+  }
+  function bucket(age){
+    if(age<=30)return '0-30';
+    if(age<=60)return '31-60';
+    if(age<=90)return '61-90';
+    return '90+';
+  }
+  function bucketLabel(age){
+    if(age<=30)return '0 - 30 يوم';
+    if(age<=60)return '31 - 60 يوم';
+    if(age<=90)return '61 - 90 يوم';
+    return 'أكثر من 90 يوم';
+  }
+  function risk(row){
+    var age=row.oldest?days(row.oldest,today()):0;
+    if(row.debt>=100000||age>90)return {label:'مرتفع',cls:'v249-high'};
+    if(row.debt>=50000||age>60)return {label:'متوسط',cls:'v249-medium'};
+    return {label:'منخفض',cls:'v249-low'};
+  }
+  function rows(){
+    var map={};
+    (db.sales||[]).forEach(function(x){
+      var total=n(x.total_including_vat||x.total);
+      var remain=n(x.remaining);
+      if(remain<=0)remain=Math.max(0,total-n(x.paid));
+      if(remain<=0)return;
+
+      var key=x.customer_id||x.customer_name||'unknown';
+      if(!map[key])map[key]={name:s(x.customer_name||x.customer||'-'),rep:s(x.rep_name||'-'),debt:0,oldest:''};
+      map[key].debt+=remain;
+
+      var dt=s(x.date||x.created_at).slice(0,10);
+      if(dt&&(!map[key].oldest||dt<map[key].oldest))map[key].oldest=dt;
+    });
+    return Object.keys(map).map(function(k){return map[k]}).sort(function(a,b){return b.debt-a.debt});
+  }
+
+  function build(){
+    var data=rows();
+    return '<div class="card">'+
+      '<div class="v256-filter-box">'+
+        '<div><label>البحث باسم العميل</label><input id="v256_customer_search" type="text" placeholder="اكتب اسم العميل"></div>'+
+        '<div><label>عمر الدين</label><select id="v256_age_filter">'+
+          '<option value="">كل الأعمار</option>'+
+          '<option value="0-30">0 - 30 يوم</option>'+
+          '<option value="31-60">31 - 60 يوم</option>'+
+          '<option value="61-90">61 - 90 يوم</option>'+
+          '<option value="90+">أكثر من 90 يوم</option>'+
+        '</select></div>'+
+        '<div><button class="btn secondary" id="v256_clear">مسح البحث</button></div>'+
+      '</div>'+
+      '<div class="grid grid2">'+
+        '<div class="card stat"><span>عدد العملاء الظاهرين</span><strong id="v256_count">'+data.length+'</strong></div>'+
+        '<div class="card stat"><span>إجمالي المديونية الظاهرة</span><strong id="v256_total">'+money(data.reduce(function(a,x){return a+x.debt},0))+'</strong></div>'+
+      '</div>'+
+      (data.length?'<table id="v256_aging_table"><thead><tr>'+
+        '<th>العميل</th><th>البياع</th><th>المديونية</th><th>العمر</th><th>الفئة</th><th>المخاطرة</th><th>الأولوية</th>'+
+      '</tr></thead><tbody>'+
+      data.map(function(x){
+        var age=x.oldest?days(x.oldest,today()):0;
+        var r=risk(x);
+        var priority=r.label!=='منخفض'||x.debt>=50000;
+        return '<tr data-name="'+esc(x.name.toLowerCase())+'" data-bucket="'+bucket(age)+'" data-debt="'+x.debt+'">'+
+          '<td><b>'+esc(x.name)+'</b></td>'+
+          '<td>'+esc(x.rep)+'</td>'+
+          '<td>'+money(x.debt)+'</td>'+
+          '<td>'+age+' يوم</td>'+
+          '<td>'+bucketLabel(age)+'</td>'+
+          '<td><span class="v249-badge '+r.cls+'">'+r.label+'</span></td>'+
+          '<td>'+(priority?'<span class="v249-badge v249-priority">أولوية</span>':'-')+'</td>'+
+        '</tr>';
+      }).join('')+'</tbody></table>':'<div class="empty">لا توجد مديونيات</div>')+
+    '</div>';
+  }
+
+  function apply(){
+    var q=s((document.getElementById('v256_customer_search')||{}).value).toLowerCase();
+    var age=s((document.getElementById('v256_age_filter')||{}).value);
+    var visible=0,total=0;
+
+    document.querySelectorAll('#v256_aging_table tbody tr').forEach(function(tr){
+      var ok=(!q||s(tr.dataset.name).indexOf(q)>=0)&&(!age||tr.dataset.bucket===age);
+      tr.style.display=ok?'':'none';
+      if(ok){visible++;total+=n(tr.dataset.debt)}
+    });
+
+    var c=document.getElementById('v256_count'),t=document.getElementById('v256_total');
+    if(c)c.textContent=visible;
+    if(t)t.textContent=money(total);
+  }
+
+  function install(){
+    var panel=document.getElementById('v249-aging');
+    if(!panel)return;
+    if(panel.dataset.v256Installed==='1' && document.getElementById('v256_customer_search'))return;
+
+    panel.innerHTML=build();
+    panel.dataset.v256Installed='1';
+
+    var search=document.getElementById('v256_customer_search');
+    var age=document.getElementById('v256_age_filter');
+    var clear=document.getElementById('v256_clear');
+
+    if(search){search.addEventListener('input',apply)}
+    if(age){age.addEventListener('change',apply)}
+    if(clear){clear.addEventListener('click',function(){
+      if(search)search.value='';
+      if(age)age.value='';
+      apply();
+    })}
+    apply();
+  }
+
+  var observer=new MutationObserver(function(){
+    var panel=document.getElementById('v249-aging');
+    if(panel && !document.getElementById('v256_customer_search')){
+      setTimeout(install,20);
+    }
+  });
+  observer.observe(document.documentElement,{childList:true,subtree:true});
+
+  var showBase=window.showV249Tab;
+  if(typeof showBase==='function'){
+    window.showV249Tab=function(name,btn){
+      var r=showBase.apply(this,arguments);
+      if(name==='aging')setTimeout(install,20);
+      return r;
+    };
+  }
+
+  setTimeout(install,500);
+  setTimeout(install,1200);
+})();
+</script>
+<!-- v256 end -->
+
+
+<!-- ===== v258 Print filtered debt aging results ===== -->
+<script id="v258-print-filtered-aging">
+(function(){
+  function s(v){return String(v==null?'':v).trim()}
+  function esc(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]
+  })}
+
+  window.printFilteredAgingV258=function(){
+    var table=document.getElementById('v257_aging_table');
+    if(!table)return alert('جدول أعمار الديون غير موجود');
+
+    var search=s((document.getElementById('v257_customer_search')||{}).value);
+    var ageSelect=document.getElementById('v257_age_filter');
+    var ageValue=s(ageSelect&&ageSelect.value);
+    var ageLabel=ageSelect&&ageSelect.selectedIndex>=0
+      ? s(ageSelect.options[ageSelect.selectedIndex].text)
+      : 'كل الأعمار';
+
+    var visibleRows=Array.from(table.querySelectorAll('tbody tr')).filter(function(tr){
+      return tr.style.display!=='none';
+    });
+
+    if(!visibleRows.length)return alert('لا توجد نتائج مطابقة للطباعة');
+
+    var rowsHTML=visibleRows.map(function(tr){
+      return '<tr>'+Array.from(tr.cells).map(function(td){
+        return '<td>'+td.innerHTML+'</td>';
+      }).join('')+'</tr>';
+    }).join('');
+
+    var count=s((document.getElementById('v257_visible_count')||{}).textContent);
+    var total=s((document.getElementById('v257_visible_total')||{}).textContent);
+
+    var filterText=[];
+    if(search)filterText.push('اسم العميل: '+search);
+    if(ageValue)filterText.push('عمر الدين: '+ageLabel);
+    if(!filterText.length)filterText.push('كل العملاء وكل أعمار الديون');
+
+    var html='<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8">'+
+      '<title>تقرير أعمار الديون</title>'+
+      '<style>'+
+        '@page{size:A4 landscape;margin:12mm}'+
+        '*{box-sizing:border-box}'+
+        'body{font-family:Tahoma,Arial,sans-serif;color:#111827;margin:0;padding:18px;background:#fff}'+
+        'h1{margin:0 0 8px;font-size:28px}'+
+        '.meta{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin:14px 0}'+
+        '.box{border:1px solid #cbd5e1;border-radius:10px;padding:10px;background:#f8fafc}'+
+        '.box span{display:block;color:#64748b;font-size:12px;margin-bottom:4px}'+
+        '.box b{font-size:16px}'+
+        'table{width:100%;border-collapse:collapse;margin-top:12px}'+
+        'th,td{border:1px solid #cbd5e1;padding:8px;text-align:center;font-size:12px}'+
+        'th{background:#e2e8f0;font-weight:900}'+
+        '.v248-badge,.v249-badge{display:inline-block;padding:3px 7px;border-radius:999px;border:1px solid #cbd5e1}'+
+      '</style></head><body>'+
+      '<h1>تقرير أعمار الديون</h1>'+
+      '<div class="meta">'+
+        '<div class="box"><span>الفلاتر المطبقة</span><b>'+esc(filterText.join(' — '))+'</b></div>'+
+        '<div class="box"><span>عدد العملاء</span><b>'+esc(count)+'</b></div>'+
+        '<div class="box"><span>إجمالي المديونية</span><b>'+esc(total)+'</b></div>'+
+      '</div>'+
+      '<table><thead>'+table.querySelector('thead').innerHTML+'</thead><tbody>'+rowsHTML+'</tbody></table>'+
+      '<script>window.onload=function(){window.print()}<\/script>'+
+      '</body></html>';
+
+    var w=window.open('','_blank','width=1200,height=800');
+    if(!w)return alert('اسمح بفتح النوافذ المنبثقة للطباعة');
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+  };
+})();
+</script>
+<!-- v258 end -->
+
+
+<!-- ===== v259 Receipt wording follows original currency unless FX is used ===== -->
+<script id="v259-receipt-words-currency-fx-logic">
 (function(){
   function num(v){var x=Number(v);return Number.isFinite(x)?x:0}
-
-  function finalEgpValueV254(type){
-    var prefix=type==='in'?'cr_in':'cr_out';
-    var amount=num((document.getElementById(prefix+'_amount_v159')||{}).value);
-    var currency=((document.getElementById(prefix+'_currency_v241')||{}).value||'EGP').toUpperCase();
-    var rate=currency==='EGP'?1:num((document.getElementById(prefix+'_fx_v241')||{}).value);
-    return amount*rate;
+  function s(v){return String(v==null?'':v).trim()}
+  function hasValue(el){return !!(el && String(el.value||'').trim()!=='')}
+  function amountWordsBaseV259(v){
+    if(typeof amountToArabicWordsV227==='function') return amountToArabicWordsV227(v);
+    return '';
   }
 
-  function updateWordsV254(type){
+  function currencyLabelV259(code){
+    code=s(code).toUpperCase();
+    var labels={
+      'EGP':'جنيه مصري',
+      'USD':'دولار أمريكي',
+      'EUR':'يورو',
+      'SAR':'ريال سعودي',
+      'AED':'درهم إماراتي',
+      'KWD':'دينار كويتي',
+      'QAR':'ريال قطري',
+      'BHD':'دينار بحريني',
+      'OMR':'ريال عماني',
+      'GBP':'جنيه إسترليني'
+    };
+    return labels[code] || code;
+  }
+
+  function replaceCurrencyInWordsV259(words,currencyLabel){
+    if(!words)return '';
+    var w=String(words).trim();
+    /* replaced below */
+    return w;
+  }
+
+  function buildWordsV259(type){
     var prefix=type==='in'?'cr_in':'cr_out';
-    var words=document.getElementById(prefix+'_words_v159');
-    if(!words)return;
-    var finalValue=finalEgpValueV254(type);
-    if(typeof amountToArabicWordsV227==='function'){
-      words.value=amountToArabicWordsV227(finalValue);
+    var amountEl=document.getElementById(prefix+'_amount_v159');
+    var wordsEl=document.getElementById(prefix+'_words_v159');
+    var currencyEl=document.getElementById(prefix+'_currency_v241');
+    var fxEl=document.getElementById(prefix+'_fx_v241');
+
+    if(!wordsEl || !amountEl) return;
+
+    var amount=num(amountEl.value);
+    var currency=s(currencyEl && currencyEl.value || 'EGP').toUpperCase();
+    var fxRaw=s(fxEl && fxEl.value || '');
+    var fxUsed = currency!=='EGP' && fxRaw!=='' && num(fxRaw)>0;
+    var fx = fxUsed ? num(fxRaw) : 1;
+
+    var baseWords = amountWordsBaseV259(amount);
+    var finalWords = '';
+
+    if(!fxUsed){
+      finalWords = window.replaceCurrencyInWordsV259(baseWords, currencyLabelV259(currency));
+    }else{
+      var egpValue = amount * fx;
+      finalWords = amountWordsBaseV259(egpValue);
     }
-    words.readOnly=true;
+
+    wordsEl.value = finalWords;
+    wordsEl.readOnly = true;
   }
 
-  function bindV254(){
+  window.updateReceiptWordsV259=function(type){
+    buildWordsV259(type);
+  };
+
+  window.replaceCurrencyInWordsV259=function(words,currencyLabel){
+    if(!words)return '';
+    var w=String(words).trim();
+
+    // Common endings from the base function
+    w = w.replace(/جنيه(?:ًا|اً)? مصري(?:ًا|اً)?/g, currencyLabel);
+    w = w.replace(/جنيه(?:ًا|اً)?/g, currencyLabel);
+
+    // Keep standard wrapper if already present
+    if(w.indexOf('فقط')!==0) w='فقط '+w;
+    if(!/لا غير$/.test(w)) w=w+' لا غير';
+    return w;
+  };
+
+  // bind to form fields
+  function bindV259(){
     ['in','out'].forEach(function(type){
       var prefix=type==='in'?'cr_in':'cr_out';
-      var ids=[
-        prefix+'_amount_v159',
-        prefix+'_currency_v241',
-        prefix+'_fx_v241'
-      ];
-      ids.forEach(function(id){
+      [prefix+'_amount_v159',prefix+'_currency_v241',prefix+'_fx_v241'].forEach(function(id){
         var el=document.getElementById(id);
-        if(!el||el.dataset.wordsFxV254)return;
-        el.addEventListener('input',function(){updateWordsV254(type)});
-        el.addEventListener('change',function(){updateWordsV254(type)});
-        el.dataset.wordsFxV254='1';
+        if(!el || el.dataset.v259Bound==='1') return;
+        el.addEventListener('input',function(){buildWordsV259(type)});
+        el.addEventListener('change',function(){buildWordsV259(type)});
+        el.dataset.v259Bound='1';
       });
-      updateWordsV254(type);
+      buildWordsV259(type);
     });
   }
 
-  var saveBaseV254=window.saveCashReceiptV159;
-  if(typeof saveBaseV254==='function'){
+  var saveBaseV259 = window.saveCashReceiptV159;
+  if(typeof saveBaseV259==='function'){
     window.saveCashReceiptV159=function(type){
-      updateWordsV254(type);
-      var result=saveBaseV254.apply(this,arguments);
+      buildWordsV259(type);
+      var result = saveBaseV259.apply(this, arguments);
 
+      var arr = type==='in' ? (db.cash_receipts_in||[]) : (db.cash_receipts_out||[]);
+      var row = arr[0];
+      var prefix=type==='in'?'cr_in':'cr_out';
+      var currency=s((document.getElementById(prefix+'_currency_v241')||{}).value || row&&row.currency || 'EGP').toUpperCase();
+      var fxRaw=s((document.getElementById(prefix+'_fx_v241')||{}).value || row&&row.exchange_rate || '');
+      var fxUsed = currency!=='EGP' && fxRaw!=='' && num(fxRaw)>0;
+
+      if(row){
+        row.amount_words = s((document.getElementById(prefix+'_words_v159')||{}).value || '');
+        row.amount_words_mode = fxUsed ? 'converted_egp' : 'original_currency';
+        try{ if(typeof save==='function') save(); }catch(e){}
+      }
+      return result;
+    };
+    try{saveCashReceiptV159=window.saveCashReceiptV159}catch(e){}
+  }
+
+  var renderAccountsBaseV259=window.renderAccounts;
+  if(typeof renderAccountsBaseV259==='function'){
+    window.renderAccounts=function(){
+      var r=renderAccountsBaseV259.apply(this, arguments);
+      setTimeout(bindV259, 200);
+      setTimeout(bindV259, 500);
+      return r;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  var renderBaseV259=window.render;
+  if(typeof renderBaseV259==='function'){
+    window.render=function(){
+      var r=renderBaseV259.apply(this, arguments);
+      setTimeout(bindV259, 250);
+      return r;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  setTimeout(bindV259, 600);
+})();
+</script>
+<!-- v259 end -->
+
+
+<!-- ===== v260 Treat FX as used only after manual rate change ===== -->
+<script id="v260-receipt-words-manual-fx-only">
+(function(){
+  function num(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function s(v){return String(v==null?'':v).trim()}
+
+  function currencyLabelV260(code){
+    var labels={
+      EGP:'جنيه مصري',
+      USD:'دولار أمريكي',
+      EUR:'يورو',
+      SAR:'ريال سعودي',
+      AED:'درهم إماراتي',
+      KWD:'دينار كويتي',
+      QAR:'ريال قطري',
+      BHD:'دينار بحريني',
+      OMR:'ريال عماني',
+      GBP:'جنيه إسترليني'
+    };
+    return labels[s(code).toUpperCase()]||s(code).toUpperCase();
+  }
+
+  function replaceCurrencyV260(words,label){
+    var w=s(words);
+    if(!w)return '';
+    w=w.replace(/جنيه(?:ًا|اً)? مصري(?:ًا|اً)?/g,label);
+    w=w.replace(/جنيه(?:ًا|اً)?/g,label);
+    if(w.indexOf('فقط')!==0)w='فقط '+w;
+    if(!/لا غير$/.test(w))w+=' لا غير';
+    return w;
+  }
+
+  function updateV260(type){
+    var prefix=type==='in'?'cr_in':'cr_out';
+    var amountEl=document.getElementById(prefix+'_amount_v159');
+    var wordsEl=document.getElementById(prefix+'_words_v159');
+    var currencyEl=document.getElementById(prefix+'_currency_v241');
+    var fxEl=document.getElementById(prefix+'_fx_v241');
+    if(!amountEl||!wordsEl)return;
+
+    var amount=num(amountEl.value);
+    var currency=s(currencyEl&&currencyEl.value||'EGP').toUpperCase();
+    var rate=num(fxEl&&fxEl.value||1);
+    var manuallyUsed=!!(fxEl&&fxEl.dataset.v260Manual==='1');
+
+    if(currency==='EGP'){
+      manuallyUsed=false;
+      if(fxEl)fxEl.dataset.v260Manual='0';
+    }
+
+    if(typeof amountToArabicWordsV227!=='function')return;
+
+    if(currency!=='EGP'&&!manuallyUsed){
+      wordsEl.value=replaceCurrencyV260(amountToArabicWordsV227(amount),currencyLabelV260(currency));
+    }else{
+      var finalValue=currency==='EGP'?amount:amount*(rate||1);
+      wordsEl.value=amountToArabicWordsV227(finalValue);
+    }
+    wordsEl.readOnly=true;
+  }
+
+  function bindV260(){
+    ['in','out'].forEach(function(type){
+      var prefix=type==='in'?'cr_in':'cr_out';
+      var amount=document.getElementById(prefix+'_amount_v159');
+      var currency=document.getElementById(prefix+'_currency_v241');
+      var fx=document.getElementById(prefix+'_fx_v241');
+
+      if(fx&&!fx.dataset.v260Bound){
+        fx.dataset.v260Manual='0';
+        fx.addEventListener('input',function(){
+          fx.dataset.v260Manual='1';
+          updateV260(type);
+        },true);
+        fx.addEventListener('change',function(){
+          fx.dataset.v260Manual='1';
+          updateV260(type);
+        },true);
+        fx.dataset.v260Bound='1';
+      }
+
+      if(amount&&!amount.dataset.v260Bound){
+        amount.addEventListener('input',function(){updateV260(type)},true);
+        amount.addEventListener('change',function(){updateV260(type)},true);
+        amount.dataset.v260Bound='1';
+      }
+
+      if(currency&&!currency.dataset.v260Bound){
+        currency.addEventListener('change',function(){
+          if(fx){
+            fx.dataset.v260Manual='0';
+            if(currency.value==='EGP')fx.value='1';
+          }
+          setTimeout(function(){updateV260(type)},0);
+        },true);
+        currency.dataset.v260Bound='1';
+      }
+
+      setTimeout(function(){updateV260(type)},20);
+    });
+  }
+
+  var saveBaseV260=window.saveCashReceiptV159;
+  if(typeof saveBaseV260==='function'){
+    window.saveCashReceiptV159=function(type){
+      updateV260(type);
+      var prefix=type==='in'?'cr_in':'cr_out';
+      var fx=document.getElementById(prefix+'_fx_v241');
+      var currency=document.getElementById(prefix+'_currency_v241');
+      var manual=!!(fx&&fx.dataset.v260Manual==='1');
+      var result=saveBaseV260.apply(this,arguments);
       var arr=type==='in'?(db.cash_receipts_in||[]):(db.cash_receipts_out||[]);
       var row=arr[0];
       if(row){
-        var prefix=type==='in'?'cr_in':'cr_out';
-        var words=(document.getElementById(prefix+'_words_v159')||{}).value||'';
-        var finalValue=num(row.amount_egp)||num(row.amount_original||row.amount)*num(row.exchange_rate||row.rate||1);
-        row.amount_words=words || (typeof amountToArabicWordsV227==='function'?amountToArabicWordsV227(finalValue):'');
-        row.amount_words_egp=row.amount_words;
+        row.fx_manually_used=manual&&s(currency&&currency.value).toUpperCase()!=='EGP';
+        row.amount_words=s((document.getElementById(prefix+'_words_v159')||{}).value);
         try{if(typeof save==='function')save()}catch(e){}
       }
       return result;
@@ -21984,28 +22693,28 @@ html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!importan
     try{saveCashReceiptV159=window.saveCashReceiptV159}catch(e){}
   }
 
-  var renderAccountsBaseV254=window.renderAccounts;
-  if(typeof renderAccountsBaseV254==='function'){
+  var renderAccountsBase=window.renderAccounts;
+  if(typeof renderAccountsBase==='function'){
     window.renderAccounts=function(){
-      var r=renderAccountsBaseV254.apply(this,arguments);
-      setTimeout(bindV254,220);
-      setTimeout(bindV254,500);
+      var r=renderAccountsBase.apply(this,arguments);
+      setTimeout(bindV260,220);
+      setTimeout(bindV260,520);
       return r;
     };
     try{renderAccounts=window.renderAccounts}catch(e){}
   }
 
-  var renderBaseV254=window.render;
-  if(typeof renderBaseV254==='function'){
+  var renderBase=window.render;
+  if(typeof renderBase==='function'){
     window.render=function(){
-      var r=renderBaseV254.apply(this,arguments);
-      setTimeout(bindV254,280);
+      var r=renderBase.apply(this,arguments);
+      setTimeout(bindV260,280);
       return r;
     };
     try{render=window.render}catch(e){}
   }
 
-  setTimeout(bindV254,650);
+  setTimeout(bindV260,650);
 })();
 </script>
-<!-- v254 end -->
+<!-- v260 end -->
