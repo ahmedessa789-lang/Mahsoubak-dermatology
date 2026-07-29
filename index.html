@@ -15155,7 +15155,7 @@ render();
   function aging(age){return age<=30?'0 - 30 يوم':age<=60?'31 - 60 يوم':age<=90?'61 - 90 يوم':'أكثر من 90 يوم'}
   function cls(age){return age<=7?'عاجل':age<=30?'متوسط':'طويل'}
   function avgDays(){
-    var values=[];
+    var completed=[];
     var saleRows=sales();
 
     cols().forEach(function(c){
@@ -15163,11 +15163,12 @@ render();
       if(!collectionDate)return;
 
       var customerId=s(c.customer_id||'');
-      var customerName=s(c.customer_name||c.customer||'').toLowerCase();
+      var customerName=s(c.customer_name||c.customer||c.party||'').toLowerCase();
 
       var related=saleRows.filter(function(inv){
         var sameId=customerId&&String(inv.customer_id||'')===customerId;
-        var sameName=customerName&&s(inv.customer_name||inv.customer||'').toLowerCase()===customerName;
+        var invoiceName=s(inv.customer_name||inv.customer||inv.party||'').toLowerCase();
+        var sameName=customerName&&invoiceName===customerName;
         var invDate=d(inv.date||inv.created_at);
         return (sameId||sameName)&&invDate&&invDate<=collectionDate;
       }).sort(function(a,b){
@@ -15176,11 +15177,31 @@ render();
 
       if(related.length){
         var invoiceDate=d(related[0].date||related[0].created_at);
-        values.push(days(invoiceDate,collectionDate));
+        completed.push(days(invoiceDate,collectionDate));
       }
     });
 
-    return values.length?values.reduce(function(a,b){return a+b},0)/values.length:0;
+    var positiveCompleted=completed.filter(function(x){return x>0});
+    if(positiveCompleted.length){
+      return positiveCompleted.reduce(function(a,b){return a+b},0)/positiveCompleted.length;
+    }
+
+    /* If there is no completed historical cycle, show the average age
+       of current outstanding invoices instead of a misleading zero. */
+    var outstandingAges=[];
+    saleRows.forEach(function(inv){
+      var total=n(inv.total_including_vat||inv.total);
+      var remaining=n(inv.remaining);
+      if(remaining<=0)remaining=Math.max(0,total-n(inv.paid));
+      var invoiceDate=d(inv.date||inv.created_at);
+      if(remaining>0&&invoiceDate){
+        outstandingAges.push(days(invoiceDate,todayV()));
+      }
+    });
+
+    return outstandingAges.length
+      ? outstandingAges.reduce(function(a,b){return a+b},0)/outstandingAges.length
+      : 0;
   }
   function monthly(){
     var m={};
@@ -17051,5 +17072,151 @@ render();
 
   backfillV264();
   setTimeout(bindAutoRouteV264,700);
+})();
+</script>
+<script id="v266-full-language-sync">
+(function(){
+  var arToEn={
+    'Dashboard التحصيلات':'Collections Dashboard',
+    'تصنيف التحصيل':'Collection Classification',
+    'أعمار الديون':'Debt Aging',
+    'متابعة المحصلين':'Collector Performance',
+    'تقرير الأداء ومتابعة المحصلين':'Collector Performance Report',
+    'توقع التدفقات النقدية':'Cash Flow Forecast',
+    'إجمالي المديونيات':'Total Outstanding Debt',
+    'تحصيل اليوم':'Today Collections',
+    'المتأخرات أكثر من 30 يوم':'Overdue More Than 30 Days',
+    'متوسط مدة التحصيل':'Average Collection Period',
+    'مستهدف التحصيل 30%':'30% Collection Target',
+    'نسبة إنجاز المستهدف':'Target Achievement Rate',
+    'العملاء ذوو الأولوية':'Priority Customers',
+    'حركة التحصيل الشهرية':'Monthly Collection Activity',
+    'السيولة المتوقعة خلال أسبوع':'Expected Cash Within One Week',
+    'السيولة المتوقعة خلال شهر':'Expected Cash Within One Month',
+    'إجمالي الشيكات والتدفقات المتوقعة':'Total Cheques and Expected Cash Flows',
+    'إجمالي التحصيلات':'Total Collections',
+    'نسبة التحصيل من إجمالي المديونيات':'Collection Rate of Total Debt',
+    'البحث باسم العميل':'Search by Customer Name',
+    'اكتب اسم العميل':'Enter customer name',
+    'عمر الدين':'Debt Age',
+    'كل الأعمار':'All Aging Periods',
+    'أكثر من 90 يوم':'More Than 90 Days',
+    'مسح البحث':'Clear Search',
+    'طباعة النتائج المحددة':'Print Filtered Results',
+    'عدد العملاء الظاهرين':'Visible Customers',
+    'إجمالي المديونية الظاهرة':'Visible Outstanding Debt',
+    'العميل':'Customer',
+    'البياع':'Sales Rep',
+    'المديونية':'Outstanding Debt',
+    'العمر':'Age',
+    'الفئة':'Category',
+    'المخاطرة':'Risk',
+    'الأولوية':'Priority',
+    'أولوية':'Priority',
+    'يوم':'Days',
+    'لا توجد مديونيات':'No Outstanding Debts',
+    'لا توجد بيانات':'No Data',
+    'لا توجد بيانات محصلين':'No Collector Data',
+    'اسم المحصل':'Collector Name',
+    'عدد العملاء':'Customer Count',
+    'المبلغ المطلوب':'Target Amount',
+    'المبلغ المحصل':'Collected Amount',
+    'نسبة الإنجاز':'Achievement Rate',
+    'من تاريخ':'From Date',
+    'إلى تاريخ':'To Date',
+    'تطبيق':'Apply',
+    'كل العملاء وكل أعمار الديون':'All Customers and All Debt Ages',
+    'الفلاتر المطبقة':'Applied Filters',
+    'تقرير أعمار الديون':'Debt Aging Report',
+    'تقرير المندوبين':'Sales Representatives Report',
+    'تقرير المندوبين 📊':'Sales Representatives Report 📊',
+    'sales orders':'Sales Orders',
+    'Products & Stock':'Products & Stock'
+  };
+
+  var enToAr={};
+  Object.keys(arToEn).forEach(function(k){enToAr[arToEn[k]]=k});
+
+  function currentLang(){
+    try{
+      if(typeof lang!=='undefined')return lang;
+    }catch(e){}
+    return document.documentElement.lang==='en'?'en':'ar';
+  }
+
+  function translateTextNode(node,target){
+    var raw=node.nodeValue;
+    var trimmed=raw.trim();
+    if(!trimmed)return;
+    var map=target==='en'?arToEn:enToAr;
+
+    if(map[trimmed]){
+      node.nodeValue=raw.replace(trimmed,map[trimmed]);
+      return;
+    }
+
+    if(target==='en'){
+      var dayMatch=trimmed.match(/^(\d+(?:\.\d+)?)\s*يوم$/);
+      if(dayMatch)node.nodeValue=raw.replace(trimmed,dayMatch[1]+' Days');
+    }else{
+      var daysMatch=trimmed.match(/^(\d+(?:\.\d+)?)\s*Days$/);
+      if(daysMatch)node.nodeValue=raw.replace(trimmed,daysMatch[1]+' يوم');
+    }
+  }
+
+  function translateElement(el,target){
+    if(!el||el.nodeType!==1)return;
+    if(el.matches('script,style'))return;
+
+    if(el.placeholder){
+      var map=target==='en'?arToEn:enToAr;
+      if(map[el.placeholder])el.placeholder=map[el.placeholder];
+    }
+
+    Array.from(el.childNodes).forEach(function(node){
+      if(node.nodeType===3)translateTextNode(node,target);
+    });
+  }
+
+  function applyLanguageV266(){
+    var target=currentLang();
+    document.documentElement.lang=target;
+    document.documentElement.dir=target==='ar'?'rtl':'ltr';
+
+    document.querySelectorAll(
+      '#view-collections-dashboard,#view-aging-report,#view-collection-classification,'+
+      '#view-collector-performance,#view-cash-forecast,#v249-collections-intelligence,.nav'
+    ).forEach(function(root){
+      translateElement(root,target);
+      root.querySelectorAll('*').forEach(function(el){translateElement(el,target)});
+    });
+
+    var brandLine=document.getElementById('brandLine');
+    if(brandLine){
+      brandLine.textContent=target==='en'
+        ?'Inventory • Operations • Sales • Collections • Dashboard'
+        :'مخازن • عمليات • مبيعات • تحصيلات • Dashboard';
+    }
+  }
+
+  var setLangBase=window.setLang;
+  if(typeof setLangBase==='function'){
+    window.setLang=function(value){
+      var result=setLangBase.apply(this,arguments);
+      setTimeout(applyLanguageV266,50);
+      setTimeout(applyLanguageV266,250);
+      setTimeout(applyLanguageV266,600);
+      return result;
+    };
+    try{setLang=window.setLang}catch(e){}
+  }
+
+  var observer=new MutationObserver(function(){
+    clearTimeout(window.__v266LanguageTimer);
+    window.__v266LanguageTimer=setTimeout(applyLanguageV266,40);
+  });
+  observer.observe(document.body,{childList:true,subtree:true});
+
+  setTimeout(applyLanguageV266,500);
 })();
 </script>
