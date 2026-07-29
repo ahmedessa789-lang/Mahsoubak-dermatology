@@ -21918,3 +21918,94 @@ html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!importan
 })();
 </script>
 <!-- v253 end -->
+
+
+<!-- ===== v254 Receipt amount in words uses final EGP value after exchange rate ===== -->
+<script id="v254-receipt-words-after-fx">
+(function(){
+  function num(v){var x=Number(v);return Number.isFinite(x)?x:0}
+
+  function finalEgpValueV254(type){
+    var prefix=type==='in'?'cr_in':'cr_out';
+    var amount=num((document.getElementById(prefix+'_amount_v159')||{}).value);
+    var currency=((document.getElementById(prefix+'_currency_v241')||{}).value||'EGP').toUpperCase();
+    var rate=currency==='EGP'?1:num((document.getElementById(prefix+'_fx_v241')||{}).value);
+    return amount*rate;
+  }
+
+  function updateWordsV254(type){
+    var prefix=type==='in'?'cr_in':'cr_out';
+    var words=document.getElementById(prefix+'_words_v159');
+    if(!words)return;
+    var finalValue=finalEgpValueV254(type);
+    if(typeof amountToArabicWordsV227==='function'){
+      words.value=amountToArabicWordsV227(finalValue);
+    }
+    words.readOnly=true;
+  }
+
+  function bindV254(){
+    ['in','out'].forEach(function(type){
+      var prefix=type==='in'?'cr_in':'cr_out';
+      var ids=[
+        prefix+'_amount_v159',
+        prefix+'_currency_v241',
+        prefix+'_fx_v241'
+      ];
+      ids.forEach(function(id){
+        var el=document.getElementById(id);
+        if(!el||el.dataset.wordsFxV254)return;
+        el.addEventListener('input',function(){updateWordsV254(type)});
+        el.addEventListener('change',function(){updateWordsV254(type)});
+        el.dataset.wordsFxV254='1';
+      });
+      updateWordsV254(type);
+    });
+  }
+
+  var saveBaseV254=window.saveCashReceiptV159;
+  if(typeof saveBaseV254==='function'){
+    window.saveCashReceiptV159=function(type){
+      updateWordsV254(type);
+      var result=saveBaseV254.apply(this,arguments);
+
+      var arr=type==='in'?(db.cash_receipts_in||[]):(db.cash_receipts_out||[]);
+      var row=arr[0];
+      if(row){
+        var prefix=type==='in'?'cr_in':'cr_out';
+        var words=(document.getElementById(prefix+'_words_v159')||{}).value||'';
+        var finalValue=num(row.amount_egp)||num(row.amount_original||row.amount)*num(row.exchange_rate||row.rate||1);
+        row.amount_words=words || (typeof amountToArabicWordsV227==='function'?amountToArabicWordsV227(finalValue):'');
+        row.amount_words_egp=row.amount_words;
+        try{if(typeof save==='function')save()}catch(e){}
+      }
+      return result;
+    };
+    try{saveCashReceiptV159=window.saveCashReceiptV159}catch(e){}
+  }
+
+  var renderAccountsBaseV254=window.renderAccounts;
+  if(typeof renderAccountsBaseV254==='function'){
+    window.renderAccounts=function(){
+      var r=renderAccountsBaseV254.apply(this,arguments);
+      setTimeout(bindV254,220);
+      setTimeout(bindV254,500);
+      return r;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  var renderBaseV254=window.render;
+  if(typeof renderBaseV254==='function'){
+    window.render=function(){
+      var r=renderBaseV254.apply(this,arguments);
+      setTimeout(bindV254,280);
+      return r;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  setTimeout(bindV254,650);
+})();
+</script>
+<!-- v254 end -->
