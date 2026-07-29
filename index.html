@@ -21296,6 +21296,10 @@ html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!importan
       groups[agingBucket(age)]+=x.debt;
     });
 
+    var totalDebt=debt.reduce(function(a,x){return a+x.debt},0);
+    var totalCollections=(Array.isArray(db.collections)?db.collections:[]).reduce(function(a,x){return a+(Number(x.amount)||0)},0);
+    var collectionRate=totalDebt?((totalCollections/totalDebt)*100):0;
+
     var rows=debt.map(function(x){
       var age=x.oldest?daysBetween(x.oldest,today()):0;
       var r=riskFor(x);
@@ -21315,6 +21319,8 @@ html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!importan
       Object.keys(groups).map(function(k){
         return '<div class="v248-card"><span>'+k+'</span><strong>'+money2(groups[k])+'</strong></div>';
       }).join('')+
+      '<div class="v248-card"><span>إجمالي التحصيلات</span><strong>'+money2(totalCollections)+'</strong></div>'+
+      '<div class="v248-card"><span>نسبة التحصيل من إجمالي المديونيات</span><strong>'+collectionRate.toFixed(1)+'%</strong></div>'+
     '</div>'+
     '<div class="card" style="margin-bottom:14px">'+
       '<div style="display:grid;grid-template-columns:2fr 1fr auto;gap:12px;align-items:end">'+
@@ -21333,14 +21339,13 @@ html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!importan
       '</div>'+
       '<div class="grid grid2" style="margin-top:12px">'+
         '<div class="card stat"><span>عدد العملاء الظاهرين</span><strong id="v257_visible_count">'+debt.length+'</strong></div>'+
-        '<div class="card stat"><span>إجمالي المديونية الظاهرة</span><strong id="v257_visible_total">'+money2(debt.reduce(function(a,x){return a+x.debt},0))+'</strong></div>'+
+        '<div class="card stat"><span>إجمالي المديونية الظاهرة</span><strong id="v257_visible_total">'+money2(totalDebt)+'</strong></div>'+
       '</div>'+
     '</div>'+
     '<table id="v257_aging_table"><thead><tr>'+
       '<th>العميل</th><th>البياع</th><th>المديونية</th><th>العمر</th><th>الفئة</th><th>المخاطرة</th><th>الأولوية</th>'+
     '</tr></thead><tbody>'+rows+'</tbody></table>';
   }
-
   window.applyAgingSearchV257=function(){
     var q=String((document.getElementById('v257_customer_search')||{}).value||'').trim().toLowerCase();
     var age=String((document.getElementById('v257_age_filter')||{}).value||'');
