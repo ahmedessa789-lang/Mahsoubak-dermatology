@@ -15727,7 +15727,7 @@ html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!importan
       .print-actions{position:fixed;top:10px;right:10px;z-index:10}.print-actions button{padding:9px 13px;border:0;border-radius:6px;margin-left:6px;cursor:pointer;font-weight:700}.print-actions .print{background:#111;color:#fff}.print-actions .close{background:#ddd;color:#111}
       @media print{body{padding:0}.page{max-width:none;padding:8px 10px 0}.print-actions{display:none!important}.title{font-size:48px}.spacer{height:62px}}
     `+'</style></head><body><div class="print-actions"><button class="print" onclick="window.print()">Print / PDF</button><button class="close" onclick="window.close()">Close</button></div><main class="page">'+
-      '<section class="top"><div><div class="title">Sales Invoice</div><div class="teal-line"></div><div class="company-name">'+escV214(company)+'</div><p class="company-city">City: '+escV214(companyCity)+'</p></div><div class="doc-icon"></div></section>'+
+      '<section class="top"><div><div class="title">Proforma Invoice</div><div class="teal-line"></div><div class="company-name">'+escV214(company)+'</div><p class="company-city">City: '+escV214(companyCity)+'</p></div><div class="doc-icon"></div></section>'+
       '<div class="spacer"></div>'+
       '<section class="party-grid"><div class="info-box">'+
         '<div class="info-row"><span>Date:</span><b>'+escV214(String(s.date||''))+'</b></div>'+
@@ -21074,7 +21074,7 @@ html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!importan
         var writeBase=w.document.write.bind(w.document);
         w.document.write=function(html){
           if(typeof html==='string'){
-            html=html.replace(/Proforma Invoice/gi,'Sales Invoice');
+            html=html;
           }
           return writeBase(html);
         };
@@ -21868,3 +21868,53 @@ html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!importan
 })();
 </script>
 <!-- v251 end -->
+
+
+<!-- ===== v252 Force correct proforma invoice title ===== -->
+<script id="v252-force-proforma-invoice-title">
+(function(){
+  var openBaseV252=window.open;
+  if(typeof openBaseV252==='function'){
+    window.open=function(){
+      var w=openBaseV252.apply(this,arguments);
+      if(!w)return w;
+      try{
+        var writeBase=w.document.write.bind(w.document);
+        w.document.write=function(html){
+          if(typeof html==='string'){
+            html=html
+              .replace(/Sales Invoice/gi,'Proforma Invoice')
+              .replace(/Tax Invoice/gi,'Proforma Invoice');
+          }
+          return writeBase(html);
+        };
+      }catch(e){}
+      return w;
+    };
+  }
+})();
+</script>
+<!-- v252 end -->
+
+
+<!-- ===== v253 Ensure collections summary remains visible on dashboard ===== -->
+<script id="v253-dashboard-collections-restore">
+(function(){
+  function restoreV253(){
+    try{
+      if(typeof renderDashboard==='function')renderDashboard();
+    }catch(e){}
+  }
+  var renderBaseV253=window.render;
+  if(typeof renderBaseV253==='function'){
+    window.render=function(){
+      var r=renderBaseV253.apply(this,arguments);
+      setTimeout(restoreV253,220);
+      return r;
+    };
+    try{render=window.render}catch(e){}
+  }
+  setTimeout(restoreV253,500);
+})();
+</script>
+<!-- v253 end -->
