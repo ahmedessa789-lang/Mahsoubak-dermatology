@@ -21112,3 +21112,759 @@ html body .invoice-no-v212{font-weight:900!important;white-space:nowrap!importan
 })();
 </script>
 <!-- v247 end -->
+
+
+<!-- ===== v248 Collections intelligence, aging, priorities, collectors and cash forecast ===== -->
+<style id="v248-collections-intelligence-style">
+.v248-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:14px 0}
+.v248-grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:14px 0}
+.v248-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:14px}
+.v248-card span{display:block;color:#64748b;font-size:12px;font-weight:800;margin-bottom:6px}
+.v248-card strong{font-size:23px;color:#0f172a}
+.v248-filter{display:grid;grid-template-columns:repeat(5,minmax(150px,1fr));gap:12px;align-items:end}
+.v248-badge{display:inline-flex;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:900}
+.v248-high{background:#fee2e2;color:#991b1b}
+.v248-medium{background:#fef3c7;color:#92400e}
+.v248-low{background:#dcfce7;color:#166534}
+.v248-priority{background:#dbeafe;color:#1d4ed8}
+.v248-bars{display:flex;align-items:end;gap:10px;height:220px;padding:14px;border:1px solid #e5e7eb;border-radius:14px;background:#fff}
+.v248-bar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+.v248-bar i{display:block;width:100%;max-width:42px;min-height:4px;border-radius:8px 8px 3px 3px;background:linear-gradient(180deg,#2563eb,#14b8a6)}
+.v248-bar b{font-size:11px;margin-top:6px}
+.v248-bar small{font-size:10px;color:#64748b}
+.v248-note{background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;padding:12px;border-radius:12px;font-weight:700}
+@media(max-width:900px){.v248-grid,.v248-grid3,.v248-filter{grid-template-columns:1fr}.v248-bars{height:180px}}
+</style>
+
+<script id="v248-collections-intelligence">
+(function(){
+  function n(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function s(v){return String(v==null?'':v).trim()}
+  function e(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function money2(v){return 'EGP '+n(v).toLocaleString('en-EG',{minimumFractionDigits:2,maximumFractionDigits:2})}
+  function dateOnly(v){return s(v).slice(0,10)}
+  function today(){return new Date().toISOString().slice(0,10)}
+  function daysBetween(a,b){
+    if(!a||!b)return 0;
+    return Math.max(0,Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000));
+  }
+  function inRange(d,f,t){if(f&&d<f)return false;if(t&&d>t)return false;return true}
+  function ensure(){
+    if(!Array.isArray(db.sales))db.sales=[];
+    if(!Array.isArray(db.collections))db.collections=[];
+    if(!Array.isArray(db.customers))db.customers=[];
+    if(!Array.isArray(db.reps))db.reps=[];
+    if(!Array.isArray(db.finance_receivable_papers))db.finance_receivable_papers=[];
+  }
+  function saleTotal(x){return n(x.total_including_vat||x.total)}
+  function saleRemain(x){
+    var r=n(x.remaining),p=n(x.paid),t=saleTotal(x);
+    return r>0?r:Math.max(0,t-p);
+  }
+  function saleDate(x){return dateOnly(x.date||x.created_at)}
+  function customerName(x){return s(x.customer_name||x.customer||'-')}
+  function repName(x){
+    if(s(x.rep_name))return s(x.rep_name);
+    var r=(db.reps||[]).find(function(z){return String(z.id)===String(x.rep_id)});
+    return r?s(r.name):'بدون بياع';
+  }
+  function salesRows(){ensure();return db.sales.filter(function(x){return (x.order_type||'sale')==='sale'})}
+  function collectionRows(){ensure();return db.collections}
+  function customerDebtMap(){
+    var map={};
+    salesRows().forEach(function(x){
+      var k=x.customer_id||customerName(x);
+      if(!map[k])map[k]={id:x.customer_id||'',name:customerName(x),debt:0,oldest:'',rep:repName(x),count:0};
+      map[k].debt+=saleRemain(x);map[k].count++;
+      var d=saleDate(x);if(d&&(!map[k].oldest||d<map[k].oldest))map[k].oldest=d;
+    });
+    return Object.keys(map).map(function(k){return map[k]}).filter(function(x){return x.debt>0});
+  }
+  function riskFor(c){
+    var age=c.oldest?daysBetween(c.oldest,today()):0;
+    if(c.debt>=100000||age>90)return {level:'مرتفع',cls:'v248-high',score:3};
+    if(c.debt>=50000||age>60)return {level:'متوسط',cls:'v248-medium',score:2};
+    return {level:'منخفض',cls:'v248-low',score:1};
+  }
+  function priorityFor(c){
+    var r=riskFor(c);
+    return r.score>=2||c.debt>=50000;
+  }
+  function collectionClass(age){
+    if(age<=7)return 'عاجل';
+    if(age<=30)return 'متوسط';
+    return 'طويل';
+  }
+  function agingBucket(age){
+    if(age<=30)return '0 - 30 يوم';
+    if(age<=60)return '31 - 60 يوم';
+    if(age<=90)return '61 - 90 يوم';
+    return 'أكثر من 90 يوم';
+  }
+  function avgCollectionDays(){
+    var values=[];
+    salesRows().forEach(function(inv){
+      if(saleRemain(inv)>0)return;
+      var paidDate=dateOnly(inv.payment_date||inv.updated_at||inv.date);
+      var invDate=saleDate(inv);
+      if(invDate&&paidDate)values.push(daysBetween(invDate,paidDate));
+    });
+    return values.length?values.reduce(function(a,b){return a+b},0)/values.length:0;
+  }
+  function collectionStats(from,to){
+    var sales=salesRows().filter(function(x){return inRange(saleDate(x),from,to)});
+    var cols=collectionRows().filter(function(x){return inRange(dateOnly(x.date),from,to)});
+    var totalSales=sales.reduce(function(a,x){return a+saleTotal(x)},0);
+    var totalCol=cols.reduce(function(a,x){return a+n(x.amount)},0);
+    return {sales:totalSales,collections:totalCol,rate:totalSales?totalCol/totalSales*100:0};
+  }
+  function collectorStats(from,to){
+    var map={};
+    collectionRows().filter(function(x){return inRange(dateOnly(x.date),from,to)}).forEach(function(x){
+      var name=s(x.collector_name||x.rep_name||'غير محدد');
+      if(!map[name])map[name]={name:name,customers:{},collected:0,target:0};
+      map[name].collected+=n(x.amount);
+      if(x.customer_id||x.customer_name)map[name].customers[x.customer_id||x.customer_name]=1;
+      map[name].target+=n(x.target_amount||0);
+    });
+    return Object.keys(map).map(function(k){
+      var x=map[k];x.count=Object.keys(x.customers).length;x.rate=x.target?x.collected/x.target*100:0;return x;
+    });
+  }
+  function monthlyCollections(){
+    var map={};
+    collectionRows().forEach(function(x){
+      var d=dateOnly(x.date);if(!d)return;
+      var k=d.slice(0,7);map[k]=(map[k]||0)+n(x.amount);
+    });
+    return Object.keys(map).sort().slice(-12).map(function(k){return {month:k,value:map[k]}})
+  }
+  function cashForecast(){
+    var due=(db.finance_receivable_papers||[]).filter(function(x){
+      return !['paid','collected','cancelled','canceled'].includes(s(x.status).toLowerCase());
+    }).map(function(x){return {date:dateOnly(x.due_date),amount:n(x.amount)}});
+    var now=today(),d7=new Date();d7.setDate(d7.getDate()+7);var week=d7.toISOString().slice(0,10);
+    var d30=new Date();d30.setDate(d30.getDate()+30);var month=d30.toISOString().slice(0,10);
+    return {
+      week:due.filter(function(x){return x.date&&x.date>=now&&x.date<=week}).reduce(function(a,x){return a+x.amount},0),
+      month:due.filter(function(x){return x.date&&x.date>=now&&x.date<=month}).reduce(function(a,x){return a+x.amount},0),
+      all:due.reduce(function(a,x){return a+x.amount},0)
+    };
+  }
+
+  function collectionsDashboardHTML(){
+    var debt=customerDebtMap(),totalDebt=debt.reduce(function(a,x){return a+x.debt},0);
+    var todayCol=collectionRows().filter(function(x){return dateOnly(x.date)===today()}).reduce(function(a,x){return a+n(x.amount)},0);
+    var overdue=debt.filter(function(x){return x.oldest&&daysBetween(x.oldest,today())>30}).reduce(function(a,x){return a+x.debt},0);
+    var avg=avgCollectionDays();
+    var target=totalDebt*.30;
+    var collected=collectionRows().reduce(function(a,x){return a+n(x.amount)},0);
+    var achievement=target?Math.min(100,collected/target*100):0;
+    var top=debt.slice().sort(function(a,b){return b.debt-a.debt}).slice(0,10);
+    var risky=debt.filter(function(x){return riskFor(x).score>=2}).length;
+    var priority=debt.filter(priorityFor).length;
+    var months=monthlyCollections(),max=Math.max.apply(null,months.map(function(x){return x.value}).concat([1]));
+    return '<div class="v248-grid">'+
+      '<div class="v248-card"><span>إجمالي المديونيات</span><strong>'+money2(totalDebt)+'</strong></div>'+
+      '<div class="v248-card"><span>تحصيل اليوم</span><strong>'+money2(todayCol)+'</strong></div>'+
+      '<div class="v248-card"><span>المتأخرات أكثر من 30 يوم</span><strong>'+money2(overdue)+'</strong></div>'+
+      '<div class="v248-card"><span>متوسط مدة التحصيل</span><strong>'+avg.toFixed(1)+' يوم</strong></div>'+
+      '<div class="v248-card"><span>مستهدف التحصيل 30%</span><strong>'+money2(target)+'</strong></div>'+
+      '<div class="v248-card"><span>نسبة إنجاز المستهدف</span><strong>'+achievement.toFixed(1)+'%</strong></div>'+
+      '<div class="v248-card"><span>العملاء المتعثرون</span><strong>'+risky+'</strong></div>'+
+      '<div class="v248-card"><span>العملاء ذوو الأولوية</span><strong>'+priority+'</strong></div>'+
+    '</div>'+
+    '<div class="grid grid2"><div class="card"><h3>أكبر 10 عملاء مديونية</h3>'+
+      (top.length?'<table><tr><th>العميل</th><th>المديونية</th><th>عمر المديونية</th><th>المخاطرة</th></tr>'+
+      top.map(function(x){var r=riskFor(x),age=x.oldest?daysBetween(x.oldest,today()):0;return '<tr><td>'+e(x.name)+'</td><td>'+money2(x.debt)+'</td><td>'+age+' يوم</td><td><span class="v248-badge '+r.cls+'">'+r.level+'</span></td></tr>'}).join('')+'</table>':'<div class="empty">لا توجد بيانات</div>')+
+    '</div><div class="card"><h3>حركة التحصيل الشهرية</h3><div class="v248-bars">'+months.map(function(x){return '<div class="v248-bar"><i style="height:'+Math.max(4,Math.round(x.value/max*170))+'px"></i><b>'+e(x.month)+'</b><small>'+money2(x.value)+'</small></div>'}).join('')+'</div></div></div>';
+  }
+
+  function agingHTML(){
+    var debt=customerDebtMap(),groups={'0 - 30 يوم':0,'31 - 60 يوم':0,'61 - 90 يوم':0,'أكثر من 90 يوم':0};
+    debt.forEach(function(x){var age=x.oldest?daysBetween(x.oldest,today()):0;groups[agingBucket(age)]+=x.debt});
+    return '<div class="v248-grid">'+Object.keys(groups).map(function(k){return '<div class="v248-card"><span>'+k+'</span><strong>'+money2(groups[k])+'</strong></div>'}).join('')+'</div>'+
+      '<table><tr><th>العميل</th><th>البياع</th><th>المديونية</th><th>العمر</th><th>الفئة</th><th>المخاطرة</th><th>الأولوية</th></tr>'+
+      debt.sort(function(a,b){return b.debt-a.debt}).map(function(x){var age=x.oldest?daysBetween(x.oldest,today()):0,r=riskFor(x);return '<tr><td>'+e(x.name)+'</td><td>'+e(x.rep)+'</td><td>'+money2(x.debt)+'</td><td>'+age+' يوم</td><td>'+agingBucket(age)+'</td><td><span class="v248-badge '+r.cls+'">'+r.level+'</span></td><td>'+(priorityFor(x)?'<span class="v248-badge v248-priority">أولوية</span>':'-')+'</td></tr>'}).join('')+'</table>';
+  }
+
+  function classificationHTML(){
+    var debt=customerDebtMap();
+    return '<div class="v248-note">تصنيف التحصيل هنا يعتمد على عمر المديونية: عاجل حتى 7 أيام، متوسط حتى 30 يوم، وطويل أكثر من 30 يوم.</div>'+
+      '<table><tr><th>العميل</th><th>المديونية</th><th>عمر المديونية</th><th>تصنيف التحصيل</th><th>المخاطرة</th></tr>'+
+      debt.sort(function(a,b){return b.debt-a.debt}).map(function(x){var age=x.oldest?daysBetween(x.oldest,today()):0,r=riskFor(x);return '<tr><td>'+e(x.name)+'</td><td>'+money2(x.debt)+'</td><td>'+age+' يوم</td><td>'+collectionClass(age)+'</td><td><span class="v248-badge '+r.cls+'">'+r.level+'</span></td></tr>'}).join('')+'</table>';
+  }
+
+  function performanceHTML(){
+    var from=(document.getElementById('v248_perf_from')||{}).value||'',to=(document.getElementById('v248_perf_to')||{}).value||'';
+    var st=collectionStats(from,to),collectors=collectorStats(from,to);
+    return '<div class="card"><div class="v248-filter"><div><label>من تاريخ</label><input id="v248_perf_from" type="date" value="'+e(from)+'"></div><div><label>إلى تاريخ</label><input id="v248_perf_to" type="date" value="'+e(to)+'"></div><div><button class="btn ok" onclick="renderV248Performance()">تطبيق</button></div></div></div>'+
+      '<div class="v248-grid"><div class="v248-card"><span>إجمالي المبيعات</span><strong>'+money2(st.sales)+'</strong></div><div class="v248-card"><span>إجمالي التحصيلات</span><strong>'+money2(st.collections)+'</strong></div><div class="v248-card"><span>نسبة التحصيل</span><strong>'+st.rate.toFixed(1)+'%</strong></div><div class="v248-card"><span>متوسط مدة التحصيل</span><strong>'+avgCollectionDays().toFixed(1)+' يوم</strong></div></div>'+
+      '<div class="card"><h3>متابعة المحصلين</h3>'+(collectors.length?'<table><tr><th>اسم المحصل</th><th>عدد العملاء</th><th>المبلغ المطلوب</th><th>المبلغ المحصل</th><th>نسبة الإنجاز</th></tr>'+collectors.map(function(x){return '<tr><td>'+e(x.name)+'</td><td>'+x.count+'</td><td>'+money2(x.target)+'</td><td>'+money2(x.collected)+'</td><td>'+x.rate.toFixed(1)+'%</td></tr>'}).join('')+'</table>':'<div class="empty">لا توجد بيانات محصلين</div>')+'</div>';
+  }
+
+  function forecastHTML(){
+    var f=cashForecast();
+    return '<div class="v248-grid3"><div class="v248-card"><span>السيولة المتوقعة خلال أسبوع</span><strong>'+money2(f.week)+'</strong></div><div class="v248-card"><span>السيولة المتوقعة خلال شهر</span><strong>'+money2(f.month)+'</strong></div><div class="v248-card"><span>إجمالي الشيكات والتدفقات المتوقعة</span><strong>'+money2(f.all)+'</strong></div></div>';
+  }
+
+  function makeView(id,title,html){
+    var view=document.getElementById(id);if(!view)return;
+    view.innerHTML='<div class="card"><div class="section-title"><h3>'+title+'</h3></div>'+html+'</div>';
+  }
+  window.renderV248Dashboard=function(){makeView('view-collections-dashboard','Dashboard التحصيلات',collectionsDashboardHTML())};
+  window.renderV248Aging=function(){makeView('view-aging-report','أعمار الديون',agingHTML())};
+  window.renderV248Classification=function(){makeView('view-collection-classification','تصنيف التحصيل',classificationHTML())};
+  window.renderV248Performance=function(){makeView('view-collector-performance','تقرير الأداء ومتابعة المحصلين',performanceHTML())};
+  window.renderV248Forecast=function(){makeView('view-cash-forecast','توقع التدفقات النقدية',forecastHTML())};
+
+  function installViews(){
+    var app=document.querySelector('.main');if(!app)return;
+    [
+      ['view-collections-dashboard','Dashboard التحصيلات'],
+      ['view-aging-report','أعمار الديون'],
+      ['view-collection-classification','تصنيف التحصيل'],
+      ['view-collector-performance','تقرير الأداء ومتابعة المحصلين'],
+      ['view-cash-forecast','توقع التدفقات النقدية']
+    ].forEach(function(x){
+      if(!document.getElementById(x[0])){
+        var d=document.createElement('section');d.id=x[0];d.className='view hidden';app.appendChild(d);
+      }
+    });
+
+    var nav=document.querySelector('.nav');if(!nav)return;
+    function addBtn(label,view,fn){
+      if(nav.querySelector('[data-v248="'+view+'"]'))return;
+      var b=document.createElement('button');b.textContent=label;b.dataset.v248=view;
+      b.onclick=function(){
+        document.querySelectorAll('.view').forEach(function(v){v.classList.add('hidden')});
+        var el=document.getElementById(view);if(el)el.classList.remove('hidden');
+        document.querySelectorAll('.nav button').forEach(function(x){x.classList.remove('active')});b.classList.add('active');
+        window[fn]();
+      };
+      nav.appendChild(b);
+    }
+    addBtn('Dashboard التحصيلات','view-collections-dashboard','renderV248Dashboard');
+    addBtn('تصنيف التحصيل','view-collection-classification','renderV248Classification');
+    addBtn('أعمار الديون','view-aging-report','renderV248Aging');
+    addBtn('متابعة المحصلين','view-collector-performance','renderV248Performance');
+    addBtn('توقع التدفقات النقدية','view-cash-forecast','renderV248Forecast');
+  }
+
+  function enrichLiquidityMap(){
+    var box=document.getElementById('mb-liquidity-flow-v303-safe');if(!box||box.querySelector('[data-v248-forecast]'))return;
+    var d=document.createElement('div');d.setAttribute('data-v248-forecast','1');d.innerHTML=forecastHTML();box.appendChild(d);
+  }
+
+  var renderBase=window.render;
+  if(typeof renderBase==='function'){
+    window.render=function(){var r=renderBase.apply(this,arguments);setTimeout(function(){installViews();enrichLiquidityMap()},160);return r};
+    try{render=window.render}catch(e){}
+  }
+  ensure();
+  setTimeout(function(){installViews();enrichLiquidityMap()},500);
+})();
+</script>
+<!-- v248 end -->
+
+
+<!-- ===== v249 Visible integration inside existing Collections and Dashboard ===== -->
+<style id="v249-visible-collections-style">
+.v249-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
+.v249-tabs button{border:1px solid #cbd5e1;background:#fff;border-radius:10px;padding:9px 13px;font-weight:900;cursor:pointer}
+.v249-tabs button.active{background:#0f766e;color:#fff;border-color:#0f766e}
+.v249-panel{display:none}.v249-panel.active{display:block}
+.v249-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:14px 0}
+.v249-kpi{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px}
+.v249-kpi span{display:block;color:#64748b;font-size:12px;margin-bottom:6px;font-weight:800}
+.v249-kpi strong{font-size:22px;color:#0f172a}
+.v249-badge{display:inline-flex;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:900}
+.v249-high{background:#fee2e2;color:#991b1b}.v249-medium{background:#fef3c7;color:#92400e}.v249-low{background:#dcfce7;color:#166534}.v249-priority{background:#dbeafe;color:#1d4ed8}
+.v249-bars{display:flex;align-items:end;gap:10px;height:210px;padding:12px;border:1px solid #e2e8f0;border-radius:14px;background:#fff}
+.v249-bar{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%}
+.v249-bar i{display:block;width:100%;max-width:40px;min-height:4px;background:linear-gradient(180deg,#2563eb,#14b8a6);border-radius:7px 7px 2px 2px}
+.v249-bar small{font-size:10px;color:#64748b;margin-top:5px}
+@media(max-width:900px){.v249-kpis{grid-template-columns:1fr 1fr}}
+</style>
+
+<script id="v249-visible-collections-integration">
+(function(){
+  function n(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function s(v){return String(v==null?'':v).trim()}
+  function e(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function moneyV(v){return 'EGP '+n(v).toLocaleString('en-EG',{minimumFractionDigits:2,maximumFractionDigits:2})}
+  function d(v){return s(v).slice(0,10)}
+  function todayV(){return new Date().toISOString().slice(0,10)}
+  function days(a,b){if(!a||!b)return 0;return Math.max(0,Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000))}
+  function sales(){return Array.isArray(db.sales)?db.sales:[]}
+  function cols(){return Array.isArray(db.collections)?db.collections:[]}
+  function debtRows(){
+    var map={};
+    sales().forEach(function(x){
+      var total=n(x.total_including_vat||x.total),remain=n(x.remaining);
+      if(remain<=0)remain=Math.max(0,total-n(x.paid));
+      if(remain<=0)return;
+      var k=x.customer_id||x.customer_name||'unknown';
+      if(!map[k])map[k]={name:x.customer_name||'-',debt:0,oldest:'',rep:x.rep_name||'-'};
+      map[k].debt+=remain;
+      var dt=d(x.date||x.created_at);
+      if(dt&&(!map[k].oldest||dt<map[k].oldest))map[k].oldest=dt;
+    });
+    return Object.keys(map).map(function(k){return map[k]});
+  }
+  function risk(x){
+    var age=x.oldest?days(x.oldest,todayV()):0;
+    if(x.debt>=100000||age>90)return {t:'مرتفع',c:'v249-high'};
+    if(x.debt>=50000||age>60)return {t:'متوسط',c:'v249-medium'};
+    return {t:'منخفض',c:'v249-low'};
+  }
+  function aging(age){return age<=30?'0 - 30 يوم':age<=60?'31 - 60 يوم':age<=90?'61 - 90 يوم':'أكثر من 90 يوم'}
+  function cls(age){return age<=7?'عاجل':age<=30?'متوسط':'طويل'}
+  function avgDays(){
+    var arr=[];
+    sales().forEach(function(x){
+      if(n(x.remaining)>0)return;
+      var a=d(x.date),b=d(x.payment_date||x.updated_at||x.date);
+      if(a&&b)arr.push(days(a,b));
+    });
+    return arr.length?arr.reduce(function(a,b){return a+b},0)/arr.length:0;
+  }
+  function monthly(){
+    var m={};
+    cols().forEach(function(x){var k=d(x.date).slice(0,7);if(k)m[k]=(m[k]||0)+n(x.amount)});
+    return Object.keys(m).sort().slice(-12).map(function(k){return {k:k,v:m[k]}})
+  }
+  function collectorRows(){
+    var m={};
+    cols().forEach(function(x){
+      var name=x.collector_name||x.rep_name||'غير محدد';
+      if(!m[name])m[name]={name:name,customers:{},collected:0,target:0};
+      m[name].collected+=n(x.amount);m[name].target+=n(x.target_amount);
+      if(x.customer_id||x.customer_name)m[name].customers[x.customer_id||x.customer_name]=1;
+    });
+    return Object.keys(m).map(function(k){var x=m[k];x.count=Object.keys(x.customers).length;x.rate=x.target?x.collected/x.target*100:0;return x});
+  }
+  function forecast(){
+    var arr=Array.isArray(db.finance_receivable_papers)?db.finance_receivable_papers:[];
+    var now=todayV(),w=new Date();w.setDate(w.getDate()+7);var w7=w.toISOString().slice(0,10);
+    var mo=new Date();mo.setDate(mo.getDate()+30);var m30=mo.toISOString().slice(0,10);
+    var pending=arr.filter(function(x){return !['paid','collected','cancelled','canceled'].includes(s(x.status).toLowerCase())});
+    return {
+      week:pending.filter(function(x){var q=d(x.due_date);return q&&q>=now&&q<=w7}).reduce(function(a,x){return a+n(x.amount)},0),
+      month:pending.filter(function(x){var q=d(x.due_date);return q&&q>=now&&q<=m30}).reduce(function(a,x){return a+n(x.amount)},0),
+      all:pending.reduce(function(a,x){return a+n(x.amount)},0)
+    };
+  }
+  function kpis(){
+    var debt=debtRows(),total=debt.reduce(function(a,x){return a+x.debt},0);
+    var todayCol=cols().filter(function(x){return d(x.date)===todayV()}).reduce(function(a,x){return a+n(x.amount)},0);
+    var overdue=debt.filter(function(x){return x.oldest&&days(x.oldest,todayV())>30}).reduce(function(a,x){return a+x.debt},0);
+    var target=total*.30,collected=cols().reduce(function(a,x){return a+n(x.amount)},0);
+    var risky=debt.filter(function(x){var r=risk(x);return r.t!=='منخفض'}).length;
+    var priority=debt.filter(function(x){return risk(x).t!=='منخفض'||x.debt>=50000}).length;
+    return {debt:total,today:todayCol,overdue:overdue,target:target,ach:target?collected/target*100:0,risky:risky,priority:priority,avg:avgDays()};
+  }
+
+  function summaryHTML(){
+    var k=kpis(),months=monthly(),max=Math.max.apply(null,months.map(function(x){return x.v}).concat([1]));
+    return '<div class="v249-kpis">'+
+      '<div class="v249-kpi"><span>إجمالي المديونيات</span><strong>'+moneyV(k.debt)+'</strong></div>'+
+      '<div class="v249-kpi"><span>تحصيل اليوم</span><strong>'+moneyV(k.today)+'</strong></div>'+
+      '<div class="v249-kpi"><span>المتأخرات أكثر من 30 يوم</span><strong>'+moneyV(k.overdue)+'</strong></div>'+
+      '<div class="v249-kpi"><span>متوسط مدة التحصيل</span><strong>'+k.avg.toFixed(1)+' يوم</strong></div>'+
+      '<div class="v249-kpi"><span>مستهدف التحصيل 30%</span><strong>'+moneyV(k.target)+'</strong></div>'+
+      '<div class="v249-kpi"><span>نسبة إنجاز المستهدف</span><strong>'+k.ach.toFixed(1)+'%</strong></div>'+
+      '<div class="v249-kpi"><span>العملاء المتعثرون</span><strong>'+k.risky+'</strong></div>'+
+      '<div class="v249-kpi"><span>العملاء ذوو الأولوية</span><strong>'+k.priority+'</strong></div>'+
+    '</div><div class="card"><h3>حركة التحصيل الشهرية</h3><div class="v249-bars">'+months.map(function(x){return '<div class="v249-bar"><i style="height:'+Math.max(4,Math.round(x.v/max*160))+'px"></i><small>'+e(x.k)+'</small></div>'}).join('')+'</div></div>';
+  }
+  function agingHTML(){
+    var rows=debtRows().sort(function(a,b){return b.debt-a.debt});
+    return rows.length?'<table><tr><th>العميل</th><th>البياع</th><th>المديونية</th><th>العمر</th><th>أعمار الديون</th><th>المخاطرة</th><th>الأولوية</th></tr>'+
+      rows.map(function(x){var age=x.oldest?days(x.oldest,todayV()):0,r=risk(x),p=r.t!=='منخفض'||x.debt>=50000;return '<tr><td>'+e(x.name)+'</td><td>'+e(x.rep)+'</td><td>'+moneyV(x.debt)+'</td><td>'+age+' يوم</td><td>'+aging(age)+'</td><td><span class="v249-badge '+r.c+'">'+r.t+'</span></td><td>'+(p?'<span class="v249-badge v249-priority">أولوية</span>':'-')+'</td></tr>'}).join('')+'</table>':'<div class="empty">لا توجد مديونيات</div>';
+  }
+  function classifyHTML(){
+    var rows=debtRows().sort(function(a,b){return b.debt-a.debt});
+    return rows.length?'<table><tr><th>العميل</th><th>المديونية</th><th>عمر المديونية</th><th>تصنيف التحصيل</th><th>المخاطرة</th></tr>'+
+      rows.map(function(x){var age=x.oldest?days(x.oldest,todayV()):0,r=risk(x);return '<tr><td>'+e(x.name)+'</td><td>'+moneyV(x.debt)+'</td><td>'+age+' يوم</td><td>'+cls(age)+'</td><td><span class="v249-badge '+r.c+'">'+r.t+'</span></td></tr>'}).join('')+'</table>':'<div class="empty">لا توجد بيانات</div>';
+  }
+  function collectorsHTML(){
+    var rows=collectorRows();
+    return rows.length?'<table><tr><th>اسم المحصل</th><th>عدد العملاء</th><th>المبلغ المطلوب</th><th>المبلغ المحصل</th><th>نسبة الإنجاز</th></tr>'+
+      rows.map(function(x){return '<tr><td>'+e(x.name)+'</td><td>'+x.count+'</td><td>'+moneyV(x.target)+'</td><td>'+moneyV(x.collected)+'</td><td>'+x.rate.toFixed(1)+'%</td></tr>'}).join('')+'</table>':'<div class="empty">لا توجد بيانات محصلين</div>';
+  }
+  function forecastHTML(){
+    var f=forecast();
+    return '<div class="v249-kpis"><div class="v249-kpi"><span>متوقع خلال أسبوع</span><strong>'+moneyV(f.week)+'</strong></div><div class="v249-kpi"><span>متوقع خلال شهر</span><strong>'+moneyV(f.month)+'</strong></div><div class="v249-kpi"><span>إجمالي الشيكات والتدفقات المتوقعة</span><strong>'+moneyV(f.all)+'</strong></div></div>';
+  }
+  function intelligenceHTML(){
+    return '<div class="card" id="v249-collections-intelligence"><h3>تحليلات التحصيل والديون</h3>'+
+      '<div class="v249-tabs">'+
+        '<button class="active" onclick="showV249Tab(\'summary\',this)">Dashboard التحصيلات</button>'+
+        '<button onclick="showV249Tab(\'aging\',this)">أعمار الديون</button>'+
+        '<button onclick="showV249Tab(\'classify\',this)">تصنيف التحصيل</button>'+
+        '<button onclick="showV249Tab(\'collectors\',this)">متابعة المحصلين</button>'+
+        '<button onclick="showV249Tab(\'forecast\',this)">توقع التدفقات النقدية</button>'+
+      '</div>'+
+      '<div id="v249-summary" class="v249-panel active">'+summaryHTML()+'</div>'+
+      '<div id="v249-aging" class="v249-panel">'+agingHTML()+'</div>'+
+      '<div id="v249-classify" class="v249-panel">'+classifyHTML()+'</div>'+
+      '<div id="v249-collectors" class="v249-panel">'+collectorsHTML()+'</div>'+
+      '<div id="v249-forecast" class="v249-panel">'+forecastHTML()+'</div>'+
+    '</div>';
+  }
+
+  window.showV249Tab=function(name,btn){
+    document.querySelectorAll('#v249-collections-intelligence .v249-panel').forEach(function(x){x.classList.remove('active')});
+    document.querySelectorAll('#v249-collections-intelligence .v249-tabs button').forEach(function(x){x.classList.remove('active')});
+    var p=document.getElementById('v249-'+name);if(p)p.classList.add('active');if(btn)btn.classList.add('active');
+  };
+
+  var renderCollectionsBase=window.renderCollections;
+  if(typeof renderCollectionsBase==='function'){
+    window.renderCollections=function(){
+      renderCollectionsBase.apply(this,arguments);
+      var v=document.getElementById('view-collections');
+      if(v&&!document.getElementById('v249-collections-intelligence'))v.insertAdjacentHTML('beforeend',intelligenceHTML());
+    };
+    try{renderCollections=window.renderCollections}catch(e){}
+  }
+
+  var renderDashboardBase=window.renderDashboard;
+  if(typeof renderDashboardBase==='function'){
+    window.renderDashboard=function(){
+      renderDashboardBase.apply(this,arguments);
+      var v=document.getElementById('view-dashboard');
+      if(v&&!v.querySelector('[data-v249-dashboard]')){
+        var box=document.createElement('div');box.setAttribute('data-v249-dashboard','1');box.innerHTML='<div class="card"><h3>ملخص التحصيلات</h3>'+summaryHTML()+'</div>';v.appendChild(box);
+      }
+    };
+    try{renderDashboard=window.renderDashboard}catch(e){}
+  }
+})();
+</script>
+<!-- v249 end -->
+
+
+<!-- ===== v250 Link receipt currency and exchange rate to movements, journal and display ===== -->
+<script id="v250-receipt-currency-rate-linked">
+(function(){
+  function num(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function str(v){return String(v==null?'':v).trim()}
+  function escV250(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]
+  })}
+  function formatCurrencyV250(amount,currency){
+    currency=str(currency||'EGP').toUpperCase();
+    try{
+      return new Intl.NumberFormat('en-EG',{
+        style:'currency',currency:currency,
+        minimumFractionDigits:2,maximumFractionDigits:2
+      }).format(num(amount));
+    }catch(e){
+      return currency+' '+num(amount).toLocaleString('en-EG',{minimumFractionDigits:2,maximumFractionDigits:2});
+    }
+  }
+  function saveDbV250(){try{if(typeof save==='function')save()}catch(e){}}
+  function ensureV250(){
+    if(!Array.isArray(db.cash_receipts_in))db.cash_receipts_in=[];
+    if(!Array.isArray(db.cash_receipts_out))db.cash_receipts_out=[];
+    if(!Array.isArray(db.finance_cash_currency_movements))db.finance_cash_currency_movements=[];
+    if(!Array.isArray(db.journal))db.journal=[];
+  }
+  function receiptArrayV250(type){return type==='in'?db.cash_receipts_in:db.cash_receipts_out}
+  function sourceIdV250(row){return 'cash_receipt_v161_'+row.id}
+
+  function currencyFieldsV250(type){
+    var prefix=type==='in'?'cr_in':'cr_out';
+    var currencyEl=document.getElementById(prefix+'_currency_v241');
+    var rateEl=document.getElementById(prefix+'_fx_v241');
+    var amountEl=document.getElementById(prefix+'_amount_v159');
+    var currency=str(currencyEl&&currencyEl.value||'EGP').toUpperCase();
+    var rate=currency==='EGP'?1:num(rateEl&&rateEl.value);
+    var original=num(amountEl&&amountEl.value);
+    return {currency:currency,rate:rate,original:original,egp:original*rate};
+  }
+
+  function validateFxV250(info){
+    if(info.currency!=='EGP'&&info.rate<=0){
+      alert('اكتب معامل تحويل صحيح للعملة '+info.currency);
+      return false;
+    }
+    return true;
+  }
+
+  function rebuildReceiptAccountingV250(row,type){
+    if(!row)return;
+    ensureV250();
+
+    var sourceId=sourceIdV250(row);
+    var currency=str(row.currency||'EGP').toUpperCase();
+    var rate=currency==='EGP'?1:num(row.exchange_rate||row.rate);
+    var original=num(row.amount_original!=null?row.amount_original:row.amount);
+    var egp=num(row.amount_egp)||original*rate;
+    var isIn=type==='in';
+    var method=row.method==='bank'?'بنك / شيك':'نقدًا';
+    var desc=(isIn?'إيصال استلام نقدية ':'إيصال صرف نقدية ')+
+      'رقم '+str(row.serial)+' - '+str(row.party)+' - '+str(row.purpose)+' - '+method+
+      ' - '+formatCurrencyV250(original,currency)+' × '+rate+' = '+formatCurrencyV250(egp,'EGP');
+
+    db.finance_cash_currency_movements=db.finance_cash_currency_movements.filter(function(x){
+      return x.sourceId!==sourceId&&x.id!==sourceId;
+    });
+    db.finance_cash_currency_movements.unshift({
+      id:sourceId,sourceId:sourceId,receipt_id:row.id,receipt_type:type,
+      date:row.date||new Date().toISOString().slice(0,10),
+      type:isIn?'in':'out',
+      currency:currency,
+      amount:original,
+      rate:rate,
+      egp_value:egp,
+      description:desc,
+      source:'cash_receipt_v250'
+    });
+
+    db.journal=db.journal.filter(function(j){return j.sourceId!==sourceId});
+    var cashAccount=row.method==='bank'?'1110':'1100';
+
+    if(isIn){
+      db.journal.push({
+        id:typeof uid==='function'?uid():Date.now()+'_1',
+        date:row.date,account:cashAccount,debit:egp,credit:0,
+        currency:currency,amount_original:original,exchange_rate:rate,amount_egp:egp,
+        description:desc,source:'cash_receipt_v250',sourceId:sourceId
+      });
+      db.journal.push({
+        id:typeof uid==='function'?uid():Date.now()+'_2',
+        date:row.date,account:'3990',debit:0,credit:egp,
+        currency:currency,amount_original:original,exchange_rate:rate,amount_egp:egp,
+        description:'مقابل '+desc,source:'cash_receipt_v250',sourceId:sourceId
+      });
+    }else{
+      db.journal.push({
+        id:typeof uid==='function'?uid():Date.now()+'_3',
+        date:row.date,account:'3990',debit:egp,credit:0,
+        currency:currency,amount_original:original,exchange_rate:rate,amount_egp:egp,
+        description:'مقابل '+desc,source:'cash_receipt_v250',sourceId:sourceId
+      });
+      db.journal.push({
+        id:typeof uid==='function'?uid():Date.now()+'_4',
+        date:row.date,account:cashAccount,debit:0,credit:egp,
+        currency:currency,amount_original:original,exchange_rate:rate,amount_egp:egp,
+        description:desc,source:'cash_receipt_v250',sourceId:sourceId
+      });
+    }
+  }
+
+  var saveBaseV250=window.saveCashReceiptV159;
+  if(typeof saveBaseV250==='function'){
+    window.saveCashReceiptV159=function(type){
+      ensureV250();
+      var info=currencyFieldsV250(type);
+      if(!validateFxV250(info))return;
+
+      var before=new Set(receiptArrayV250(type).map(function(r){return r.id}));
+      var result=saveBaseV250.apply(this,arguments);
+      var row=receiptArrayV250(type).find(function(r){return !before.has(r.id)});
+
+      if(row){
+        row.currency=info.currency;
+        row.exchange_rate=info.rate;
+        row.rate=info.rate;
+        row.amount_original=info.original;
+        row.amount_egp=info.egp;
+
+        /* Keep amount as entered in original currency; accounting uses amount_egp. */
+        row.amount=info.original;
+
+        rebuildReceiptAccountingV250(row,type);
+        saveDbV250();
+
+        try{if(typeof renderAccounts==='function')renderAccounts()}catch(e){}
+        try{if(typeof renderTrialBalance==='function')renderTrialBalance()}catch(e){}
+      }
+      return result;
+    };
+    try{saveCashReceiptV159=window.saveCashReceiptV159}catch(e){}
+  }
+
+  window.cashReceiptsTableV159=function(){
+    ensureV250();
+    var rows=db.cash_receipts_in.map(function(r){return Object.assign({},r,{type:'in'})})
+      .concat(db.cash_receipts_out.map(function(r){return Object.assign({},r,{type:'out'})}))
+      .sort(function(a,b){return str(b.date).localeCompare(str(a.date))});
+
+    if(!rows.length)return '<div class="empty">لا توجد إيصالات محفوظة</div>';
+
+    return '<table><tr>'+
+      '<th>النوع</th><th>السيريال</th><th>التاريخ</th><th>الاسم</th>'+
+      '<th>المبلغ بالعملة</th><th>المعامل</th><th>القيمة بالجنيه</th>'+
+      '<th>طريقة الدفع</th><th>البيان</th><th>إجراءات</th></tr>'+
+      rows.map(function(r){
+        var currency=str(r.currency||'EGP').toUpperCase();
+        var rate=currency==='EGP'?1:num(r.exchange_rate||r.rate||1);
+        var original=num(r.amount_original!=null?r.amount_original:r.amount);
+        var egp=num(r.amount_egp)||original*rate;
+        return '<tr>'+
+          '<td><span class="badge '+(r.type==='in'?'ok':'warn')+'">'+(r.type==='in'?'استلام':'صرف')+'</span></td>'+
+          '<td><b>'+escV250(r.serial)+'</b></td>'+
+          '<td>'+escV250(r.date)+'</td>'+
+          '<td>'+escV250(r.party||'-')+'</td>'+
+          '<td><b>'+formatCurrencyV250(original,currency)+'</b></td>'+
+          '<td>'+rate.toLocaleString('en-EG',{maximumFractionDigits:4})+'</td>'+
+          '<td><b>'+formatCurrencyV250(egp,'EGP')+'</b></td>'+
+          '<td>'+(r.method==='bank'?'بنك / شيك':'نقدًا')+'</td>'+
+          '<td>'+escV250(r.purpose||'-')+'</td>'+
+          '<td><div class="actions">'+
+            '<button class="btn small blue" onclick="printCashReceiptV159(\''+r.type+'\',\''+r.id+'\')">طباعة</button>'+
+            '<button class="btn small danger" onclick="deleteCashReceiptV159(\''+r.type+'\',\''+r.id+'\')">مسح</button>'+
+          '</div></td>'+
+        '</tr>';
+      }).join('')+
+    '</table>';
+  };
+
+  /* Repair previously saved foreign-currency receipts that already contain currency/rate. */
+  ensureV250();
+  db.cash_receipts_in.forEach(function(r){
+    if(r.currency&&r.currency!=='EGP'){
+      r.amount_original=num(r.amount_original!=null?r.amount_original:r.amount);
+      r.exchange_rate=num(r.exchange_rate||r.rate||1);
+      r.amount_egp=r.amount_original*r.exchange_rate;
+      rebuildReceiptAccountingV250(r,'in');
+    }
+  });
+  db.cash_receipts_out.forEach(function(r){
+    if(r.currency&&r.currency!=='EGP'){
+      r.amount_original=num(r.amount_original!=null?r.amount_original:r.amount);
+      r.exchange_rate=num(r.exchange_rate||r.rate||1);
+      r.amount_egp=r.amount_original*r.exchange_rate;
+      rebuildReceiptAccountingV250(r,'out');
+    }
+  });
+  saveDbV250();
+})();
+</script>
+<!-- v250 end -->
+
+
+<!-- ===== v251 Replace visible receipt log with currency-aware table ===== -->
+<script id="v251-visible-receipt-currency-table">
+(function(){
+  function n(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function s(v){return String(v==null?'':v).trim()}
+  function esc(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]
+  })}
+  function fmt(amount,currency){
+    currency=s(currency||'EGP').toUpperCase();
+    try{
+      return new Intl.NumberFormat('en-EG',{
+        style:'currency',currency:currency,
+        minimumFractionDigits:2,maximumFractionDigits:2
+      }).format(n(amount));
+    }catch(e){
+      return currency+' '+n(amount).toLocaleString('en-EG',{minimumFractionDigits:2,maximumFractionDigits:2});
+    }
+  }
+
+  function allRows(){
+    var incoming=(db.cash_receipts_in||[]).map(function(r){return Object.assign({},r,{type:'in'})});
+    var outgoing=(db.cash_receipts_out||[]).map(function(r){return Object.assign({},r,{type:'out'})});
+    return incoming.concat(outgoing).sort(function(a,b){
+      return s(b.date).localeCompare(s(a.date));
+    });
+  }
+
+  function tableHTML(){
+    var rows=allRows();
+    if(!rows.length)return '<div class="empty">لا توجد إيصالات محفوظة</div>';
+
+    return '<table>'+
+      '<tr>'+
+        '<th>النوع</th><th>السيريال</th><th>التاريخ</th><th>الاسم</th>'+
+        '<th>المبلغ بالعملة</th><th>العملة</th><th>المعامل</th><th>القيمة بالجنيه</th>'+
+        '<th>طريقة الدفع</th><th>البيان</th><th>إجراءات</th>'+
+      '</tr>'+
+      rows.map(function(r){
+        var currency=s(r.currency||'EGP').toUpperCase();
+        var rate=currency==='EGP'?1:n(r.exchange_rate||r.rate||1);
+        var original=n(r.amount_original!=null?r.amount_original:r.amount);
+        var egp=n(r.amount_egp)||original*rate;
+
+        return '<tr>'+
+          '<td><span class="badge '+(r.type==='in'?'ok':'warn')+'">'+(r.type==='in'?'استلام':'صرف')+'</span></td>'+
+          '<td><b>'+esc(r.serial||'-')+'</b></td>'+
+          '<td>'+esc(r.date||'-')+'</td>'+
+          '<td>'+esc(r.party||'-')+'</td>'+
+          '<td><b>'+fmt(original,currency)+'</b></td>'+
+          '<td>'+esc(currency)+'</td>'+
+          '<td><b>'+rate.toLocaleString('en-EG',{maximumFractionDigits:4})+'</b></td>'+
+          '<td><b>'+fmt(egp,'EGP')+'</b></td>'+
+          '<td>'+(r.method==='bank'?'بنك / شيك':'نقدًا')+'</td>'+
+          '<td>'+esc(r.purpose||'-')+'</td>'+
+          '<td><div class="actions">'+
+            '<button class="btn small blue" onclick="printCashReceiptV159(\''+r.type+'\',\''+r.id+'\')">طباعة</button>'+
+            '<button class="btn small danger" onclick="deleteCashReceiptV159(\''+r.type+'\',\''+r.id+'\')">مسح</button>'+
+          '</div></td>'+
+        '</tr>';
+      }).join('')+
+    '</table>';
+  }
+
+  function installVisibleTable(){
+    var cards=document.querySelectorAll('#cash_receipts_section_v159 .card, #view-accounts .card');
+    var target=null;
+
+    cards.forEach(function(card){
+      var h3=card.querySelector('h3');
+      var title=s(h3&&h3.textContent);
+      if(/سجل إيصالات الاستلام والصرف|إيصالات الاستلام والصرف|الاستلام والصرف/.test(title)){
+        target=card;
+      }
+    });
+
+    if(!target)return;
+
+    var heading=target.querySelector('.section-title')||target.querySelector('h3');
+    var oldTable=target.querySelector('table');
+    var oldEmpty=target.querySelector('.empty');
+
+    if(oldTable)oldTable.remove();
+    if(oldEmpty)oldEmpty.remove();
+
+    var holder=target.querySelector('#v251_receipt_table_holder');
+    if(!holder){
+      holder=document.createElement('div');
+      holder.id='v251_receipt_table_holder';
+      if(heading&&heading.parentNode===target)heading.insertAdjacentElement('afterend',holder);
+      else target.appendChild(holder);
+    }
+    holder.innerHTML=tableHTML();
+  }
+
+  var renderAccountsBase=window.renderAccounts;
+  if(typeof renderAccountsBase==='function'){
+    window.renderAccounts=function(){
+      var result=renderAccountsBase.apply(this,arguments);
+      setTimeout(installVisibleTable,180);
+      setTimeout(installVisibleTable,450);
+      return result;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  var renderBase=window.render;
+  if(typeof renderBase==='function'){
+    window.render=function(){
+      var result=renderBase.apply(this,arguments);
+      setTimeout(installVisibleTable,250);
+      return result;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  setTimeout(installVisibleTable,600);
+})();
+</script>
+<!-- v251 end -->
