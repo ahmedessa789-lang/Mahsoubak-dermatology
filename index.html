@@ -16791,12 +16791,30 @@ render();
         installSelectors();
         renderStatement('cash');
         renderStatement('bank');
+        /* FIX: تحديث قايمة الخزن في الإيصالات فورًا بعد إضافة خزينة، من غير ما نحتاج نعمل رفرش للصفحة */
+        if(typeof window.refreshReceiptFundListsV264==='function')window.refreshReceiptFundListsV264();
       },120);
       return r;
     };
     if(window.addFinanceFundV244)window.addFinanceFundV244=wrapped;
     if(window.addFinanceFundV65)window.addFinanceFundV65=wrapped;
   }
+
+  /* FIX: نفس التحديث لما نعدّل خزينة موجودة (مثلاً نصحح العملة) أو نحذفها — ده كان ناقص خالص قبل كده */
+  ['editFinanceFundV244','editFinanceFundV65','deleteFinanceFundV65'].forEach(function(fnName){
+    var base=window[fnName];
+    if(typeof base!=='function')return;
+    window[fnName]=function(){
+      var r=base.apply(this,arguments);
+      setTimeout(function(){
+        installSelectors();
+        renderStatement('cash');
+        renderStatement('bank');
+        if(typeof window.refreshReceiptFundListsV264==='function')window.refreshReceiptFundListsV264();
+      },120);
+      return r;
+    };
+  });
 
   var renderAccountsBase=window.renderAccounts;
   if(typeof renderAccountsBase==='function'){
@@ -16856,6 +16874,7 @@ render();
     if(!field)return;
 
     var matches=matchingFunds(kind,currency);
+    var previousValue=field.value||''; /* FIX: تذكر الاختيار الحالي قبل ما نعيد بناء القائمة */
 
     /* Rebuild selector with only funds of the correct type and currency. */
     field.innerHTML='<option value="">اختر '+(kind==='bank'?'البنك':'الخزنة')+' — '+currency+'</option>'+
@@ -16865,9 +16884,17 @@ render();
         '</option>';
       }).join('');
 
+    /* FIX: لو المستخدم كان مختار خزينة صحيحة فعلاً (مطابقة للنوع والعملة)، سيبها زي ما هي
+       ولا تمسحها بس لأن فيه أكتر من خزينة بنفس العملة. المسح كان بيحصل حتى وقت الحفظ نفسه
+       وده اللي كان بيطلع رسالة "الخزنة أو البنك المختار لا يطابق العملة" غلط. */
+    var previousStillValid=matches.some(function(f){return String(f.id)===String(previousValue)});
+
     if(matches.length===1){
       field.value=matches[0].id;
       field.dataset.v264Auto='1';
+    }else if(previousStillValid){
+      field.value=previousValue;
+      field.dataset.v264Auto='0';
     }else{
       field.value='';
       field.dataset.v264Auto='0';
@@ -16893,6 +16920,12 @@ render();
       note.style.color='#92400e';
     }
   }
+
+  /* FIX: نعرض الدالة عالميًا عشان شاشة "الخزن والبنوك" تقدر تنادي عليها
+     مباشرة لما يتضاف أو يتعدل خزينة، بدل ما المستخدم يحتاج يعمل تحديث للصفحة. */
+  window.refreshReceiptFundListsV264=function(){
+    try{autoSelectFundV264('in');autoSelectFundV264('out');}catch(e){}
+  };
 
   function bindAutoRouteV264(){
     ['in','out'].forEach(function(type){
