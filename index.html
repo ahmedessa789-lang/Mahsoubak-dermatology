@@ -16791,30 +16791,12 @@ render();
         installSelectors();
         renderStatement('cash');
         renderStatement('bank');
-        /* FIX: تحديث قايمة الخزن في الإيصالات فورًا بعد إضافة خزينة، من غير ما نحتاج نعمل رفرش للصفحة */
-        if(typeof window.refreshReceiptFundListsV264==='function')window.refreshReceiptFundListsV264();
       },120);
       return r;
     };
     if(window.addFinanceFundV244)window.addFinanceFundV244=wrapped;
     if(window.addFinanceFundV65)window.addFinanceFundV65=wrapped;
   }
-
-  /* FIX: نفس التحديث لما نعدّل خزينة موجودة (مثلاً نصحح العملة) أو نحذفها — ده كان ناقص خالص قبل كده */
-  ['editFinanceFundV244','editFinanceFundV65','deleteFinanceFundV65'].forEach(function(fnName){
-    var base=window[fnName];
-    if(typeof base!=='function')return;
-    window[fnName]=function(){
-      var r=base.apply(this,arguments);
-      setTimeout(function(){
-        installSelectors();
-        renderStatement('cash');
-        renderStatement('bank');
-        if(typeof window.refreshReceiptFundListsV264==='function')window.refreshReceiptFundListsV264();
-      },120);
-      return r;
-    };
-  });
 
   var renderAccountsBase=window.renderAccounts;
   if(typeof renderAccountsBase==='function'){
@@ -16874,7 +16856,6 @@ render();
     if(!field)return;
 
     var matches=matchingFunds(kind,currency);
-    var previousValue=field.value||''; /* FIX: تذكر الاختيار الحالي قبل ما نعيد بناء القائمة */
 
     /* Rebuild selector with only funds of the correct type and currency. */
     field.innerHTML='<option value="">اختر '+(kind==='bank'?'البنك':'الخزنة')+' — '+currency+'</option>'+
@@ -16884,17 +16865,9 @@ render();
         '</option>';
       }).join('');
 
-    /* FIX: لو المستخدم كان مختار خزينة صحيحة فعلاً (مطابقة للنوع والعملة)، سيبها زي ما هي
-       ولا تمسحها بس لأن فيه أكتر من خزينة بنفس العملة. المسح كان بيحصل حتى وقت الحفظ نفسه
-       وده اللي كان بيطلع رسالة "الخزنة أو البنك المختار لا يطابق العملة" غلط. */
-    var previousStillValid=matches.some(function(f){return String(f.id)===String(previousValue)});
-
     if(matches.length===1){
       field.value=matches[0].id;
       field.dataset.v264Auto='1';
-    }else if(previousStillValid){
-      field.value=previousValue;
-      field.dataset.v264Auto='0';
     }else{
       field.value='';
       field.dataset.v264Auto='0';
@@ -16920,12 +16893,6 @@ render();
       note.style.color='#92400e';
     }
   }
-
-  /* FIX: نعرض الدالة عالميًا عشان شاشة "الخزن والبنوك" تقدر تنادي عليها
-     مباشرة لما يتضاف أو يتعدل خزينة، بدل ما المستخدم يحتاج يعمل تحديث للصفحة. */
-  window.refreshReceiptFundListsV264=function(){
-    try{autoSelectFundV264('in');autoSelectFundV264('out');}catch(e){}
-  };
 
   function bindAutoRouteV264(){
     ['in','out'].forEach(function(type){
@@ -17251,5 +17218,544 @@ render();
   observer.observe(document.body,{childList:true,subtree:true});
 
   setTimeout(applyLanguageV266,500);
+})();
+</script>
+
+<script id="v267-fund-currency-migration">
+(function(){
+  function s(v){return String(v==null?'':v).trim()}
+  function inferV267(name){
+    var x=s(name).toLowerCase();
+    if(/dollar|doller|usd|دولار/.test(x))return 'USD';
+    if(/euro|eur|يورو/.test(x))return 'EUR';
+    if(/sar|saudi|ريال سعودي/.test(x))return 'SAR';
+    if(/aed|emirati|درهم/.test(x))return 'AED';
+    if(/gbp|pound|sterling|جنيه إسترليني/.test(x))return 'GBP';
+    return '';
+  }
+
+  function migrateV267(){
+    if(!Array.isArray(db.financeFunds))db.financeFunds=[];
+    var changed=false;
+
+    db.financeFunds.forEach(function(f){
+      var inferred=inferV267(f.name);
+      var current=s(f.currency||'').toUpperCase();
+
+      /* Fix old records that were saved as EGP despite a foreign-currency name. */
+      if(inferred && current!==inferred){
+        f.currency=inferred;
+        if(!Number(f.exchange_rate)||Number(f.exchange_rate)===1){
+          f.exchange_rate=0;
+        }
+        changed=true;
+      }else if(!current){
+        f.currency=inferred||'EGP';
+        f.exchange_rate=f.currency==='EGP'?1:(Number(f.exchange_rate)||0);
+        changed=true;
+      }
+    });
+
+    if(changed){
+      try{if(typeof save==='function')save()}catch(e){}
+    }
+  }
+
+  migrateV267();
+
+  var openBase=window.openFinanceFundsV65;
+  if(typeof openBase==='function'){
+    window.openFinanceFundsV65=function(){
+      migrateV267();
+      return openBase.apply(this,arguments);
+    };
+  }
+
+  var renderAccountsBase=window.renderAccounts;
+  if(typeof renderAccountsBase==='function'){
+    window.renderAccounts=function(){
+      migrateV267();
+      return renderAccountsBase.apply(this,arguments);
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  setTimeout(function(){
+    migrateV267();
+    try{
+      var cashPane=document.querySelector('.finance-pane-v227[data-pane="cash"]');
+      var bankPane=document.querySelector('.finance-pane-v227[data-pane="bank"]');
+      if(cashPane&&cashPane.classList.contains('active')&&typeof renderDynamicStatementV263==='function'){
+        renderDynamicStatementV263('cash');
+      }
+      if(bankPane&&bankPane.classList.contains('active')&&typeof renderDynamicStatementV263==='function'){
+        renderDynamicStatementV263('bank');
+      }
+    }catch(e){}
+  },500);
+})();
+</script>
+
+<script id="v268-receipt-fund-currency-match-fix">
+(function(){
+  function s(v){return String(v==null?'':v).trim()}
+  function inferCurrencyV268(name){
+    var x=s(name).toLowerCase();
+    if(/dollar|doller|usd|دولار/.test(x))return 'USD';
+    if(/euro|eur|يورو/.test(x))return 'EUR';
+    if(/sar|saudi|ريال سعودي/.test(x))return 'SAR';
+    if(/aed|emirati|درهم/.test(x))return 'AED';
+    if(/gbp|pound|sterling|جنيه إسترليني/.test(x))return 'GBP';
+    return '';
+  }
+
+  function normalizeFundsV268(){
+    if(!Array.isArray(db.financeFunds))db.financeFunds=[];
+    var changed=false;
+
+    db.financeFunds.forEach(function(f){
+      var inferred=inferCurrencyV268(f.name);
+      var current=s(f.currency).toUpperCase();
+
+      if(inferred && current!==inferred){
+        f.currency=inferred;
+        changed=true;
+      }else if(!current){
+        f.currency=inferred||'EGP';
+        changed=true;
+      }
+
+      if(!f.type){
+        f.type='cash';
+        changed=true;
+      }
+    });
+
+    if(changed){
+      try{if(typeof save==='function')save()}catch(e){}
+    }
+  }
+
+  function refreshSelectorsV268(){
+    normalizeFundsV268();
+
+    ['in','out'].forEach(function(type){
+      var prefix=type==='in'?'cr_in':'cr_out';
+      var currency=s((document.getElementById(prefix+'_currency_v241')||{}).value||'EGP').toUpperCase();
+      var method=((document.querySelector('input[name="'+prefix+'_method_v159"]:checked')||{}).value||'cash')==='bank'?'bank':'cash';
+      var field=document.getElementById(prefix+'_account_v227');
+      if(!field)return;
+
+      var current=field.value||'';
+      var matches=db.financeFunds.filter(function(f){
+        var fundType=(f.type==='bank')?'bank':'cash';
+        var fundCurrency=s(f.currency||inferCurrencyV268(f.name)||'EGP').toUpperCase();
+        return fundType===method&&fundCurrency===currency;
+      });
+
+      field.innerHTML='<option value="">اختر '+(method==='bank'?'البنك':'الخزنة')+' — '+currency+'</option>'+
+        matches.map(function(f){
+          return '<option value="'+String(f.id).replace(/"/g,'&quot;')+'">'+
+            String(f.name||'-').replace(/</g,'&lt;')+' — '+currency+
+          '</option>';
+        }).join('');
+
+      if(matches.some(function(f){return String(f.id)===String(current)})){
+        field.value=current;
+      }else if(matches.length===1){
+        field.value=matches[0].id;
+      }
+
+      var note=document.getElementById(prefix+'_fund_note_v264');
+      if(note){
+        if(matches.length===0){
+          note.textContent='لا توجد '+(method==='bank'?'حسابات بنكية':'خزن')+' مسجلة بعملة '+currency;
+          note.style.color='#b91c1c';
+        }else if(matches.length===1){
+          note.textContent='تم اختيار '+matches[0].name+' تلقائيًا حسب العملة '+currency;
+          note.style.color='#166534';
+        }else{
+          note.textContent='يوجد أكثر من '+(method==='bank'?'بنك':'خزنة')+' بعملة '+currency+'؛ اختر المطلوب.';
+          note.style.color='#92400e';
+        }
+      }
+    });
+  }
+
+  var saveBaseV268=window.saveCashReceiptV159;
+  if(typeof saveBaseV268==='function'){
+    window.saveCashReceiptV159=function(type){
+      normalizeFundsV268();
+      refreshSelectorsV268();
+      return saveBaseV268.apply(this,arguments);
+    };
+    try{saveCashReceiptV159=window.saveCashReceiptV159}catch(e){}
+  }
+
+  var renderAccountsBaseV268=window.renderAccounts;
+  if(typeof renderAccountsBaseV268==='function'){
+    window.renderAccounts=function(){
+      normalizeFundsV268();
+      var r=renderAccountsBaseV268.apply(this,arguments);
+      setTimeout(refreshSelectorsV268,300);
+      setTimeout(refreshSelectorsV268,650);
+      return r;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  document.addEventListener('change',function(ev){
+    var id=ev.target&&ev.target.id||'';
+    if(id==='cr_in_currency_v241'||id==='cr_out_currency_v241'||
+       ev.target&&ev.target.name==='cr_in_method_v159'||
+       ev.target&&ev.target.name==='cr_out_method_v159'){
+      setTimeout(refreshSelectorsV268,30);
+    }
+  },true);
+
+  normalizeFundsV268();
+  setTimeout(refreshSelectorsV268,800);
+})();
+</script>
+
+<script id="v269-flexible-receipt-entry-order">
+(function(){
+  function s(v){return String(v==null?'':v).trim()}
+  function n(v){var x=Number(v);return Number.isFinite(x)?x:0}
+
+  function inferCurrencyV269(name){
+    var x=s(name).toLowerCase();
+    if(/dollar|doller|usd|دولار/.test(x))return 'USD';
+    if(/euro|eur|يورو/.test(x))return 'EUR';
+    if(/sar|saudi|ريال سعودي/.test(x))return 'SAR';
+    if(/aed|emirati|درهم/.test(x))return 'AED';
+    if(/gbp|pound|sterling|جنيه إسترليني/.test(x))return 'GBP';
+    return '';
+  }
+
+  function normalizeFundsV269(){
+    if(!Array.isArray(db.financeFunds))db.financeFunds=[];
+    db.financeFunds.forEach(function(f){
+      var inferred=inferCurrencyV269(f.name);
+      if(inferred)f.currency=inferred;
+      else if(!s(f.currency))f.currency='EGP';
+      if(!f.type)f.type='cash';
+    });
+  }
+
+  function getStateV269(type){
+    var prefix=type==='in'?'cr_in':'cr_out';
+    var amountEl=document.getElementById(prefix+'_amount_v159');
+    var currencyEl=document.getElementById(prefix+'_currency_v241');
+    var fxEl=document.getElementById(prefix+'_fx_v241');
+    var fundEl=document.getElementById(prefix+'_account_v227');
+    var method=((document.querySelector('input[name="'+prefix+'_method_v159"]:checked')||{}).value||'cash')==='bank'?'bank':'cash';
+
+    return {
+      prefix:prefix,
+      amount:n(amountEl&&amountEl.value),
+      currency:s(currencyEl&&currencyEl.value||'EGP').toUpperCase(),
+      fx:s(fxEl&&fxEl.value),
+      fundEl:fundEl,
+      method:method
+    };
+  }
+
+  function matchingFundsV269(method,currency){
+    normalizeFundsV269();
+    return db.financeFunds.filter(function(f){
+      var type=f.type==='bank'?'bank':'cash';
+      var cur=s(f.currency||inferCurrencyV269(f.name)||'EGP').toUpperCase();
+      return type===method&&cur===currency;
+    });
+  }
+
+  function refreshFundListV269(type,preserveSelection){
+    var st=getStateV269(type);
+    var field=st.fundEl;
+    if(!field)return;
+
+    var previous=preserveSelection!==false?field.value:'';
+    var matches=matchingFundsV269(st.method,st.currency);
+
+    field.innerHTML='<option value="">اختر '+(st.method==='bank'?'البنك':'الخزنة')+' — '+st.currency+'</option>'+
+      matches.map(function(f){
+        return '<option value="'+String(f.id).replace(/"/g,'&quot;')+'">'+
+          String(f.name||'-').replace(/</g,'&lt;')+' — '+st.currency+
+        '</option>';
+      }).join('');
+
+    if(matches.some(function(f){return String(f.id)===String(previous)})){
+      field.value=previous;
+    }else if(matches.length===1){
+      field.value=matches[0].id;
+    }else{
+      field.value='';
+    }
+
+    var note=document.getElementById(st.prefix+'_fund_note_v264');
+    if(note){
+      if(matches.length===0){
+        note.textContent='لا توجد '+(st.method==='bank'?'حسابات بنكية':'خزن')+' بعملة '+st.currency;
+        note.style.color='#b91c1c';
+      }else if(matches.length===1){
+        note.textContent='تم اختيار '+matches[0].name+' تلقائيًا حسب العملة '+st.currency;
+        note.style.color='#166534';
+      }else{
+        note.textContent='يوجد أكثر من '+(st.method==='bank'?'بنك':'خزنة')+' بعملة '+st.currency+'؛ اختر المطلوب.';
+        note.style.color='#92400e';
+      }
+    }
+  }
+
+  function updateAllV269(type){
+    refreshFundListV269(type,true);
+    try{
+      if(typeof updateReceiptWordsV259==='function')updateReceiptWordsV259(type);
+      else if(typeof updateReceiptWordsV260==='function')updateReceiptWordsV260(type);
+    }catch(e){}
+  }
+
+  function bindV269(){
+    ['in','out'].forEach(function(type){
+      var prefix=type==='in'?'cr_in':'cr_out';
+      var ids=[
+        prefix+'_amount_v159',
+        prefix+'_currency_v241',
+        prefix+'_fx_v241'
+      ];
+
+      ids.forEach(function(id){
+        var el=document.getElementById(id);
+        if(!el||el.dataset.v269Bound==='1')return;
+        ['input','change','blur'].forEach(function(evt){
+          el.addEventListener(evt,function(){setTimeout(function(){updateAllV269(type)},10)},true);
+        });
+        el.dataset.v269Bound='1';
+      });
+
+      document.querySelectorAll('input[name="'+prefix+'_method_v159"]').forEach(function(el){
+        if(el.dataset.v269Bound==='1')return;
+        el.addEventListener('change',function(){
+          setTimeout(function(){refreshFundListV269(type,false);updateAllV269(type)},10);
+        },true);
+        el.dataset.v269Bound='1';
+      });
+
+      var fund=document.getElementById(prefix+'_account_v227');
+      if(fund&&fund.dataset.v269Bound!=='1'){
+        fund.addEventListener('change',function(){setTimeout(function(){updateAllV269(type)},10)},true);
+        fund.dataset.v269Bound='1';
+      }
+
+      setTimeout(function(){updateAllV269(type)},30);
+    });
+  }
+
+  var saveBaseV269=window.saveCashReceiptV159;
+  if(typeof saveBaseV269==='function'){
+    window.saveCashReceiptV159=function(type){
+      normalizeFundsV269();
+      bindV269();
+
+      /* Re-read final form values at the exact moment of saving. */
+      var st=getStateV269(type);
+      refreshFundListV269(type,true);
+      st=getStateV269(type);
+
+      if(!(st.amount>0)){
+        return alert('اكتب مبلغ صحيح أكبر من صفر');
+      }
+
+      var matches=matchingFundsV269(st.method,st.currency);
+      if(!matches.length){
+        return alert('لا توجد '+(st.method==='bank'?'حسابات بنكية':'خزن')+' مسجلة بعملة '+st.currency+'. أضفها من شاشة الخزن والبنوك أولًا.');
+      }
+
+      var selected=matches.find(function(f){
+        return st.fundEl&&String(f.id)===String(st.fundEl.value);
+      });
+
+      if(!selected){
+        if(matches.length===1){
+          selected=matches[0];
+          if(st.fundEl)st.fundEl.value=selected.id;
+        }else{
+          return alert('اختر '+(st.method==='bank'?'البنك':'الخزنة')+' المطلوبة بعملة '+st.currency);
+        }
+      }
+
+      /* Ensure words reflect the final amount/currency/rate before save. */
+      try{
+        if(typeof updateReceiptWordsV259==='function')updateReceiptWordsV259(type);
+        if(typeof updateReceiptWordsV260==='function')updateReceiptWordsV260(type);
+      }catch(e){}
+
+      var result=saveBaseV269.apply(this,arguments);
+
+      /* Final safety pass: attach the newly created receipt to the chosen fund. */
+      var arr=type==='in'?(db.cash_receipts_in||[]):(db.cash_receipts_out||[]);
+      var row=arr[0];
+      if(row){
+        row.finance_fund_id=selected.id;
+        row.finance_fund_name=selected.name||'';
+        row.finance_account=selected.name||'';
+        row.fund_type=selected.type||st.method;
+        row.currency=st.currency;
+
+        if(st.method==='bank'){
+          row.bank_fund_id=selected.id;
+          row.bank_fund_name=selected.name||'';
+          row.bank=selected.name||row.bank||'';
+        }else{
+          row.treasury_id=selected.id;
+          row.treasury_name=selected.name||'';
+        }
+
+        try{if(typeof save==='function')save()}catch(e){}
+      }
+
+      return result;
+    };
+    try{saveCashReceiptV159=window.saveCashReceiptV159}catch(e){}
+  }
+
+  var renderAccountsBaseV269=window.renderAccounts;
+  if(typeof renderAccountsBaseV269==='function'){
+    window.renderAccounts=function(){
+      var r=renderAccountsBaseV269.apply(this,arguments);
+      setTimeout(bindV269,250);
+      setTimeout(bindV269,600);
+      return r;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  document.addEventListener('focusin',function(ev){
+    var id=ev.target&&ev.target.id||'';
+    if(/^cr_(in|out)_/.test(id))setTimeout(bindV269,20);
+  },true);
+
+  normalizeFundsV269();
+  setTimeout(bindV269,700);
+})();
+</script>
+
+<script id="v270-final-receipt-words-currency-lock">
+(function(){
+  function s(v){return String(v==null?'':v).trim()}
+  function n(v){var x=Number(v);return Number.isFinite(x)?x:0}
+
+  function labelV270(code){
+    var m={
+      EGP:'جنيه مصري',
+      USD:'دولار أمريكي',
+      EUR:'يورو',
+      SAR:'ريال سعودي',
+      AED:'درهم إماراتي',
+      KWD:'دينار كويتي',
+      QAR:'ريال قطري',
+      BHD:'دينار بحريني',
+      OMR:'ريال عماني',
+      GBP:'جنيه إسترليني'
+    };
+    return m[s(code).toUpperCase()]||s(code).toUpperCase();
+  }
+
+  function wordsBaseV270(amount){
+    if(typeof amountToArabicWordsV227==='function')return amountToArabicWordsV227(amount);
+    return '';
+  }
+
+  function replaceUnitV270(words,label){
+    var w=s(words);
+    if(!w)return '';
+    w=w.replace(/جنيه(?:ًا|اً)? مصري(?:ًا|اً)?/g,label);
+    w=w.replace(/جنيه(?:ًا|اً)?/g,label);
+    if(w.indexOf('فقط')!==0)w='فقط '+w;
+    if(!/لا غير$/.test(w))w+=' لا غير';
+    return w;
+  }
+
+  function updateV270(type){
+    var prefix=type==='in'?'cr_in':'cr_out';
+    var amountEl=document.getElementById(prefix+'_amount_v159');
+    var currencyEl=document.getElementById(prefix+'_currency_v241');
+    var fxEl=document.getElementById(prefix+'_fx_v241');
+    var wordsEl=document.getElementById(prefix+'_words_v159');
+    if(!amountEl||!currencyEl||!wordsEl)return;
+
+    var amount=n(amountEl.value);
+    var currency=s(currencyEl.value||'EGP').toUpperCase();
+    var fx=n(fxEl&&fxEl.value||1);
+    var manual=!!(fxEl&&fxEl.dataset.v260Manual==='1');
+
+    if(currency==='EGP'){
+      wordsEl.value=wordsBaseV270(amount);
+    }else if(manual&&fx>0){
+      wordsEl.value=wordsBaseV270(amount*fx);
+    }else{
+      wordsEl.value=replaceUnitV270(wordsBaseV270(amount),labelV270(currency));
+    }
+
+    wordsEl.readOnly=true;
+  }
+
+  window.updateReceiptWordsV270=updateV270;
+
+  function bindV270(){
+    ['in','out'].forEach(function(type){
+      var prefix=type==='in'?'cr_in':'cr_out';
+      [prefix+'_amount_v159',prefix+'_currency_v241',prefix+'_fx_v241'].forEach(function(id){
+        var el=document.getElementById(id);
+        if(!el||el.dataset.v270Bound==='1')return;
+        ['input','change','blur'].forEach(function(evt){
+          el.addEventListener(evt,function(){
+            setTimeout(function(){updateV270(type)},0);
+            setTimeout(function(){updateV270(type)},50);
+          },true);
+        });
+        el.dataset.v270Bound='1';
+      });
+      setTimeout(function(){updateV270(type)},80);
+    });
+  }
+
+  var saveBaseV270=window.saveCashReceiptV159;
+  if(typeof saveBaseV270==='function'){
+    window.saveCashReceiptV159=function(type){
+      updateV270(type);
+      var result=saveBaseV270.apply(this,arguments);
+      updateV270(type);
+
+      var arr=type==='in'?(db.cash_receipts_in||[]):(db.cash_receipts_out||[]);
+      var row=arr[0];
+      var prefix=type==='in'?'cr_in':'cr_out';
+      if(row){
+        row.amount_words=s((document.getElementById(prefix+'_words_v159')||{}).value);
+        try{if(typeof save==='function')save()}catch(e){}
+      }
+      return result;
+    };
+    try{saveCashReceiptV159=window.saveCashReceiptV159}catch(e){}
+  }
+
+  var renderAccountsBaseV270=window.renderAccounts;
+  if(typeof renderAccountsBaseV270==='function'){
+    window.renderAccounts=function(){
+      var r=renderAccountsBaseV270.apply(this,arguments);
+      setTimeout(bindV270,250);
+      setTimeout(bindV270,600);
+      return r;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  document.addEventListener('focusin',function(ev){
+    var id=ev.target&&ev.target.id||'';
+    if(/^cr_(in|out)_/.test(id))setTimeout(bindV270,20);
+  },true);
+
+  setTimeout(bindV270,700);
 })();
 </script>
