@@ -17759,3 +17759,220 @@ render();
   setTimeout(bindV270,700);
 })();
 </script>
+
+<script id="v271-merge-duplicate-funds-accounting-safe">
+(function(){
+  function s(v){return String(v==null?'':v).trim()}
+  function n(v){var x=Number(v);return Number.isFinite(x)?x:0}
+
+  function currencyFromNameV271(name){
+    var x=s(name).toLowerCase();
+    if(/dollar|doller|usd|دولار/.test(x))return 'USD';
+    if(/euro|eur|يورو/.test(x))return 'EUR';
+    if(/sar|saudi|ريال سعودي/.test(x))return 'SAR';
+    if(/aed|emirati|درهم/.test(x))return 'AED';
+    if(/gbp|pound|sterling|جنيه إسترليني/.test(x))return 'GBP';
+    return '';
+  }
+
+  function normalizedNameV271(name){
+    var x=s(name).toLowerCase()
+      .replace(/[أإآ]/g,'ا')
+      .replace(/ة/g,'ه')
+      .replace(/[^a-z0-9\u0600-\u06ff]+/g,' ')
+      .replace(/\s+/g,' ')
+      .trim();
+
+    if(/^(خزنه )?(دولار|دولار امريكي)$/.test(x) || /^(cash ?box )?(dollar|doller|usd)$/.test(x))return 'cash-usd';
+    if(/^(خزنه )?(يورو)$/.test(x) || /^(cash ?box )?(euro|eur)$/.test(x))return 'cash-eur';
+    if(/^(خزنه )?(جنيه مصري|مصري)$/.test(x) || /^(cash ?box )?(egp|egyptian pound)$/.test(x))return 'cash-egp';
+    return x;
+  }
+
+  function canonicalScoreV271(f){
+    var name=s(f.name);
+    var score=0;
+    if(/خزنة دولار|خزنه دولار/.test(name))score+=100;
+    if(/خزنة يورو|خزنه يورو/.test(name))score+=100;
+    if(/خزنة جنيه مصري|خزنه جنيه مصري/.test(name))score+=100;
+    if(/[اأإآ-ي]/.test(name))score+=20;
+    if(n(f.balance)!==0)score+=5;
+    if(f.created_at)score+=1;
+    return score;
+  }
+
+  function replaceFundReferenceV271(obj,oldFund,newFund){
+    if(!obj||typeof obj!=='object')return false;
+    var changed=false;
+    var idFields=[
+      'finance_fund_id','treasury_id','bank_fund_id','finance_account_id',
+      'fund_id','cashbox_id','bank_account_id'
+    ];
+    var nameFields=[
+      'finance_fund_name','treasury_name','bank_fund_name','finance_account',
+      'fund_name','cashbox_name'
+    ];
+
+    idFields.forEach(function(k){
+      if(String(obj[k]||'')===String(oldFund.id)){
+        obj[k]=newFund.id;
+        changed=true;
+      }
+    });
+
+    nameFields.forEach(function(k){
+      if(s(obj[k]).toLowerCase()===s(oldFund.name).toLowerCase()){
+        obj[k]=newFund.name||'';
+        changed=true;
+      }
+    });
+
+    if(s(obj.bank).toLowerCase()===s(oldFund.name).toLowerCase()){
+      obj.bank=newFund.name||'';
+      changed=true;
+    }
+
+    return changed;
+  }
+
+  function mergeDuplicateFundsV271(){
+    if(!Array.isArray(db.financeFunds))db.financeFunds=[];
+    if(db.financeFunds.length<2)return false;
+
+    var changed=false;
+    var groups={};
+
+    db.financeFunds.forEach(function(f){
+      if(!f.id)f.id=(typeof uid==='function'?uid():'fund_'+Date.now()+'_'+Math.random());
+      var type=f.type==='bank'?'bank':'cash';
+      var cur=s(f.currency||currencyFromNameV271(f.name)||'EGP').toUpperCase();
+      f.currency=cur;
+
+      /* Only obvious duplicate aliases are merged. Named branches remain separate. */
+      var alias=normalizedNameV271(f.name);
+      var key=(type==='cash' && /^cash-(USD|EUR|EGP)$/i.test(alias))
+        ? type+'|'+alias
+        : '';
+
+      if(key){
+        if(!groups[key])groups[key]=[];
+        groups[key].push(f);
+      }
+    });
+
+    Object.keys(groups).forEach(function(key){
+      var list=groups[key];
+      if(list.length<2)return;
+
+      list.sort(function(a,b){return canonicalScoreV271(b)-canonicalScoreV271(a)});
+      var canonical=list[0];
+      var duplicates=list.slice(1);
+
+      duplicates.forEach(function(oldFund){
+        /* Sum current balances once. */
+        canonical.balance=n(canonical.balance)+n(oldFund.balance);
+
+        /* Preserve useful metadata if missing on canonical. */
+        ['account','branch','notes','exchange_rate'].forEach(function(k){
+          if(!canonical[k]&&oldFund[k])canonical[k]=oldFund[k];
+        });
+
+        [
+          db.cash_receipts_in,
+          db.cash_receipts_out,
+          db.financeFundMovements,
+          db.finance_cash_currency_movements,
+          db.journal,
+          db.collections,
+          db.sales,
+          db.purchases
+        ].forEach(function(arr){
+          if(!Array.isArray(arr))return;
+          arr.forEach(function(row){replaceFundReferenceV271(row,oldFund,canonical)});
+        });
+
+        /* Update nested movement references where they exist. */
+        Object.keys(db).forEach(function(k){
+          var arr=db[k];
+          if(!Array.isArray(arr))return;
+          arr.forEach(function(row){replaceFundReferenceV271(row,oldFund,canonical)});
+        });
+
+        db.financeFunds=db.financeFunds.filter(function(f){
+          return String(f.id)!==String(oldFund.id);
+        });
+        changed=true;
+      });
+    });
+
+    if(changed){
+      try{if(typeof save==='function')save()}catch(e){}
+    }
+    return changed;
+  }
+
+  function duplicateByNameV271(name,type,excludeId){
+    var norm=normalizedNameV271(name);
+    return (db.financeFunds||[]).find(function(f){
+      return String(f.id)!==String(excludeId||'') &&
+        (f.type==='bank'?'bank':'cash')===(type==='bank'?'bank':'cash') &&
+        normalizedNameV271(f.name)===norm;
+    });
+  }
+
+  /* Prevent accidental recreation of the same cashbox/bank under spelling aliases. */
+  function wrapAddFunctionV271(fnName){
+    var base=window[fnName];
+    if(typeof base!=='function'||base.__v271Wrapped)return;
+
+    var wrapped=function(){
+      var nameEl=document.getElementById('fund_name_v65')||
+                 document.getElementById('fund_name_v244')||
+                 document.querySelector('[id*="fund_name"]');
+      var typeEl=document.getElementById('fund_type_v65')||
+                 document.getElementById('fund_type_v244')||
+                 document.querySelector('[id*="fund_type"]');
+
+      var name=s(nameEl&&nameEl.value);
+      var type=s(typeEl&&typeEl.value||'cash');
+      var duplicate=name&&duplicateByNameV271(name,type,'');
+
+      if(duplicate){
+        alert('يوجد بالفعل '+(type==='bank'?'بنك':'خزنة')+' بنفس الاسم أو باسم مماثل: '+duplicate.name);
+        return;
+      }
+      return base.apply(this,arguments);
+    };
+    wrapped.__v271Wrapped=true;
+    window[fnName]=wrapped;
+  }
+
+  function refreshV271(){
+    var merged=mergeDuplicateFundsV271();
+    wrapAddFunctionV271('addFinanceFundV65');
+    wrapAddFunctionV271('addFinanceFundV244');
+    wrapAddFunctionV271('saveFinanceFundV65');
+    wrapAddFunctionV271('saveFinanceFundV244');
+
+    if(merged){
+      try{
+        if(typeof renderAccounts==='function')renderAccounts();
+      }catch(e){}
+    }
+  }
+
+  var renderAccountsBaseV271=window.renderAccounts;
+  if(typeof renderAccountsBaseV271==='function'){
+    window.renderAccounts=function(){
+      mergeDuplicateFundsV271();
+      var r=renderAccountsBaseV271.apply(this,arguments);
+      setTimeout(refreshV271,250);
+      return r;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  refreshV271();
+  setTimeout(refreshV271,700);
+})();
+</script>
