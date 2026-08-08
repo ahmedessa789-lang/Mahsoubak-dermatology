@@ -17976,3 +17976,141 @@ render();
   setTimeout(refreshV271,700);
 })();
 </script>
+
+<script id="v272-reps-target-as-quantity">
+(function(){
+  function numV272(v){var x=Number(v); return Number.isFinite(x)?x:0;}
+  function escV272(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])})}
+  function qtyWordV272(){return (typeof lang!=='undefined' && lang==='ar')?'وحدة':'Qty'}
+  function qtyFmtV272(v){
+    v=numV272(v);
+    return Number.isInteger(v)? String(v) : String(Math.round(v*100)/100);
+  }
+  function qtyFromItemsV272(items){
+    if(!Array.isArray(items)) return 0;
+    return items.reduce(function(a,it){
+      return a + numV272(it.qty||it.quantity||it.count||it.units||it.q||0);
+    },0);
+  }
+  function repAchievementQtyV272(id){
+    if(!Array.isArray(db.sales)) return 0;
+    return db.sales.filter(function(s){return String(s.rep_id||'')===String(id)}).reduce(function(a,s){
+      var q = numV272(s.qty||s.quantity||s.total_qty||s.units||s.count||0);
+      if(!q) q = qtyFromItemsV272(s.items);
+      return a + q;
+    },0);
+  }
+  window.repAchievement = repAchievementQtyV272;
+  window.totalRepTarget = function(){return (db.reps||[]).reduce(function(a,r){return a+numV272(r.target)},0)};
+  window.totalRepAchieved = function(){return (db.reps||[]).reduce(function(a,r){return a+repAchievementQtyV272(r.id)},0)};
+  window.avgRepPercent = function(){
+    var t=window.totalRepTarget();
+    return t? Math.round((window.totalRepAchieved()/t)*100) : 0;
+  };
+  window.repBarData = function(){
+    var reps=(db.reps||[]);
+    var max=Math.max(1,...reps.map(function(r){return Math.max(numV272(r.target),repAchievementQtyV272(r.id))}));
+    return reps.map(function(r){
+      return {label:r.name||'-', target:numV272(r.target), achieved:repAchievementQtyV272(r.id), remaining:Math.max(0,numV272(r.target)-repAchievementQtyV272(r.id)), max:max};
+    });
+  };
+  window.repBarDataFiltered = window.repBarData;
+
+  window.repTargetTable = function(){
+    if(!(db.reps||[]).length) return `<div class="empty">${typeof T==='function'?T('noData'):'No data'}</div>`;
+    return `<table><tr>
+      <th>${typeof T==='function'?T('name'):'Name'}</th>
+      <th>${typeof T==='function'?T('target'):'Target'} (${qtyWordV272()})</th>
+      <th>${(typeof lang!=='undefined'&&lang==='ar')?'المحقق':'Achieved'} (${qtyWordV272()})</th>
+      <th>${(typeof lang!=='undefined'&&lang==='ar')?'المتبقي من التارجت':'Remaining from target'} (${qtyWordV272()})</th>
+      <th>${(typeof lang!=='undefined'&&lang==='ar')?'نسبة التحقيق':'Achievement %'}</th>
+    </tr>` + db.reps.map(function(r){
+      var target=numV272(r.target), achieved=repAchievementQtyV272(r.id), remaining=Math.max(0,target-achieved), pct=target?Math.round((achieved/target)*100):0;
+      return `<tr>
+        <td>${escV272(r.name||'-')}</td>
+        <td>${qtyFmtV272(target)}</td>
+        <td>${qtyFmtV272(achieved)}</td>
+        <td>${qtyFmtV272(remaining)}</td>
+        <td><div class="hint">${pct}%</div></td>
+      </tr>`;
+    }).join('') + `</table>`;
+  };
+
+  window.repsQuantitySummaryHTMLV272 = function(){
+    var totalTarget=window.totalRepTarget(), totalAchieved=window.totalRepAchieved(), totalRemaining=Math.max(0,totalTarget-totalAchieved), pct=window.avgRepPercent();
+    var cards = `
+      <div class="stats-grid">
+        <div class="stat-card"><h3>${(typeof lang!=='undefined'&&lang==='ar')?'المحقق':'Achieved'}</h3><div class="value">${qtyFmtV272(totalAchieved)} <small>${qtyWordV272()}</small></div></div>
+        <div class="stat-card"><h3>${(typeof lang!=='undefined'&&lang==='ar')?'التارجت':'Target'}</h3><div class="value">${qtyFmtV272(totalTarget)} <small>${qtyWordV272()}</small></div></div>
+        <div class="stat-card"><h3>${(typeof lang!=='undefined'&&lang==='ar')?'المتبقي من التارجت':'Remaining from target'}</h3><div class="value">${qtyFmtV272(totalRemaining)} <small>${qtyWordV272()}</small></div></div>
+        <div class="stat-card"><h3>${(typeof lang!=='undefined'&&lang==='ar')?'نسبة التحقيق':'Achievement %'}</h3><div class="value">${pct}%</div></div>
+      </div>`;
+    var bars = `<div class="bars-grid">` + (db.reps||[]).map(function(r){
+      var target=numV272(r.target), achieved=repAchievementQtyV272(r.id), pctWidth=target?Math.min(100,Math.round((achieved/target)*100)):0;
+      return `<div class="mini-bar-card">
+        <div class="mini-bar-head"><strong>${escV272(r.name||'-')}</strong></div>
+        <div class="mini-bar-wrap"><div class="mini-bar-fill" style="width:${pctWidth}%"></div></div>
+        <div class="mini-bar-meta">${qtyFmtV272(achieved)} / ${qtyFmtV272(target)} ${qtyWordV272()}</div>
+      </div>`;
+    }).join('') + `</div>`;
+    return cards + `<div class="card"><h3>${(typeof lang!=='undefined'&&lang==='ar')?'نسبة الإنجاز لكل بياع':'Achievement by rep'}</h3>` + bars + `</div>`;
+  };
+
+  // Patch expanded dashboard modal for reps if function exists
+  if(typeof window.expandedDashboardHTML === 'function'){
+    var oldExpandedDashboardHTML = window.expandedDashboardHTML;
+    window.expandedDashboardHTML = function(key){
+      if(key==='reps'){
+        var head = (typeof modalHeader==='function')
+          ? modalHeader((typeof lang!=='undefined'&&lang==='ar')?'تفاصيل إدارة البياعين':'Sales reps details',
+                        (typeof lang!=='undefined'&&lang==='ar')?'التارجت، المحقق، ونسبة الإنجاز لكل بياع (بالكمية)':'Target, achieved, and achievement % per rep (by quantity)')
+          : '';
+        return `${head}
+        <div class="stack">
+          ${window.repsQuantitySummaryHTMLV272()}
+          <div class="card"><h3>${(typeof lang!=='undefined'&&lang==='ar')?'sales orders':'sales orders'}</h3>${window.repTargetTable()}</div>
+          <div class="card"><h3>${typeof T==='function'?T('stockAvailability'):'Stock availability'}</h3>${typeof stockAvailabilityTable==='function'?stockAvailabilityTable():''}</div>
+        </div>`;
+      }
+      return oldExpandedDashboardHTML.apply(this, arguments);
+    };
+  }
+
+  // Also patch reps page if opened directly
+  if(typeof window.renderReps === 'function'){
+    window.renderReps = function(){
+      var el=document.getElementById('view-reps');
+      if(!el) return;
+      el.innerHTML = `
+        <div class="card">
+          <h3>${(typeof lang!=='undefined'&&lang==='ar')?'إدارة البياعين':'Sales Reps'}</h3>
+          <div class="hint">${(typeof lang!=='undefined'&&lang==='ar')?'التارجت والمحقق هنا محسوبان بالكمية وليس بالقيمة':'Target and achieved are measured by quantity, not amount'}</div>
+          ${window.repsQuantitySummaryHTMLV272()}
+          <div class="card"><h3>${(typeof lang!=='undefined'&&lang==='ar')?'جدول أداء البياعين':'Reps performance table'}</h3>${window.repTargetTable()}</div>
+          <div class="card"><h3>${typeof T==='function'?T('stockAvailability'):'Stock availability'}</h3>${typeof stockAvailabilityTable==='function'?stockAvailabilityTable():''}</div>
+        </div>`;
+      };
+  }
+
+  // Make labels more explicit if they already render elsewhere
+  setTimeout(function(){
+    try{
+      document.querySelectorAll('th, h3, .stat-card h3').forEach(function(el){
+        var t=(el.textContent||'').trim();
+        if(t==='التارجت') el.textContent='التارجت (كمية)';
+        if(t==='Target') el.textContent='Target (Qty)';
+        if(t==='المحقق') el.textContent='المحقق (كمية)';
+        if(t==='Achieved') el.textContent='Achieved (Qty)';
+      });
+    }catch(e){}
+  },500);
+})();
+</script>
+<style id="v272-reps-target-style">
+.bars-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:12px}
+.mini-bar-card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:14px}
+.mini-bar-wrap{height:16px;background:#e5eef7;border-radius:999px;overflow:hidden;margin:10px 0}
+.mini-bar-fill{height:100%;background:linear-gradient(90deg,#22c1c3,#4caf50);border-radius:999px}
+.mini-bar-meta{font-size:13px;color:#475569}
+.mini-bar-head{margin-bottom:6px}
+</style>
