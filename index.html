@@ -19392,3 +19392,421 @@ ensureFundAccounts();setTimeout(function(){bind();injectTest()},700);
   setTimeout(removeRestoreButtonV280,900);
 })();
 </script>
+
+
+<style id="v281-manual-journal-entry-style">
+.v281-manual-journal{margin:0 0 16px}
+.v281-grid{display:grid;grid-template-columns:repeat(4,minmax(180px,1fr));gap:12px}
+.v281-transfer-extra{display:none}
+.v281-transfer-extra.show{display:contents}
+.v281-help{margin-top:10px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;color:#475569;font-size:12px;line-height:1.7}
+.v281-badge{display:inline-flex;padding:5px 9px;border-radius:999px;background:#ecfeff;color:#155e75;font-weight:800;font-size:11px}
+@media(max-width:900px){.v281-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.v281-grid{grid-template-columns:1fr}}
+</style>
+
+<script id="v281-manual-journal-entry-finance">
+(function(){
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S(v){return String(v==null?'':v).trim()}
+  function U(){return typeof uid==='function'?uid():'id_'+Date.now()+'_'+Math.random().toString(36).slice(2)}
+  function Tdy(){return typeof today==='function'?today():new Date().toISOString().slice(0,10)}
+  function E(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+
+  function ensureV281(){
+    if(typeof ensureAccounting==='function')ensureAccounting();
+    if(!Array.isArray(db.financeFunds))db.financeFunds=[];
+    if(!Array.isArray(db.journal))db.journal=[];
+    if(!Array.isArray(db.manual_journal_entries_v281))db.manual_journal_entries_v281=[];
+  }
+
+  function fundCodeV281(f){
+    if(!f)return '';
+    if(f.gl_account_code_v274)return f.gl_account_code_v274;
+    var raw=S(f.id||f.name||U()).replace(/[^A-Za-z0-9]/g,'').slice(-10).toUpperCase()||Math.random().toString(36).slice(2,9).toUpperCase();
+    f.gl_account_code_v274='FUND-'+raw;
+    return f.gl_account_code_v274;
+  }
+
+  function ensureFundAccountV281(f){
+    if(!f)return '';
+    var code=fundCodeV281(f);
+    var account=db.accounts.find(function(a){return String(a.code)===code});
+    if(!account){
+      var bank=f.type==='bank';
+      db.accounts.push({
+        id:U(),code:code,
+        name:(bank?'بنك / Bank: ':'خزنة / Cashbox: ')+(f.name||'-')+' ['+S(f.currency||'EGP').toUpperCase()+']',
+        type:'Asset',parent:bank?'1110':'1100',level:2,normal:'debit',opening:0,
+        notes:'Auto-linked finance fund'
+      });
+    }
+    return code;
+  }
+
+  function fundOptionsV281(selected){
+    ensureV281();
+    return '<option value="">اختر الخزنة / البنك</option>'+
+      db.financeFunds.map(function(f){
+        return '<option value="'+E(f.id)+'" '+(String(f.id)===String(selected)?'selected':'')+'>'+
+          E((f.type==='bank'?'بنك - ':'خزنة - ')+(f.name||'-')+' ['+S(f.currency||'EGP').toUpperCase()+']')+
+        '</option>';
+      }).join('');
+  }
+
+  function accountOptionsV281(selected){
+    ensureV281();
+    var arr=(db.accounts||[]).filter(function(a){
+      var hasChild=(db.accounts||[]).some(function(x){return String(x.parent||'')===String(a.code)});
+      return !hasChild || (db.journal||[]).some(function(j){return String(j.account)===String(a.code)}) ||
+        ['1200','1300','2100','3000','3900','3990','4100','5100','5200','6100'].indexOf(String(a.code))>=0;
+    }).sort(function(a,b){return String(a.code).localeCompare(String(b.code))});
+
+    return '<option value="">اختر الحساب المقابل</option>'+
+      arr.map(function(a){
+        return '<option value="'+E(a.code)+'" '+(String(a.code)===String(selected)?'selected':'')+'>'+
+          E(a.code+' — '+a.name)+
+        '</option>';
+      }).join('');
+  }
+
+  function getFundV281(id){
+    return (db.financeFunds||[]).find(function(f){return String(f.id)===String(id)})||null;
+  }
+
+  function fundRateToEgpV281(f, inputId){
+    if(!f)return 1;
+    var cur=S(f.currency||'EGP').toUpperCase();
+    if(cur==='EGP')return 1;
+    var el=document.getElementById(inputId);
+    return Math.max(N(el&&el.value),0);
+  }
+
+  function syncManualFormV281(){
+    var type=(document.getElementById('mj_type_v281')||{}).value||'deposit';
+    var srcWrap=document.getElementById('mj_source_wrap_v281');
+    var dstWrap=document.getElementById('mj_dest_wrap_v281');
+    var cpWrap=document.getElementById('mj_counterpart_wrap_v281');
+    var dstAmtWrap=document.getElementById('mj_dest_amount_wrap_v281');
+
+    if(srcWrap)srcWrap.style.display=(type==='withdrawal'||type==='transfer')?'block':'none';
+    if(dstWrap)dstWrap.style.display=(type==='deposit'||type==='transfer')?'block':'none';
+    if(cpWrap)cpWrap.style.display=(type==='transfer')?'none':'block';
+    if(dstAmtWrap)dstAmtWrap.style.display=(type==='transfer')?'block':'none';
+
+    var sf=getFundV281((document.getElementById('mj_source_v281')||{}).value);
+    var df=getFundV281((document.getElementById('mj_dest_v281')||{}).value);
+    var sr=document.getElementById('mj_source_rate_v281');
+    var dr=document.getElementById('mj_dest_rate_v281');
+
+    if(sr){
+      var sc=S(sf&&sf.currency||'EGP').toUpperCase();
+      sr.disabled=sc==='EGP'; if(sc==='EGP')sr.value=1;
+      sr.previousElementSibling.textContent='سعر '+sc+' بالجنيه';
+    }
+    if(dr){
+      var dc=S(df&&df.currency||'EGP').toUpperCase();
+      dr.disabled=dc==='EGP'; if(dc==='EGP')dr.value=1;
+      dr.previousElementSibling.textContent='سعر '+dc+' بالجنيه';
+    }
+  }
+  window.syncManualFormV281=syncManualFormV281;
+
+  function postManualJournalV281(){
+    ensureV281();
+    var type=(document.getElementById('mj_type_v281')||{}).value||'deposit';
+    var date=(document.getElementById('mj_date_v281')||{}).value||Tdy();
+    var desc=S((document.getElementById('mj_desc_v281')||{}).value);
+    var ref=S((document.getElementById('mj_ref_v281')||{}).value);
+    var amount=N((document.getElementById('mj_amount_v281')||{}).value);
+    var destAmount=N((document.getElementById('mj_dest_amount_v281')||{}).value);
+    var cp=S((document.getElementById('mj_counterpart_v281')||{}).value);
+    var sf=getFundV281((document.getElementById('mj_source_v281')||{}).value);
+    var df=getFundV281((document.getElementById('mj_dest_v281')||{}).value);
+
+    if(!desc)return alert('اكتب بيان القيد');
+    if(amount<=0)return alert('اكتب مبلغ صحيح');
+
+    var sourceRate=fundRateToEgpV281(sf,'mj_source_rate_v281');
+    var destRate=fundRateToEgpV281(df,'mj_dest_rate_v281');
+    var sourceEgp=amount*sourceRate;
+    var destEgp=(type==='transfer'?(destAmount||amount):amount)*destRate;
+
+    var lines=[], meta={};
+    if(type==='deposit'){
+      if(!df)return alert('اختر الخزنة أو البنك الذي سيتم الإيداع فيه');
+      if(!cp)return alert('اختر الحساب المقابل للإيداع');
+      if(destRate<=0)return alert('اكتب سعر التحويل إلى الجنيه');
+      var dcode=ensureFundAccountV281(df);
+      lines=[
+        {account:dcode,debit:destEgp,credit:0},
+        {account:cp,debit:0,credit:destEgp}
+      ];
+      meta={dest_fund_id:df.id,dest_fund_name:df.name,currency:df.currency||'EGP',rate:destRate,amount:amount,egp_value:destEgp};
+    }else if(type==='withdrawal'){
+      if(!sf)return alert('اختر الخزنة أو البنك الذي سيتم الصرف منه');
+      if(!cp)return alert('اختر الحساب المقابل للصرف');
+      if(sourceRate<=0)return alert('اكتب سعر التحويل إلى الجنيه');
+      var scode=ensureFundAccountV281(sf);
+      lines=[
+        {account:cp,debit:sourceEgp,credit:0},
+        {account:scode,debit:0,credit:sourceEgp}
+      ];
+      meta={source_fund_id:sf.id,source_fund_name:sf.name,currency:sf.currency||'EGP',rate:sourceRate,amount:amount,egp_value:sourceEgp};
+    }else{
+      if(!sf||!df)return alert('اختر الخزنة/البنك المصدر والوجهة');
+      if(String(sf.id)===String(df.id))return alert('المصدر والوجهة لا يمكن أن يكونا نفس الحساب');
+      if(sourceRate<=0||destRate<=0)return alert('اكتب أسعار التحويل إلى الجنيه');
+      if(destAmount<=0)destAmount=amount;
+      sourceEgp=amount*sourceRate;
+      destEgp=destAmount*destRate;
+
+      if(Math.abs(sourceEgp-destEgp)>0.01){
+        return alert('قيمة التحويل بالجنيه غير متساوية بين المصدر والوجهة. عدّل المبلغ أو سعر الصرف حتى يتساوى الطرفان.');
+      }
+
+      var sc=ensureFundAccountV281(sf), dc=ensureFundAccountV281(df);
+      lines=[
+        {account:dc,debit:destEgp,credit:0},
+        {account:sc,debit:0,credit:sourceEgp}
+      ];
+      meta={
+        source_fund_id:sf.id,source_fund_name:sf.name,source_currency:sf.currency||'EGP',source_amount:amount,source_rate:sourceRate,
+        dest_fund_id:df.id,dest_fund_name:df.name,dest_currency:df.currency||'EGP',dest_amount:destAmount,dest_rate:destRate,
+        egp_value:sourceEgp
+      };
+    }
+
+    var debit=lines.reduce(function(t,l){return t+N(l.debit)},0);
+    var credit=lines.reduce(function(t,l){return t+N(l.credit)},0);
+    if(Math.abs(debit-credit)>0.01)return alert('القيد غير متزن ولن يتم حفظه');
+
+    var id=U();
+    var typeLabel=type==='deposit'?'إيداع يدوي':type==='withdrawal'?'صرف يدوي':'تحويل بين خزنة/بنك';
+    var fullDesc=typeLabel+' - '+desc+(ref?' - مرجع: '+ref:'');
+
+    lines.forEach(function(l){
+      db.journal.push({
+        id:U(),date:date,source:'manual_journal_v281',sourceId:id,
+        description:fullDesc,account:l.account,debit:N(l.debit),credit:N(l.credit)
+      });
+    });
+
+    db.manual_journal_entries_v281.unshift(Object.assign({
+      id:id,date:date,type:type,description:desc,reference:ref,
+      counterpart_account:cp,created_at:new Date().toISOString()
+    },meta));
+
+    try{if(typeof save==='function')save()}catch(e){}
+    try{if(typeof renderAccounts==='function')renderAccounts()}catch(e){}
+    try{if(typeof renderTrialBalance==='function')renderTrialBalance()}catch(e){}
+    try{if(typeof renderIncomeStatementV273==='function')renderIncomeStatementV273()}catch(e){}
+    try{if(typeof renderBalanceSheetV273==='function')renderBalanceSheetV273()}catch(e){}
+
+    alert('تم تسجيل القيد اليدوي وترحيله إلى الأستاذ وميزان المراجعة والقوائم المالية');
+  }
+  window.postManualJournalV281=postManualJournalV281;
+
+  function deleteManualJournalV281(id){
+    if(!confirm('حذف هذا القيد اليدوي وآثاره المحاسبية؟'))return;
+    ensureV281();
+    db.journal=db.journal.filter(function(j){
+      return !(String(j.source)==='manual_journal_v281'&&String(j.sourceId)===String(id));
+    });
+    db.manual_journal_entries_v281=db.manual_journal_entries_v281.filter(function(r){return String(r.id)!==String(id)});
+    try{if(typeof save==='function')save()}catch(e){}
+    try{if(typeof renderAccounts==='function')renderAccounts()}catch(e){}
+  }
+  window.deleteManualJournalV281=deleteManualJournalV281;
+
+  function historyV281(){
+    ensureV281();
+    if(!db.manual_journal_entries_v281.length)return '<div class="empty">لا توجد قيود يدوية مسجلة</div>';
+    return '<table><tr><th>التاريخ</th><th>النوع</th><th>البيان</th><th>المرجع</th><th>القيمة EGP</th><th></th></tr>'+
+      db.manual_journal_entries_v281.slice(0,50).map(function(r){
+        var label=r.type==='deposit'?'إيداع':r.type==='withdrawal'?'صرف':'تحويل';
+        return '<tr><td>'+E(r.date)+'</td><td><span class="v281-badge">'+label+'</span></td><td>'+E(r.description)+'</td><td>'+E(r.reference||'-')+'</td><td>'+N(r.egp_value).toLocaleString('en-EG')+' EGP</td><td><button class="btn small danger" onclick="deleteManualJournalV281(\''+E(r.id)+'\')">حذف</button></td></tr>';
+      }).join('')+'</table>';
+  }
+
+  function manualJournalCardV281(){
+    var ar=typeof lang!=='undefined'&&lang==='ar';
+    return '<div class="card v281-manual-journal" id="v281_manual_journal_card">'+
+      '<div class="section-title"><div><h3>'+(ar?'قيد يومية يدوي':'Manual Journal Entry')+'</h3>'+
+      '<div class="hint">'+(ar?'للحركات التي لا تستخدم أوراق قبض أو أوراق دفع، مثل التحويلات البنكية والإيداعات والصرف المباشر.':'For transactions without receipt/payment vouchers, such as bank transfers and direct deposits/withdrawals.')+'</div></div></div>'+
+      '<div class="v281-grid">'+
+        '<div><label>'+(ar?'نوع الحركة':'Transaction Type')+'</label><select id="mj_type_v281" onchange="syncManualFormV281()"><option value="deposit">'+(ar?'إيداع':'Deposit')+'</option><option value="withdrawal">'+(ar?'صرف':'Withdrawal')+'</option><option value="transfer">'+(ar?'تحويل خزنة / بنك':'Fund / Bank Transfer')+'</option></select></div>'+
+        '<div><label>'+(ar?'التاريخ':'Date')+'</label><input id="mj_date_v281" type="date" value="'+Tdy()+'"></div>'+
+        '<div id="mj_source_wrap_v281" style="display:none"><label>'+(ar?'من خزنة / بنك':'From Fund / Bank')+'</label><select id="mj_source_v281" onchange="syncManualFormV281()">'+fundOptionsV281('')+'</select></div>'+
+        '<div id="mj_dest_wrap_v281"><label>'+(ar?'إلى خزنة / بنك':'To Fund / Bank')+'</label><select id="mj_dest_v281" onchange="syncManualFormV281()">'+fundOptionsV281('')+'</select></div>'+
+        '<div><label>'+(ar?'المبلغ':'Amount')+'</label><input id="mj_amount_v281" type="number" min="0" step="0.01"></div>'+
+        '<div id="mj_dest_amount_wrap_v281" style="display:none"><label>'+(ar?'المبلغ المستلم في الوجهة':'Destination Amount')+'</label><input id="mj_dest_amount_v281" type="number" min="0" step="0.01"></div>'+
+        '<div><label>سعر EGP</label><input id="mj_source_rate_v281" type="number" min="0" step="0.0001" value="1" disabled></div>'+
+        '<div><label>سعر EGP</label><input id="mj_dest_rate_v281" type="number" min="0" step="0.0001" value="1" disabled></div>'+
+        '<div id="mj_counterpart_wrap_v281"><label>'+(ar?'الحساب المقابل':'Counterpart Account')+'</label><select id="mj_counterpart_v281">'+accountOptionsV281('')+'</select></div>'+
+        '<div><label>'+(ar?'المرجع':'Reference')+'</label><input id="mj_ref_v281" placeholder="'+(ar?'رقم تحويل / مرجع البنك':'Transfer / bank reference')+'"></div>'+
+        '<div style="grid-column:span 2"><label>'+(ar?'البيان':'Description')+'</label><input id="mj_desc_v281" placeholder="'+(ar?'مثال: تحويل من بنك CIB إلى خزنة الشركة':'Example: Transfer from CIB to company cashbox')+'"></div>'+
+      '</div>'+
+      '<div class="v281-help">'+
+        (ar
+          ?'<b>Workflow:</b> الإيداع = مدين الخزنة/البنك ودائن الحساب المقابل. الصرف = مدين الحساب المقابل ودائن الخزنة/البنك. التحويل = مدين الوجهة ودائن المصدر، وبالتالي لا يؤثر على الأرباح إلا لو الحساب المقابل إيراد أو مصروف.'
+          :'<b>Workflow:</b> Deposit debits the fund/bank and credits the counterpart. Withdrawal debits the counterpart and credits the fund/bank. Transfer debits destination and credits source.')+
+      '</div>'+
+      '<button class="btn ok" style="margin-top:12px" onclick="postManualJournalV281()">'+(ar?'تسجيل القيد':'Post Entry')+'</button>'+
+      '<div style="margin-top:18px"><h3>'+(ar?'آخر القيود اليدوية':'Recent Manual Entries')+'</h3>'+historyV281()+'</div>'+
+    '</div>';
+  }
+
+  function injectV281(){
+    ensureV281();
+    var view=document.getElementById('view-accounts');
+    if(!view)return;
+    var old=document.getElementById('v281_manual_journal_card');
+    if(old)old.remove();
+
+    var holder=document.createElement('div');
+    holder.innerHTML=manualJournalCardV281();
+    var card=holder.firstElementChild;
+
+    var financialHolder=document.getElementById('v277_finance_statements_holder');
+    if(financialHolder && financialHolder.nextSibling){
+      view.insertBefore(card,financialHolder.nextSibling);
+    }else if(financialHolder){
+      view.appendChild(card);
+    }else{
+      view.insertBefore(card,view.firstChild);
+    }
+    setTimeout(syncManualFormV281,30);
+  }
+
+  var renderAccountsBaseV281=window.renderAccounts;
+  if(typeof renderAccountsBaseV281==='function'){
+    window.renderAccounts=function(){
+      var r=renderAccountsBaseV281.apply(this,arguments);
+      setTimeout(injectV281,220);
+      return r;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  ensureV281();
+  setTimeout(injectV281,900);
+})();
+</script>
+
+
+<style id="v282-searchable-counterpart-style">
+.v282-search-wrap{position:relative}
+.v282-search-results{position:absolute;z-index:9999;top:100%;left:0;right:0;max-height:260px;overflow:auto;background:#fff;border:1px solid #cbd5e1;border-radius:12px;box-shadow:0 14px 35px rgba(15,23,42,.14);display:none}
+.v282-search-results.show{display:block}
+.v282-search-item{padding:10px 12px;cursor:pointer;border-bottom:1px solid #eef2f7}
+.v282-search-item:last-child{border-bottom:0}
+.v282-search-item:hover{background:#f8fafc}
+.v282-search-item b{font-family:Consolas,monospace;color:#0f766e}
+.v282-selected{font-size:12px;color:#475569;margin-top:5px}
+</style>
+<script id="v282-searchable-counterpart">
+(function(){
+  function S(v){return String(v==null?'':v).trim()}
+  function E(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+
+  function searchableAccountsV282(){
+    if(!Array.isArray(db.accounts))return [];
+    return db.accounts.filter(function(a){
+      var hasChild=db.accounts.some(function(x){return String(x.parent||'')===String(a.code)});
+      var used=Array.isArray(db.journal)&&db.journal.some(function(j){return String(j.account)===String(a.code)});
+      return !hasChild || used || ['1200','1300','2100','3000','3900','3990','4100','5100','5200','6100'].indexOf(String(a.code))>=0;
+    }).sort(function(a,b){return String(a.code).localeCompare(String(b.code))});
+  }
+
+  function renderResultsV282(query){
+    var box=document.getElementById('mj_counterpart_results_v282');
+    if(!box)return;
+    var q=S(query).toLowerCase();
+    var arr=searchableAccountsV282().filter(function(a){
+      if(!q)return true;
+      return String(a.code).toLowerCase().indexOf(q)>=0 ||
+             S(a.name).toLowerCase().indexOf(q)>=0;
+    }).slice(0,60);
+
+    box.innerHTML=arr.length?arr.map(function(a){
+      return '<div class="v282-search-item" data-code="'+E(a.code)+'" data-name="'+E(a.name)+'">'+
+        '<b>'+E(a.code)+'</b> — '+E(a.name)+'</div>';
+    }).join(''):'<div class="v282-search-item">لا توجد نتائج</div>';
+    box.classList.add('show');
+
+    Array.from(box.querySelectorAll('.v282-search-item[data-code]')).forEach(function(item){
+      item.onclick=function(){
+        var code=item.getAttribute('data-code');
+        var name=item.getAttribute('data-name');
+        var hidden=document.getElementById('mj_counterpart_v281');
+        var input=document.getElementById('mj_counterpart_search_v282');
+        var selected=document.getElementById('mj_counterpart_selected_v282');
+        if(hidden)hidden.value=code;
+        if(input)input.value=code+' — '+name;
+        if(selected)selected.textContent='تم اختيار: '+code+' — '+name;
+        box.classList.remove('show');
+      };
+    });
+  }
+
+  window.searchCounterpartV282=function(){
+    var input=document.getElementById('mj_counterpart_search_v282');
+    renderResultsV282(input?input.value:'');
+  };
+
+  function upgradeCounterpartV282(){
+    var select=document.getElementById('mj_counterpart_v281');
+    if(!select || document.getElementById('mj_counterpart_search_v282'))return;
+
+    select.style.display='none';
+
+    var wrap=document.createElement('div');
+    wrap.className='v282-search-wrap';
+    wrap.innerHTML=
+      '<input id="mj_counterpart_search_v282" type="text" autocomplete="off" placeholder="اكتب كود الحساب أو جزء من الاسم">'+
+      '<div id="mj_counterpart_results_v282" class="v282-search-results"></div>'+
+      '<div id="mj_counterpart_selected_v282" class="v282-selected">لم يتم اختيار حساب</div>';
+
+    select.insertAdjacentElement('afterend',wrap);
+
+    var input=document.getElementById('mj_counterpart_search_v282');
+    input.addEventListener('input',function(){
+      if(select)select.value='';
+      var selected=document.getElementById('mj_counterpart_selected_v282');
+      if(selected)selected.textContent='لم يتم اختيار حساب';
+      renderResultsV282(input.value);
+    });
+    input.addEventListener('focus',function(){renderResultsV282(input.value)});
+
+    document.addEventListener('click',function(e){
+      var w=input.closest('.v282-search-wrap');
+      if(w && !w.contains(e.target)){
+        var box=document.getElementById('mj_counterpart_results_v282');
+        if(box)box.classList.remove('show');
+      }
+    });
+  }
+
+  var injectBaseV282=window.syncManualFormV281;
+  if(typeof injectBaseV282==='function'){
+    window.syncManualFormV281=function(){
+      var r=injectBaseV282.apply(this,arguments);
+      setTimeout(upgradeCounterpartV282,30);
+      return r;
+    };
+  }
+
+  var renderAccountsBaseV282=window.renderAccounts;
+  if(typeof renderAccountsBaseV282==='function'){
+    window.renderAccounts=function(){
+      var r=renderAccountsBaseV282.apply(this,arguments);
+      setTimeout(upgradeCounterpartV282,280);
+      return r;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  setTimeout(upgradeCounterpartV282,1000);
+})();
+</script>
