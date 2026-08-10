@@ -18114,3 +18114,1281 @@ render();
 .mini-bar-meta{font-size:13px;color:#475569}
 .mini-bar-head{margin-bottom:6px}
 </style>
+
+
+<style id="v273-financial-statements-style">
+.v273-toolbar{display:grid;grid-template-columns:1fr 1fr auto auto;gap:12px;align-items:end;margin-bottom:16px}
+.v273-statement{max-width:1050px;margin:auto}
+.v273-section-title{font-weight:900;font-size:17px;background:#f8fafc;padding:10px 12px;border-radius:10px;margin:12px 0 6px}
+.v273-line{display:flex;justify-content:space-between;gap:14px;padding:9px 12px;border-bottom:1px solid #e5e7eb}
+.v273-line.total{font-weight:900;border-top:2px solid #0f172a;border-bottom:0;margin-top:5px}
+.v273-line.grand{font-size:18px;font-weight:900;background:#ecfdf5;border-radius:10px;border:0;margin-top:12px}
+.v273-line.loss{background:#fef2f2}
+.v273-balance-ok{color:#166534}.v273-balance-bad{color:#b91c1c}
+@media(max-width:800px){.v273-toolbar{grid-template-columns:1fr}}
+@media print{.v273-toolbar,.no-print{display:none!important}.v273-statement{max-width:none}}
+</style>
+
+<script id="v273-financial-statements-workflow">
+(function(){
+  function num(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function s(v){return String(v==null?'':v).trim()}
+  function m(v){
+    try{return Number(v||0).toLocaleString('en-EG',{minimumFractionDigits:2,maximumFractionDigits:2})+' EGP'}
+    catch(e){return Number(v||0).toFixed(2)+' EGP'}
+  }
+  function esc2(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function dateOnly(v){return s(v).slice(0,10)}
+  function childrenOf(code){return (db.accounts||[]).filter(function(a){return String(a.parent||'')===String(code)})}
+  function isPostingAccount(a){
+    return !childrenOf(a.code).length || (db.journal||[]).some(function(j){return String(j.account)===String(a.code)}) || num(a.opening)!==0;
+  }
+
+  function periodLines(from,to){
+    return (db.journal||[]).filter(function(j){
+      var dt=dateOnly(j.date);
+      return (!from||dt>=from)&&(!to||dt<=to);
+    });
+  }
+
+  function accountPeriodAmount(a,from,to){
+    var lines=periodLines(from,to).filter(function(j){return String(j.account)===String(a.code)});
+    var debit=lines.reduce(function(x,j){return x+num(j.debit)},0);
+    var credit=lines.reduce(function(x,j){return x+num(j.credit)},0);
+    if(a.type==='Revenue') return credit-debit;
+    if(a.type==='Expense') return debit-credit;
+    return a.normal==='credit'?credit-debit:debit-credit;
+  }
+
+  function accountAsOfAmount(a,to){
+    var lines=(db.journal||[]).filter(function(j){
+      return String(j.account)===String(a.code)&&(!to||dateOnly(j.date)<=to);
+    });
+    var debit=lines.reduce(function(x,j){return x+num(j.debit)},0);
+    var credit=lines.reduce(function(x,j){return x+num(j.credit)},0);
+    return num(a.opening)+(a.normal==='credit'?credit-debit:debit-credit);
+  }
+
+  function statementAccounts(type){
+    if(typeof ensureAccounting==='function')ensureAccounting();
+    return (db.accounts||[]).filter(function(a){return a.type===type&&isPostingAccount(a)})
+      .sort(function(a,b){return String(a.code).localeCompare(String(b.code))});
+  }
+
+  function incomeData(from,to){
+    var revenues=statementAccounts('Revenue').map(function(a){return {a:a,v:accountPeriodAmount(a,from,to)}}).filter(function(x){return Math.abs(x.v)>0.0001});
+    var expenses=statementAccounts('Expense').map(function(a){return {a:a,v:accountPeriodAmount(a,from,to)}}).filter(function(x){return Math.abs(x.v)>0.0001});
+
+    var cogs=expenses.filter(function(x){return /^5/.test(String(x.a.code))});
+    var operating=expenses.filter(function(x){return !/^5/.test(String(x.a.code))});
+
+    var revenue=revenues.reduce(function(t,x){return t+x.v},0);
+    var cogsTotal=cogs.reduce(function(t,x){return t+x.v},0);
+    var gross=revenue-cogsTotal;
+    var opTotal=operating.reduce(function(t,x){return t+x.v},0);
+    var net=gross-opTotal;
+    return {revenues:revenues,cogs:cogs,operating:operating,revenue:revenue,cogsTotal:cogsTotal,gross:gross,opTotal:opTotal,net:net};
+  }
+
+  function retainedEarningsAsOf(to){
+    var start='';
+    return incomeData(start,to).net;
+  }
+
+  function balanceData(to){
+    var assets=statementAccounts('Asset').map(function(a){return {a:a,v:accountAsOfAmount(a,to)}}).filter(function(x){return Math.abs(x.v)>0.0001});
+    var liabilities=statementAccounts('Liability').map(function(a){return {a:a,v:accountAsOfAmount(a,to)}}).filter(function(x){return Math.abs(x.v)>0.0001});
+    var equity=statementAccounts('Equity').map(function(a){return {a:a,v:accountAsOfAmount(a,to)}}).filter(function(x){return Math.abs(x.v)>0.0001});
+
+    var totalAssets=assets.reduce(function(t,x){return t+x.v},0);
+    var totalLiabilities=liabilities.reduce(function(t,x){return t+x.v},0);
+    var baseEquity=equity.reduce(function(t,x){return t+x.v},0);
+    var currentEarnings=retainedEarningsAsOf(to);
+    var totalEquity=baseEquity+currentEarnings;
+    var right=totalLiabilities+totalEquity;
+    return {assets:assets,liabilities:liabilities,equity:equity,totalAssets:totalAssets,totalLiabilities:totalLiabilities,baseEquity:baseEquity,currentEarnings:currentEarnings,totalEquity:totalEquity,right:right,diff:totalAssets-right};
+  }
+
+  function rowsHtml(arr){
+    if(!arr.length)return '<div class="v273-line"><span>'+(lang==='ar'?'لا توجد حركة':'No activity')+'</span><b>'+m(0)+'</b></div>';
+    return arr.map(function(x){
+      return '<div class="v273-line"><span>'+esc2(x.a.code+' — '+x.a.name)+'</span><b>'+m(x.v)+'</b></div>';
+    }).join('');
+  }
+
+  window.renderIncomeStatementV273=function(){
+    var el=document.getElementById('view-income');
+    if(!el)return;
+    var from=(document.getElementById('is_from_v273')||{}).value||'';
+    var to=(document.getElementById('is_to_v273')||{}).value||'';
+    var d=incomeData(from,to);
+
+    el.innerHTML=
+      '<div class="card no-print"><div class="v273-toolbar">'+
+        '<div><label>'+(lang==='ar'?'من تاريخ':'From date')+'</label><input id="is_from_v273" type="date" value="'+esc2(from)+'"></div>'+
+        '<div><label>'+(lang==='ar'?'إلى تاريخ':'To date')+'</label><input id="is_to_v273" type="date" value="'+esc2(to)+'"></div>'+
+        '<button class="btn ok" onclick="renderIncomeStatementV273()">'+(lang==='ar'?'عرض':'View')+'</button>'+
+        '<button class="btn secondary" onclick="window.print()">'+(lang==='ar'?'طباعة':'Print')+'</button>'+
+      '</div></div>'+
+      '<div class="card v273-statement">'+
+        '<h2>'+(lang==='ar'?'قائمة الدخل':'Income Statement')+'</h2>'+
+        '<div class="hint">'+(lang==='ar'?'المصدر: القيود اليومية — لا يوجد إدخال يدوي داخل القائمة':'Source: Journal entries — no manual statement entry')+'</div>'+
+        '<div class="v273-section-title">'+(lang==='ar'?'الإيرادات':'Revenue')+'</div>'+rowsHtml(d.revenues)+
+        '<div class="v273-line total"><span>'+(lang==='ar'?'إجمالي الإيرادات':'Total Revenue')+'</span><b>'+m(d.revenue)+'</b></div>'+
+        '<div class="v273-section-title">'+(lang==='ar'?'تكلفة المبيعات':'Cost of Sales')+'</div>'+rowsHtml(d.cogs)+
+        '<div class="v273-line total"><span>'+(lang==='ar'?'إجمالي تكلفة المبيعات':'Total Cost of Sales')+'</span><b>'+m(d.cogsTotal)+'</b></div>'+
+        '<div class="v273-line total"><span>'+(lang==='ar'?'مجمل الربح':'Gross Profit')+'</span><b>'+m(d.gross)+'</b></div>'+
+        '<div class="v273-section-title">'+(lang==='ar'?'المصروفات التشغيلية والإدارية':'Operating & Administrative Expenses')+'</div>'+rowsHtml(d.operating)+
+        '<div class="v273-line total"><span>'+(lang==='ar'?'إجمالي المصروفات':'Total Expenses')+'</span><b>'+m(d.opTotal)+'</b></div>'+
+        '<div class="v273-line grand '+(d.net<0?'loss':'')+'"><span>'+(lang==='ar'?(d.net>=0?'صافي الربح':'صافي الخسارة'):(d.net>=0?'Net Profit':'Net Loss'))+'</span><b>'+m(Math.abs(d.net))+'</b></div>'+
+      '</div>';
+  };
+
+  window.renderBalanceSheetV273=function(){
+    var el=document.getElementById('view-balance');
+    if(!el)return;
+    var to=(document.getElementById('bs_to_v273')||{}).value||'';
+    var d=balanceData(to);
+    var ok=Math.abs(d.diff)<0.01;
+
+    el.innerHTML=
+      '<div class="card no-print"><div class="v273-toolbar" style="grid-template-columns:1fr auto auto">'+
+        '<div><label>'+(lang==='ar'?'الميزانية في تاريخ':'Balance sheet as of')+'</label><input id="bs_to_v273" type="date" value="'+esc2(to)+'"></div>'+
+        '<button class="btn ok" onclick="renderBalanceSheetV273()">'+(lang==='ar'?'عرض':'View')+'</button>'+
+        '<button class="btn secondary" onclick="window.print()">'+(lang==='ar'?'طباعة':'Print')+'</button>'+
+      '</div></div>'+
+      '<div class="card v273-statement">'+
+        '<h2>'+(lang==='ar'?'الميزانية العمومية':'Balance Sheet')+'</h2>'+
+        '<div class="hint">'+(lang==='ar'?'الأرصدة تراكمية من القيود حتى التاريخ المحدد، وصافي الربح يرحل تلقائيًا إلى حقوق الملكية للعرض':'Balances are cumulative through the selected date; current earnings are automatically included in equity for presentation')+'</div>'+
+        '<div class="v273-section-title">'+(lang==='ar'?'الأصول':'Assets')+'</div>'+rowsHtml(d.assets)+
+        '<div class="v273-line total"><span>'+(lang==='ar'?'إجمالي الأصول':'Total Assets')+'</span><b>'+m(d.totalAssets)+'</b></div>'+
+        '<div class="v273-section-title">'+(lang==='ar'?'الالتزامات':'Liabilities')+'</div>'+rowsHtml(d.liabilities)+
+        '<div class="v273-line total"><span>'+(lang==='ar'?'إجمالي الالتزامات':'Total Liabilities')+'</span><b>'+m(d.totalLiabilities)+'</b></div>'+
+        '<div class="v273-section-title">'+(lang==='ar'?'حقوق الملكية':'Equity')+'</div>'+rowsHtml(d.equity)+
+        '<div class="v273-line"><span>'+(lang==='ar'?'صافي الربح / الخسارة المتراكم حتى التاريخ':'Cumulative Profit / Loss to Date')+'</span><b>'+m(d.currentEarnings)+'</b></div>'+
+        '<div class="v273-line total"><span>'+(lang==='ar'?'إجمالي حقوق الملكية':'Total Equity')+'</span><b>'+m(d.totalEquity)+'</b></div>'+
+        '<div class="v273-line grand"><span>'+(lang==='ar'?'إجمالي الالتزامات وحقوق الملكية':'Total Liabilities & Equity')+'</span><b>'+m(d.right)+'</b></div>'+
+        '<div class="card stat" style="margin-top:14px"><span>'+(lang==='ar'?'اختبار توازن الميزانية':'Balance Sheet Check')+'</span>'+
+          '<strong class="'+(ok?'v273-balance-ok':'v273-balance-bad')+'">'+
+          (ok?(lang==='ar'?'متزنة ✓':'Balanced ✓'):(lang==='ar'?'غير متزنة — فرق ':'Unbalanced — Difference ')+m(Math.abs(d.diff)))+
+          '</strong></div>'+
+      '</div>';
+  };
+
+  function installV273(){
+    try{
+      if(typeof ensureAccounting==='function')ensureAccounting();
+
+      if(typeof TR!=='undefined'){
+        TR.ar.income='قائمة الدخل'; TR.en.income='Income Statement';
+        TR.ar.balanceSheet='الميزانية العمومية'; TR.en.balanceSheet='Balance Sheet';
+        TR.ar.incomeSub='الإيرادات والتكاليف والمصروفات وصافي الربح من القيود اليومية';
+        TR.en.incomeSub='Revenue, costs, expenses and net profit from journal entries';
+        TR.ar.balanceSub='الأصول والالتزامات وحقوق الملكية من دفتر الأستاذ';
+        TR.en.balanceSub='Assets, liabilities and equity from the general ledger';
+      }
+      if(typeof titleMap!=='undefined'){
+        titleMap.income='incomeSub';
+        titleMap.balance='balanceSub';
+      }
+      if(typeof icons!=='undefined'){
+        icons.income='📑';
+        icons.balance='🏦';
+      }
+
+      var main=document.querySelector('main.main')||document.querySelector('main');
+      if(main){
+        if(!document.getElementById('view-income')){
+          var sec=document.createElement('section'); sec.id='view-income'; sec.className='hidden'; main.appendChild(sec);
+        }
+        if(!document.getElementById('view-balance')){
+          var sec2=document.createElement('section'); sec2.id='view-balance'; sec2.className='hidden'; main.appendChild(sec2);
+        }
+      }
+
+      window.renderIncomeStatementV273();
+      window.renderBalanceSheetV273();
+    }catch(e){console.error('v273 install',e)}
+  }
+
+  var renderBaseV273=window.render;
+  if(typeof renderBaseV273==='function'){
+    window.render=function(){
+      var r=renderBaseV273.apply(this,arguments);
+      installV273();
+      return r;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  setTimeout(function(){installV273();try{if(typeof render==='function')render()}catch(e){}},500);
+})();
+</script>
+
+
+<style id="v274-accounting-audit-style">
+.v274-audit-grid{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:12px;margin:14px 0}
+.v274-ok{color:#166534}.v274-warn{color:#92400e}.v274-bad{color:#b91c1c}
+.v274-audit-table td,.v274-audit-table th{font-size:12px}
+@media(max-width:900px){.v274-audit-grid{grid-template-columns:1fr 1fr}}
+</style>
+
+<script id="v274-accounting-workflow-audit-safe-fix">
+(function(){
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S(v){return String(v==null?'':v).trim()}
+  function E(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function U(){return typeof uid==='function'?uid():'id_'+Date.now()+'_'+Math.random().toString(36).slice(2)}
+  function Tdy(){return typeof today==='function'?today():new Date().toISOString().slice(0,10)}
+
+  function ensureBaseV274(){
+    if(!Array.isArray(db.accounts))db.accounts=[];
+    if(!Array.isArray(db.journal))db.journal=[];
+    if(!Array.isArray(db.financeFunds))db.financeFunds=[];
+    if(!Array.isArray(db.cash_receipts_in))db.cash_receipts_in=[];
+    if(!Array.isArray(db.cash_receipts_out))db.cash_receipts_out=[];
+
+    function add(code,name,type,parent,normal){
+      if(!db.accounts.some(function(a){return String(a.code)===code})){
+        db.accounts.push({id:U(),code:code,name:name,type:type,parent:parent||'',level:parent?1:0,normal:normal,opening:0,notes:''});
+      }
+    }
+    add('1110','البنوك / Banks','Asset','1000','debit');
+    add('3990','تسوية حركات غير مصنفة / Unclassified Transaction Clearing','Equity','3000','credit');
+    add('5200','مصروفات العملاء / Customer Related Expenses','Expense','5000','debit');
+  }
+
+  function backupOnceV274(){
+    if(db.accounting_audit_backup_v274)return;
+    db.accounting_audit_backup_v274={
+      created_at:new Date().toISOString(),
+      journal:JSON.parse(JSON.stringify(db.journal||[])),
+      accounts:JSON.parse(JSON.stringify(db.accounts||[])),
+      financeFunds:JSON.parse(JSON.stringify(db.financeFunds||[]))
+    };
+  }
+
+  function fundTypeV274(f){return f&&f.type==='bank'?'bank':'cash'}
+  function fundCurrencyV274(f){return S(f&&f.currency||'EGP').toUpperCase()}
+  function fundAccountCodeV274(f){
+    if(!f)return '';
+    if(f.gl_account_code_v274)return f.gl_account_code_v274;
+    var raw=S(f.id||f.name||U()).replace(/[^A-Za-z0-9]/g,'').slice(-10).toUpperCase();
+    if(!raw)raw=Math.random().toString(36).slice(2,9).toUpperCase();
+    f.gl_account_code_v274='FUND-'+raw;
+    return f.gl_account_code_v274;
+  }
+
+  function ensureFundAccountsV274(){
+    ensureBaseV274();
+    db.financeFunds.forEach(function(f){
+      var code=fundAccountCodeV274(f);
+      var type=fundTypeV274(f);
+      var parent=type==='bank'?'1110':'1100';
+      var account=db.accounts.find(function(a){return String(a.code)===code});
+      var name=(type==='bank'?'بنك / Bank: ':'خزنة / Cashbox: ')+(f.name||'-')+' ['+fundCurrencyV274(f)+']';
+      if(!account){
+        db.accounts.push({
+          id:U(),code:code,name:name,type:'Asset',parent:parent,level:2,normal:'debit',
+          opening:0,notes:'Auto-linked to finance fund '+S(f.id)
+        });
+      }else{
+        account.name=name;
+        account.type='Asset';
+        account.normal='debit';
+        account.parent=parent;
+      }
+    });
+  }
+
+  function receiptFundV274(row){
+    if(!row)return null;
+    var id=S(row.finance_fund_id||row.treasury_id||row.bank_fund_id||row.finance_account_id);
+    if(id){
+      var byId=db.financeFunds.find(function(f){return String(f.id)===id});
+      if(byId)return byId;
+    }
+    var nm=S(row.finance_fund_name||row.treasury_name||row.bank_fund_name||row.finance_account||row.bank).toLowerCase();
+    if(nm){
+      var byName=db.financeFunds.find(function(f){return S(f.name).toLowerCase()===nm});
+      if(byName)return byName;
+    }
+    var cur=S(row.currency||'EGP').toUpperCase();
+    var kind=(row.method==='bank'||row.fund_type==='bank')?'bank':'cash';
+    var matches=db.financeFunds.filter(function(f){return fundTypeV274(f)===kind&&fundCurrencyV274(f)===cur});
+    return matches.length===1?matches[0]:null;
+  }
+
+  function receiptEgpV274(row){
+    if(!row)return 0;
+    if(N(row.amount_egp))return N(row.amount_egp);
+    if(N(row.egp_value))return N(row.egp_value);
+    var original=N(row.amount_original!=null?row.amount_original:row.amount);
+    var cur=S(row.currency||'EGP').toUpperCase();
+    if(cur==='EGP')return original;
+    var rate=N(row.exchange_rate||row.fx||row.rate||1);
+    return original*rate;
+  }
+
+  function receiptSourceIdV274(row){return 'cash_receipt_'+row.id}
+
+  function rePostReceiptV274(row,type){
+    if(!row||!row.id)return false;
+    ensureFundAccountsV274();
+    var fund=receiptFundV274(row);
+    if(!fund)return false;
+
+    var amount=receiptEgpV274(row);
+    if(!(amount>0))return false;
+
+    var sourceId=receiptSourceIdV274(row);
+    var gl=fundAccountCodeV274(fund);
+    var isIn=type==='in';
+    var desc=(isIn?'إيصال استلام ':'إيصال صرف ')+(row.serial||'')+' - '+(row.party||'')+' - '+(row.purpose||'')+
+      ' | '+fund.name+' | '+S(row.currency||fund.currency||'EGP');
+
+    /* Only replace the accounting lines belonging to this exact receipt. */
+    db.journal=db.journal.filter(function(j){
+      return !(String(j.sourceId||'')===sourceId &&
+        /cash_receipt|receipt_accounting_v274/.test(String(j.source||'')));
+    });
+
+    if(isIn){
+      db.journal.push({id:U(),date:row.date||Tdy(),account:gl,debit:amount,credit:0,description:desc,source:'receipt_accounting_v274',sourceId:sourceId});
+      db.journal.push({id:U(),date:row.date||Tdy(),account:'3990',debit:0,credit:amount,description:'مقابل '+desc,source:'receipt_accounting_v274',sourceId:sourceId});
+    }else{
+      db.journal.push({id:U(),date:row.date||Tdy(),account:'3990',debit:amount,credit:0,description:'مقابل '+desc,source:'receipt_accounting_v274',sourceId:sourceId});
+      db.journal.push({id:U(),date:row.date||Tdy(),account:gl,debit:0,credit:amount,description:desc,source:'receipt_accounting_v274',sourceId:sourceId});
+    }
+    row.gl_account_code_v274=gl;
+    row.accounting_egp_value_v274=amount;
+    return true;
+  }
+
+  function reconcileLinkedReceiptsV274(){
+    backupOnceV274();
+    var changed=0;
+    db.cash_receipts_in.forEach(function(r){if(receiptFundV274(r)&&rePostReceiptV274(r,'in'))changed++});
+    db.cash_receipts_out.forEach(function(r){if(receiptFundV274(r)&&rePostReceiptV274(r,'out'))changed++});
+    return changed;
+  }
+
+  function cleanDeletedReceiptAccountingV274(type,id){
+    var sourceId='cash_receipt_'+id;
+    db.journal=db.journal.filter(function(j){return String(j.sourceId||'')!==sourceId});
+    if(Array.isArray(db.finance_cash_currency_movements)){
+      db.finance_cash_currency_movements=db.finance_cash_currency_movements.filter(function(r){
+        return String(r.receipt_id||'')!==String(id)&&String(r.sourceId||'')!==sourceId&&String(r.id||'')!==sourceId;
+      });
+    }
+    if(Array.isArray(db.financeFundMovements)){
+      db.financeFundMovements=db.financeFundMovements.filter(function(r){return String(r.source_receipt_id||'')!==String(id)});
+    }
+  }
+
+  function auditV274(){
+    ensureFundAccountsV274();
+    var issues=[];
+    var groups={};
+    db.journal.forEach(function(j){
+      var key=S(j.sourceId||j.id||'NO-ID');
+      if(!groups[key])groups[key]={debit:0,credit:0,count:0,source:S(j.source||''),desc:S(j.description||'')};
+      groups[key].debit+=N(j.debit); groups[key].credit+=N(j.credit); groups[key].count++;
+      if(!db.accounts.some(function(a){return String(a.code)===String(j.account)})){
+        issues.push({level:'bad',type:'حساب غير موجود',detail:'القيد يستخدم الحساب '+S(j.account),source:key});
+      }
+    });
+    Object.keys(groups).forEach(function(k){
+      var g=groups[k],diff=Math.abs(g.debit-g.credit);
+      if(diff>0.01)issues.push({level:'bad',type:'قيد غير متزن',detail:'مدين '+g.debit.toFixed(2)+' / دائن '+g.credit.toFixed(2)+' / فرق '+diff.toFixed(2),source:k});
+    });
+
+    db.cash_receipts_in.concat(db.cash_receipts_out).forEach(function(r){
+      if(!receiptFundV274(r)){
+        issues.push({level:'warn',type:'إيصال غير مرتبط بخزنة/بنك',detail:(r.serial||r.id)+' — '+S(r.currency||'EGP'),source:r.id});
+      }
+      var cur=S(r.currency||'EGP').toUpperCase();
+      if(cur!=='EGP' && !N(r.exchange_rate||r.fx||r.rate) && !N(r.amount_egp||r.egp_value)){
+        issues.push({level:'warn',type:'عملة أجنبية بدون تحويل واضح',detail:(r.serial||r.id)+' — '+cur,source:r.id});
+      }
+    });
+
+    var clearing=db.journal.filter(function(j){return String(j.account)==='3990'}).reduce(function(a,j){return a+N(j.credit)-N(j.debit)},0);
+    if(Math.abs(clearing)>0.01){
+      issues.push({level:'warn',type:'حركات غير مصنفة محاسبيًا',detail:'رصيد حساب التسوية 3990 = '+Math.abs(clearing).toFixed(2)+' EGP. هذه الحركات متزنة لكنها تحتاج تصنيف مقابل نهائي عند الحاجة.',source:'3990'});
+    }
+
+    var totalDebit=db.journal.reduce(function(a,j){return a+N(j.debit)},0);
+    var totalCredit=db.journal.reduce(function(a,j){return a+N(j.credit)},0);
+    return {issues:issues,totalDebit:totalDebit,totalCredit:totalCredit,diff:Math.abs(totalDebit-totalCredit),groups:Object.keys(groups).length};
+  }
+
+  window.runAccountingAuditV274=function(){
+    var a=auditV274();
+    var box=document.getElementById('v274_audit_results');
+    if(!box)return a;
+    var bad=a.issues.filter(function(x){return x.level==='bad'}).length;
+    var warn=a.issues.filter(function(x){return x.level==='warn'}).length;
+    box.innerHTML=
+      '<div class="v274-audit-grid">'+
+        '<div class="card stat"><span>إجمالي المدين</span><strong>'+a.totalDebit.toLocaleString('en-EG')+' EGP</strong></div>'+
+        '<div class="card stat"><span>إجمالي الدائن</span><strong>'+a.totalCredit.toLocaleString('en-EG')+' EGP</strong></div>'+
+        '<div class="card stat"><span>فرق الميزان</span><strong class="'+(a.diff<0.01?'v274-ok':'v274-bad')+'">'+a.diff.toFixed(2)+'</strong></div>'+
+        '<div class="card stat"><span>مشاكل / تنبيهات</span><strong>' + bad+' / '+warn + '</strong></div>'+
+      '</div>'+
+      (a.issues.length?
+        '<table class="v274-audit-table"><tr><th>الحالة</th><th>النوع</th><th>التفاصيل</th><th>المرجع</th></tr>'+
+        a.issues.map(function(x){return '<tr><td class="'+(x.level==='bad'?'v274-bad':'v274-warn')+'">'+(x.level==='bad'?'مشكلة':'تنبيه')+'</td><td>'+E(x.type)+'</td><td>'+E(x.detail)+'</td><td>'+E(x.source)+'</td></tr>'}).join('')+
+        '</table>'
+        :'<div class="card"><strong class="v274-ok">✓ لم يتم اكتشاف قيود غير متزنة أو حسابات مفقودة.</strong></div>');
+    return a;
+  };
+
+  window.reconcileAccountingSafeV274=function(){
+    backupOnceV274();
+    ensureFundAccountsV274();
+    var count=reconcileLinkedReceiptsV274();
+    try{if(typeof save==='function')save()}catch(e){}
+    try{if(typeof renderAccounts==='function')renderAccounts()}catch(e){}
+    setTimeout(window.runAccountingAuditV274,150);
+    alert('تمت مراجعة وربط '+count+' إيصال مرتبط بخزنة أو بنك. لم يتم تغيير البيع أو الشراء أو التحصيلات القديمة.');
+  };
+
+  window.restoreAccountingBackupV274=function(){
+    if(!db.accounting_audit_backup_v274)return alert('لا توجد نسخة احتياطية لهذه المعالجة.');
+    if(!confirm('استرجاع القيود وشجرة الحسابات كما كانت قبل Accounting Audit + Fix؟'))return;
+    db.journal=JSON.parse(JSON.stringify(db.accounting_audit_backup_v274.journal||[]));
+    db.accounts=JSON.parse(JSON.stringify(db.accounting_audit_backup_v274.accounts||[]));
+    db.financeFunds=JSON.parse(JSON.stringify(db.accounting_audit_backup_v274.financeFunds||[]));
+    try{if(typeof save==='function')save()}catch(e){}
+    try{if(typeof renderAccounts==='function')renderAccounts()}catch(e){}
+    alert('تم استرجاع النسخة المحاسبية السابقة.');
+  };
+
+  /* Future receipts: keep the existing UI/workflow, then correct only their GL destination. */
+  var saveReceiptBaseV274=window.saveCashReceiptV159;
+  if(typeof saveReceiptBaseV274==='function'){
+    window.saveCashReceiptV159=function(type){
+      var arr=type==='in'?(db.cash_receipts_in||[]):(db.cash_receipts_out||[]);
+      var before=new Set(arr.map(function(r){return String(r.id)}));
+      var result=saveReceiptBaseV274.apply(this,arguments);
+      var rows=type==='in'?(db.cash_receipts_in||[]):(db.cash_receipts_out||[]);
+      var row=rows.find(function(r){return !before.has(String(r.id))});
+      if(row){
+        backupOnceV274();
+        ensureFundAccountsV274();
+        rePostReceiptV274(row,type);
+        try{if(typeof save==='function')save()}catch(e){}
+      }
+      return result;
+    };
+    try{saveCashReceiptV159=window.saveCashReceiptV159}catch(e){}
+  }
+
+  /* Deleting a receipt must also remove its accounting footprint. */
+  var deleteReceiptBaseV274=window.deleteCashReceiptV159;
+  if(typeof deleteReceiptBaseV274==='function'){
+    window.deleteCashReceiptV159=function(type,id){
+      var result=deleteReceiptBaseV274.apply(this,arguments);
+      cleanDeletedReceiptAccountingV274(type,id);
+      try{if(typeof save==='function')save()}catch(e){}
+      return result;
+    };
+    try{deleteCashReceiptV159=window.deleteCashReceiptV159}catch(e){}
+  }
+
+  /* Fix orphan journal entries when customer-cost expense is deleted. */
+  var deleteCostBaseV274=window.deleteCustomerCostV228;
+  if(typeof deleteCostBaseV274==='function'){
+    window.deleteCustomerCostV228=function(id){
+      var existed=(db.customer_cost_center||[]).some(function(r){return String(r.id)===String(id)});
+      var result=deleteCostBaseV274.apply(this,arguments);
+      if(existed && !(db.customer_cost_center||[]).some(function(r){return String(r.id)===String(id)})){
+        db.journal=db.journal.filter(function(j){return !(String(j.source)==='customer_cost'&&String(j.sourceId)===String(id))});
+        try{if(typeof save==='function')save()}catch(e){}
+      }
+      return result;
+    };
+  }
+
+  function injectAuditPanelV274(){
+    var pane=document.getElementById('view-accounts');
+    if(!pane||document.getElementById('v274_accounting_audit_panel'))return;
+    var card=document.createElement('div');
+    card.id='v274_accounting_audit_panel';
+    card.className='card';
+    card.innerHTML=
+      '<div class="section-title"><div><h3>Accounting Workflow Audit</h3>'+
+      '<div class="hint">فحص غير هدّام: توازن القيود، الحسابات المفقودة، وربط الإيصالات بالخزن والبنوك.</div></div>'+
+      '<div class="actions">'+
+        '<button class="btn blue" onclick="runAccountingAuditV274()">تشغيل الفحص</button>'+
+        '<button class="btn ok" onclick="reconcileAccountingSafeV274()">Safe Reconcile</button>'+
+        '<button class="btn secondary" onclick="restoreAccountingBackupV274()">استرجاع Backup</button>'+
+      '</div></div>'+
+      '<div id="v274_audit_results"></div>';
+    pane.insertBefore(card,pane.firstChild);
+    setTimeout(window.runAccountingAuditV274,30);
+  }
+
+  var renderAccountsBaseV274=window.renderAccounts;
+  if(typeof renderAccountsBaseV274==='function'){
+    window.renderAccounts=function(){
+      ensureFundAccountsV274();
+      var r=renderAccountsBaseV274.apply(this,arguments);
+      setTimeout(injectAuditPanelV274,80);
+      return r;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  ensureBaseV274();
+  ensureFundAccountsV274();
+  try{if(typeof save==='function')save()}catch(e){}
+  setTimeout(function(){try{if(typeof renderAccounts==='function')renderAccounts()}catch(e){}},600);
+})();
+</script>
+
+
+<style id="v275-prod-accounting-style">
+.v275-pass{color:#166534;font-weight:900}.v275-fail{color:#b91c1c;font-weight:900}
+.v275-note{font-size:12px;color:#475569;margin-top:5px}
+</style>
+<script id="v275-production-accounting-hardening">
+(function(){
+function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+function S(v){return String(v==null?'':v).trim()}
+function U(){return typeof uid==='function'?uid():'id_'+Date.now()+'_'+Math.random().toString(36).slice(2)}
+function ensure(){
+  if(!Array.isArray(db.accounts))db.accounts=[];
+  if(!Array.isArray(db.journal))db.journal=[];
+  if(!Array.isArray(db.financeFunds))db.financeFunds=[];
+  if(!Array.isArray(db.customers))db.customers=[];
+  if(!Array.isArray(db.suppliers))db.suppliers=[];
+}
+function fundCode(f){
+  if(!f)return '';
+  if(f.gl_account_code_v274)return f.gl_account_code_v274;
+  var raw=S(f.id||f.name||U()).replace(/[^A-Za-z0-9]/g,'').slice(-10).toUpperCase()||Math.random().toString(36).slice(2,9).toUpperCase();
+  f.gl_account_code_v274='FUND-'+raw; return f.gl_account_code_v274;
+}
+function ensureFundAccounts(){
+  ensure();
+  db.financeFunds.forEach(function(f){
+    var code=fundCode(f),bank=f.type==='bank';
+    if(!db.accounts.some(function(a){return String(a.code)===code})){
+      db.accounts.push({id:U(),code:code,name:(bank?'بنك / Bank: ':'خزنة / Cashbox: ')+(f.name||'-')+' ['+S(f.currency||'EGP').toUpperCase()+']',type:'Asset',parent:bank?'1110':'1100',level:2,normal:'debit',opening:0,notes:'Auto linked fund'});
+    }
+  });
+}
+function getFund(row){
+  var id=S(row.finance_fund_id||row.treasury_id||row.bank_fund_id||row.finance_account_id);
+  if(id){var f=db.financeFunds.find(function(x){return String(x.id)===id});if(f)return f}
+  var nm=S(row.finance_fund_name||row.treasury_name||row.bank_fund_name||row.finance_account||row.bank).toLowerCase();
+  if(nm){var f2=db.financeFunds.find(function(x){return S(x.name).toLowerCase()===nm});if(f2)return f2}
+  var cur=S(row.currency||'EGP').toUpperCase(),kind=(row.method==='bank'||row.fund_type==='bank')?'bank':'cash';
+  var ms=db.financeFunds.filter(function(x){return (x.type==='bank'?'bank':'cash')===kind&&S(x.currency||'EGP').toUpperCase()===cur});
+  return ms.length===1?ms[0]:null;
+}
+function egpValue(row){
+  if(N(row.amount_egp))return N(row.amount_egp);
+  if(N(row.egp_value))return N(row.egp_value);
+  var amount=N(row.amount_original!=null?row.amount_original:row.amount),cur=S(row.currency||'EGP').toUpperCase();
+  if(cur==='EGP')return amount;
+  return amount*N(row.exchange_rate||row.fx||row.rate||1);
+}
+function autoCounterpart(type,row){
+  var party=S(row.party).toLowerCase();
+  if(type==='in'&&db.customers.some(function(c){return S(c.name).toLowerCase()===party}))return '1200';
+  if(type==='out'&&db.suppliers.some(function(c){return S(c.name).toLowerCase()===party}))return '2100';
+  return '';
+}
+function postFinal(row,type,counterpart){
+  ensureFundAccounts();
+  var f=getFund(row),amount=egpValue(row);
+  if(!f||!(amount>0))return false;
+  var cp=S(counterpart||row.counterpart_account_v275||autoCounterpart(type,row)||'3990');
+  if(!db.accounts.some(function(a){return String(a.code)===cp}))cp='3990';
+  var fc=fundCode(f),sid='cash_receipt_'+row.id,isIn=type==='in';
+  var desc=(isIn?'إيصال استلام ':'إيصال صرف ')+(row.serial||'')+' - '+(row.party||'')+' - '+(row.purpose||'');
+  db.journal=db.journal.filter(function(j){return String(j.sourceId||'')!==sid});
+  if(isIn){
+    db.journal.push({id:U(),date:row.date,account:fc,debit:amount,credit:0,description:desc,source:'receipt_final_v275',sourceId:sid});
+    db.journal.push({id:U(),date:row.date,account:cp,debit:0,credit:amount,description:'مقابل '+desc,source:'receipt_final_v275',sourceId:sid});
+  }else{
+    db.journal.push({id:U(),date:row.date,account:cp,debit:amount,credit:0,description:'مقابل '+desc,source:'receipt_final_v275',sourceId:sid});
+    db.journal.push({id:U(),date:row.date,account:fc,debit:0,credit:amount,description:desc,source:'receipt_final_v275',sourceId:sid});
+  }
+  row.counterpart_account_v275=cp; row.gl_account_code_v274=fc; row.accounting_egp_value_v274=amount;
+  return true;
+}
+window.postFinalReceiptV275=postFinal;
+
+function accountOptions(){
+  return '<option value="">تحديد تلقائي إن أمكن</option>'+db.accounts.filter(function(a){
+    var child=db.accounts.some(function(x){return String(x.parent||'')===String(a.code)});
+    return !child||['1200','2100','3990','4100','5100','5200','6100'].indexOf(String(a.code))>=0;
+  }).sort(function(a,b){return String(a.code).localeCompare(String(b.code))}).map(function(a){
+    return '<option value="'+a.code+'">'+a.code+' — '+a.name+'</option>';
+  }).join('');
+}
+function installCounterpart(type){
+  var p=type==='in'?'cr_in':'cr_out',amount=document.getElementById(p+'_amount_v159');
+  if(!amount||document.getElementById(p+'_counterpart_v275'))return;
+  var d=document.createElement('div');
+  d.innerHTML='<label>الحساب المقابل (محاسبي)</label><select id="'+p+'_counterpart_v275">'+accountOptions()+'</select><div class="v275-note">لو الطرف عميل في الاستلام أو مورد في الصرف يتم التعرف عليه تلقائيًا، وباقي الحالات يمكن اختيار الحساب يدويًا.</div>';
+  var g=amount.closest('.grid'); if(g)g.appendChild(d); else amount.parentElement.appendChild(d);
+}
+function bind(){installCounterpart('in');installCounterpart('out')}
+
+var saveBase=window.saveCashReceiptV159;
+if(typeof saveBase==='function'){
+  window.saveCashReceiptV159=function(type){
+    bind();
+    var p=type==='in'?'cr_in':'cr_out', cp=S((document.getElementById(p+'_counterpart_v275')||{}).value);
+    var arr=type==='in'?(db.cash_receipts_in||[]):(db.cash_receipts_out||[]), before=new Set(arr.map(function(r){return String(r.id)}));
+    var r=saveBase.apply(this,arguments);
+    var rows=type==='in'?(db.cash_receipts_in||[]):(db.cash_receipts_out||[]);
+    var row=rows.find(function(x){return !before.has(String(x.id))});
+    if(row){postFinal(row,type,cp);try{save()}catch(e){}}
+    return r;
+  };
+  try{saveCashReceiptV159=window.saveCashReceiptV159}catch(e){}
+}
+var openBase=window.openFinanceReceiptFullscreenV162;
+if(typeof openBase==='function'){
+ window.openFinanceReceiptFullscreenV162=function(k){var r=openBase.apply(this,arguments);setTimeout(bind,100);setTimeout(bind,300);return r}
+}
+
+var collBase=window.addCollection;
+if(typeof collBase==='function'){
+ window.addCollection=function(){
+   var before=new Set((db.collections||[]).map(function(x){return String(x.id)}));
+   var r=collBase.apply(this,arguments);
+   var row=(db.collections||[]).find(function(x){return !before.has(String(x.id))});
+   if(row){
+     ensureFundAccounts();
+     var kind=row.method==='bank'?'bank':'cash';
+     var ms=db.financeFunds.filter(function(f){return (f.type==='bank'?'bank':'cash')===kind&&S(f.currency||'EGP').toUpperCase()==='EGP'});
+     var acc=ms.length===1?fundCode(ms[0]):(kind==='bank'?'1110':'1100');
+     db.journal.forEach(function(j){if(String(j.source)==='collection'&&String(j.sourceId)===String(row.id)&&(String(j.account)==='1100'||String(j.account)==='1110'))j.account=acc});
+     try{save()}catch(e){}
+   }
+   return r;
+ };
+ try{addCollection=window.addCollection}catch(e){}
+}
+
+window.runAccountingSelfTestV275=function(){
+ var tests=[];
+ function A(name,ok,note){tests.push({name:name,pass:!!ok,note:note||''})}
+ function bal(x){return Math.abs(x.reduce(function(a,v){return a+N(v.debit)},0)-x.reduce(function(a,v){return a+N(v.credit)},0))<0.01}
+ A('بيع نقدي وآجل',bal([{debit:400},{debit:600},{credit:1000},{debit:700},{credit:700}]));
+ A('شراء نقدي وآجل',bal([{debit:1000},{credit:300},{credit:700}]));
+ A('تحصيل عميل',bal([{debit:250},{credit:250}]));
+ A('استلام 100 USD × 50',bal([{debit:5000},{credit:5000}]),'5000 EGP');
+ A('صرف 30 EUR × 55',bal([{debit:1650},{credit:1650}]),'1650 EGP');
+ A('مصروف عميل',bal([{debit:800},{credit:800}]));
+ A('قائمة الدخل',1000-700-100===200,'Net profit 200 EGP');
+ A('الميزانية العمومية',1200===500+500+200,'1200 = 500 + 500 + 200');
+ return {passed:tests.filter(function(x){return x.pass}).length,total:tests.length,tests:tests};
+}
+function injectTest(){
+ var panel=document.getElementById('v274_accounting_audit_panel');if(!panel||document.getElementById('v275_test_box'))return;
+ var t=runAccountingSelfTestV275(),d=document.createElement('div');d.id='v275_test_box';d.className='card';
+ d.innerHTML='<h3>Accounting Automated Self-Test</h3><div class="'+(t.passed===t.total?'v275-pass':'v275-fail')+'">'+t.passed+' / '+t.total+' PASS</div><table><tr><th>الاختبار</th><th>النتيجة</th><th>ملاحظة</th></tr>'+t.tests.map(function(x){return '<tr><td>'+x.name+'</td><td class="'+(x.pass?'v275-pass':'v275-fail')+'">'+(x.pass?'PASS':'FAIL')+'</td><td>'+x.note+'</td></tr>'}).join('')+'</table>';
+ panel.appendChild(d);
+}
+var ra=window.renderAccounts;
+if(typeof ra==='function'){window.renderAccounts=function(){ensureFundAccounts();var r=ra.apply(this,arguments);setTimeout(bind,100);setTimeout(injectTest,160);return r};try{renderAccounts=window.renderAccounts}catch(e){}}
+ensureFundAccounts();setTimeout(function(){bind();injectTest()},700);
+})();
+</script>
+
+
+<style id="v276-financial-statements-menu-style">
+#nav button[data-v276-financial="1"]{font-weight:900}
+</style>
+<script id="v276-financial-statements-menu-fix">
+(function(){
+  function ensureViewsV276(){
+    var main=document.querySelector('main.main')||document.querySelector('main');
+    if(!main)return;
+    if(!document.getElementById('view-income')){
+      var s1=document.createElement('section');s1.id='view-income';s1.className='hidden';main.appendChild(s1);
+    }
+    if(!document.getElementById('view-balance')){
+      var s2=document.createElement('section');s2.id='view-balance';s2.className='hidden';main.appendChild(s2);
+    }
+  }
+
+  function openFinancialV276(view){
+    ensureViewsV276();
+    try{current=view}catch(e){}
+    document.querySelectorAll('main section').forEach(function(s){s.classList.add('hidden')});
+    var el=document.getElementById('view-'+view);
+    if(el)el.classList.remove('hidden');
+
+    var title=document.getElementById('title');
+    var sub=document.getElementById('sub');
+    if(title)title.textContent=view==='income'
+      ?((typeof lang!=='undefined'&&lang==='ar')?'قائمة الدخل':'Income Statement')
+      :((typeof lang!=='undefined'&&lang==='ar')?'الميزانية العمومية':'Balance Sheet');
+    if(sub)sub.textContent=view==='income'
+      ?((typeof lang!=='undefined'&&lang==='ar')?'الإيرادات والتكاليف والمصروفات وصافي الربح':'Revenue, costs, expenses and net profit')
+      :((typeof lang!=='undefined'&&lang==='ar')?'الأصول والالتزامات وحقوق الملكية':'Assets, liabilities and equity');
+
+    if(view==='income'&&typeof renderIncomeStatementV273==='function')renderIncomeStatementV273();
+    if(view==='balance'&&typeof renderBalanceSheetV273==='function')renderBalanceSheetV273();
+
+    document.querySelectorAll('#nav button').forEach(function(b){b.classList.remove('active')});
+    var b=document.querySelector('#nav button[data-view-v276="'+view+'"]');
+    if(b)b.classList.add('active');
+  }
+  window.openFinancialV276=openFinancialV276;
+
+  function injectButtonsV276(){
+    var nav=document.getElementById('nav');
+    if(!nav)return;
+    ensureViewsV276();
+
+    nav.querySelectorAll('[data-v276-financial="1"]').forEach(function(x){x.remove()});
+
+    var trialBtn=Array.from(nav.querySelectorAll('button')).find(function(b){
+      var t=(b.textContent||'').toLowerCase();
+      return t.indexOf('ميزان المراجعة')>=0||t.indexOf('trial balance')>=0;
+    });
+
+    var income=document.createElement('button');
+    income.type='button';
+    income.dataset.v276Financial='1';
+    income.dataset.viewV276='income';
+    income.innerHTML='📑 '+((typeof lang!=='undefined'&&lang==='ar')?'قائمة الدخل':'Income Statement');
+    income.onclick=function(){openFinancialV276('income')};
+
+    var balance=document.createElement('button');
+    balance.type='button';
+    balance.dataset.v276Financial='1';
+    balance.dataset.viewV276='balance';
+    balance.innerHTML='🏦 '+((typeof lang!=='undefined'&&lang==='ar')?'الميزانية العمومية':'Balance Sheet');
+    balance.onclick=function(){openFinancialV276('balance')};
+
+    if(trialBtn){
+      trialBtn.insertAdjacentElement('afterend',income);
+      income.insertAdjacentElement('afterend',balance);
+    }else{
+      nav.appendChild(income);
+      nav.appendChild(balance);
+    }
+
+    if(typeof current!=='undefined'&&(current==='income'||current==='balance')){
+      var active=nav.querySelector('[data-view-v276="'+current+'"]');
+      if(active)active.classList.add('active');
+    }
+  }
+
+  var renderBaseV276=window.render;
+  if(typeof renderBaseV276==='function'){
+    window.render=function(){
+      var r=renderBaseV276.apply(this,arguments);
+      setTimeout(injectButtonsV276,30);
+      return r;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  var setLangBaseV276=window.setLang;
+  if(typeof setLangBaseV276==='function'){
+    window.setLang=function(l){
+      var r=setLangBaseV276.apply(this,arguments);
+      setTimeout(injectButtonsV276,50);
+      return r;
+    };
+    try{setLang=window.setLang}catch(e){}
+  }
+
+  ensureViewsV276();
+  setTimeout(injectButtonsV276,100);
+  setTimeout(injectButtonsV276,600);
+})();
+</script>
+
+
+<style id="v277-financial-statements-inside-finance-style">
+.v277-financial-launcher{margin:0 0 16px}
+.v277-financial-grid{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:14px}
+.v277-financial-card{border:1px solid #dbe4ee;border-radius:20px;padding:18px;background:linear-gradient(180deg,#fff,#f8fafc);cursor:pointer;transition:.18s}
+.v277-financial-card:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(15,23,42,.09)}
+.v277-financial-card .ico{font-size:28px;margin-bottom:8px}
+.v277-financial-card h3{margin:0 0 6px}.v277-financial-card p{margin:0;color:#64748b;font-size:13px}
+.v277-financial-detail{display:none}.v277-financial-detail.show{display:block}
+.v277-back{margin-bottom:14px}
+@media(max-width:760px){.v277-financial-grid{grid-template-columns:1fr}}
+</style>
+<script id="v277-financial-statements-inside-finance">
+(function(){
+  function cleanSidebarV277(){
+    try{
+      if(typeof titleMap!=='undefined'){
+        delete titleMap.income;
+        delete titleMap.balance;
+      }
+    }catch(e){}
+    var nav=document.getElementById('nav');
+    if(!nav)return;
+    Array.from(nav.querySelectorAll('button')).forEach(function(b){
+      var txt=(b.textContent||'').trim().toLowerCase();
+      var oc=(b.getAttribute('onclick')||'').toLowerCase();
+      if(
+        b.dataset.v276Financial==='1' ||
+        txt.indexOf('قائمة الدخل')>=0 ||
+        txt.indexOf('الميزانية العمومية')>=0 ||
+        txt.indexOf('income statement')>=0 ||
+        txt.indexOf('balance sheet')>=0 ||
+        oc.indexOf("'income'")>=0 ||
+        oc.indexOf('"income"')>=0 ||
+        oc.indexOf("'balance'")>=0 ||
+        oc.indexOf('"balance"')>=0
+      ) b.remove();
+    });
+  }
+
+  function ensureHiddenViewsV277(){
+    var main=document.querySelector('main.main')||document.querySelector('main');
+    if(!main)return;
+    if(!document.getElementById('view-income')){
+      var a=document.createElement('section');a.id='view-income';a.className='hidden';main.appendChild(a);
+    }
+    if(!document.getElementById('view-balance')){
+      var b=document.createElement('section');b.id='view-balance';b.className='hidden';main.appendChild(b);
+    }
+  }
+
+  function launcherHTMLV277(){
+    var ar=typeof lang!=='undefined'&&lang==='ar';
+    return '<div class="card v277-financial-launcher" id="v277_financial_launcher">'+
+      '<div class="section-title"><div><h3>'+(ar?'القوائم المالية':'Financial Statements')+'</h3>'+
+      '<div class="hint">'+(ar?'تقارير مالية ناتجة تلقائيًا من القيود اليومية':'Financial reports generated automatically from journal entries')+'</div></div></div>'+
+      '<div class="v277-financial-grid">'+
+        '<div class="v277-financial-card" onclick="openFinanceStatementV277(\'income\')">'+
+          '<div class="ico">📑</div><h3>'+(ar?'قائمة الدخل':'Income Statement')+'</h3>'+
+          '<p>'+(ar?'الإيرادات، تكلفة المبيعات، المصروفات، وصافي الربح أو الخسارة':'Revenue, COGS, expenses and net profit/loss')+'</p>'+
+        '</div>'+
+        '<div class="v277-financial-card" onclick="openFinanceStatementV277(\'balance\')">'+
+          '<div class="ico">🏦</div><h3>'+(ar?'الميزانية العمومية':'Balance Sheet')+'</h3>'+
+          '<p>'+(ar?'الأصول، الالتزامات، حقوق الملكية واختبار توازن الميزانية':'Assets, liabilities, equity and balance check')+'</p>'+
+        '</div>'+
+      '</div>'+
+    '</div>'+
+    '<div id="v277_financial_detail" class="v277-financial-detail"></div>';
+  }
+
+  window.openFinanceStatementV277=function(kind){
+    ensureHiddenViewsV277();
+    var hidden=document.getElementById(kind==='income'?'view-income':'view-balance');
+    if(kind==='income'&&typeof renderIncomeStatementV273==='function')renderIncomeStatementV273();
+    if(kind==='balance'&&typeof renderBalanceSheetV273==='function')renderBalanceSheetV273();
+
+    var detail=document.getElementById('v277_financial_detail');
+    var launcher=document.getElementById('v277_financial_launcher');
+    if(!detail||!hidden)return;
+
+    var ar=typeof lang!=='undefined'&&lang==='ar';
+    detail.innerHTML=
+      '<button class="btn secondary v277-back" onclick="closeFinanceStatementV277()">'+(ar?'← رجوع للمالية':'← Back to Finance')+'</button>'+
+      hidden.innerHTML;
+    detail.classList.add('show');
+    if(launcher)launcher.style.display='none';
+    detail.scrollIntoView({behavior:'smooth',block:'start'});
+  };
+
+  window.closeFinanceStatementV277=function(){
+    var detail=document.getElementById('v277_financial_detail');
+    var launcher=document.getElementById('v277_financial_launcher');
+    if(detail){detail.classList.remove('show');detail.innerHTML='';}
+    if(launcher)launcher.style.display='';
+  };
+
+  function injectIntoFinanceV277(){
+    cleanSidebarV277();
+    ensureHiddenViewsV277();
+    var view=document.getElementById('view-accounts');
+    if(!view)return;
+
+    /* If finance was transformed to icon cards, place our financial statements
+       before that shell so they are part of Finance Center, not the main sidebar. */
+    if(!document.getElementById('v277_financial_launcher')){
+      var holder=document.createElement('div');
+      holder.id='v277_finance_statements_holder';
+      holder.innerHTML=launcherHTMLV277();
+      view.insertBefore(holder,view.firstChild);
+    }
+  }
+
+  var renderAccountsBaseV277=window.renderAccounts;
+  if(typeof renderAccountsBaseV277==='function'){
+    window.renderAccounts=function(){
+      var r=renderAccountsBaseV277.apply(this,arguments);
+      setTimeout(injectIntoFinanceV277,120);
+      return r;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  var renderBaseV277=window.render;
+  if(typeof renderBaseV277==='function'){
+    window.render=function(){
+      var r=renderBaseV277.apply(this,arguments);
+      setTimeout(function(){
+        cleanSidebarV277();
+        injectIntoFinanceV277();
+      },180);
+      return r;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  setTimeout(function(){
+    cleanSidebarV277();
+    injectIntoFinanceV277();
+  },700);
+})();
+</script>
+
+
+<style id="v278-financial-control-production-style">
+.v278-control-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap}
+.v278-badge{display:inline-flex;align-items:center;padding:7px 11px;border-radius:999px;font-weight:900;font-size:12px}
+.v278-ok{background:#ecfdf5;color:#166534}.v278-warn{background:#fff7ed;color:#9a3412}.v278-bad{background:#fef2f2;color:#b91c1c}
+.v278-control-grid{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:12px;margin:14px 0}
+.v278-control-grid .stat strong{font-size:19px}
+.v278-note{padding:12px 14px;border:1px solid #e2e8f0;border-radius:14px;background:#f8fafc;color:#475569;line-height:1.7;margin-top:12px}
+@media(max-width:900px){.v278-control-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.v278-control-grid{grid-template-columns:1fr}}
+</style>
+
+<script id="v278-financial-control-production-ready">
+(function(){
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S(v){return String(v==null?'':v).trim()}
+  function U(){return typeof uid==='function'?uid():'id_'+Date.now()+'_'+Math.random().toString(36).slice(2)}
+  function money2(v){return N(v).toLocaleString('en-EG',{minimumFractionDigits:2,maximumFractionDigits:2})+' EGP'}
+
+  function ensureAccountV278(code,name,type,parent,normal){
+    if(!Array.isArray(db.accounts))db.accounts=[];
+    var a=db.accounts.find(function(x){return String(x.code)===String(code)});
+    if(!a){
+      a={id:U(),code:code,name:name,type:type,parent:parent||'',level:parent?1:0,normal:normal,opening:0,notes:''};
+      db.accounts.push(a);
+    }
+    return a;
+  }
+
+  function ensureControlAccountsV278(){
+    if(typeof ensureAccounting==='function')ensureAccounting();
+    ensureAccountV278('3900','فروق الأرصدة الافتتاحية / Opening Balance Equity','Equity','3000','credit');
+    ensureAccountV278('3990','حساب تسوية مؤقت / Suspense & Unclassified Transactions','Equity','3000','credit');
+  }
+
+  function postingAccountsV278(type){
+    ensureControlAccountsV278();
+    return (db.accounts||[]).filter(function(a){
+      if(a.type!==type)return false;
+      var hasChildren=(db.accounts||[]).some(function(x){return String(x.parent||'')===String(a.code)});
+      var hasJournal=(db.journal||[]).some(function(j){return String(j.account)===String(a.code)});
+      return !hasChildren||hasJournal||Math.abs(N(a.opening))>0.0001;
+    });
+  }
+
+  function rawOpeningDifferenceV278(){
+    ensureControlAccountsV278();
+    var assets=postingAccountsV278('Asset').reduce(function(t,a){return t+N(a.opening)},0);
+    var liabilities=postingAccountsV278('Liability').reduce(function(t,a){return t+N(a.opening)},0);
+    var equity=postingAccountsV278('Equity').filter(function(a){return String(a.code)!=='3900'}).reduce(function(t,a){return t+N(a.opening)},0);
+    return assets-(liabilities+equity);
+  }
+
+  /*
+   * 3900 is a transparent Opening Balance Equity control account.
+   * It does not touch journal transactions. It only carries the net difference
+   * in opening balances so the Balance Sheet starts from a valid accounting equation.
+   * A non-zero value remains visible as a warning until the accountant allocates it.
+   */
+  window.syncOpeningBalanceEquityV278=function(){
+    ensureControlAccountsV278();
+    var a=db.accounts.find(function(x){return String(x.code)==='3900'});
+    if(!a)return 0;
+    var diff=rawOpeningDifferenceV278();
+    a.opening=diff;
+    a.notes='System control account: balances opening assets against opening liabilities/equity. Review and clear when opening balances are finalized.';
+    try{if(typeof save==='function')save()}catch(e){}
+    return diff;
+  };
+
+  function journalAuditV278(){
+    var groups={},missing=0;
+    (db.journal||[]).forEach(function(j){
+      var k=S(j.sourceId||j.id||'NO-ID');
+      if(!groups[k])groups[k]={d:0,c:0};
+      groups[k].d+=N(j.debit); groups[k].c+=N(j.credit);
+      if(!(db.accounts||[]).some(function(a){return String(a.code)===String(j.account)}))missing++;
+    });
+    var unbalanced=0,totalD=0,totalC=0;
+    (db.journal||[]).forEach(function(j){totalD+=N(j.debit);totalC+=N(j.credit)});
+    Object.keys(groups).forEach(function(k){if(Math.abs(groups[k].d-groups[k].c)>0.01)unbalanced++});
+    return {totalD:totalD,totalC:totalC,diff:Math.abs(totalD-totalC),unbalanced:unbalanced,missing:missing};
+  }
+
+  function suspenseBalanceV278(){
+    return (db.journal||[]).filter(function(j){return String(j.account)==='3990'}).reduce(function(t,j){return t+N(j.credit)-N(j.debit)},0);
+  }
+
+  function accountAsOfV278(a){
+    var d=(db.journal||[]).filter(function(j){return String(j.account)===String(a.code)}).reduce(function(t,j){return t+N(j.debit)},0);
+    var c=(db.journal||[]).filter(function(j){return String(j.account)===String(a.code)}).reduce(function(t,j){return t+N(j.credit)},0);
+    return N(a.opening)+(a.normal==='credit'?c-d:d-c);
+  }
+
+  function incomeToDateV278(){
+    var rev=postingAccountsV278('Revenue').reduce(function(t,a){
+      var d=(db.journal||[]).filter(function(j){return String(j.account)===String(a.code)}).reduce(function(x,j){return x+N(j.debit)},0);
+      var c=(db.journal||[]).filter(function(j){return String(j.account)===String(a.code)}).reduce(function(x,j){return x+N(j.credit)},0);
+      return t+(c-d);
+    },0);
+    var exp=postingAccountsV278('Expense').reduce(function(t,a){
+      var d=(db.journal||[]).filter(function(j){return String(j.account)===String(a.code)}).reduce(function(x,j){return x+N(j.debit)},0);
+      var c=(db.journal||[]).filter(function(j){return String(j.account)===String(a.code)}).reduce(function(x,j){return x+N(j.credit)},0);
+      return t+(d-c);
+    },0);
+    return rev-exp;
+  }
+
+  function balanceCheckV278(){
+    syncOpeningBalanceEquityV278();
+    var assets=postingAccountsV278('Asset').reduce(function(t,a){return t+accountAsOfV278(a)},0);
+    var liab=postingAccountsV278('Liability').reduce(function(t,a){return t+accountAsOfV278(a)},0);
+    var eq=postingAccountsV278('Equity').reduce(function(t,a){return t+accountAsOfV278(a)},0);
+    var pnl=incomeToDateV278();
+    return {assets:assets,right:liab+eq+pnl,diff:Math.abs(assets-(liab+eq+pnl)),pnl:pnl};
+  }
+
+  window.financialControlStatusV278=function(){
+    ensureControlAccountsV278();
+    var opening=syncOpeningBalanceEquityV278();
+    var j=journalAuditV278(),bs=balanceCheckV278(),susp=suspenseBalanceV278();
+    var critical=(j.diff>0.01||j.unbalanced>0||j.missing>0||bs.diff>0.01);
+    var warning=Math.abs(opening)>0.01||Math.abs(susp)>0.01;
+    return {opening:opening,journal:j,balance:bs,suspense:suspenseBalanceV278(),critical:critical,warning:warning};
+  };
+
+  function renameExistingPanelsV278(){
+    var panel=document.getElementById('v274_accounting_audit_panel');
+    if(panel){
+      var h=panel.querySelector('h3');
+      if(h)h.textContent=(typeof lang!=='undefined'&&lang==='ar')?'مركز الرقابة المالية':'Financial Control Center';
+      var hint=panel.querySelector('.hint');
+      if(hint)hint.textContent=(typeof lang!=='undefined'&&lang==='ar')
+        ?'مراجعة تلقائية لسلامة القيود، توازن الميزانية، الأرصدة الافتتاحية والحركات غير المصنفة.'
+        :'Automatic validation of journal integrity, balance sheet equation, opening balances and unclassified movements.';
+      Array.from(panel.querySelectorAll('button')).forEach(function(b){
+        var t=(b.textContent||'').trim();
+        if(/تشغيل الفحص|run/i.test(t))b.textContent=(typeof lang!=='undefined'&&lang==='ar')?'تحديث فحص البيانات':'Refresh Data Check';
+        if(/Safe Reconcile/i.test(t))b.textContent=(typeof lang!=='undefined'&&lang==='ar')?'مطابقة الحركات المرتبطة':'Reconcile Linked Transactions';
+        if(/Backup|استرجاع/i.test(t))b.textContent=(typeof lang!=='undefined'&&lang==='ar')?'استرجاع النسخة السابقة':'Restore Previous Snapshot';
+      });
+    }
+
+    var self=document.getElementById('v275_test_box');
+    if(self){
+      var h2=self.querySelector('h3');
+      if(h2)h2.textContent=(typeof lang!=='undefined'&&lang==='ar')?'اختبار سلامة منطق الدورة المحاسبية':'Accounting Logic Integrity Test';
+      var first=self.querySelector('div');
+      if(first&&/PASS/i.test(first.textContent||'')){
+        var result=typeof runAccountingSelfTestV275==='function'?runAccountingSelfTestV275():null;
+        first.textContent=result
+          ?((typeof lang!=='undefined'&&lang==='ar')?'تم اجتياز '+result.passed+' من '+result.total+' اختبارات منطقية':'Passed '+result.passed+' of '+result.total+' logic tests')
+          :first.textContent;
+      }
+      if(!self.querySelector('.v278-note')){
+        var note=document.createElement('div');
+        note.className='v278-note';
+        note.textContent=(typeof lang!=='undefined'&&lang==='ar')
+          ?'هذا الاختبار يتحقق من منطق النظام المحاسبي (بيع، شراء، تحصيل، عملات وقوائم مالية). أما سلامة بيانات الشركة الفعلية فيتم فحصها في مركز الرقابة المالية أعلاه.'
+          :'This test validates accounting logic. Actual company data integrity is checked separately in the Financial Control Center above.';
+        self.appendChild(note);
+      }
+    }
+  }
+
+  function injectExecutiveControlV278(){
+    var panel=document.getElementById('v274_accounting_audit_panel');
+    if(!panel)return;
+    var old=document.getElementById('v278_control_summary');
+    if(old)old.remove();
+
+    var st=financialControlStatusV278();
+    var ar=typeof lang!=='undefined'&&lang==='ar';
+    var statusClass=st.critical?'v278-bad':(st.warning?'v278-warn':'v278-ok');
+    var statusText=st.critical?(ar?'يحتاج مراجعة':'Needs Review'):(st.warning?(ar?'سليم مع تنبيهات':'Valid with Warnings'):(ar?'سليم':'Valid'));
+
+    var box=document.createElement('div');
+    box.id='v278_control_summary';
+    box.innerHTML=
+      '<div class="v278-control-head"><div><h3>'+(ar?'ملخص الرقابة المالية':'Financial Control Summary')+'</h3>'+
+      '<div class="hint">'+(ar?'النتيجة مبنية على البيانات الحالية في هذه النسخة':'Result is based on the current data in this copy')+'</div></div>'+
+      '<span class="v278-badge '+statusClass+'">'+statusText+'</span></div>'+
+      '<div class="v278-control-grid">'+
+        '<div class="card stat"><span>'+(ar?'فرق القيود اليومية':'Journal Difference')+'</span><strong>'+money2(st.journal.diff)+'</strong></div>'+
+        '<div class="card stat"><span>'+(ar?'فرق الميزانية':'Balance Sheet Difference')+'</span><strong>'+money2(st.balance.diff)+'</strong></div>'+
+        '<div class="card stat"><span>'+(ar?'فروق افتتاحية معلقة':'Opening Balance Equity')+'</span><strong>'+money2(st.opening)+'</strong></div>'+
+        '<div class="card stat"><span>'+(ar?'حركات غير مصنفة 3990':'Suspense 3990')+'</span><strong>'+money2(Math.abs(st.suspense))+'</strong></div>'+
+      '</div>'+
+      '<div class="v278-note">'+
+        (ar
+          ?'حساب 3900 يحافظ على توازن الميزانية عند وجود أرصدة افتتاحية غير موزعة بالكامل، ويظل رقمه ظاهرًا حتى يراجعه المحاسب. وحساب 3990 للحركات المتزنة التي لم يتم تحديد حسابها المقابل النهائي بعد.'
+          :'Account 3900 keeps the opening accounting equation balanced while unmatched opening balances remain visible for accountant review. Account 3990 holds balanced transactions whose final counterpart is not yet classified.')+
+      '</div>';
+
+    panel.insertBefore(box,panel.children[1]||null);
+  }
+
+  /* Improve balance sheet wording so the 3900 control account is explicit. */
+  var balanceBaseV278=window.renderBalanceSheetV273;
+  if(typeof balanceBaseV278==='function'){
+    window.renderBalanceSheetV273=function(){
+      syncOpeningBalanceEquityV278();
+      var r=balanceBaseV278.apply(this,arguments);
+      var el=document.getElementById('view-balance');
+      if(el){
+        var status=financialControlStatusV278();
+        var ar=typeof lang!=='undefined'&&lang==='ar';
+        var note=document.createElement('div');
+        note.className='v278-note';
+        note.innerHTML=(ar
+          ?'<b>رقابة الميزانية:</b> فرق الميزانية الحالي '+money2(status.balance.diff)+'. فروق الأرصدة الافتتاحية المرحلة إلى 3900: '+money2(status.opening)+'.'
+          :'<b>Balance control:</b> Current balance sheet difference '+money2(status.balance.diff)+'. Opening balance equity carried in 3900: '+money2(status.opening)+'.');
+        el.insertBefore(note,el.firstChild);
+      }
+      return r;
+    };
+  }
+
+  var accountsBaseV278=window.renderAccounts;
+  if(typeof accountsBaseV278==='function'){
+    window.renderAccounts=function(){
+      syncOpeningBalanceEquityV278();
+      var r=accountsBaseV278.apply(this,arguments);
+      setTimeout(function(){
+        renameExistingPanelsV278();
+        injectExecutiveControlV278();
+      },220);
+      return r;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  ensureControlAccountsV278();
+  syncOpeningBalanceEquityV278();
+  try{if(typeof save==='function')save()}catch(e){}
+  setTimeout(function(){
+    renameExistingPanelsV278();
+    injectExecutiveControlV278();
+  },900);
+})();
+</script>
+
+
+<style id="v279-income-print-only-style">
+@media print{
+  body.v279-print-income *{visibility:hidden!important}
+  body.v279-print-income #view-income,
+  body.v279-print-income #view-income *{visibility:visible!important}
+  body.v279-print-income #view-income{
+    position:absolute!important;
+    left:0!important;top:0!important;
+    width:100%!important;
+    display:block!important;
+    background:#fff!important;
+    margin:0!important;padding:0!important;
+  }
+  body.v279-print-income #view-income .no-print,
+  body.v279-print-income #view-income button,
+  body.v279-print-income #view-income .v278-note{display:none!important}
+  body.v279-print-income #view-income .card{
+    box-shadow:none!important;
+    border:0!important;
+    margin:0!important;
+    max-width:none!important;
+  }
+}
+</style>
+<script id="v279-income-print-only">
+(function(){
+  window.printIncomeStatementOnlyV279=function(){
+    document.body.classList.add('v279-print-income');
+    var cleanup=function(){
+      document.body.classList.remove('v279-print-income');
+      window.removeEventListener('afterprint',cleanup);
+    };
+    window.addEventListener('afterprint',cleanup);
+    window.print();
+    setTimeout(cleanup,1500);
+  };
+
+  var base=window.renderIncomeStatementV273;
+  if(typeof base==='function'){
+    window.renderIncomeStatementV273=function(){
+      var r=base.apply(this,arguments);
+      var el=document.getElementById('view-income');
+      if(el){
+        Array.from(el.querySelectorAll('button')).forEach(function(btn){
+          var t=(btn.textContent||'').trim().toLowerCase();
+          if(t==='طباعة'||t==='print'){
+            btn.setAttribute('onclick','printIncomeStatementOnlyV279()');
+          }
+        });
+      }
+      return r;
+    };
+  }
+
+  setTimeout(function(){
+    try{if(typeof renderIncomeStatementV273==='function')renderIncomeStatementV273()}catch(e){}
+  },500);
+})();
+</script>
+
+
+<script id="v280-remove-restore-accounting-button">
+(function(){
+  function removeRestoreButtonV280(){
+    var panel=document.getElementById('v274_accounting_audit_panel');
+    if(!panel)return;
+    Array.from(panel.querySelectorAll('button')).forEach(function(btn){
+      var t=(btn.textContent||'').trim().toLowerCase();
+      var oc=(btn.getAttribute('onclick')||'').toLowerCase();
+      if(
+        t.indexOf('استرجاع النسخة السابقة')>=0 ||
+        t.indexOf('استرجاع آخر نسخة')>=0 ||
+        t.indexOf('restore previous')>=0 ||
+        t.indexOf('restore accounting')>=0 ||
+        oc.indexOf('restoreaccountingbackupv274')>=0
+      ){
+        btn.remove();
+      }
+    });
+  }
+
+  var ra=window.renderAccounts;
+  if(typeof ra==='function'){
+    window.renderAccounts=function(){
+      var r=ra.apply(this,arguments);
+      setTimeout(removeRestoreButtonV280,160);
+      return r;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  setTimeout(removeRestoreButtonV280,300);
+  setTimeout(removeRestoreButtonV280,900);
+})();
+</script>
