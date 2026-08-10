@@ -19810,3 +19810,180 @@ ensureFundAccounts();setTimeout(function(){bind();injectTest()},700);
   setTimeout(upgradeCounterpartV282,1000);
 })();
 </script>
+
+
+<script id="v283-sales-orders-report-quantity">
+(function(){
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function Q(v){v=N(v);return Number.isInteger(v)?String(v):String(Math.round(v*100)/100)}
+  function salesQtyForRepV283(repId,from,to){
+    return (db.sales||[]).filter(function(s){
+      if(String(s.rep_id||'')!==String(repId))return false;
+      var d=String(s.date||'').slice(0,10);
+      return (!from||d>=from)&&(!to||d<=to);
+    }).reduce(function(t,s){
+      var q=N(s.qty||s.quantity||s.total_qty||s.units||s.count||0);
+      if(!q && Array.isArray(s.items)){
+        q=s.items.reduce(function(a,it){return a+N(it.qty||it.quantity||it.units||it.count||0)},0);
+      }
+      return t+q;
+    },0);
+  }
+
+  window.repSalesQtyV283=salesQtyForRepV283;
+
+  function patchSalesOrdersReportV283(){
+    var all=Array.from(document.querySelectorAll('div,section,.card'));
+    all.forEach(function(card){
+      var txt=(card.textContent||'').trim();
+      if(!/sales orders/i.test(txt))return;
+      if(!(txt.indexOf('مبيعات الفترة')>=0 || txt.indexOf('التارجت')>=0 || txt.indexOf('البياع')>=0))return;
+
+      var fromEl=card.querySelector('input[type="date"]');
+      var dates=card.querySelectorAll('input[type="date"]');
+      var from=dates[0]?dates[0].value:'';
+      var to=dates[1]?dates[1].value:'';
+
+      var table=card.querySelector('table');
+      if(!table)return;
+
+      var headers=Array.from(table.querySelectorAll('tr:first-child th'));
+      var idxRep=-1, idxTarget=-1, idxPeriod=-1;
+      headers.forEach(function(th,i){
+        var h=(th.textContent||'').trim().toLowerCase();
+        if(h==='البياع'||h.indexOf('rep')>=0)idxRep=i;
+        if(h.indexOf('التارجت')>=0||h.indexOf('target')>=0)idxTarget=i;
+        if(h.indexOf('مبيعات الفترة')>=0||h.indexOf('period sales')>=0)idxPeriod=i;
+      });
+      if(idxRep<0 || idxTarget<0 || idxPeriod<0)return;
+
+      headers[idxTarget].textContent=(typeof lang!=='undefined'&&lang==='ar')?'التارجت (كمية)':'Target (Qty)';
+      headers[idxPeriod].textContent=(typeof lang!=='undefined'&&lang==='ar')?'مبيعات الفترة (كمية)':'Period Sales (Qty)';
+
+      Array.from(table.querySelectorAll('tr')).slice(1).forEach(function(tr){
+        var tds=tr.querySelectorAll('td');
+        if(tds.length<=Math.max(idxRep,idxTarget,idxPeriod))return;
+        var repName=(tds[idxRep].textContent||'').trim();
+        var rep=(db.reps||[]).find(function(r){return String(r.name||'').trim()===repName});
+        if(!rep)return;
+        var target=N(rep.target_qty!=null?rep.target_qty:rep.target);
+        var qty=salesQtyForRepV283(rep.id,from,to);
+        tds[idxTarget].textContent=Q(target);
+        tds[idxPeriod].textContent=Q(qty);
+      });
+    });
+  }
+
+  var renderBaseV283=window.render;
+  if(typeof renderBaseV283==='function'){
+    window.render=function(){
+      var r=renderBaseV283.apply(this,arguments);
+      setTimeout(patchSalesOrdersReportV283,180);
+      return r;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  document.addEventListener('change',function(e){
+    if(e.target && e.target.matches('input[type="date"]')){
+      setTimeout(patchSalesOrdersReportV283,120);
+    }
+  });
+  document.addEventListener('click',function(e){
+    var t=(e.target&&e.target.textContent||'').trim();
+    if(t==='تطبيق'||t==='Apply'||t==='تنظيف'||t==='Clear'){
+      setTimeout(patchSalesOrdersReportV283,180);
+    }
+  });
+
+  setTimeout(patchSalesOrdersReportV283,600);
+  setTimeout(patchSalesOrdersReportV283,1200);
+})();
+</script>
+
+
+<style id="v284-sales-orders-achievement-style">
+.v284-ach-wrap{min-width:130px}
+.v284-ach-line{height:9px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin-top:5px}
+.v284-ach-line span{display:block;height:100%;background:linear-gradient(90deg,#14b8a6,#2563eb);border-radius:999px}
+.v284-ach-text{font-weight:900}
+</style>
+<script id="v284-sales-orders-achievement-percentage">
+(function(){
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function qtyForRepV284(repId,from,to){
+    if(typeof repSalesQtyV283==='function')return N(repSalesQtyV283(repId,from,to));
+    return (db.sales||[]).filter(function(s){
+      if(String(s.rep_id||'')!==String(repId))return false;
+      var d=String(s.date||'').slice(0,10);
+      return (!from||d>=from)&&(!to||d<=to);
+    }).reduce(function(t,s){return t+N(s.qty||s.quantity||0)},0);
+  }
+
+  function patchAchievementV284(){
+    Array.from(document.querySelectorAll('div,section,.card')).forEach(function(card){
+      var txt=(card.textContent||'').trim();
+      if(!/sales orders/i.test(txt))return;
+      var table=card.querySelector('table');
+      if(!table)return;
+
+      var dates=card.querySelectorAll('input[type="date"]');
+      var from=dates[0]?dates[0].value:'';
+      var to=dates[1]?dates[1].value:'';
+
+      var headers=Array.from(table.querySelectorAll('tr:first-child th'));
+      var idxRep=-1,idxTarget=-1,idxAch=-1;
+      headers.forEach(function(th,i){
+        var h=(th.textContent||'').trim().toLowerCase();
+        if(h==='البياع'||h.indexOf('rep')>=0)idxRep=i;
+        if(h.indexOf('التارجت')>=0||h.indexOf('target')>=0)idxTarget=i;
+        if(h.indexOf('نسبة التحقيق')>=0||h.indexOf('achievement')>=0)idxAch=i;
+      });
+      if(idxRep<0||idxTarget<0||idxAch<0)return;
+
+      headers[idxAch].textContent=(typeof lang!=='undefined'&&lang==='ar')?'نسبة التحقيق':'Achievement %';
+
+      Array.from(table.querySelectorAll('tr')).slice(1).forEach(function(tr){
+        var tds=tr.querySelectorAll('td');
+        if(tds.length<=Math.max(idxRep,idxTarget,idxAch))return;
+        var repName=(tds[idxRep].textContent||'').trim();
+        var rep=(db.reps||[]).find(function(r){return String(r.name||'').trim()===repName});
+        if(!rep)return;
+
+        var target=N(rep.target_qty!=null?rep.target_qty:rep.target);
+        var achieved=qtyForRepV284(rep.id,from,to);
+        var pct=target>0?(achieved/target*100):0;
+        var display=Math.round(pct*10)/10;
+        var width=Math.max(0,Math.min(100,pct));
+
+        tds[idxAch].innerHTML=
+          '<div class="v284-ach-wrap">'+
+            '<div class="v284-ach-text">'+display+'%</div>'+
+            '<div class="v284-ach-line"><span style="width:'+width+'%"></span></div>'+
+          '</div>';
+      });
+    });
+  }
+
+  var renderBaseV284=window.render;
+  if(typeof renderBaseV284==='function'){
+    window.render=function(){
+      var r=renderBaseV284.apply(this,arguments);
+      setTimeout(patchAchievementV284,220);
+      return r;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  document.addEventListener('change',function(e){
+    if(e.target&&e.target.matches('input[type="date"]'))setTimeout(patchAchievementV284,150);
+  });
+  document.addEventListener('click',function(e){
+    var t=(e.target&&e.target.textContent||'').trim().toLowerCase();
+    if(t==='تطبيق'||t==='apply'||t==='تنظيف'||t==='clear')setTimeout(patchAchievementV284,220);
+  });
+
+  setTimeout(patchAchievementV284,700);
+  setTimeout(patchAchievementV284,1300);
+})();
+</script>
