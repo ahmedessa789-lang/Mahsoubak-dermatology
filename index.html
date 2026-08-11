@@ -19987,3 +19987,134 @@ ensureFundAccounts();setTimeout(function(){bind();injectTest()},700);
   setTimeout(patchAchievementV284,1300);
 })();
 </script>
+
+
+<style id="v285-dashboard-sales-orders-achievement-style">
+.v285-ach-wrap{min-width:120px}.v285-ach-value{font-weight:900}
+.v285-ach-bar{height:8px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin-top:5px}
+.v285-ach-bar span{display:block;height:100%;background:linear-gradient(90deg,#14b8a6,#2563eb);border-radius:999px}
+</style>
+<script id="v285-dashboard-sales-orders-achievement">
+(function(){
+function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+function achievedQty(repId){
+ return (db.sales||[]).filter(function(s){return String(s.rep_id||'')===String(repId)}).reduce(function(t,s){
+  var q=N(s.qty||s.quantity||s.total_qty||s.units||s.count||0);
+  if(!q&&Array.isArray(s.items))q=s.items.reduce(function(a,it){return a+N(it.qty||it.quantity||it.units||it.count||0)},0);
+  return t+q;
+ },0);
+}
+function patch(){
+ Array.from(document.querySelectorAll('.card,.insight-card,.dash-panel,section')).forEach(function(card){
+  var tx=(card.textContent||'').toLowerCase();
+  if(tx.indexOf('sales orders')<0)return;
+  var table=card.querySelector('table'); if(!table)return;
+  var rows=table.querySelectorAll('tr'); if(!rows.length)return;
+  var headers=Array.from(rows[0].querySelectorAll('th')), idxRep=-1, idxTarget=-1, idxPct=-1;
+  headers.forEach(function(th,i){
+   var h=(th.textContent||'').trim().toLowerCase();
+   if(h==='البياع'||h.indexOf('rep')>=0)idxRep=i;
+   if(h.indexOf('التارجت')>=0||h.indexOf('target')>=0)idxTarget=i;
+   if(h.indexOf('نسبة التحقيق')>=0||h.indexOf('achievement')>=0)idxPct=i;
+  });
+  if(idxRep<0||idxTarget<0)return;
+  if(idxPct<0){
+   var th=document.createElement('th');
+   th.textContent=(typeof lang!=='undefined'&&lang==='ar')?'نسبة التحقيق':'Achievement %';
+   rows[0].appendChild(th); idxPct=headers.length;
+  }
+  Array.from(rows).slice(1).forEach(function(tr){
+   var cells=tr.querySelectorAll('td'); if(!cells.length)return;
+   var repName=(cells[idxRep]&&cells[idxRep].textContent||'').trim();
+   var rep=(db.reps||[]).find(function(r){return String(r.name||'').trim()===repName});
+   if(!rep)return;
+   var target=N(rep.target_qty!=null?rep.target_qty:rep.target);
+   var achieved=achievedQty(rep.id);
+   var pct=target>0?(achieved/target*100):0;
+   var display=Math.round(pct*10)/10, width=Math.max(0,Math.min(100,pct));
+   var cell=tr.querySelectorAll('td')[idxPct];
+   if(!cell){cell=document.createElement('td');tr.appendChild(cell);}
+   cell.innerHTML='<div class="v285-ach-wrap"><div class="v285-ach-value">'+display+'%</div><div class="v285-ach-bar"><span style="width:'+width+'%"></span></div></div>';
+  });
+ });
+}
+var rb=window.renderDashboard;
+if(typeof rb==='function'){window.renderDashboard=function(){var r=rb.apply(this,arguments);setTimeout(patch,180);return r}}
+var rr=window.render;
+if(typeof rr==='function'){window.render=function(){var r=rr.apply(this,arguments);setTimeout(patch,220);return r};try{render=window.render}catch(e){}}
+setTimeout(patch,700);setTimeout(patch,1400);
+})();
+</script>
+
+
+<style id="v286-rep-percentage-visible-style">
+.v286-pct{font-weight:900;color:#0f172a;font-size:14px;white-space:nowrap}
+.v286-pct-bar{width:110px;max-width:100%;height:8px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin-top:6px}
+.v286-pct-bar span{display:block;height:100%;background:linear-gradient(90deg,#14b8a6,#2563eb);border-radius:999px}
+</style>
+<script id="v286-rep-percentage-visible-fix">
+(function(){
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function Q(v){v=N(v);return Number.isInteger(v)?String(v):String(Math.round(v*100)/100)}
+  function ESC(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function achievedQty(repId){
+    return (db.sales||[]).filter(function(s){return String(s.rep_id||'')===String(repId)}).reduce(function(t,s){
+      var q=N(s.qty||s.quantity||s.total_qty||s.units||s.count||0);
+      if(!q&&Array.isArray(s.items)){
+        q=s.items.reduce(function(a,it){return a+N(it.qty||it.quantity||it.units||it.count||0)},0);
+      }
+      return t+q;
+    },0);
+  }
+
+  window.repTargetTable=function(){
+    var reps=db.reps||[];
+    if(!reps.length)return '<div class="empty">'+((typeof T==='function'&&T('empty'))||'لا توجد بيانات')+'</div>';
+
+    return '<table><tr>'+
+      '<th>'+((typeof lang!=='undefined'&&lang==='ar')?'البياع':'Sales rep')+'</th>'+
+      '<th>'+((typeof lang!=='undefined'&&lang==='ar')?'التارجت (وحدة)':'Target (Qty)')+'</th>'+
+      '<th>'+((typeof lang!=='undefined'&&lang==='ar')?'المحقق (وحدة)':'Achieved (Qty)')+'</th>'+
+      '<th>'+((typeof lang!=='undefined'&&lang==='ar')?'المتبقي من التارجت (وحدة)':'Remaining (Qty)')+'</th>'+
+      '<th>'+((typeof lang!=='undefined'&&lang==='ar')?'نسبة التحقيق':'Achievement %')+'</th>'+
+    '</tr>'+
+    reps.map(function(r){
+      var target=N(r.target_qty!=null?r.target_qty:r.target);
+      var achieved=achievedQty(r.id);
+      var remaining=Math.max(0,target-achieved);
+      var pct=target>0?(achieved/target*100):0;
+      var display=Math.round(pct*10)/10;
+      var width=Math.max(0,Math.min(100,pct));
+      return '<tr>'+
+        '<td><b>'+ESC(r.name||'-')+'</b></td>'+
+        '<td>'+Q(target)+'</td>'+
+        '<td>'+Q(achieved)+'</td>'+
+        '<td>'+Q(remaining)+'</td>'+
+        '<td><div class="v286-pct">'+display+'%</div><div class="v286-pct-bar"><span style="width:'+width+'%"></span></div></td>'+
+      '</tr>';
+    }).join('')+
+    '</table>';
+  };
+
+  /* Rebuild the open reps modal too, so old cached table HTML cannot remain. */
+  var oldExpanded=window.expandedDashboardHTML;
+  if(typeof oldExpanded==='function'){
+    window.expandedDashboardHTML=function(key){
+      if(key==='reps'){
+        var head=(typeof modalHeader==='function')
+          ?modalHeader(
+             (typeof lang!=='undefined'&&lang==='ar')?'تفاصيل إدارة البياعين':'Sales reps details',
+             (typeof lang!=='undefined'&&lang==='ar')?'التارجت، المحقق، ونسبة الإنجاز لكل بياع (بالكمية)':'Target, achieved and achievement percentage by quantity'
+           ):'';
+        var summary=(typeof repsQuantitySummaryHTMLV272==='function')?repsQuantitySummaryHTMLV272():'';
+        var stock=(typeof stockAvailabilityTable==='function')?stockAvailabilityTable():'';
+        return head+'<div class="stack">'+summary+
+          '<div class="card"><h3>sales orders</h3>'+window.repTargetTable()+'</div>'+
+          '<div class="card"><h3>'+((typeof lang!=='undefined'&&lang==='ar')?'إتاحة المخزون للبياعين':'Stock availability')+'</h3>'+stock+'</div>'+
+        '</div>';
+      }
+      return oldExpanded.apply(this,arguments);
+    };
+  }
+})();
+</script>
