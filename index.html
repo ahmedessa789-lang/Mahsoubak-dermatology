@@ -20118,3 +20118,642 @@ setTimeout(patch,700);setTimeout(patch,1400);
   }
 })();
 </script>
+
+
+<style id="v287-expense-modules-style">
+.v287-exp-grid{display:grid;grid-template-columns:repeat(4,minmax(170px,1fr));gap:12px}
+.v287-module{margin:0 0 16px}
+.v287-module-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.v287-pill{display:inline-flex;padding:6px 10px;border-radius:999px;background:#eef2ff;color:#3730a3;font-size:12px;font-weight:900}
+.v287-total{font-size:22px;font-weight:900}
+.v287-history{margin-top:18px}
+.v287-history table td,.v287-history table th{font-size:12px}
+.v287-note{margin-top:10px;padding:10px 12px;border:1px solid #e2e8f0;background:#f8fafc;border-radius:12px;color:#475569;font-size:12px;line-height:1.7}
+@media(max-width:900px){.v287-exp-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.v287-exp-grid{grid-template-columns:1fr}}
+</style>
+<script id="v287-general-admin-marketing-expenses">
+(function(){
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S(v){return String(v==null?'':v).trim()}
+  function U(){return typeof uid==='function'?uid():'id_'+Date.now()+'_'+Math.random().toString(36).slice(2)}
+  function Tdy(){return typeof today==='function'?today():new Date().toISOString().slice(0,10)}
+  function E(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function Money(v){return N(v).toLocaleString('en-EG',{minimumFractionDigits:2,maximumFractionDigits:2})+' EGP'}
+
+  var generalCats=[
+    ['6210','إيجارات / Rent'],
+    ['6220','كهرباء ومياه ومرافق / Utilities'],
+    ['6230','إنترنت واتصالات / Internet & Telecom'],
+    ['6240','وقود وانتقالات / Fuel & Transportation'],
+    ['6250','أدوات ومستلزمات مكتبية / Office Supplies'],
+    ['6260','أتعاب مهنية واستشارات / Professional Fees'],
+    ['6270','صيانة وإصلاحات / Maintenance & Repairs'],
+    ['6280','رسوم واشتراكات / Fees & Subscriptions'],
+    ['6290','مصروفات عمومية وإدارية أخرى / Other G&A']
+  ];
+  var marketingCats=[
+    ['6310','إعلانات ودعاية / Advertising'],
+    ['6320','مؤتمرات وفعاليات / Conferences & Events'],
+    ['6330','هدايا وعروض ترويجية / Gifts & Promotions'],
+    ['6340','عينات مجانية / Samples'],
+    ['6350','تسويق رقمي / Digital Marketing'],
+    ['6360','سفر وانتقالات تسويقية / Marketing Travel'],
+    ['6370','مواد دعائية ومطبوعات / Marketing Materials'],
+    ['6380','رعاية وأنشطة تسويقية / Sponsorships'],
+    ['6390','مصروفات تسويقية أخرى / Other Marketing']
+  ];
+
+  function ensureAccount(code,name,type,parent,normal){
+    var a=(db.accounts||[]).find(function(x){return String(x.code)===String(code)});
+    if(!a){
+      a={id:U(),code:code,name:name,type:type,parent:parent||'',level:parent?1:0,normal:normal,opening:0,notes:''};
+      db.accounts.push(a);
+    }else{
+      a.type=type; a.normal=normal;
+      if(!a.parent&&parent)a.parent=parent;
+    }
+    return a;
+  }
+
+  function ensureV287(){
+    if(typeof ensureAccounting==='function')ensureAccounting();
+    if(!Array.isArray(db.financeFunds))db.financeFunds=[];
+    if(!Array.isArray(db.general_admin_expenses_v287))db.general_admin_expenses_v287=[];
+    if(!Array.isArray(db.marketing_expenses_v287))db.marketing_expenses_v287=[];
+
+    ensureAccount('6200','مصروفات عمومية وإدارية / General & Administrative Expenses','Expense','6000','debit');
+    ensureAccount('6300','مصروفات تسويقية / Marketing Expenses','Expense','6000','debit');
+    generalCats.forEach(function(c){ensureAccount(c[0],c[1],'Expense','6200','debit')});
+    marketingCats.forEach(function(c){ensureAccount(c[0],c[1],'Expense','6300','debit')});
+  }
+
+  function fundCode(f){
+    if(!f)return '';
+    if(f.gl_account_code_v274)return f.gl_account_code_v274;
+    var raw=S(f.id||f.name||U()).replace(/[^A-Za-z0-9]/g,'').slice(-10).toUpperCase()||Math.random().toString(36).slice(2,9).toUpperCase();
+    f.gl_account_code_v274='FUND-'+raw;
+    return f.gl_account_code_v274;
+  }
+
+  function ensureFundAccount(f){
+    if(!f)return '';
+    var code=fundCode(f);
+    if(!(db.accounts||[]).some(function(a){return String(a.code)===String(code)})){
+      var bank=f.type==='bank';
+      db.accounts.push({
+        id:U(),code:code,
+        name:(bank?'بنك / Bank: ':'خزنة / Cashbox: ')+(f.name||'-')+' ['+S(f.currency||'EGP').toUpperCase()+']',
+        type:'Asset',parent:bank?'1110':'1100',level:2,normal:'debit',opening:0,
+        notes:'Auto-linked finance fund'
+      });
+    }
+    return code;
+  }
+
+  function fundOptions(selected){
+    ensureV287();
+    return '<option value="">اختر الخزنة / البنك</option>'+
+      db.financeFunds.map(function(f){
+        var label=(f.type==='bank'?'بنك - ':'خزنة - ')+(f.name||'-')+' ['+S(f.currency||'EGP').toUpperCase()+']';
+        return '<option value="'+E(f.id)+'" '+(String(f.id)===String(selected)?'selected':'')+'>'+E(label)+'</option>';
+      }).join('');
+  }
+
+  function categoryOptions(kind){
+    var arr=kind==='marketing'?marketingCats:generalCats;
+    return arr.map(function(c){return '<option value="'+c[0]+'">'+E(c[0]+' — '+c[1])+'</option>'}).join('');
+  }
+
+  function getFund(id){
+    return (db.financeFunds||[]).find(function(f){return String(f.id)===String(id)})||null;
+  }
+
+  function syncRate(kind){
+    var fund=getFund((document.getElementById('v287_'+kind+'_fund')||{}).value);
+    var rate=document.getElementById('v287_'+kind+'_rate');
+    var label=document.getElementById('v287_'+kind+'_rate_label');
+    if(!rate)return;
+    var cur=S(fund&&fund.currency||'EGP').toUpperCase();
+    if(label)label.textContent='سعر '+cur+' بالجنيه';
+    if(cur==='EGP'){rate.value=1;rate.disabled=true}else{rate.disabled=false;if(N(rate.value)<=0)rate.value=''}
+  }
+  window.syncExpenseRateV287=syncRate;
+
+  function postExpense(kind){
+    ensureV287();
+    var isMarketing=kind==='marketing';
+    var date=(document.getElementById('v287_'+kind+'_date')||{}).value||Tdy();
+    var account=S((document.getElementById('v287_'+kind+'_category')||{}).value);
+    var fund=getFund((document.getElementById('v287_'+kind+'_fund')||{}).value);
+    var amount=N((document.getElementById('v287_'+kind+'_amount')||{}).value);
+    var rate=N((document.getElementById('v287_'+kind+'_rate')||{}).value||1);
+    var desc=S((document.getElementById('v287_'+kind+'_desc')||{}).value);
+    var beneficiary=S((document.getElementById('v287_'+kind+'_beneficiary')||{}).value);
+    var ref=S((document.getElementById('v287_'+kind+'_ref')||{}).value);
+    var notes=S((document.getElementById('v287_'+kind+'_notes')||{}).value);
+
+    if(!account)return alert('اختر نوع المصروف');
+    if(!fund)return alert('اختر الخزنة أو البنك');
+    if(amount<=0)return alert('اكتب مبلغ صحيح');
+    if(!desc)return alert('اكتب بيان المصروف');
+    var currency=S(fund.currency||'EGP').toUpperCase();
+    if(currency!=='EGP'&&rate<=0)return alert('اكتب سعر العملة بالجنيه');
+
+    var egp=amount*(currency==='EGP'?1:rate);
+    var fundAcc=ensureFundAccount(fund);
+    var id=U();
+    var title=(isMarketing?'مصروف تسويقي':'مصروف عمومي وإداري')+' - '+desc+(beneficiary?' - '+beneficiary:'')+(ref?' - مرجع '+ref:'');
+
+    db.journal.push({id:U(),date:date,source:isMarketing?'marketing_expense_v287':'general_admin_expense_v287',sourceId:id,description:title,account:account,debit:egp,credit:0});
+    db.journal.push({id:U(),date:date,source:isMarketing?'marketing_expense_v287':'general_admin_expense_v287',sourceId:id,description:title,account:fundAcc,debit:0,credit:egp});
+
+    var row={id:id,date:date,account_code:account,amount:amount,currency:currency,rate:currency==='EGP'?1:rate,egp_value:egp,fund_id:fund.id,fund_name:fund.name||'',fund_type:fund.type||'cash',description:desc,beneficiary:beneficiary,reference:ref,notes:notes,created_at:new Date().toISOString()};
+    if(isMarketing)db.marketing_expenses_v287.unshift(row); else db.general_admin_expenses_v287.unshift(row);
+
+    try{if(typeof save==='function')save()}catch(e){}
+    try{if(typeof renderAccounts==='function')renderAccounts()}catch(e){}
+    try{if(typeof renderTrialBalance==='function')renderTrialBalance()}catch(e){}
+    try{if(typeof renderIncomeStatementV273==='function')renderIncomeStatementV273()}catch(e){}
+    try{if(typeof renderBalanceSheetV273==='function')renderBalanceSheetV273()}catch(e){}
+    alert('تم تسجيل المصروف وترحيله تلقائيًا إلى القيود وميزان المراجعة والقوائم المالية');
+  }
+  window.postExpenseV287=postExpense;
+
+  function deleteExpense(kind,id){
+    if(!confirm('حذف المصروف وآثاره المحاسبية؟'))return;
+    var source=kind==='marketing'?'marketing_expense_v287':'general_admin_expense_v287';
+    db.journal=(db.journal||[]).filter(function(j){return !(String(j.source)===source&&String(j.sourceId)===String(id))});
+    if(kind==='marketing')db.marketing_expenses_v287=(db.marketing_expenses_v287||[]).filter(function(r){return String(r.id)!==String(id)});
+    else db.general_admin_expenses_v287=(db.general_admin_expenses_v287||[]).filter(function(r){return String(r.id)!==String(id)});
+    try{if(typeof save==='function')save()}catch(e){}
+    try{if(typeof renderAccounts==='function')renderAccounts()}catch(e){}
+  }
+  window.deleteExpenseV287=deleteExpense;
+
+  function accountName(code){
+    var a=(db.accounts||[]).find(function(x){return String(x.code)===String(code)});
+    return a?a.name:code;
+  }
+
+  function history(kind){
+    var arr=kind==='marketing'?(db.marketing_expenses_v287||[]): (db.general_admin_expenses_v287||[]);
+    if(!arr.length)return '<div class="empty">لا توجد مصروفات مسجلة</div>';
+    return '<table><tr><th>التاريخ</th><th>نوع المصروف</th><th>البيان</th><th>الخزنة / البنك</th><th>العملة</th><th>القيمة EGP</th><th>المرجع</th><th></th></tr>'+
+      arr.slice(0,100).map(function(r){
+        return '<tr><td>'+E(r.date)+'</td><td>'+E(accountName(r.account_code))+'</td><td><b>'+E(r.description)+'</b>'+(r.beneficiary?'<div class="hint">'+E(r.beneficiary)+'</div>':'')+'</td><td>'+E(r.fund_name||'-')+'</td><td>'+E(r.currency||'EGP')+' '+N(r.amount).toLocaleString('en-EG')+'</td><td><b>'+Money(r.egp_value)+'</b></td><td>'+E(r.reference||'-')+'</td><td><button class="btn small danger" onclick="deleteExpenseV287(\''+kind+'\',\''+E(r.id)+'\')">حذف</button></td></tr>';
+      }).join('')+'</table>';
+  }
+
+  function total(kind){
+    var arr=kind==='marketing'?(db.marketing_expenses_v287||[]): (db.general_admin_expenses_v287||[]);
+    return arr.reduce(function(t,r){return t+N(r.egp_value)},0);
+  }
+
+  function moduleHTML(kind){
+    var marketing=kind==='marketing';
+    var title=marketing?'مصروفات تسويقية':'مصروفات عمومية وإدارية';
+    var subtitle=marketing?'الإعلانات، المؤتمرات، الهدايا، العينات، التسويق الرقمي وغيرها.':'الإيجارات، المرافق، الاتصالات، الوقود، المستلزمات، الصيانة وغيرها.';
+    return '<div class="card v287-module" id="v287_'+kind+'_module">'+
+      '<div class="v287-module-head"><div><h3>'+title+'</h3><div class="hint">'+subtitle+'</div></div><div><span class="v287-pill">إجمالي مسجل</span><div class="v287-total">'+Money(total(kind))+'</div></div></div>'+
+      '<div class="v287-exp-grid" style="margin-top:14px">'+
+        '<div><label>التاريخ</label><input id="v287_'+kind+'_date" type="date" value="'+Tdy()+'"></div>'+
+        '<div><label>نوع المصروف</label><select id="v287_'+kind+'_category">'+categoryOptions(kind)+'</select></div>'+
+        '<div><label>الخزنة / البنك</label><select id="v287_'+kind+'_fund" onchange="syncExpenseRateV287(\''+kind+'\')">'+fundOptions('')+'</select></div>'+
+        '<div><label>المبلغ</label><input id="v287_'+kind+'_amount" type="number" min="0" step="0.01"></div>'+
+        '<div><label id="v287_'+kind+'_rate_label">سعر العملة بالجنيه</label><input id="v287_'+kind+'_rate" type="number" min="0" step="0.0001" value="1" disabled></div>'+
+        '<div><label>المستفيد / الجهة</label><input id="v287_'+kind+'_beneficiary"></div>'+
+        '<div><label>المرجع</label><input id="v287_'+kind+'_ref" placeholder="رقم فاتورة / تحويل / مستند"></div>'+
+        '<div><label>البيان</label><input id="v287_'+kind+'_desc" placeholder="وصف المصروف"></div>'+
+        '<div style="grid-column:span 2"><label>ملاحظات</label><input id="v287_'+kind+'_notes"></div>'+
+      '</div>'+
+      '<div class="v287-note"><b>القيد التلقائي:</b> مدين حساب المصروف المختار، ودائن الخزنة أو البنك المحدد. لذلك المصروف يظهر تلقائيًا في قائمة الدخل وميزان المراجعة ويخفض رصيد الخزنة/البنك محاسبيًا.</div>'+
+      '<button class="btn ok" style="margin-top:12px" onclick="postExpenseV287(\''+kind+'\')">تسجيل المصروف</button>'+
+      '<div class="v287-history"><h3>سجل '+title+'</h3>'+history(kind)+'</div>'+
+    '</div>';
+  }
+
+  function injectV287(){
+    ensureV287();
+    var view=document.getElementById('view-accounts'); if(!view)return;
+    ['general','marketing'].forEach(function(k){var old=document.getElementById('v287_'+k+'_module');if(old)old.remove()});
+
+    var g=document.createElement('div');g.innerHTML=moduleHTML('general');
+    var m=document.createElement('div');m.innerHTML=moduleHTML('marketing');
+    var manual=document.getElementById('v281_manual_journal_card');
+    var anchor=manual||document.getElementById('v277_finance_statements_holder');
+
+    if(anchor){
+      anchor.insertAdjacentElement('beforebegin',g.firstElementChild);
+      anchor.insertAdjacentElement('beforebegin',m.firstElementChild);
+    }else{
+      view.insertBefore(m.firstElementChild,view.firstChild);
+      view.insertBefore(g.firstElementChild,view.firstChild);
+    }
+    setTimeout(function(){syncRate('general');syncRate('marketing')},30);
+  }
+
+  var base=window.renderAccounts;
+  if(typeof base==='function'){
+    window.renderAccounts=function(){ensureV287();var r=base.apply(this,arguments);setTimeout(injectV287,320);return r};
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+  ensureV287();
+  try{if(typeof save==='function')save()}catch(e){}
+  setTimeout(injectV287,1100);
+})();
+</script>
+
+
+<style id="v288-workflow-audit-style">
+.v288-extra-movements{margin-top:14px}
+.v288-extra-movements .hint{margin-bottom:8px}
+.v288-audit-ok{color:#166534;font-weight:900}
+.v288-audit-warn{color:#92400e;font-weight:900}
+</style>
+<script id="v288-complete-finance-workflow-fix">
+(function(){
+function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+function S(v){return String(v==null?'':v).trim()}
+function E(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+function ensure(){
+ if(!Array.isArray(db.financeFunds))db.financeFunds=[];
+ if(!Array.isArray(db.financeFundMovements))db.financeFundMovements=[];
+ if(!Array.isArray(db.journal))db.journal=[];
+}
+function fund(id){return db.financeFunds.find(function(f){return String(f.id)===String(id)})||null}
+function cur(f){return S(f&&f.currency||'EGP').toUpperCase()}
+function addMove(id,f,direction,amount,date,description,source,sourceId){
+ ensure(); if(!f||!(N(amount)>0))return;
+ if(db.financeFundMovements.some(function(m){return String(m.id)===String(id)}))return;
+ var sign=direction==='in'?1:-1;
+ f.balance=N(f.balance)+sign*N(amount);
+ db.financeFundMovements.push({
+  id:id,fund_id:f.id,fund_name:f.name||'',fund_type:f.type||'cash',currency:cur(f),
+  date:date||new Date().toISOString().slice(0,10),direction:direction,amount:N(amount),
+  signed_amount:sign*N(amount),description:description||'',source:source||'',source_id:sourceId||''
+ });
+}
+function reverseMove(id){
+ ensure(); var m=db.financeFundMovements.find(function(x){return String(x.id)===String(id)});
+ if(!m)return;
+ var f=fund(m.fund_id); if(f)f.balance=N(f.balance)-N(m.signed_amount);
+ db.financeFundMovements=db.financeFundMovements.filter(function(x){return String(x.id)!==String(id)});
+}
+function applyExpenseRow(kind,row){
+ if(!row)return;
+ var f=fund(row.fund_id); if(!f)return;
+ addMove('expense_v288_'+row.id,f,'out',row.amount,row.date,row.description,kind==='marketing'?'marketing_expense':'general_admin_expense',row.id);
+}
+function reverseExpenseRow(row){if(row)reverseMove('expense_v288_'+row.id)}
+
+function applyManualRow(row){
+ if(!row)return;
+ if(row.type==='deposit'){
+  addMove('manual_v288_'+row.id+'_dest',fund(row.dest_fund_id),'in',row.amount,row.date,row.description,'manual_deposit',row.id);
+ }else if(row.type==='withdrawal'){
+  addMove('manual_v288_'+row.id+'_source',fund(row.source_fund_id),'out',row.amount,row.date,row.description,'manual_withdrawal',row.id);
+ }else if(row.type==='transfer'){
+  addMove('manual_v288_'+row.id+'_source',fund(row.source_fund_id),'out',row.source_amount,row.date,row.description,'manual_transfer',row.id);
+  addMove('manual_v288_'+row.id+'_dest',fund(row.dest_fund_id),'in',row.dest_amount,row.date,row.description,'manual_transfer',row.id);
+ }
+}
+function reverseManualRow(row){
+ if(!row)return;
+ reverseMove('manual_v288_'+row.id+'_source');
+ reverseMove('manual_v288_'+row.id+'_dest');
+}
+
+/* New expenses: journal + fund balance + fund movement */
+var expBase=window.postExpenseV287;
+if(typeof expBase==='function'){
+ window.postExpenseV287=function(kind){
+  var arr=kind==='marketing'?(db.marketing_expenses_v287||[]):(db.general_admin_expenses_v287||[]);
+  var before=new Set(arr.map(function(r){return String(r.id)}));
+  var r=expBase.apply(this,arguments);
+  var rows=kind==='marketing'?(db.marketing_expenses_v287||[]):(db.general_admin_expenses_v287||[]);
+  var row=rows.find(function(x){return !before.has(String(x.id))});
+  if(row){applyExpenseRow(kind,row);try{save()}catch(e){}}
+  return r;
+ };
+}
+var delExpBase=window.deleteExpenseV287;
+if(typeof delExpBase==='function'){
+ window.deleteExpenseV287=function(kind,id){
+  var arr=kind==='marketing'?(db.marketing_expenses_v287||[]):(db.general_admin_expenses_v287||[]);
+  var row=arr.find(function(x){return String(x.id)===String(id)});
+  if(row)reverseExpenseRow(row);
+  var r=delExpBase.apply(this,arguments);
+  try{save()}catch(e){}
+  return r;
+ };
+}
+
+/* Manual journal: make deposits/withdrawals/transfers hit actual fund balances too. */
+var manualBase=window.postManualJournalV281;
+if(typeof manualBase==='function'){
+ window.postManualJournalV281=function(){
+  var before=new Set((db.manual_journal_entries_v281||[]).map(function(r){return String(r.id)}));
+  var r=manualBase.apply(this,arguments);
+  var row=(db.manual_journal_entries_v281||[]).find(function(x){return !before.has(String(x.id))});
+  if(row){applyManualRow(row);try{save()}catch(e){}}
+  return r;
+ };
+}
+var delManualBase=window.deleteManualJournalV281;
+if(typeof delManualBase==='function'){
+ window.deleteManualJournalV281=function(id){
+  var row=(db.manual_journal_entries_v281||[]).find(function(x){return String(x.id)===String(id)});
+  if(row)reverseManualRow(row);
+  var r=delManualBase.apply(this,arguments);
+  try{save()}catch(e){}
+  return r;
+ };
+}
+
+/* Backfill only records introduced by these modules and only when a movement ID is missing. */
+function backfill(){
+ ensure();
+ (db.general_admin_expenses_v287||[]).forEach(function(r){applyExpenseRow('general',r)});
+ (db.marketing_expenses_v287||[]).forEach(function(r){applyExpenseRow('marketing',r)});
+ (db.manual_journal_entries_v281||[]).forEach(applyManualRow);
+ try{save()}catch(e){}
+}
+
+/* Cash Flow must include the actual cash/bank GL accounts, not only legacy 1100. */
+window.cashFlowData=function(){
+ if(typeof ensureAccounting==='function')ensureAccounting();
+ var rr=typeof cashFlowRange==='function'?cashFlowRange():{from:'',to:''};
+ var codes=new Set(['1100','1110']);
+ (db.financeFunds||[]).forEach(function(f){if(f.gl_account_code_v274)codes.add(String(f.gl_account_code_v274))});
+ (db.accounts||[]).forEach(function(a){
+  if(String(a.parent)==='1100'||String(a.parent)==='1110'||String(a.code).indexOf('FUND-')===0)codes.add(String(a.code));
+ });
+ var opening=0;
+ codes.forEach(function(code){
+  var a=(db.accounts||[]).find(function(x){return String(x.code)===code});
+  if(a)opening+=N(a.opening);
+ });
+ var lines=(db.journal||[]).filter(function(j){return codes.has(String(j.account))}).sort(function(a,b){return S(a.date).localeCompare(S(b.date))});
+ var before=lines.filter(function(j){return rr.from&&S(j.date)<rr.from}).reduce(function(a,j){return a+N(j.debit)-N(j.credit)},0);
+ var rows=lines.filter(function(j){return (!rr.from||S(j.date)>=rr.from)&&(!rr.to||S(j.date)<=rr.to)});
+ var inflow=rows.reduce(function(a,j){return a+N(j.debit)},0);
+ var outflow=rows.reduce(function(a,j){return a+N(j.credit)},0);
+ var by={};
+ rows.forEach(function(j){
+  var k=j.source||'manual';if(!by[k])by[k]={source:k,inflow:0,outflow:0,count:0};
+  by[k].inflow+=N(j.debit);by[k].outflow+=N(j.credit);by[k].count++;
+ });
+ return {from:rr.from||'',to:rr.to||'',opening:opening+before,inflow:inflow,outflow:outflow,closing:opening+before+inflow-outflow,rows:rows,bySource:Object.keys(by).map(function(k){return by[k]})};
+};
+try{cashFlowData=window.cashFlowData}catch(e){}
+
+/* Show non-receipt fund movements in the cash/bank statement panes. */
+function extraMovements(kind){
+ ensure();
+ return db.financeFundMovements.filter(function(m){
+  var f=fund(m.fund_id);
+  if(!f)return false;
+  var fk=f.type==='bank'?'bank':'cash';
+  if(fk!==kind)return false;
+  return !String(m.id||'').startsWith('receipt_balance_v264_');
+ }).sort(function(a,b){return S(b.date).localeCompare(S(a.date))});
+}
+function injectExtra(kind){
+ var pane=document.querySelector('.finance-pane-v227[data-pane="'+kind+'"]');if(!pane)return;
+ var old=pane.querySelector('.v288-extra-movements');if(old)old.remove();
+ var rows=extraMovements(kind);
+ var box=document.createElement('div');box.className='card v288-extra-movements';
+ box.innerHTML='<h3>'+(kind==='bank'?'حركات البنك الأخرى':'حركات الخزنة الأخرى')+'</h3>'+
+  '<div class="hint">مصروفات وقيود وتحويلات لا تعتمد على أذون القبض/الصرف.</div>'+
+  (rows.length?'<table><tr><th>التاريخ</th><th>الحساب</th><th>البيان</th><th>داخل</th><th>خارج</th><th>العملة</th></tr>'+
+   rows.map(function(m){
+    return '<tr><td>'+E(m.date)+'</td><td>'+E(m.fund_name||'-')+'</td><td>'+E(m.description||'-')+'</td><td>'+(m.direction==='in'?N(m.amount).toLocaleString('en-EG'):'')+'</td><td>'+(m.direction==='out'?N(m.amount).toLocaleString('en-EG'):'')+'</td><td>'+E(m.currency||'EGP')+'</td></tr>';
+   }).join('')+'</table>':'<div class="empty">لا توجد حركات إضافية</div>');
+ pane.appendChild(box);
+}
+var showBase=window.showFinancePaneV227;
+if(typeof showBase==='function'){
+ window.showFinancePaneV227=function(name){var r=showBase.apply(this,arguments);setTimeout(function(){if(name==='cash'||name==='bank')injectExtra(name)},80);return r};
+}
+var cashStmtBase=window.renderCashStatementV262;
+if(typeof cashStmtBase==='function'){
+ window.renderCashStatementV262=function(){var r=cashStmtBase.apply(this,arguments);setTimeout(function(){injectExtra('cash')},80);return r};
+}
+
+/* Workflow audit: journal integrity + fund movement linkage. */
+window.runFinanceWorkflowAuditV288=function(){
+ ensure();
+ var issues=[];
+ function hasMove(id){return db.financeFundMovements.some(function(m){return String(m.id)===String(id)})}
+ (db.general_admin_expenses_v287||[]).forEach(function(r){if(!hasMove('expense_v288_'+r.id))issues.push('مصروف عمومي بدون حركة خزنة/بنك: '+r.id)});
+ (db.marketing_expenses_v287||[]).forEach(function(r){if(!hasMove('expense_v288_'+r.id))issues.push('مصروف تسويقي بدون حركة خزنة/بنك: '+r.id)});
+ (db.manual_journal_entries_v281||[]).forEach(function(r){
+  if(r.type==='deposit'&&!hasMove('manual_v288_'+r.id+'_dest'))issues.push('إيداع يدوي بدون حركة وجهة: '+r.id);
+  if(r.type==='withdrawal'&&!hasMove('manual_v288_'+r.id+'_source'))issues.push('صرف يدوي بدون حركة مصدر: '+r.id);
+  if(r.type==='transfer'&&(!hasMove('manual_v288_'+r.id+'_source')||!hasMove('manual_v288_'+r.id+'_dest')))issues.push('تحويل يدوي ناقص حركة: '+r.id);
+ });
+ var groups={};
+ db.journal.forEach(function(j){var k=S(j.sourceId||j.id);if(!groups[k])groups[k]={d:0,c:0};groups[k].d+=N(j.debit);groups[k].c+=N(j.credit)});
+ Object.keys(groups).forEach(function(k){if(Math.abs(groups[k].d-groups[k].c)>0.01)issues.push('قيد غير متزن: '+k)});
+ return {ok:issues.length===0,issues:issues};
+};
+
+backfill();
+setTimeout(function(){injectExtra('cash');injectExtra('bank')},1200);
+})();
+</script>
+
+
+<style id="v289-print-current-section-style">
+@media print{
+  body.v289-print-one *{visibility:hidden!important}
+  body.v289-print-one .v289-print-target,
+  body.v289-print-one .v289-print-target *{visibility:visible!important}
+
+  body.v289-print-one .v289-print-target{
+    position:absolute!important;
+    left:0!important;
+    top:0!important;
+    width:100%!important;
+    max-width:none!important;
+    margin:0!important;
+    padding:0!important;
+    background:#fff!important;
+    box-shadow:none!important;
+    border:0!important;
+  }
+
+  body.v289-print-one .v289-print-target .no-print,
+  body.v289-print-one .v289-print-target button,
+  body.v289-print-one .v289-print-target .actions{
+    display:none!important;
+  }
+
+  body.v289-print-one .v289-print-target table{
+    width:100%!important;
+    border-collapse:collapse!important;
+  }
+
+  body.v289-print-one .v289-print-target th,
+  body.v289-print-one .v289-print-target td{
+    border:1px solid #bbb!important;
+    padding:6px!important;
+    font-size:11px!important;
+  }
+
+  body.v289-print-one .v289-print-target .card{
+    box-shadow:none!important;
+    border:0!important;
+  }
+
+  @page{
+    size:auto;
+    margin:12mm;
+  }
+}
+.v289-print-btn{margin-inline-start:8px}
+</style>
+
+<script id="v289-print-current-section-only">
+(function(){
+  function cleanupV289(){
+    document.body.classList.remove('v289-print-one');
+    document.querySelectorAll('.v289-print-target').forEach(function(el){
+      el.classList.remove('v289-print-target');
+    });
+  }
+
+  window.printSectionOnlyV289=function(target){
+    cleanupV289();
+
+    var el=null;
+    if(typeof target==='string'){
+      el=document.querySelector(target);
+    }else if(target&&target.nodeType===1){
+      el=target;
+    }
+
+    if(!el)return alert('تعذر تحديد الجزء المطلوب طباعته');
+
+    el.classList.add('v289-print-target');
+    document.body.classList.add('v289-print-one');
+
+    var after=function(){
+      cleanupV289();
+      window.removeEventListener('afterprint',after);
+    };
+    window.addEventListener('afterprint',after);
+    window.print();
+    setTimeout(after,1800);
+  };
+
+  function addPrintButtonToCardV289(card,label){
+    if(!card || card.dataset.v289PrintReady==='1')return;
+    card.dataset.v289PrintReady='1';
+
+    var header=card.querySelector('.section-title') || card.querySelector('h3');
+    var btn=document.createElement('button');
+    btn.type='button';
+    btn.className='btn blue v289-print-btn no-print';
+    btn.textContent=label||'طباعة';
+    btn.onclick=function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      printSectionOnlyV289(card);
+    };
+
+    if(header && header.classList && header.classList.contains('section-title')){
+      var actions=header.querySelector('.actions');
+      if(actions)actions.appendChild(btn);
+      else header.appendChild(btn);
+    }else if(header){
+      header.insertAdjacentElement('afterend',btn);
+    }else{
+      card.insertBefore(btn,card.firstChild);
+    }
+  }
+
+  function installPrintButtonsV289(){
+    var view=document.getElementById('view-accounts');
+    if(!view)return;
+
+    /* Expense modules */
+    addPrintButtonToCardV289(document.getElementById('v287_general_module'),'طباعة المصروفات العمومية');
+    addPrintButtonToCardV289(document.getElementById('v287_marketing_module'),'طباعة المصروفات التسويقية');
+
+    /* Manual journal */
+    addPrintButtonToCardV289(document.getElementById('v281_manual_journal_card'),'طباعة القيود اليدوية');
+
+    /* Financial control */
+    addPrintButtonToCardV289(document.getElementById('v274_accounting_audit_panel'),'طباعة مركز الرقابة');
+
+    /* Financial statements launcher/detail cards */
+    var detail=document.getElementById('v277_financial_detail');
+    if(detail && detail.classList.contains('show')){
+      var statementCard=detail.querySelector('.v273-statement') || detail.querySelector('.card');
+      if(statementCard)addPrintButtonToCardV289(statementCard,'طباعة القائمة الحالية');
+    }
+
+    /* Cash / bank / papers current pane */
+    document.querySelectorAll('.finance-pane-v227').forEach(function(pane){
+      if(getComputedStyle(pane).display==='none')return;
+      addPrintButtonToCardV289(pane,'طباعة الكشف الحالي');
+    });
+
+    /* Generic standalone finance cards with tables, but avoid tiny nested stat cards */
+    Array.from(view.querySelectorAll(':scope > .card')).forEach(function(card){
+      if(card.id==='v274_accounting_audit_panel')return;
+      if(card.id==='v287_general_module'||card.id==='v287_marketing_module'||card.id==='v281_manual_journal_card')return;
+      if(card.querySelector('table') && !card.classList.contains('stat')){
+        addPrintButtonToCardV289(card,'طباعة هذا الجزء');
+      }
+    });
+  }
+
+  /* Override old "print current financial statement" buttons so they print only the visible pane */
+  document.addEventListener('click',function(e){
+    var btn=e.target.closest('button');
+    if(!btn)return;
+    var t=(btn.textContent||'').trim();
+    if(t==='طباعة الكشف الحالي'){
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      var pane=Array.from(document.querySelectorAll('.finance-pane-v227')).find(function(p){
+        return getComputedStyle(p).display!=='none';
+      });
+      if(pane)printSectionOnlyV289(pane);
+    }
+  },true);
+
+  var renderAccountsBaseV289=window.renderAccounts;
+  if(typeof renderAccountsBaseV289==='function'){
+    window.renderAccounts=function(){
+      var r=renderAccountsBaseV289.apply(this,arguments);
+      setTimeout(installPrintButtonsV289,420);
+      return r;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  var openStatementBaseV289=window.openFinanceStatementV277;
+  if(typeof openStatementBaseV289==='function'){
+    window.openFinanceStatementV277=function(kind){
+      var r=openStatementBaseV289.apply(this,arguments);
+      setTimeout(installPrintButtonsV289,120);
+      return r;
+    };
+  }
+
+  var showPaneBaseV289=window.showFinancePaneV227;
+  if(typeof showPaneBaseV289==='function'){
+    window.showFinancePaneV227=function(name){
+      var r=showPaneBaseV289.apply(this,arguments);
+      setTimeout(installPrintButtonsV289,120);
+      return r;
+    };
+  }
+
+  setTimeout(installPrintButtonsV289,1200);
+})();
+</script>
