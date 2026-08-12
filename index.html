@@ -20784,3 +20784,218 @@ var rb=window.renderAccounts;if(typeof rb==='function'){window.renderAccounts=fu
 setTimeout(upgrade,1400);
 })();
 </script>
+
+
+<style id="v291-expense-auto-sync-style">.v291-source-badge{display:inline-flex;padding:3px 8px;border-radius:999px;background:#ecfeff;color:#155e75;font-size:11px;font-weight:800;margin-inline-start:6px}</style>
+<script id="v291-expenses-auto-sync-from-source">
+(function(){
+function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+function S(v){return String(v==null?'':v).trim()}
+function ensure(){if(!Array.isArray(db.general_admin_expenses_v287))db.general_admin_expenses_v287=[];if(!Array.isArray(db.marketing_expenses_v287))db.marketing_expenses_v287=[];if(!Array.isArray(db.cash_receipts_out))db.cash_receipts_out=[];if(!Array.isArray(db.manual_journal_entries_v281))db.manual_journal_entries_v281=[]}
+function kindOf(a){a=S(a);if(/^62\d\d$/.test(a))return 'general';if(/^63\d\d$/.test(a))return 'marketing';return ''}
+function arr(k){return k==='marketing'?db.marketing_expenses_v287:db.general_admin_expenses_v287}
+function fund(id){return (db.financeFunds||[]).find(function(f){return String(f.id)===String(id)})||null}
+function removeMirror(st,sid){ensure();['general','marketing'].forEach(function(k){var a=arr(k);for(var i=a.length-1;i>=0;i--){var r=a[i];if(r.auto_synced_v291===true&&String(r.source_type_v291||'')===String(st)&&String(r.source_id_v291||'')===String(sid))a.splice(i,1)}})}
+function put(k,row){if(!k||!row)return;removeMirror(row.source_type_v291,row.source_id_v291);row.auto_synced_v291=true;arr(k).unshift(row)}
+function receiptEgp(r){if(N(r.amount_egp))return N(r.amount_egp);if(N(r.egp_value))return N(r.egp_value);if(N(r.accounting_egp_value_v274))return N(r.accounting_egp_value_v274);var a=N(r.amount_original!=null?r.amount_original:r.amount),c=S(r.currency||'EGP').toUpperCase(),rt=c==='EGP'?1:N(r.exchange_rate||r.fx||r.rate||1);return a*rt}
+function syncReceipt(r){if(!r||!r.id)return;removeMirror('cash_receipt_out',r.id);var ac=S(r.counterpart_account_v275||r.counterpart_account||r.expense_account||''),k=kindOf(ac);if(!k)return;var f=fund(r.finance_fund_id||r.bank_fund_id||r.treasury_id||r.finance_account_id),c=S(r.currency||(f&&f.currency)||'EGP').toUpperCase(),a=N(r.amount_original!=null?r.amount_original:r.amount),egp=receiptEgp(r),rt=a>0?egp/a:1;put(k,{id:'AUTO-CR-'+r.id,date:r.date||'',account_code:ac,amount:a,currency:c,rate:rt||1,egp_value:egp,fund_id:(f&&f.id)||r.finance_fund_id||r.bank_fund_id||r.treasury_id||'',fund_name:(f&&f.name)||r.finance_fund_name||r.bank_fund_name||r.treasury_name||r.bank||'',fund_type:(f&&f.type)||r.fund_type||((r.method||'cash')==='bank'?'bank':'cash'),description:r.purpose||r.description||'إيصال صرف',beneficiary:r.party||'',reference:r.serial||r.reference||'',notes:'مسجل تلقائيًا من إيصال الصرف',source_type_v291:'cash_receipt_out',source_id_v291:r.id,source_label_v291:'إيصال صرف',created_at:r.created_at||new Date().toISOString()})}
+function manualEgp(r){if(N(r.egp_value))return N(r.egp_value);var a=N(r.amount||r.source_amount||0),rt=N(r.rate||r.source_rate||1);return a*rt}
+function syncManual(r){if(!r||!r.id)return;removeMirror('manual_journal',r.id);if(r.type!=='withdrawal')return;var ac=S(r.counterpart_account||r.counterpart_account_v275||''),k=kindOf(ac);if(!k)return;var f=fund(r.source_fund_id),a=N(r.amount||r.source_amount||0),egp=manualEgp(r),c=S((f&&f.currency)||r.currency||'EGP').toUpperCase(),rt=a>0?egp/a:1;put(k,{id:'AUTO-MJ-'+r.id,date:r.date||'',account_code:ac,amount:a,currency:c,rate:rt||1,egp_value:egp,fund_id:(f&&f.id)||r.source_fund_id||'',fund_name:(f&&f.name)||r.source_fund_name||'',fund_type:(f&&f.type)||'cash',description:r.description||'قيد يومية يدوي',beneficiary:r.counterpart_party_name||'',reference:r.reference||'',notes:'مسجل تلقائيًا من قيد اليومية اليدوي',source_type_v291:'manual_journal',source_id_v291:r.id,source_label_v291:'قيد يومية',created_at:r.created_at||new Date().toISOString()})}
+function resync(){ensure();(db.cash_receipts_out||[]).forEach(syncReceipt);(db.manual_journal_entries_v281||[]).forEach(syncManual);try{if(typeof save==='function')save()}catch(e){}}
+window.resyncExpensesFromSourcesV291=resync;
+var rs=window.saveCashReceiptV159;if(typeof rs==='function'){window.saveCashReceiptV159=function(type){var a=type==='out'?(db.cash_receipts_out||[]):[],b=new Set(a.map(function(r){return String(r.id)})),x=rs.apply(this,arguments);if(type==='out'){var row=(db.cash_receipts_out||[]).find(function(r){return !b.has(String(r.id))});if(row){syncReceipt(row);try{save()}catch(e){};try{renderAccounts()}catch(e){}}}return x};try{saveCashReceiptV159=window.saveCashReceiptV159}catch(e){}}
+var rd=window.deleteCashReceiptV159;if(typeof rd==='function'){window.deleteCashReceiptV159=function(type,id){var x=rd.apply(this,arguments);if(type==='out'){removeMirror('cash_receipt_out',id);try{save()}catch(e){}}return x};try{deleteCashReceiptV159=window.deleteCashReceiptV159}catch(e){}}
+var ms=window.postManualJournalV281;if(typeof ms==='function'){window.postManualJournalV281=function(){var b=new Set((db.manual_journal_entries_v281||[]).map(function(r){return String(r.id)})),x=ms.apply(this,arguments),row=(db.manual_journal_entries_v281||[]).find(function(r){return !b.has(String(r.id))});if(row){syncManual(row);try{save()}catch(e){};try{renderAccounts()}catch(e){}}return x}}
+var md=window.deleteManualJournalV281;if(typeof md==='function'){window.deleteManualJournalV281=function(id){var x=md.apply(this,arguments);removeMirror('manual_journal',id);try{save()}catch(e){};return x}}
+var ed=window.deleteExpenseV287;if(typeof ed==='function'){window.deleteExpenseV287=function(k,id){var r=arr(k).find(function(x){return String(x.id)===String(id)});if(r&&r.auto_synced_v291===true)return alert('هذا المصروف مسجل تلقائيًا من '+(r.source_label_v291||'الحركة الأصلية')+'. احذف الحركة الأصلية ليتم حذف المصروف تلقائيًا.');return ed.apply(this,arguments)}}
+function mark(){['general','marketing'].forEach(function(k){var m=document.getElementById('v287_'+k+'_module');if(!m)return;var synced=arr(k).filter(function(r){return r.auto_synced_v291===true});m.querySelectorAll('table tr').forEach(function(tr){if(tr.dataset.v291Marked==='1')return;var tx=S(tr.textContent),r=synced.find(function(x){return S(x.reference)&&tx.indexOf(S(x.reference))>=0&&tx.indexOf(S(x.description))>=0});if(r){var td=tr.querySelector('td:nth-child(3)')||tr.querySelector('td');if(td){var b=document.createElement('span');b.className='v291-source-badge';b.textContent=r.source_label_v291||'تلقائي';td.appendChild(b)}}tr.dataset.v291Marked='1'})})}
+var ra=window.renderAccounts;if(typeof ra==='function'){window.renderAccounts=function(){resync();var x=ra.apply(this,arguments);setTimeout(mark,650);return x};try{renderAccounts=window.renderAccounts}catch(e){}}
+resync();setTimeout(mark,1600);
+})();
+</script>
+
+
+<script id="v292-expense-legacy-account-classification">
+(function(){
+  function S(v){return String(v==null?'':v).trim()}
+
+  /* Final expense register classification:
+     62xx + legacy 6100 => General & Administrative
+     63xx + legacy 5200 => Marketing / Customer-related
+     No other account is treated as an expense-register item automatically. */
+  window.expenseRegisterKindV292=function(account){
+    var code=S(account);
+    if(/^62\d\d$/.test(code) || code==='6100') return 'general';
+    if(/^63\d\d$/.test(code) || code==='5200') return 'marketing';
+    return '';
+  };
+
+  function ensureArraysV292(){
+    if(!Array.isArray(db.general_admin_expenses_v287))db.general_admin_expenses_v287=[];
+    if(!Array.isArray(db.marketing_expenses_v287))db.marketing_expenses_v287=[];
+  }
+
+  function removeAutoMirrorV292(sourceType,sourceId){
+    ensureArraysV292();
+    [db.general_admin_expenses_v287,db.marketing_expenses_v287].forEach(function(arr){
+      for(var i=arr.length-1;i>=0;i--){
+        var r=arr[i];
+        if(r.auto_synced_v291===true &&
+           String(r.source_type_v291||'')===String(sourceType) &&
+           String(r.source_id_v291||'')===String(sourceId)){
+          arr.splice(i,1);
+        }
+      }
+    });
+  }
+
+  function fundByIdV292(id){
+    return (db.financeFunds||[]).find(function(f){return String(f.id)===String(id)})||null;
+  }
+
+  function receiptEgpV292(row){
+    function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+    if(N(row.amount_egp))return N(row.amount_egp);
+    if(N(row.egp_value))return N(row.egp_value);
+    if(N(row.accounting_egp_value_v274))return N(row.accounting_egp_value_v274);
+    var amount=N(row.amount_original!=null?row.amount_original:row.amount);
+    var cur=S(row.currency||'EGP').toUpperCase();
+    var rate=cur==='EGP'?1:N(row.exchange_rate||row.fx||row.rate||1);
+    return amount*rate;
+  }
+
+  function upsertV292(kind,row){
+    ensureArraysV292();
+    removeAutoMirrorV292(row.source_type_v291,row.source_id_v291);
+    row.auto_synced_v291=true;
+    (kind==='marketing'?db.marketing_expenses_v287:db.general_admin_expenses_v287).unshift(row);
+  }
+
+  function syncReceiptV292(row){
+    if(!row||!row.id)return;
+    var account=S(row.counterpart_account_v275||row.counterpart_account||row.expense_account||'');
+    var kind=window.expenseRegisterKindV292(account);
+    removeAutoMirrorV292('cash_receipt_out',row.id);
+    if(!kind)return;
+
+    function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+    var f=fundByIdV292(row.finance_fund_id||row.bank_fund_id||row.treasury_id||row.finance_account_id);
+    var cur=S(row.currency||(f&&f.currency)||'EGP').toUpperCase();
+    var amount=N(row.amount_original!=null?row.amount_original:row.amount);
+    var egp=receiptEgpV292(row);
+    var rate=amount>0?egp/amount:1;
+
+    upsertV292(kind,{
+      id:'AUTO-CR-'+row.id,date:row.date||'',account_code:account,
+      amount:amount,currency:cur,rate:rate||1,egp_value:egp,
+      fund_id:(f&&f.id)||row.finance_fund_id||row.bank_fund_id||row.treasury_id||'',
+      fund_name:(f&&f.name)||row.finance_fund_name||row.bank_fund_name||row.treasury_name||row.bank||'',
+      fund_type:(f&&f.type)||row.fund_type||((row.method||'cash')==='bank'?'bank':'cash'),
+      description:row.purpose||row.description||'إيصال صرف',
+      beneficiary:row.party||'',reference:row.serial||row.reference||'',
+      notes:'مسجل تلقائيًا من إيصال الصرف',
+      source_type_v291:'cash_receipt_out',source_id_v291:row.id,source_label_v291:'إيصال صرف',
+      created_at:row.created_at||new Date().toISOString()
+    });
+  }
+
+  function syncManualV292(row){
+    if(!row||!row.id)return;
+    removeAutoMirrorV292('manual_journal',row.id);
+    if(row.type!=='withdrawal')return;
+
+    var account=S(row.counterpart_account||row.counterpart_account_v275||'');
+    var kind=window.expenseRegisterKindV292(account);
+    if(!kind)return;
+
+    function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+    var f=fundByIdV292(row.source_fund_id);
+    var amount=N(row.amount||row.source_amount||0);
+    var egp=N(row.egp_value)||(amount*N(row.rate||row.source_rate||1));
+    var cur=S((f&&f.currency)||row.currency||'EGP').toUpperCase();
+    var rate=amount>0?egp/amount:1;
+
+    upsertV292(kind,{
+      id:'AUTO-MJ-'+row.id,date:row.date||'',account_code:account,
+      amount:amount,currency:cur,rate:rate||1,egp_value:egp,
+      fund_id:(f&&f.id)||row.source_fund_id||'',fund_name:(f&&f.name)||row.source_fund_name||'',
+      fund_type:(f&&f.type)||'cash',
+      description:row.description||'قيد يومية يدوي',
+      beneficiary:row.counterpart_party_name||'',reference:row.reference||'',
+      notes:'مسجل تلقائيًا من قيد اليومية اليدوي',
+      source_type_v291:'manual_journal',source_id_v291:row.id,source_label_v291:'قيد يومية',
+      created_at:row.created_at||new Date().toISOString()
+    });
+  }
+
+  window.resyncExpenseRegistersV292=function(){
+    ensureArraysV292();
+    (db.cash_receipts_out||[]).forEach(syncReceiptV292);
+    (db.manual_journal_entries_v281||[]).forEach(syncManualV292);
+    try{if(typeof save==='function')save()}catch(e){}
+  };
+
+  /* Wrap final save paths once more so the new legacy mapping is applied
+     after all earlier accounting wrappers have populated counterpart fields. */
+  var receiptBaseV292=window.saveCashReceiptV159;
+  if(typeof receiptBaseV292==='function'){
+    window.saveCashReceiptV159=function(type){
+      var before=new Set((type==='out'?(db.cash_receipts_out||[]):[]).map(function(r){return String(r.id)}));
+      var result=receiptBaseV292.apply(this,arguments);
+      if(type==='out'){
+        var row=(db.cash_receipts_out||[]).find(function(r){return !before.has(String(r.id))});
+        if(row)syncReceiptV292(row);
+        try{if(typeof save==='function')save()}catch(e){}
+      }
+      return result;
+    };
+    try{saveCashReceiptV159=window.saveCashReceiptV159}catch(e){}
+  }
+
+  var manualBaseV292=window.postManualJournalV281;
+  if(typeof manualBaseV292==='function'){
+    window.postManualJournalV281=function(){
+      var before=new Set((db.manual_journal_entries_v281||[]).map(function(r){return String(r.id)}));
+      var result=manualBaseV292.apply(this,arguments);
+      var row=(db.manual_journal_entries_v281||[]).find(function(r){return !before.has(String(r.id))});
+      if(row)syncManualV292(row);
+      try{if(typeof save==='function')save()}catch(e){}
+      return result;
+    };
+  }
+
+  /* Rebuild auto-mirrors from source records. This is idempotent because each
+     source is removed before being reinserted; manual expense entries are untouched. */
+  window.resyncExpenseRegistersV292();
+
+  /* Expose a lightweight production audit for this specific workflow. */
+  window.auditExpenseRegisterWorkflowV292=function(){
+    var issues=[];
+    (db.cash_receipts_out||[]).forEach(function(r){
+      var account=S(r.counterpart_account_v275||r.counterpart_account||r.expense_account||'');
+      var kind=window.expenseRegisterKindV292(account);
+      if(!kind)return;
+      var arr=kind==='marketing'?db.marketing_expenses_v287:db.general_admin_expenses_v287;
+      var count=arr.filter(function(x){
+        return x.auto_synced_v291===true &&
+          String(x.source_type_v291)==='cash_receipt_out' &&
+          String(x.source_id_v291)===String(r.id);
+      }).length;
+      if(count!==1)issues.push('إيصال صرف '+r.id+' له '+count+' سجل مصروف بدلاً من 1');
+    });
+    (db.manual_journal_entries_v281||[]).forEach(function(r){
+      if(r.type!=='withdrawal')return;
+      var kind=window.expenseRegisterKindV292(r.counterpart_account||'');
+      if(!kind)return;
+      var arr=kind==='marketing'?db.marketing_expenses_v287:db.general_admin_expenses_v287;
+      var count=arr.filter(function(x){
+        return x.auto_synced_v291===true &&
+          String(x.source_type_v291)==='manual_journal' &&
+          String(x.source_id_v291)===String(r.id);
+      }).length;
+      if(count!==1)issues.push('قيد صرف '+r.id+' له '+count+' سجل مصروف بدلاً من 1');
+    });
+    return {ok:issues.length===0,issues:issues};
+  };
+})();
+</script>
