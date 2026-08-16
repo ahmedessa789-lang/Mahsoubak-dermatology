@@ -20999,3 +20999,566 @@ resync();setTimeout(mark,1600);
   };
 })();
 </script>
+
+<style id="v293-dynamic-expense-categories-style">
+.v293-add-cat-box{margin:14px 0;padding:14px;border:1px dashed #94a3b8;border-radius:14px;background:#f8fafc}
+.v293-add-cat-grid{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end}
+.v293-added-list{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+.v293-chip{display:inline-flex;padding:5px 9px;border-radius:999px;background:#eef2ff;color:#3730a3;font-size:12px;font-weight:800}
+@media(max-width:700px){.v293-add-cat-grid{grid-template-columns:1fr}}
+</style>
+<script id="v293-dynamic-expense-categories">
+(function(){
+function S(v){return String(v==null?'':v).trim()}
+function E(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+function U(){return typeof uid==='function'?uid():'id_'+Date.now()+'_'+Math.random().toString(36).slice(2)}
+function ensure(){if(!Array.isArray(db.accounts))db.accounts=[];if(!Array.isArray(db.expense_categories_v293))db.expense_categories_v293=[]}
+function parent(kind){return kind==='marketing'?'6300':'6200'}
+function prefix(kind){return kind==='marketing'?'63':'62'}
+function nextCode(kind){
+ ensure();var p=prefix(kind),start=kind==='marketing'?6310:6210,end=kind==='marketing'?6399:6299;
+ var used=new Set(db.accounts.map(function(a){return String(a.code||'')}));
+ for(var c=start;c<=end;c++){if(!used.has(String(c)))return String(c)}
+ return '';
+}
+function norm(v){return S(v).toLowerCase().replace(/\s+/g,' ')}
+window.addExpenseCategoryV293=function(kind){
+ ensure();
+ var input=document.getElementById('v293_'+kind+'_name');if(!input)return;
+ var name=S(input.value);if(!name)return alert('اكتب اسم بند المصروف');
+ var dup=db.accounts.some(function(a){return String(a.parent||'')===parent(kind)&&norm(a.name_ar||a.name)===norm(name)});
+ if(dup)return alert('يوجد بالفعل بند مصروف بنفس الاسم');
+ var code=nextCode(kind);if(!code)return alert('لا يوجد كود متاح داخل '+prefix(kind)+'xx');
+ db.accounts.push({id:U(),code:code,name:name,type:'Expense',parent:parent(kind),level:2,normal:'debit',opening:0,notes:'Custom expense category',custom_expense_category_v293:true,expense_kind_v293:kind,created_at:new Date().toISOString()});
+ db.expense_categories_v293.push({id:U(),code:code,name:name,kind:kind,parent:parent(kind),created_at:new Date().toISOString()});
+ input.value='';try{save()}catch(e){};try{renderAccounts()}catch(e){}
+ alert('تم إضافة بند المصروف — كود '+code);
+}
+function accounts(kind){
+ ensure();var par=parent(kind);
+ return db.accounts.filter(function(a){return a.type==='Expense'&&String(a.parent||'')===par&&/^6[23]\d\d$/.test(String(a.code||''))})
+ .sort(function(a,b){return String(a.code).localeCompare(String(b.code))});
+}
+function rebuild(kind){
+ var sel=document.getElementById('v287_'+kind+'_category');if(!sel)return;var old=sel.value;
+ sel.innerHTML=accounts(kind).map(function(a){return '<option value="'+E(a.code)+'">'+E(a.code+' — '+(a.name_ar||a.name||''))+'</option>'}).join('');
+ if(old&&Array.from(sel.options).some(function(o){return o.value===old}))sel.value=old;
+}
+function inject(kind){
+ var mod=document.getElementById('v287_'+kind+'_module');if(!mod)return;
+ var old=mod.querySelector('.v293-add-cat-box');if(old)old.remove();
+ var box=document.createElement('div');box.className='v293-add-cat-box';
+ var custom=accounts(kind).filter(function(a){return a.custom_expense_category_v293===true});
+ box.innerHTML='<b>إضافة نوع مصروف جديد</b><div class="hint">سيتم إنشاء حساب تلقائي داخل '+prefix(kind)+'xx وإضافته لقائمة نوع المصروف.</div>'+
+ '<div class="v293-add-cat-grid" style="margin-top:10px"><div><label>اسم بند المصروف</label><input id="v293_'+kind+'_name" placeholder="مثال: تأمينات / تدريب"></div>'+
+ '<div><label>التصنيف</label><input value="'+(kind==='marketing'?'مصروفات تسويقية':'مصروفات عمومية وإدارية')+'" disabled></div>'+
+ '<div><button class="btn blue" type="button" onclick="addExpenseCategoryV293(\''+kind+'\')">إضافة البند</button></div></div>'+
+ (custom.length?'<div class="v293-added-list">'+custom.map(function(a){return '<span class="v293-chip">'+E(a.code)+' — '+E(a.name_ar||a.name)+'</span>'}).join('')+'</div>':'');
+ var form=mod.querySelector('.v287-exp-grid');if(form)form.insertAdjacentElement('beforebegin',box);else mod.appendChild(box);
+ rebuild(kind);
+}
+function refresh(){inject('general');inject('marketing')}
+var base=window.renderAccounts;if(typeof base==='function'){window.renderAccounts=function(){var r=base.apply(this,arguments);setTimeout(refresh,650);return r};try{renderAccounts=window.renderAccounts}catch(e){}}
+setTimeout(refresh,1500);
+})();
+</script>
+
+<style id="v294-production-clean-reset-style">
+.v294-reset-card{border:1px solid #fecaca;background:#fff7f7}
+.v294-reset-card h3{color:#991b1b}
+.v294-reset-note{padding:12px;border-radius:12px;background:#fff;border:1px solid #fecaca;color:#7f1d1d;line-height:1.7;font-size:13px;margin:10px 0}
+.v294-reset-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 14px;margin:10px 0;font-size:12px;color:#475569}
+@media(max-width:700px){.v294-reset-list{grid-template-columns:1fr}}
+</style>
+
+<script id="v294-clean-production-data-reset">
+(function(){
+  function ensureArray(name){if(!Array.isArray(db[name]))db[name]=[]}
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+
+  var operationalArrays = [
+    'sales',
+    'purchases',
+    'collections',
+    'operations',
+    'journal',
+    'cash_receipts_in',
+    'cash_receipts_out',
+    'financeFundMovements',
+    'finance_cash_currency_movements',
+    'customer_cost_center',
+    'general_admin_expenses_v287',
+    'marketing_expenses_v287',
+    'manual_journal_entries_v281'
+  ];
+
+  function resetCustomerBalances(){
+    (db.customers||[]).forEach(function(c){
+      c.balance=0;
+      if('debt' in c)c.debt=0;
+      if('paid' in c)c.paid=0;
+      if('collection_total' in c)c.collection_total=0;
+    });
+  }
+
+  function resetSupplierBalances(){
+    (db.suppliers||[]).forEach(function(s){
+      s.balance=0;
+      if('due' in s)s.due=0;
+      if('paid' in s)s.paid=0;
+    });
+  }
+
+  function resetProductTransactionalFields(){
+    (db.products||[]).forEach(function(p){
+      /* Keep master product data and current manually-entered stock value.
+         Only clear counters derived from test transactions when present. */
+      if('sold_qty' in p)p.sold_qty=0;
+      if('sales_qty' in p)p.sales_qty=0;
+      if('purchase_qty' in p)p.purchase_qty=0;
+      if('reserved_qty' in p)p.reserved_qty=0;
+    });
+  }
+
+  function resetRepAchievement(){
+    (db.reps||[]).forEach(function(r){
+      if('achieved' in r)r.achieved=0;
+      if('sales_total' in r)r.sales_total=0;
+      if('achieved_qty' in r)r.achieved_qty=0;
+    });
+  }
+
+  function resetFundBalances(){
+    (db.financeFunds||[]).forEach(function(f){
+      /* Preserve fund master records, account links, names, currencies.
+         Set working balance to opening_balance if explicitly stored; otherwise zero. */
+      if(f.opening_balance!=null && isFinite(Number(f.opening_balance))){
+        f.balance=Number(f.opening_balance);
+      }else{
+        f.balance=0;
+      }
+    });
+  }
+
+  function resetAccountTransactionalState(){
+    (db.accounts||[]).forEach(function(a){
+      /* Preserve the chart of accounts and any intentionally-entered opening balance.
+         Do not delete custom expense accounts or finance fund GL accounts. */
+      if('movement_debit' in a)a.movement_debit=0;
+      if('movement_credit' in a)a.movement_credit=0;
+      if('current_balance' in a)a.current_balance=N(a.opening);
+    });
+  }
+
+  function clearWorkflowBackups(){
+    [
+      'accounting_audit_backup_v274',
+      'accounting_logic_test_v275',
+      'financial_control_last_audit_v278'
+    ].forEach(function(k){if(k in db)delete db[k]});
+  }
+
+  function doCleanResetV294(){
+    if(!confirm('سيتم حذف جميع بيانات التشغيل التجريبية مع الاحتفاظ بإعدادات النظام والمستخدمين وشجرة الحسابات والخزن والبنوك. هل تريد المتابعة؟'))return;
+
+    var code=prompt('للتأكيد اكتب كلمة: CLEAN');
+    if(String(code||'').trim().toUpperCase()!=='CLEAN'){
+      alert('تم إلغاء العملية');
+      return;
+    }
+
+    /* Safety backup in localStorage before destructive cleanup. */
+    try{
+      localStorage.setItem('mb_pre_production_backup_v294',JSON.stringify({
+        created_at:new Date().toISOString(),
+        db:db
+      }));
+    }catch(e){}
+
+    operationalArrays.forEach(function(name){
+      if(name in db)db[name]=[];
+    });
+
+    /* Clear related operational/derived arrays created by older patches. */
+    Object.keys(db).forEach(function(k){
+      if(!Array.isArray(db[k]))return;
+      var low=k.toLowerCase();
+
+      var shouldClear =
+        (low.indexOf('movement')>=0 && low.indexOf('financefund')>=0) ||
+        low.indexOf('receipt_history')>=0 ||
+        low.indexOf('collection_history')>=0 ||
+        low.indexOf('sales_history')>=0 ||
+        low.indexOf('purchase_history')>=0 ||
+        low.indexOf('expense_history')>=0;
+
+      if(shouldClear)db[k]=[];
+    });
+
+    resetCustomerBalances();
+    resetSupplierBalances();
+    resetProductTransactionalFields();
+    resetRepAchievement();
+    resetFundBalances();
+    resetAccountTransactionalState();
+    clearWorkflowBackups();
+
+    /* Remove auto-generated mirrors only; custom expense category master remains intact. */
+    ensureArray('general_admin_expenses_v287');
+    ensureArray('marketing_expenses_v287');
+
+    try{
+      localStorage.removeItem('mb_report_range');
+    }catch(e){}
+
+    try{if(typeof save==='function')save()}catch(e){}
+
+    try{
+      if(typeof render==='function')render();
+      else if(typeof renderAccounts==='function')renderAccounts();
+    }catch(e){}
+
+    alert('تم تنظيف بيانات التشغيل التجريبية بنجاح. النظام جاهز لإدخال البيانات النهائية.');
+  }
+  window.doCleanProductionResetV294=doCleanResetV294;
+
+  window.auditCleanProductionStateV294=function(){
+    var issues=[];
+    operationalArrays.forEach(function(name){
+      if(Array.isArray(db[name])&&db[name].length){
+        issues.push(name+' contains '+db[name].length+' rows');
+      }
+    });
+
+    var customerNonZero=(db.customers||[]).filter(function(c){return Math.abs(N(c.balance))>0.0001}).length;
+    var supplierNonZero=(db.suppliers||[]).filter(function(s){return Math.abs(N(s.balance||s.due))>0.0001}).length;
+
+    if(customerNonZero)issues.push('Customers with non-zero test balances: '+customerNonZero);
+    if(supplierNonZero)issues.push('Suppliers with non-zero test balances: '+supplierNonZero);
+
+    return {ok:issues.length===0,issues:issues};
+  };
+
+  function injectResetCardV294(){
+    var view=document.getElementById('view-settings')||document.getElementById('view-accounts');
+    if(!view||document.getElementById('v294_clean_reset_card'))return;
+
+    var card=document.createElement('div');
+    card.id='v294_clean_reset_card';
+    card.className='card v294-reset-card';
+    card.innerHTML=
+      '<h3>Clean Production Data Reset</h3>'+
+      '<div class="v294-reset-note"><b>استخدم هذا الخيار مرة واحدة قبل بدء إدخال البيانات النهائية.</b><br>سيتم حذف بيانات التشغيل التجريبية فقط، مع الاحتفاظ بهيكل وإعدادات النظام.</div>'+
+      '<div class="v294-reset-list">'+
+        '<div>✓ الاحتفاظ بالمستخدمين والصلاحيات</div>'+
+        '<div>✓ الاحتفاظ بشجرة الحسابات</div>'+
+        '<div>✓ الاحتفاظ ببنود المصروفات</div>'+
+        '<div>✓ الاحتفاظ بالخزن والبنوك والعملات</div>'+
+        '<div>✓ الاحتفاظ بالعملاء والموردين والمنتجات</div>'+
+        '<div>✓ الاحتفاظ بإعدادات الشركة</div>'+
+        '<div>✕ حذف المبيعات والمشتريات التجريبية</div>'+
+        '<div>✕ حذف التحصيلات والعمليات التجريبية</div>'+
+        '<div>✕ حذف أذون القبض والصرف التجريبية</div>'+
+        '<div>✕ حذف القيود والمصروفات وحركات الخزن التجريبية</div>'+
+      '</div>'+
+      '<button class="btn danger" type="button" onclick="doCleanProductionResetV294()">تنظيف بيانات التجربة وبدء Production</button>';
+
+    view.appendChild(card);
+  }
+
+  var renderSettingsBaseV294=window.renderSettings;
+  if(typeof renderSettingsBaseV294==='function'){
+    window.renderSettings=function(){
+      var r=renderSettingsBaseV294.apply(this,arguments);
+      setTimeout(injectResetCardV294,120);
+      return r;
+    };
+    try{renderSettings=window.renderSettings}catch(e){}
+  }
+
+  var renderAccountsBaseV294=window.renderAccounts;
+  if(typeof renderAccountsBaseV294==='function'){
+    window.renderAccounts=function(){
+      var r=renderAccountsBaseV294.apply(this,arguments);
+      setTimeout(injectResetCardV294,700);
+      return r;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  setTimeout(injectResetCardV294,1600);
+})();
+</script>
+
+
+<style id="v295-reset-visible-style">
+#v295_reset_banner{
+  margin:14px 0 18px;padding:16px;border:2px solid #ef4444;border-radius:16px;
+  background:#fff1f2;color:#7f1d1d
+}
+#v295_reset_banner h3{margin:0 0 8px;color:#991b1b}
+#v295_reset_banner .btn{margin-top:10px}
+</style>
+
+<script id="v295-reset-visible-fix">
+(function(){
+  function bannerHtmlV295(){
+    return '<div id="v295_reset_banner">'+
+      '<h3>تهيئة النسخة النهائية — حذف بيانات التجربة</h3>'+
+      '<div>استخدم هذا الزر مرة واحدة فقط قبل بدء إدخال البيانات النهائية.</div>'+
+      '<div class="hint" style="margin-top:6px">سيتم الاحتفاظ بالمستخدمين والصلاحيات وشجرة الحسابات وبنود المصروفات والعملاء والموردين والمنتجات والخزن والبنوك.</div>'+
+      '<button class="btn danger" type="button" onclick="doCleanProductionResetV294()">Clean Production Data Reset</button>'+
+    '</div>';
+  }
+
+  function injectResetVisibleV295(){
+    if(typeof window.doCleanProductionResetV294!=='function')return;
+
+    var settings=document.getElementById('view-settings');
+    if(settings && !settings.querySelector('#v295_reset_banner')){
+      settings.insertAdjacentHTML('afterbegin',bannerHtmlV295());
+    }
+
+    var accounts=document.getElementById('view-accounts');
+    if(accounts && !accounts.querySelector('#v295_reset_banner_accounts')){
+      var wrap=document.createElement('div');
+      wrap.id='v295_reset_banner_accounts';
+      wrap.innerHTML=bannerHtmlV295().replace('id="v295_reset_banner"','id="v295_reset_banner_accounts_inner"');
+      accounts.insertBefore(wrap,accounts.firstChild);
+    }
+  }
+
+  var renderSettingsBaseV295=window.renderSettings;
+  if(typeof renderSettingsBaseV295==='function'){
+    window.renderSettings=function(){
+      var r=renderSettingsBaseV295.apply(this,arguments);
+      setTimeout(injectResetVisibleV295,80);
+      return r;
+    };
+    try{renderSettings=window.renderSettings}catch(e){}
+  }
+
+  var renderAccountsBaseV295=window.renderAccounts;
+  if(typeof renderAccountsBaseV295==='function'){
+    window.renderAccounts=function(){
+      var r=renderAccountsBaseV295.apply(this,arguments);
+      setTimeout(injectResetVisibleV295,350);
+      return r;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  var renderBaseV295=window.render;
+  if(typeof renderBaseV295==='function'){
+    window.render=function(){
+      var r=renderBaseV295.apply(this,arguments);
+      setTimeout(injectResetVisibleV295,500);
+      return r;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  document.addEventListener('DOMContentLoaded',function(){
+    setTimeout(injectResetVisibleV295,800);
+    setTimeout(injectResetVisibleV295,1800);
+  });
+  setTimeout(injectResetVisibleV295,1200);
+})();
+</script>
+
+
+<style id="v296-selective-reset-style">
+#v296_selective_reset_card{
+  margin:14px 0;padding:16px;border:2px solid #0f766e;border-radius:16px;
+  background:#f0fdfa;color:#134e4a
+}
+#v296_selective_reset_card h3{margin:0 0 8px;color:#115e59}
+.v296-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 16px;margin:12px 0;font-size:12px}
+@media(max-width:700px){.v296-grid{grid-template-columns:1fr}}
+</style>
+
+<script id="v296-selective-reset-products-customers-keep-reps">
+(function(){
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+
+  function resetCustomersV296(){
+    (db.customers||[]).forEach(function(c){
+      c.balance=0;
+      if('debt' in c)c.debt=0;
+      if('paid' in c)c.paid=0;
+      if('sales_total' in c)c.sales_total=0;
+      if('sales' in c && typeof c.sales!=='object')c.sales=0;
+      if('collection_total' in c)c.collection_total=0;
+      if('total_sales' in c)c.total_sales=0;
+      if('remaining' in c)c.remaining=0;
+      if('outstanding' in c)c.outstanding=0;
+      if('last_sale' in c)c.last_sale='';
+      if('last_collection' in c)c.last_collection='';
+    });
+  }
+
+  function keepRepsExactlyV296(){
+    /* Intentionally no changes to db.reps.
+       Targets and achievement-percentage configuration remain untouched. */
+    if(!Array.isArray(db.reps))db.reps=[];
+  }
+
+  function clearProductCustomerTransactionsV296(){
+    /* Product master and all transactions that depend on products/customers */
+    db.products=[];
+    db.sales=[];
+    db.collections=[];
+    db.operations=[];
+    db.purchases=[];
+
+    /* Remove customer/product derived operational histories when present. */
+    Object.keys(db).forEach(function(k){
+      if(!Array.isArray(db[k]))return;
+      var low=k.toLowerCase();
+
+      var derived =
+        low==='sales_history' ||
+        low==='purchase_history' ||
+        low==='collection_history' ||
+        low==='operations_history' ||
+        low.indexOf('customer_sales')>=0 ||
+        low.indexOf('sales_by_customer')>=0 ||
+        low.indexOf('product_sales')>=0 ||
+        low.indexOf('stock_movement')>=0 ||
+        low.indexOf('inventory_movement')>=0;
+
+      if(derived)db[k]=[];
+    });
+  }
+
+  function cleanAccountingForDeletedCommercialTransactionsV296(){
+    if(!Array.isArray(db.journal))return;
+
+    var commercialSources = new Set([
+      'sale','sales','purchase','collection',
+      'operation_sale','direct_sale','sales_invoice',
+      'purchase_invoice'
+    ]);
+
+    db.journal=db.journal.filter(function(j){
+      var s=String(j.source||'').toLowerCase();
+      if(commercialSources.has(s))return false;
+
+      /* Also remove common generated source names tied to deleted sales/purchases/collections. */
+      if(s.indexOf('sale')>=0 && s.indexOf('manual')<0)return false;
+      if(s.indexOf('purchase')>=0)return false;
+      if(s.indexOf('collection')>=0)return false;
+
+      return true;
+    });
+  }
+
+  function selectiveResetV296(){
+    if(!confirm('سيتم حذف المنتجات وكل مبيعات/تحصيلات/عمليات/مشتريات التجربة، مع الاحتفاظ بالعملاء والمناديب والتارجت والنسب. هل تريد المتابعة؟'))return;
+
+    var code=prompt('للتأكيد اكتب: START');
+    if(String(code||'').trim().toUpperCase()!=='START'){
+      alert('تم إلغاء العملية');
+      return;
+    }
+
+    /* Safety backup */
+    try{
+      localStorage.setItem('mb_before_selective_reset_v296',JSON.stringify({
+        created_at:new Date().toISOString(),
+        db:db
+      }));
+    }catch(e){}
+
+    clearProductCustomerTransactionsV296();
+    resetCustomersV296();
+    keepRepsExactlyV296();
+    cleanAccountingForDeletedCommercialTransactionsV296();
+
+    /* Recalculate only derived rep achievements if they are stored fields,
+       but DO NOT alter targets, target_qty, percentages, or rep definitions. */
+    (db.reps||[]).forEach(function(r){
+      if('achieved' in r)r.achieved=0;
+      if('achieved_qty' in r)r.achieved_qty=0;
+      if('sales_total' in r)r.sales_total=0;
+      if('sales_qty' in r)r.sales_qty=0;
+    });
+
+    try{localStorage.removeItem('mb_report_range')}catch(e){}
+    try{if(typeof save==='function')save()}catch(e){}
+    try{if(typeof render==='function')render()}catch(e){}
+
+    alert('تم التنظيف بنجاح: المنتجات محذوفة، أرصدة ومبيعات العملاء = صفر، والمناديب والتارجت والنسب محفوظة كما هي.');
+  }
+  window.doSelectiveProductionResetV296=selectiveResetV296;
+
+  window.auditSelectiveResetV296=function(){
+    var issues=[];
+
+    if((db.products||[]).length)issues.push('Products not empty');
+    if((db.sales||[]).length)issues.push('Sales not empty');
+    if((db.collections||[]).length)issues.push('Collections not empty');
+    if((db.operations||[]).length)issues.push('Operations not empty');
+    if((db.purchases||[]).length)issues.push('Purchases not empty');
+
+    var customerBad=(db.customers||[]).filter(function(c){
+      return Math.abs(N(c.balance||c.debt||c.outstanding||0))>0.0001 ||
+             Math.abs(N(c.sales_total||c.total_sales||0))>0.0001;
+    }).length;
+    if(customerBad)issues.push('Customers with non-zero balances/sales: '+customerBad);
+
+    return {
+      ok:issues.length===0,
+      issues:issues,
+      reps_count:(db.reps||[]).length,
+      reps_preserved:true
+    };
+  };
+
+  function injectSelectiveResetV296(){
+    var settings=document.getElementById('view-settings');
+    if(!settings)return;
+
+    /* Hide previous full reset cards/buttons in this special preparation build. */
+    var old1=document.getElementById('v294_clean_reset_card');
+    if(old1)old1.style.display='none';
+    var old2=document.getElementById('v295_reset_banner');
+    if(old2)old2.style.display='none';
+
+    if(document.getElementById('v296_selective_reset_card'))return;
+
+    var card=document.createElement('div');
+    card.id='v296_selective_reset_card';
+    card.innerHTML=
+      '<h3>Selective Production Reset — Products & Customer Balances</h3>'+
+      '<div>استخدم هذا الخيار لتجهيز البيانات النهائية بدون المساس بالمناديب أو تقسيمة التارجت والنسب.</div>'+
+      '<div class="v296-grid">'+
+        '<div>✕ حذف جميع المنتجات</div>'+
+        '<div>✕ حذف المبيعات التجريبية</div>'+
+        '<div>✕ حذف التحصيلات التجريبية</div>'+
+        '<div>✕ حذف العمليات والمشتريات المرتبطة بالمنتجات القديمة</div>'+
+        '<div>✓ الاحتفاظ بكل العملاء</div>'+
+        '<div>✓ تصفير أرصدة ومديونيات ومبيعات العملاء</div>'+
+        '<div>✓ الاحتفاظ بكل المناديب</div>'+
+        '<div>✓ الاحتفاظ بالتارجت وتقسيمة نسب التحقيق</div>'+
+        '<div>✓ الاحتفاظ بالمستخدمين والصلاحيات</div>'+
+        '<div>✓ الاحتفاظ بشجرة الحسابات وبنود المصروفات والخزن والبنوك</div>'+
+      '</div>'+
+      '<button class="btn danger" type="button" onclick="doSelectiveProductionResetV296()">تنفيذ التنظيف الانتقائي</button>';
+
+    settings.insertBefore(card,settings.firstChild);
+  }
+
+  var renderSettingsBaseV296=window.renderSettings;
+  if(typeof renderSettingsBaseV296==='function'){
+    window.renderSettings=function(){
+      var r=renderSettingsBaseV296.apply(this,arguments);
+      setTimeout(injectSelectiveResetV296,100);
+      return r;
+    };
+    try{renderSettings=window.renderSettings}catch(e){}
+  }
+
+  setTimeout(injectSelectiveResetV296,1200);
+})();
+</script>
