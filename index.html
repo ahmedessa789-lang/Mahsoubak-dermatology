@@ -21063,3 +21063,98 @@ setTimeout(refresh,1500);
 })();
 </script>
 
+
+
+<style id="v297-old-lots-cleanup-style">
+#v297_lot_cleanup{
+  margin:14px 0 18px;padding:16px;border:2px solid #dc2626;border-radius:16px;
+  background:#fff7f7;color:#7f1d1d
+}
+#v297_lot_cleanup h3{margin:0 0 8px;color:#991b1b}
+</style>
+<script id="v297-online-cleanup-old-lots">
+(function(){
+  function injectV297(){
+    var view=document.getElementById('view-products');
+    if(!view||document.getElementById('v297_lot_cleanup'))return;
+
+    var box=document.createElement('div');
+    box.id='v297_lot_cleanup';
+    box.innerHTML=
+      '<h3>تنظيف سجلات LOT القديمة</h3>'+
+      '<div>هذا الزر يمسح سجلات LOT والمخزون القديمة فقط. لا يلمس العملاء أو المناديب أو التارجت أو تقسيمة النسب.</div>'+
+      '<div class="hint" style="margin-top:6px">استخدمه Online مرة واحدة بعد تحميل بيانات Supabase القديمة، ثم انتظر حتى يتم الحفظ Online.</div>'+
+      '<button class="btn danger" type="button" style="margin-top:10px" onclick="cleanupOldLotsV297()">مسح LOT والمخزون القديم</button>';
+    view.insertBefore(box,view.firstChild);
+  }
+
+  window.cleanupOldLotsV297=function(){
+    if(!confirm('سيتم حذف جميع سجلات LOT القديمة نهائيًا من البيانات الحالية. هل تريد المتابعة؟'))return;
+    var code=prompt('للتأكيد اكتب: LOTCLEAN');
+    if(String(code||'').trim().toUpperCase()!=='LOTCLEAN'){
+      alert('تم إلغاء العملية');
+      return;
+    }
+
+    try{
+      localStorage.setItem('mb_before_lot_cleanup_v297',JSON.stringify({
+        created_at:new Date().toISOString(),
+        inventory_lots:Array.isArray(db.inventory_lots)?db.inventory_lots:[]
+      }));
+    }catch(e){}
+
+    db.inventory_lots=[];
+
+    /* Clear any stale lot-level references from commercial rows if old data still exists. */
+    ['sales','operations','purchases'].forEach(function(k){
+      (db[k]||[]).forEach(function(r){
+        delete r.lot_id;
+        delete r.lot_number;
+        delete r.batch;
+        delete r.batch_id;
+        delete r.product_lot_id;
+      });
+    });
+
+    /* If no products exist, ensure no stock can be regenerated from stale product rows. */
+    if(!Array.isArray(db.products))db.products=[];
+
+    try{if(typeof save==='function')save()}catch(e){}
+
+    try{
+      if(typeof renderProducts==='function')renderProducts();
+      if(typeof render==='function')render();
+    }catch(e){}
+
+    setTimeout(function(){
+      try{if(typeof save==='function')save()}catch(e){}
+    },900);
+
+    setTimeout(function(){
+      alert('تم مسح سجلات LOT القديمة. انتظر ظهور حالة الحفظ Online على Supabase ثم اعمل Refresh للتأكد.');
+    },1600);
+  };
+
+  var base=window.renderProducts;
+  if(typeof base==='function'){
+    window.renderProducts=function(){
+      var r=base.apply(this,arguments);
+      setTimeout(injectV297,80);
+      return r;
+    };
+    try{renderProducts=window.renderProducts}catch(e){}
+  }
+
+  var renderBase=window.render;
+  if(typeof renderBase==='function'){
+    window.render=function(){
+      var r=renderBase.apply(this,arguments);
+      setTimeout(injectV297,300);
+      return r;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  setTimeout(injectV297,1200);
+})();
+</script>
