@@ -21063,3 +21063,790 @@ setTimeout(refresh,1500);
 })();
 </script>
 
+
+
+<style id="v298-general-journal-style">
+.v298-general-journal{margin:0 0 16px}
+.v298-head-grid{display:grid;grid-template-columns:180px 1fr 1fr;gap:12px;margin-bottom:12px}
+.v298-lines-wrap{overflow:auto;border:1px solid #e2e8f0;border-radius:14px;background:#fff}
+.v298-lines{width:100%;border-collapse:collapse;min-width:920px}
+.v298-lines th,.v298-lines td{padding:8px;border-bottom:1px solid #e2e8f0;vertical-align:middle}
+.v298-lines th{background:#f8fafc}
+.v298-lines input,.v298-lines select{margin:0}
+.v298-summary{display:grid;grid-template-columns:repeat(3,minmax(160px,1fr));gap:10px;margin-top:12px}
+.v298-sum{padding:12px;border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc}
+.v298-sum span{display:block;font-size:11px;color:#64748b;margin-bottom:4px}
+.v298-sum strong{font-size:19px}
+.v298-balanced{color:#166534}.v298-unbalanced{color:#b91c1c}
+.v298-help{margin-top:10px;padding:10px 12px;border:1px solid #bfdbfe;border-radius:12px;background:#eff6ff;color:#1e3a8a;font-size:12px;line-height:1.7}
+.v298-account-parent{color:#94a3b8}
+@media(max-width:760px){.v298-head-grid,.v298-summary{grid-template-columns:1fr}}
+</style>
+
+<script id="v298-general-journal-multiline">
+(function(){
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S(v){return String(v==null?'':v).trim()}
+  function U(){return typeof uid==='function'?uid():'id_'+Date.now()+'_'+Math.random().toString(36).slice(2)}
+  function Tdy(){return typeof today==='function'?today():new Date().toISOString().slice(0,10)}
+  function E(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+
+  function ensureV298(){
+    if(typeof ensureAccounting==='function')ensureAccounting();
+    if(!Array.isArray(db.accounts))db.accounts=[];
+    if(!Array.isArray(db.journal))db.journal=[];
+    if(!Array.isArray(db.general_journal_entries_v298))db.general_journal_entries_v298=[];
+
+    if(!(db.accounts||[]).some(function(a){return String(a.code)==='2200'})){
+      db.accounts.push({
+        id:U(),code:'2200',
+        name:'مصروفات مستحقة / Accrued Expenses',
+        type:'Liability',parent:'2000',level:2,normal:'credit',opening:0,
+        notes:'Accrued expenses / manual journal adjustments'
+      });
+    }
+  }
+
+  function accountMetaV298(code){
+    return (db.accounts||[]).find(function(a){return String(a.code)===String(code)})||null;
+  }
+
+  function hasChildrenV298(code){
+    return (db.accounts||[]).some(function(a){return String(a.parent||'')===String(code)});
+  }
+
+  function accountOptionsV298(selected){
+    ensureV298();
+    var arr=(db.accounts||[]).slice().sort(function(a,b){
+      return String(a.code).localeCompare(String(b.code),undefined,{numeric:true});
+    });
+    return '<option value="">اختر الحساب</option>'+arr.map(function(a){
+      var parent=hasChildrenV298(a.code);
+      var label=String(a.code)+' — '+String(a.name||'')+(parent?' [تجميعي]':'');
+      return '<option value="'+E(a.code)+'" '+(String(a.code)===String(selected)?'selected':'')+
+        (parent?' disabled class="v298-account-parent"':'')+'>'+E(label)+'</option>';
+    }).join('');
+  }
+
+  function rowHtmlV298(row){
+    row=row||{};
+    return '<tr class="v298-line-row">'+
+      '<td><select class="v298-account" onchange="recalcGeneralJournalV298()">'+accountOptionsV298(row.account||'')+'</select></td>'+
+      '<td><input class="v298-line-desc" placeholder="بيان السطر" value="'+E(row.description||'')+'"></td>'+
+      '<td><input class="v298-debit" type="number" min="0" step="0.01" value="'+(N(row.debit)||'')+'" oninput="recalcGeneralJournalV298()"></td>'+
+      '<td><input class="v298-credit" type="number" min="0" step="0.01" value="'+(N(row.credit)||'')+'" oninput="recalcGeneralJournalV298()"></td>'+
+      '<td><button class="btn small danger" type="button" onclick="removeGeneralJournalLineV298(this)">حذف</button></td>'+
+    '</tr>';
+  }
+
+  window.addGeneralJournalLineV298=function(prefill){
+    var body=document.getElementById('v298_lines_body');
+    if(!body)return;
+    body.insertAdjacentHTML('beforeend',rowHtmlV298(prefill||{}));
+    recalcGeneralJournalV298();
+  };
+
+  window.removeGeneralJournalLineV298=function(btn){
+    var tr=btn&&btn.closest('tr');
+    if(!tr)return;
+    var body=document.getElementById('v298_lines_body');
+    if(body&&body.querySelectorAll('tr').length<=2){
+      return alert('القيد العام يحتاج سطرين على الأقل');
+    }
+    tr.remove();
+    recalcGeneralJournalV298();
+  };
+
+  function collectLinesV298(){
+    return Array.from(document.querySelectorAll('#v298_lines_body .v298-line-row')).map(function(tr){
+      return {
+        account:S((tr.querySelector('.v298-account')||{}).value),
+        description:S((tr.querySelector('.v298-line-desc')||{}).value),
+        debit:N((tr.querySelector('.v298-debit')||{}).value),
+        credit:N((tr.querySelector('.v298-credit')||{}).value)
+      };
+    }).filter(function(r){return r.account||r.description||r.debit||r.credit});
+  }
+
+  window.recalcGeneralJournalV298=function(){
+    var lines=collectLinesV298();
+    var debit=lines.reduce(function(t,r){return t+N(r.debit)},0);
+    var credit=lines.reduce(function(t,r){return t+N(r.credit)},0);
+    var diff=debit-credit;
+    var d=document.getElementById('v298_total_debit');
+    var c=document.getElementById('v298_total_credit');
+    var f=document.getElementById('v298_difference');
+    if(d)d.textContent=debit.toLocaleString('en-EG',{minimumFractionDigits:2,maximumFractionDigits:2})+' EGP';
+    if(c)c.textContent=credit.toLocaleString('en-EG',{minimumFractionDigits:2,maximumFractionDigits:2})+' EGP';
+    if(f){
+      f.textContent=Math.abs(diff).toLocaleString('en-EG',{minimumFractionDigits:2,maximumFractionDigits:2})+' EGP';
+      f.className=Math.abs(diff)<=0.01?'v298-balanced':'v298-unbalanced';
+    }
+  };
+
+  function postGeneralJournalV298(){
+    ensureV298();
+    var date=S((document.getElementById('v298_date')||{}).value)||Tdy();
+    var ref=S((document.getElementById('v298_ref')||{}).value);
+    var desc=S((document.getElementById('v298_desc')||{}).value);
+    var lines=collectLinesV298();
+
+    if(!desc)return alert('اكتب البيان العام للقيد');
+    if(lines.length<2)return alert('القيد العام يحتاج سطرين على الأقل');
+
+    for(var i=0;i<lines.length;i++){
+      var l=lines[i];
+      if(!l.account)return alert('اختر الحساب في كل سطر');
+      if(hasChildrenV298(l.account))return alert('الحساب '+l.account+' حساب تجميعي ولا يقبل حركة مباشرة');
+      if(l.debit>0&&l.credit>0)return alert('السطر رقم '+(i+1)+' لا يمكن أن يكون مدين ودائن في نفس الوقت');
+      if(l.debit<=0&&l.credit<=0)return alert('اكتب قيمة مدين أو دائن في السطر رقم '+(i+1));
+      if(!accountMetaV298(l.account))return alert('الحساب '+l.account+' غير موجود في دليل الحسابات');
+    }
+
+    var totalDebit=lines.reduce(function(t,l){return t+l.debit},0);
+    var totalCredit=lines.reduce(function(t,l){return t+l.credit},0);
+    if(totalDebit<=0||totalCredit<=0)return alert('القيد يجب أن يحتوي على طرف مدين وطرف دائن');
+    if(Math.abs(totalDebit-totalCredit)>0.01){
+      return alert('القيد غير متزن ولن يتم حفظه. فرق المدين والدائن: '+Math.abs(totalDebit-totalCredit).toFixed(2)+' EGP');
+    }
+
+    var id=U();
+    var fullDesc='قيد يومية عام - '+desc+(ref?' - مرجع: '+ref:'');
+    lines.forEach(function(l){
+      db.journal.push({
+        id:U(),date:date,source:'general_journal_v298',sourceId:id,
+        description:l.description?fullDesc+' - '+l.description:fullDesc,
+        account:l.account,debit:l.debit,credit:l.credit
+      });
+    });
+
+    db.general_journal_entries_v298.unshift({
+      id:id,date:date,reference:ref,description:desc,
+      total_debit:totalDebit,total_credit:totalCredit,
+      lines:lines.map(function(l){return {
+        account:l.account,description:l.description,debit:l.debit,credit:l.credit
+      }}),
+      created_at:new Date().toISOString()
+    });
+
+    try{if(typeof save==='function')save()}catch(e){}
+    try{if(typeof renderAccounts==='function')renderAccounts()}catch(e){}
+    try{if(typeof renderTrialBalance==='function')renderTrialBalance()}catch(e){}
+    try{if(typeof renderIncomeStatementV273==='function')renderIncomeStatementV273()}catch(e){}
+    try{if(typeof renderBalanceSheetV273==='function')renderBalanceSheetV273()}catch(e){}
+
+    alert('تم تسجيل قيد اليومية العام وترحيله إلى الأستاذ وميزان المراجعة والقوائم المالية');
+  }
+  window.postGeneralJournalV298=postGeneralJournalV298;
+
+  window.deleteGeneralJournalV298=function(id){
+    if(!confirm('حذف قيد اليومية العام وآثاره المحاسبية؟'))return;
+    ensureV298();
+    db.journal=db.journal.filter(function(j){
+      return !(String(j.source)==='general_journal_v298'&&String(j.sourceId)===String(id));
+    });
+    db.general_journal_entries_v298=db.general_journal_entries_v298.filter(function(r){
+      return String(r.id)!==String(id);
+    });
+    try{if(typeof save==='function')save()}catch(e){}
+    try{if(typeof renderAccounts==='function')renderAccounts()}catch(e){}
+    try{if(typeof renderTrialBalance==='function')renderTrialBalance()}catch(e){}
+    try{if(typeof renderIncomeStatementV273==='function')renderIncomeStatementV273()}catch(e){}
+    try{if(typeof renderBalanceSheetV273==='function')renderBalanceSheetV273()}catch(e){}
+  };
+
+  function historyV298(){
+    ensureV298();
+    if(!db.general_journal_entries_v298.length)return '<div class="empty">لا توجد قيود يومية عامة مسجلة</div>';
+    return '<table><tr><th>التاريخ</th><th>المرجع</th><th>البيان</th><th>مدين</th><th>دائن</th><th></th></tr>'+
+      db.general_journal_entries_v298.slice(0,50).map(function(r){
+        return '<tr><td>'+E(r.date)+'</td><td>'+E(r.reference||'-')+'</td><td>'+E(r.description)+'</td>'+
+          '<td>'+N(r.total_debit).toLocaleString('en-EG')+'</td><td>'+N(r.total_credit).toLocaleString('en-EG')+'</td>'+
+          '<td><button class="btn small danger" onclick="deleteGeneralJournalV298(\''+E(r.id)+'\')">حذف</button></td></tr>';
+      }).join('')+'</table>';
+  }
+
+  function generalJournalCardV298(){
+    var ar=typeof lang!=='undefined'&&lang==='ar';
+    return '<div class="card v298-general-journal" id="v298_general_journal_card">'+
+      '<div class="section-title"><div><h3>'+(ar?'قيد يومية عام':'General Journal Entry')+'</h3>'+
+      '<div class="hint">'+(ar?'لأي قيد محاسبي يدوي أو قيد تسوية. جميع حسابات دليل الحسابات ظاهرة، والحسابات التجميعية للعرض فقط.':'For any manual accounting or adjustment entry. All chart accounts are shown; summary accounts are view-only.')+'</div></div></div>'+
+      '<div class="v298-head-grid">'+
+        '<div><label>'+(ar?'التاريخ':'Date')+'</label><input id="v298_date" type="date" value="'+Tdy()+'"></div>'+
+        '<div><label>'+(ar?'المرجع':'Reference')+'</label><input id="v298_ref" placeholder="'+(ar?'رقم المستند / التسوية':'Document / adjustment reference')+'"></div>'+
+        '<div><label>'+(ar?'البيان العام':'Description')+'</label><input id="v298_desc" placeholder="'+(ar?'مثال: إثبات مصروفات مستحقة عن الشهر':'Example: Accrued expenses adjustment')+'"></div>'+
+      '</div>'+
+      '<div class="v298-lines-wrap"><table class="v298-lines"><thead><tr>'+
+        '<th>'+(ar?'الحساب':'Account')+'</th><th>'+(ar?'بيان السطر':'Line Description')+'</th>'+
+        '<th>'+(ar?'مدين':'Debit')+'</th><th>'+(ar?'دائن':'Credit')+'</th><th></th>'+
+      '</tr></thead><tbody id="v298_lines_body">'+rowHtmlV298({})+rowHtmlV298({})+'</tbody></table></div>'+
+      '<div style="margin-top:10px"><button class="btn secondary small" type="button" onclick="addGeneralJournalLineV298()">+ '+(ar?'إضافة سطر':'Add Line')+'</button></div>'+
+      '<div class="v298-summary">'+
+        '<div class="v298-sum"><span>'+(ar?'إجمالي المدين':'Total Debit')+'</span><strong id="v298_total_debit">0.00 EGP</strong></div>'+
+        '<div class="v298-sum"><span>'+(ar?'إجمالي الدائن':'Total Credit')+'</span><strong id="v298_total_credit">0.00 EGP</strong></div>'+
+        '<div class="v298-sum"><span>'+(ar?'الفرق':'Difference')+'</span><strong id="v298_difference" class="v298-balanced">0.00 EGP</strong></div>'+
+      '</div>'+
+      '<div class="v298-help">'+
+        (ar
+          ?'<b>مثال مصروف مستحق:</b> مدين = حساب المصروف 62xx/63xx، دائن = 2200 مصروفات مستحقة. النظام يمنع الترحيل لو المدين لا يساوي الدائن.'
+          :'<b>Accrued expense example:</b> Debit the expense account and credit 2200 Accrued Expenses. Posting is blocked unless debit equals credit.')+
+      '</div>'+
+      '<button class="btn ok" style="margin-top:12px" type="button" onclick="postGeneralJournalV298()">'+(ar?'ترحيل القيد العام':'Post General Journal')+'</button>'+
+      '<div style="margin-top:18px"><h3>'+(ar?'آخر القيود العامة':'Recent General Journals')+'</h3>'+historyV298()+'</div>'+
+    '</div>';
+  }
+
+  function injectV298(){
+    ensureV298();
+    var view=document.getElementById('view-accounts');
+    if(!view)return;
+    var old=document.getElementById('v298_general_journal_card');
+    if(old)old.remove();
+
+    var holder=document.createElement('div');
+    holder.innerHTML=generalJournalCardV298();
+    var card=holder.firstElementChild;
+
+    var oldManual=document.getElementById('v281_manual_journal_card');
+    if(oldManual)view.insertBefore(card,oldManual);
+    else{
+      var financialHolder=document.getElementById('v277_finance_statements_holder');
+      if(financialHolder&&financialHolder.nextSibling)view.insertBefore(card,financialHolder.nextSibling);
+      else if(financialHolder)view.appendChild(card);
+      else view.insertBefore(card,view.firstChild);
+    }
+    setTimeout(recalcGeneralJournalV298,30);
+  }
+
+  var base=window.renderAccounts;
+  if(typeof base==='function'){
+    window.renderAccounts=function(){
+      var r=base.apply(this,arguments);
+      setTimeout(injectV298,360);
+      return r;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  setTimeout(function(){try{injectV298()}catch(e){}},1600);
+})();
+</script>
+
+
+<style id="v299-general-journal-workflow-style">
+.v299-party-select{min-width:180px}
+.v299-party-na{color:#94a3b8;font-size:12px}
+</style>
+
+<script id="v299-general-journal-workflow-integrity">
+(function(){
+function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+function S(v){return String(v==null?'':v).trim()}
+function U(){return typeof uid==='function'?uid():'id_'+Date.now()+'_'+Math.random().toString(36).slice(2)}
+function E(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+
+function ensureV299(){
+ if(!Array.isArray(db.financeFunds))db.financeFunds=[];
+ if(!Array.isArray(db.financeFundMovements))db.financeFundMovements=[];
+ if(!Array.isArray(db.general_admin_expenses_v287))db.general_admin_expenses_v287=[];
+ if(!Array.isArray(db.marketing_expenses_v287))db.marketing_expenses_v287=[];
+ if(!Array.isArray(db.customers))db.customers=[];
+ if(!Array.isArray(db.suppliers))db.suppliers=[];
+ if(!Array.isArray(db.general_journal_entries_v298))db.general_journal_entries_v298=[];
+}
+
+function accountTypeV299(code){
+ var a=(db.accounts||[]).find(function(x){return String(x.code)===String(code)});
+ return a?a.type:'';
+}
+function expenseKindV299(code){
+ code=String(code||'');
+ if(code==='5200'||/^63/.test(code))return 'marketing';
+ if(code==='6100'||/^62/.test(code))return 'general';
+ return '';
+}
+function fundByAccountV299(code){
+ return (db.financeFunds||[]).find(function(f){
+   return String(f.gl_account_code_v274||'')===String(code);
+ })||null;
+}
+function customerOptionsV299(selected){
+ return '<option value="">اختر العميل</option>'+
+  (db.customers||[]).map(function(c){
+   return '<option value="'+E(c.id)+'" '+(String(c.id)===String(selected)?'selected':'')+'>'+E(c.name||c.customer_name||c.id)+'</option>';
+  }).join('');
+}
+function supplierOptionsV299(selected){
+ return '<option value="">اختر المورد</option>'+
+  (db.suppliers||[]).map(function(s){
+   return '<option value="'+E(s.id)+'" '+(String(s.id)===String(selected)?'selected':'')+'>'+E(s.name||s.supplier_name||s.id)+'</option>';
+  }).join('');
+}
+function partyCellHtmlV299(code,selected){
+ if(String(code)==='1200')return '<select class="v299-party-select" data-party-type="customer">'+customerOptionsV299(selected)+'</select>';
+ if(String(code)==='2100')return '<select class="v299-party-select" data-party-type="supplier">'+supplierOptionsV299(selected)+'</select>';
+ return '<span class="v299-party-na">—</span>';
+}
+function syncPartyCellV299(select){
+ var tr=select&&select.closest('.v298-line-row'); if(!tr)return;
+ var cell=tr.querySelector('.v299-party-cell'); if(!cell)return;
+ cell.innerHTML=partyCellHtmlV299(select.value,'');
+}
+window.syncGeneralJournalPartyV299=syncPartyCellV299;
+
+function upgradeRowsV299(){
+ var table=document.querySelector('.v298-lines');
+ if(!table)return;
+
+ var head=table.querySelector('thead tr');
+ if(head&&!head.querySelector('.v299-party-head')){
+   var th=document.createElement('th');
+   th.className='v299-party-head';
+   th.textContent='الطرف / Party';
+   var accountHead=head.children[0];
+   accountHead.insertAdjacentElement('afterend',th);
+ }
+
+ Array.from(table.querySelectorAll('.v298-line-row')).forEach(function(tr){
+   if(!tr.querySelector('.v299-party-cell')){
+     var td=document.createElement('td');
+     td.className='v299-party-cell';
+     var accountTd=tr.children[0];
+     accountTd.insertAdjacentElement('afterend',td);
+   }
+   var acc=tr.querySelector('.v298-account');
+   var cell=tr.querySelector('.v299-party-cell');
+   if(acc&&cell&&!cell.children.length){
+     cell.innerHTML=partyCellHtmlV299(acc.value,'');
+   }
+ });
+}
+
+document.addEventListener('change',function(e){
+ if(e.target&&e.target.classList&&e.target.classList.contains('v298-account')){
+   syncPartyCellV299(e.target);
+ }
+});
+
+var addBaseV299=window.addGeneralJournalLineV298;
+if(typeof addBaseV299==='function'){
+ window.addGeneralJournalLineV298=function(){
+   var r=addBaseV299.apply(this,arguments);
+   setTimeout(upgradeRowsV299,20);
+   return r;
+ };
+ try{addGeneralJournalLineV298=window.addGeneralJournalLineV298}catch(e){}
+}
+
+function captureLinesV299(){
+ ensureV299();
+ return Array.from(document.querySelectorAll('#v298_lines_body .v298-line-row')).map(function(tr){
+   var acc=tr.querySelector('.v298-account');
+   var party=tr.querySelector('.v299-party-select');
+   return {
+     account:S(acc&&acc.value),
+     debit:N((tr.querySelector('.v298-debit')||{}).value),
+     credit:N((tr.querySelector('.v298-credit')||{}).value),
+     description:S((tr.querySelector('.v298-line-desc')||{}).value),
+     party_type:party?S(party.dataset.partyType):'',
+     party_id:party?S(party.value):''
+   };
+ }).filter(function(l){return l.account||l.debit||l.credit||l.description});
+}
+
+function validatePartiesV299(lines){
+ for(var i=0;i<lines.length;i++){
+   var l=lines[i];
+   if(l.account==='1200'&&!l.party_id){
+     alert('اختر العميل في السطر رقم '+(i+1)+' لأن الحساب 1200 هو حساب العملاء');
+     return false;
+   }
+   if(l.account==='2100'&&!l.party_id){
+     alert('اختر المورد في السطر رقم '+(i+1)+' لأن الحساب 2100 هو حساب الموردين');
+     return false;
+   }
+ }
+ return true;
+}
+
+function applyPartyImpactV299(entry,line){
+ if(line.account==='1200'&&line.party_id){
+   var c=(db.customers||[]).find(function(x){return String(x.id)===String(line.party_id)});
+   if(!c)return null;
+   var delta=N(line.debit)-N(line.credit);
+   c.balance=N(c.balance)+delta;
+   return {kind:'customer',id:c.id,delta:delta};
+ }
+ if(line.account==='2100'&&line.party_id){
+   var s=(db.suppliers||[]).find(function(x){return String(x.id)===String(line.party_id)});
+   if(!s)return null;
+   var delta=N(line.credit)-N(line.debit);
+   s.balance=N(s.balance)+delta;
+   return {kind:'supplier',id:s.id,delta:delta};
+ }
+ return null;
+}
+
+function reversePartyImpactV299(impact){
+ if(!impact)return;
+ if(impact.kind==='customer'){
+   var c=(db.customers||[]).find(function(x){return String(x.id)===String(impact.id)});
+   if(c)c.balance=N(c.balance)-N(impact.delta);
+ }else if(impact.kind==='supplier'){
+   var s=(db.suppliers||[]).find(function(x){return String(x.id)===String(impact.id)});
+   if(s)s.balance=N(s.balance)-N(impact.delta);
+ }
+}
+
+function applyFundImpactV299(entry,line){
+ var f=fundByAccountV299(line.account); if(!f)return null;
+ var delta=N(line.debit)-N(line.credit);
+ if(Math.abs(delta)<=0.0001)return null;
+ f.balance=N(f.balance)+delta;
+ var id='gj_v299_'+entry.id+'_'+U();
+ db.financeFundMovements.push({
+   id:id,fund_id:f.id,fund_name:f.name||'',fund_type:f.type||'cash',
+   currency:S(f.currency||'EGP').toUpperCase(),date:entry.date,
+   direction:delta>=0?'in':'out',amount:Math.abs(delta),signed_amount:delta,
+   description:'قيد يومية عام - '+(entry.description||''),
+   source:'general_journal_v299',source_id:entry.id
+ });
+ return {movement_id:id,fund_id:f.id,delta:delta};
+}
+function reverseFundImpactV299(impact){
+ if(!impact)return;
+ var f=(db.financeFunds||[]).find(function(x){return String(x.id)===String(impact.fund_id)});
+ if(f)f.balance=N(f.balance)-N(impact.delta);
+ db.financeFundMovements=(db.financeFundMovements||[]).filter(function(m){return String(m.id)!==String(impact.movement_id)});
+}
+
+function applyExpenseMirrorV299(entry,line){
+ var kind=expenseKindV299(line.account);
+ if(!kind)return null;
+ var signed=N(line.debit)-N(line.credit);
+ if(Math.abs(signed)<=0.0001)return null;
+ var id='gjexp_v299_'+entry.id+'_'+U();
+ var row={
+   id:id,date:entry.date,account_code:line.account,amount:signed,currency:'EGP',rate:1,egp_value:signed,
+   fund_id:'',fund_name:'قيد يومية / Journal',fund_type:'',
+   description:line.description||entry.description||'قيد يومية عام',
+   beneficiary:'',reference:entry.reference||'',notes:'Auto from General Journal',
+   source_general_journal_v299:true,source_entry_id:entry.id,created_at:new Date().toISOString()
+ };
+ if(kind==='marketing')db.marketing_expenses_v287.unshift(row);
+ else db.general_admin_expenses_v287.unshift(row);
+ return {kind:kind,id:id};
+}
+function reverseExpenseMirrorV299(impact){
+ if(!impact)return;
+ if(impact.kind==='marketing'){
+   db.marketing_expenses_v287=(db.marketing_expenses_v287||[]).filter(function(r){return String(r.id)!==String(impact.id)});
+ }else{
+   db.general_admin_expenses_v287=(db.general_admin_expenses_v287||[]).filter(function(r){return String(r.id)!==String(impact.id)});
+ }
+}
+
+function applyWorkflowV299(entry,captured){
+ if(!entry||entry.workflow_v299)return;
+ var party=[],funds=[],expenses=[];
+ captured.forEach(function(line){
+   var p=applyPartyImpactV299(entry,line); if(p)party.push(p);
+   var f=applyFundImpactV299(entry,line); if(f)funds.push(f);
+   var e=applyExpenseMirrorV299(entry,line); if(e)expenses.push(e);
+ });
+ entry.workflow_v299={party_impacts:party,fund_impacts:funds,expense_mirrors:expenses};
+}
+function reverseWorkflowV299(entry){
+ var w=entry&&entry.workflow_v299;if(!w)return;
+ (w.party_impacts||[]).forEach(reversePartyImpactV299);
+ (w.fund_impacts||[]).forEach(reverseFundImpactV299);
+ (w.expense_mirrors||[]).forEach(reverseExpenseMirrorV299);
+}
+
+var postBaseV299=window.postGeneralJournalV298;
+if(typeof postBaseV299==='function'){
+ window.postGeneralJournalV298=function(){
+   ensureV299();upgradeRowsV299();
+   var captured=captureLinesV299();
+   if(!validatePartiesV299(captured))return;
+   var before=new Set((db.general_journal_entries_v298||[]).map(function(r){return String(r.id)}));
+   var r=postBaseV299.apply(this,arguments);
+   var entry=(db.general_journal_entries_v298||[]).find(function(x){return !before.has(String(x.id))});
+   if(entry){
+     applyWorkflowV299(entry,captured);
+     try{if(typeof save==='function')save()}catch(e){}
+     try{if(typeof renderAccounts==='function')renderAccounts()}catch(e){}
+     try{if(typeof renderTrialBalance==='function')renderTrialBalance()}catch(e){}
+     try{if(typeof renderIncomeStatementV273==='function')renderIncomeStatementV273()}catch(e){}
+     try{if(typeof renderBalanceSheetV273==='function')renderBalanceSheetV273()}catch(e){}
+     try{if(typeof renderCashFlow==='function')renderCashFlow()}catch(e){}
+   }
+   return r;
+ };
+ try{postGeneralJournalV298=window.postGeneralJournalV298}catch(e){}
+}
+
+var delBaseV299=window.deleteGeneralJournalV298;
+if(typeof delBaseV299==='function'){
+ window.deleteGeneralJournalV298=function(id){
+   ensureV299();
+   var entry=(db.general_journal_entries_v298||[]).find(function(x){return String(x.id)===String(id)});
+   if(!entry)return delBaseV299.apply(this,arguments);
+
+   /* base function owns the confirmation; reverse only after confirmation by temporarily wrapping confirm */
+   var originalConfirm=window.confirm;
+   var accepted=false;
+   window.confirm=function(msg){
+     var v=originalConfirm.call(window,msg);
+     if(v)accepted=true;
+     return v;
+   };
+   var r;
+   try{r=delBaseV299.apply(this,arguments)}finally{window.confirm=originalConfirm}
+   if(accepted){
+     reverseWorkflowV299(entry);
+     try{if(typeof save==='function')save()}catch(e){}
+     try{if(typeof renderAccounts==='function')renderAccounts()}catch(e){}
+     try{if(typeof renderCashFlow==='function')renderCashFlow()}catch(e){}
+   }
+   return r;
+ };
+ try{deleteGeneralJournalV298=window.deleteGeneralJournalV298}catch(e){}
+}
+
+function injectV299(){
+ ensureV299();upgradeRowsV299();
+}
+var renderBaseV299=window.renderAccounts;
+if(typeof renderBaseV299==='function'){
+ window.renderAccounts=function(){
+   var r=renderBaseV299.apply(this,arguments);
+   setTimeout(injectV299,450);
+   return r;
+ };
+ try{renderAccounts=window.renderAccounts}catch(e){}
+}
+setTimeout(injectV299,1800);
+})();
+</script>
+
+
+<style id="v300-chart-account-create-style">
+.v300-coa-add{margin:0 0 16px}
+.v300-coa-grid{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:12px}
+.v300-coa-grid .full{grid-column:1/-1}
+.v300-coa-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px}
+.v300-coa-note{font-size:12px;color:#64748b;line-height:1.7;margin-top:8px}
+.v300-coa-preview{padding:10px 12px;border:1px dashed #cbd5e1;border-radius:12px;background:#f8fafc;margin-top:10px}
+@media(max-width:760px){.v300-coa-grid{grid-template-columns:1fr}}
+</style>
+
+<script id="v300-chart-account-create">
+(function(){
+  function S(v){return String(v==null?'':v).trim()}
+  function U(){return typeof uid==='function'?uid():'id_'+Date.now()+'_'+Math.random().toString(36).slice(2)}
+  function E(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function ensureV300(){
+    if(typeof ensureAccounting==='function')ensureAccounting();
+    if(!Array.isArray(db.accounts))db.accounts=[];
+  }
+  function accountByCodeV300(code){
+    return (db.accounts||[]).find(function(a){return String(a.code)===String(code)})||null;
+  }
+  function childrenOfV300(code){
+    return (db.accounts||[]).filter(function(a){return String(a.parent||'')===String(code)});
+  }
+  function isLeafV300(code){
+    return childrenOfV300(code).length===0;
+  }
+  function normalByTypeV300(type){
+    type=String(type||'').toLowerCase();
+    return (type==='asset'||type==='expense')?'debit':'credit';
+  }
+  function typeOptionsV300(selected){
+    var arr=[
+      ['Asset','أصل / Asset'],
+      ['Liability','التزام / Liability'],
+      ['Equity','حقوق ملكية / Equity'],
+      ['Revenue','إيراد / Revenue'],
+      ['Expense','مصروف / Expense']
+    ];
+    return arr.map(function(x){
+      return '<option value="'+x[0]+'" '+(String(selected)===x[0]?'selected':'')+'>'+x[1]+'</option>';
+    }).join('');
+  }
+  function parentOptionsV300(selected){
+    ensureV300();
+    var arr=(db.accounts||[]).slice().sort(function(a,b){
+      return String(a.code).localeCompare(String(b.code),undefined,{numeric:true});
+    });
+    return '<option value="">— بدون حساب أب / Root —</option>'+arr.map(function(a){
+      return '<option value="'+E(a.code)+'" '+(String(selected)===String(a.code)?'selected':'')+'>'+
+        E(String(a.code)+' — '+String(a.name||''))+'</option>';
+    }).join('');
+  }
+  function suggestCodeV300(parent){
+    ensureV300();
+    parent=S(parent);
+    var existing=new Set((db.accounts||[]).map(function(a){return String(a.code)}));
+    if(parent){
+      var digits=String(parent).replace(/\D/g,'');
+      if(digits){
+        var base=parseInt(digits,10)*10;
+        for(var i=1;i<=99;i++){
+          var candidate=String(base+i);
+          if(!existing.has(candidate))return candidate;
+        }
+      }
+    }
+    for(var n=1000;n<=9999;n++){
+      if(!existing.has(String(n)))return String(n);
+    }
+    return '';
+  }
+  function levelFromParentV300(parent){
+    if(!parent)return 1;
+    var p=accountByCodeV300(parent);
+    return p?Number(p.level||1)+1:2;
+  }
+  function compatibleParentV300(parent,type){
+    if(!parent)return true;
+    var p=accountByCodeV300(parent);
+    if(!p)return false;
+    return String(p.type||'').toLowerCase()===String(type||'').toLowerCase();
+  }
+
+  window.onCoaParentChangeV300=function(){
+    var parent=S((document.getElementById('v300_parent')||{}).value);
+    var type=S((document.getElementById('v300_type')||{}).value);
+    var p=accountByCodeV300(parent);
+    if(p){
+      var pt=String(p.type||'');
+      if(pt){
+        var sel=document.getElementById('v300_type');
+        if(sel)sel.value=pt;
+        type=pt;
+      }
+    }
+    var lvl=document.getElementById('v300_level');
+    if(lvl)lvl.value=levelFromParentV300(parent);
+    var code=document.getElementById('v300_code');
+    if(code&&!S(code.value))code.value=suggestCodeV300(parent);
+    var normal=document.getElementById('v300_normal');
+    if(normal)normal.value=normalByTypeV300(type);
+    updateCoaPreviewV300();
+  };
+
+  window.onCoaTypeChangeV300=function(){
+    var type=S((document.getElementById('v300_type')||{}).value);
+    var normal=document.getElementById('v300_normal');
+    if(normal)normal.value=normalByTypeV300(type);
+    updateCoaPreviewV300();
+  };
+
+  window.updateCoaPreviewV300=function(){
+    var box=document.getElementById('v300_preview');
+    if(!box)return;
+    var code=S((document.getElementById('v300_code')||{}).value)||'—';
+    var name=S((document.getElementById('v300_name')||{}).value)||'—';
+    var type=S((document.getElementById('v300_type')||{}).value)||'—';
+    var parent=S((document.getElementById('v300_parent')||{}).value)||'Root';
+    var normal=S((document.getElementById('v300_normal')||{}).value)||'—';
+    box.innerHTML='<b>'+E(code)+' — '+E(name)+'</b><br>Type: '+E(type)+' | Parent: '+E(parent)+' | Normal: '+E(normal);
+  };
+
+  window.clearCoaFormV300=function(){
+    ['v300_code','v300_name','v300_notes'].forEach(function(id){var e=document.getElementById(id);if(e)e.value=''});
+    var p=document.getElementById('v300_parent');if(p)p.value='';
+    var t=document.getElementById('v300_type');if(t)t.value='Asset';
+    var l=document.getElementById('v300_level');if(l)l.value='1';
+    var n=document.getElementById('v300_normal');if(n)n.value='debit';
+    updateCoaPreviewV300();
+  };
+
+  window.createChartAccountV300=function(){
+    ensureV300();
+    var code=S((document.getElementById('v300_code')||{}).value);
+    var name=S((document.getElementById('v300_name')||{}).value);
+    var type=S((document.getElementById('v300_type')||{}).value);
+    var parent=S((document.getElementById('v300_parent')||{}).value);
+    var level=Number((document.getElementById('v300_level')||{}).value)||levelFromParentV300(parent);
+    var normal=S((document.getElementById('v300_normal')||{}).value)||normalByTypeV300(type);
+    var notes=S((document.getElementById('v300_notes')||{}).value);
+
+    if(!code)return alert('اكتب كود الحساب');
+    if(!/^[A-Za-z0-9._-]+$/.test(code))return alert('كود الحساب يحتوي على حروف/أرقام أو - _ . فقط');
+    if(accountByCodeV300(code))return alert('كود الحساب موجود بالفعل: '+code);
+    if(!name)return alert('اكتب اسم الحساب');
+    if(!['Asset','Liability','Equity','Revenue','Expense'].includes(type))return alert('اختر نوع الحساب');
+    if(parent&&!accountByCodeV300(parent))return alert('الحساب الأب غير موجود');
+    if(parent&&!compatibleParentV300(parent,type)){
+      return alert('نوع الحساب الجديد يجب أن يطابق نوع الحساب الأب');
+    }
+    if(parent===code)return alert('لا يمكن أن يكون الحساب أبًا لنفسه');
+
+    var acc={
+      id:U(),code:code,name:name,type:type,parent:parent||'',
+      level:level,normal:normal,opening:0,notes:notes,
+      created_manual_v300:true,created_at:new Date().toISOString()
+    };
+    db.accounts.push(acc);
+
+    try{if(typeof save==='function')save()}catch(e){}
+    try{if(typeof renderAccounts==='function')renderAccounts()}catch(e){}
+    try{if(typeof recalcGeneralJournalV298==='function')setTimeout(recalcGeneralJournalV298,400)}catch(e){}
+
+    alert('تم إنشاء الحساب '+code+' — '+name+' وسيظهر في قيد اليومية العام');
+  };
+
+  function cardV300(){
+    ensureV300();
+    return '<div class="card v300-coa-add" id="v300_coa_add_card">'+
+      '<div class="section-title"><div><h3>إضافة حساب جديد / Add New Account</h3>'+
+      '<div class="hint">أضف الحساب من شجرة الحسابات، وبعد الحفظ سيظهر تلقائيًا في قيد اليومية العام.</div></div></div>'+
+      '<div class="v300-coa-grid">'+
+        '<div><label>كود الحساب / Account Code</label><input id="v300_code" oninput="updateCoaPreviewV300()" placeholder="مثال: 6215"></div>'+
+        '<div><label>اسم الحساب / Account Name</label><input id="v300_name" oninput="updateCoaPreviewV300()" placeholder="مثال: مصروف اتصالات"></div>'+
+        '<div><label>نوع الحساب / Account Type</label><select id="v300_type" onchange="onCoaTypeChangeV300()">'+typeOptionsV300('Asset')+'</select></div>'+
+        '<div><label>الحساب الأب / Parent Account</label><select id="v300_parent" onchange="onCoaParentChangeV300()">'+parentOptionsV300('')+'</select></div>'+
+        '<div><label>المستوى / Level</label><input id="v300_level" type="number" min="1" value="1" readonly></div>'+
+        '<div><label>الطبيعة / Normal Balance</label><select id="v300_normal"><option value="debit">Debit / مدين</option><option value="credit">Credit / دائن</option></select></div>'+
+        '<div class="full"><label>ملاحظات / Notes</label><input id="v300_notes" placeholder="اختياري"></div>'+
+      '</div>'+
+      '<div id="v300_preview" class="v300-coa-preview"></div>'+
+      '<div class="v300-coa-actions">'+
+        '<button class="btn ok" type="button" onclick="createChartAccountV300()">حفظ الحساب / Save Account</button>'+
+        '<button class="btn secondary" type="button" onclick="clearCoaFormV300()">مسح الحقول</button>'+
+      '</div>'+
+      '<div class="v300-coa-note">يتم منع تكرار كود الحساب، ونوع الحساب الفرعي يجب أن يطابق نوع الحساب الأب حتى ينعكس في القوائم المالية بالمكان الصحيح.</div>'+
+    '</div>';
+  }
+
+  function injectV300(){
+    ensureV300();
+    var view=document.getElementById('view-accounts');
+    if(!view)return;
+    var old=document.getElementById('v300_coa_add_card');
+    if(old)old.remove();
+    var holder=document.createElement('div');
+    holder.innerHTML=cardV300();
+    var card=holder.firstElementChild;
+
+    var gj=document.getElementById('v298_general_journal_card');
+    if(gj)view.insertBefore(card,gj);
+    else view.insertBefore(card,view.firstChild);
+    setTimeout(updateCoaPreviewV300,30);
+  }
+
+  var baseV300=window.renderAccounts;
+  if(typeof baseV300==='function'){
+    window.renderAccounts=function(){
+      var r=baseV300.apply(this,arguments);
+      setTimeout(injectV300,520);
+      return r;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+  setTimeout(function(){try{injectV300()}catch(e){}},2000);
+})();
+</script>
