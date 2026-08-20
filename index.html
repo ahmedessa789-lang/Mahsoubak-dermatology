@@ -23694,3 +23694,155 @@ html body .summary-box.v303-auto-clickable:after{
   };
 })();
 </script>
+
+
+<script id="v313-sales-analytics-full-classification">
+(function(){
+  if(typeof window.companySalesAnalyticsHtmlV306!=='function')return;
+
+  window.companySalesAnalyticsHtmlV306=function(){
+    var sales=[];
+    try{sales=typeof companyApprovedSalesV302==='function'?companyApprovedSalesV302():(db.sales||[])}
+    catch(e){sales=db.sales||[]}
+
+    function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+    function S(v){return String(v==null?'':v).trim()}
+    function E(v){return typeof esc==='function'?esc(v):S(v)}
+    function M(v){return typeof money==='function'?money(v):('EGP '+N(v).toLocaleString())}
+
+    function regionName(s){
+      try{if(typeof window.regionNameVerifiedV307==='function')return window.regionNameVerifiedV307(s)}catch(e){}
+      return S(s.region_name||s.region||s.area||s.city||'غير محدد');
+    }
+    function productName(s){
+      try{if(typeof window.productNameVerifiedV307==='function')return window.productNameVerifiedV307(s)}catch(e){}
+      return S(s.product_name||s.item_name||s.product||'غير محدد');
+    }
+    function allRegions(){
+      try{if(typeof window.allRegionsVerifiedV307==='function')return window.allRegionsVerifiedV307()}catch(e){}
+      return [];
+    }
+    function allProducts(){
+      try{if(typeof window.allProductsVerifiedV307==='function')return window.allProductsVerifiedV307()}catch(e){}
+      return [];
+    }
+
+    var regionMap=new Map(),productMap=new Map(),totalSales=0,totalQty=0;
+    sales.forEach(function(s){
+      var total=N(s.total),qty=N(s.qty);
+      totalSales+=total; totalQty+=qty;
+
+      var r=regionName(s);
+      if(!regionMap.has(r))regionMap.set(r,{name:r,sales:0,qty:0,count:0});
+      var rr=regionMap.get(r); rr.sales+=total; rr.qty+=qty; rr.count++;
+
+      var p=productName(s);
+      if(!productMap.has(p))productMap.set(p,{name:p,sales:0,qty:0,count:0});
+      var pp=productMap.get(p); pp.sales+=total; pp.qty+=qty; pp.count++;
+    });
+
+    allRegions().forEach(function(r){
+      if(!regionMap.has(r))regionMap.set(r,{name:r,sales:0,qty:0,count:0});
+    });
+    allProducts().forEach(function(p){
+      if(!productMap.has(p))productMap.set(p,{name:p,sales:0,qty:0,count:0});
+    });
+
+    var regions=Array.from(regionMap.values());
+    var products=Array.from(productMap.values());
+    var activeRegions=regions.filter(function(r){return r.count>0&&r.sales>0});
+    var activeProducts=products.filter(function(p){return p.count>0&&p.qty>0});
+
+    function classifyAll(rows,metric){
+      var desc=rows.slice().sort(function(a,b){return N(b[metric])-N(a[metric])});
+      var n=desc.length;
+      if(n===0)return {top:[],middle:[],bottom:[]};
+      if(n===1)return {top:desc,middle:[],bottom:[]};
+      if(n===2)return {top:[desc[0]],middle:[],bottom:[desc[1]]};
+
+      var topCount=Math.ceil(n/3);
+      var bottomCount=Math.floor(n/3);
+      if(bottomCount<1)bottomCount=1;
+
+      var top=desc.slice(0,topCount);
+      var bottom=desc.slice(n-bottomCount);
+      var used=new Set(top.concat(bottom).map(function(x){return x.name}));
+      var middle=desc.filter(function(x){return !used.has(x.name)});
+      return {top:top,middle:middle,bottom:bottom};
+    }
+
+    var rClass=classifyAll(activeRegions,'sales');
+    var pClass=classifyAll(activeProducts,'qty');
+
+    function rank(rows,metric){
+      if(!rows.length)return '<div class="empty">لا توجد بيانات في هذه الفئة</div>';
+      var max=Math.max.apply(null,rows.map(function(x){return N(x[metric])}).concat([1]));
+      return rows.map(function(r,i){
+        var pct=Math.max(0,Math.min(100,N(r[metric])/max*100));
+        return '<div class="v306-rank"><div style="flex:1"><div class="name">'+(i+1)+'. '+E(r.name)+'</div>'+
+          '<div class="meta">عدد الحركات: '+N(r.count)+' | الكمية: '+N(r.qty).toLocaleString()+'</div>'+
+          '<div class="v306-bar"><span style="width:'+pct+'%"></span></div></div>'+
+          '<div class="value">'+(metric==='sales'?M(r.sales):N(r[metric]).toLocaleString())+'</div></div>';
+      }).join('');
+    }
+
+    function zero(rows,kind){
+      var z=rows.filter(function(r){return N(r.count)===0||(kind==='product'?N(r.qty)===0:N(r.sales)===0)}).slice(0,30);
+      if(!z.length)return '<div class="v306-good">لا توجد عناصر بدون حركة في الفترة المحددة.</div>';
+      return z.map(function(r){
+        return '<div class="v306-rank"><div><div class="name">'+E(r.name)+'</div>'+
+          '<div class="meta">'+(kind==='region'?'منطقة غير نشطة بيعيًا':'منتج بدون مبيعات')+'</div></div>'+
+          '<div class="v306-zero">0</div></div>';
+      }).join('');
+    }
+
+    var invoiceCount=sales.length;
+    try{
+      if(typeof window.companyInvoiceCountVerifiedV307==='function')
+        invoiceCount=window.companyInvoiceCountVerifiedV307(sales);
+    }catch(e){}
+
+    function details(rows){
+      if(!rows.length)return '<div class="empty">لا توجد مبيعات في الفترة المحددة</div>';
+      return '<div class="v306-table-wrap"><table><tr><th>التاريخ</th><th>المندوب</th><th>المنطقة</th><th>العميل</th><th>المنتج</th><th>الكمية</th><th>الإجمالي</th><th>المتبقي</th></tr>'+
+        rows.map(function(s){
+          var rep='';try{rep=typeof repNameV189==='function'?repNameV189(s):(s.rep_name||'')}catch(e){rep=s.rep_name||''}
+          var dt='';try{dt=typeof dateOnlyV189==='function'?dateOnlyV189(s.date):String(s.date||'').slice(0,10)}catch(e){dt=String(s.date||'').slice(0,10)}
+          return '<tr><td>'+E(dt)+'</td><td>'+E(rep)+'</td><td>'+E(regionName(s))+'</td><td>'+E(s.customer_name||'')+'</td>'+
+            '<td>'+E(productName(s))+'</td><td>'+N(s.qty).toLocaleString()+'</td><td>'+M(s.total)+'</td><td>'+M(s.remaining)+'</td></tr>';
+        }).join('')+'</table></div>';
+    }
+
+    return '<div class="v306-kpis">'+
+      '<div class="stat"><span>إجمالي مبيعات الشركة</span><strong>'+M(totalSales)+'</strong></div>'+
+      '<div class="stat"><span>عدد معاملات البيع</span><strong>'+invoiceCount+'</strong></div>'+
+      '<div class="stat"><span>إجمالي الكمية</span><strong>'+N(totalQty).toLocaleString()+'</strong></div>'+
+      '<div class="stat"><span>المناطق النشطة بيعيًا</span><strong>'+activeRegions.length+'</strong></div>'+
+      '<div class="stat"><span>المناطق غير النشطة</span><strong>'+regions.filter(function(r){return r.count===0||r.sales===0}).length+'</strong></div>'+
+    '</div>'+
+
+    '<div class="v306-card" style="margin-bottom:16px"><h2 style="margin:0">تحليل الأداء البيعي حسب المناطق</h2></div>'+
+    '<div class="v306-grid2">'+
+      '<div class="v306-card"><h3>المناطق الأعلى أداءً في المبيعات</h3>'+rank(rClass.top,'sales')+'</div>'+
+      '<div class="v306-card"><h3>المناطق متوسطة الأداء البيعي</h3>'+rank(rClass.middle,'sales')+'</div>'+
+    '</div>'+
+    '<div class="v306-grid2">'+
+      '<div class="v306-card"><h3>المناطق الأقل نشاطًا بيعيًا</h3>'+rank(rClass.bottom,'sales')+'</div>'+
+      '<div class="v306-card"><h3>المناطق غير النشطة خلال الفترة</h3>'+zero(regions,'region')+'</div>'+
+    '</div>'+
+
+    '<div class="v306-card" style="margin-bottom:16px"><h2 style="margin:0">تحليل أداء المنتجات</h2></div>'+
+    '<div class="v306-grid2">'+
+      '<div class="v306-card"><h3>المنتجات الأعلى مبيعًا</h3>'+rank(pClass.top,'qty')+'</div>'+
+      '<div class="v306-card"><h3>المنتجات متوسطة الأداء البيعي</h3>'+rank(pClass.middle,'qty')+'</div>'+
+    '</div>'+
+    '<div class="v306-grid2">'+
+      '<div class="v306-card"><h3>المنتجات الأقل مبيعًا</h3>'+rank(pClass.bottom,'qty')+'</div>'+
+      '<div class="v306-card"><h3>المنتجات بدون مبيعات خلال الفترة</h3>'+zero(products,'product')+'</div>'+
+    '</div>'+
+
+    '<div class="v306-card" style="margin-bottom:16px"><h2 style="margin:0">تفاصيل الأداء البيعي</h2></div>'+
+    '<div class="v306-card"><div class="v306-section-title"><h3>تفاصيل معاملات المبيعات</h3><span class="v306-chip">'+invoiceCount+' معاملة / '+sales.length+' سطر بيع</span></div>'+details(sales)+'</div>';
+  };
+})();
+</script>
