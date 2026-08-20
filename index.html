@@ -6890,6 +6890,7 @@ render();
       (b.sales+b.collections)-(a.sales+a.collections)
     );
     let salesTotal=sales.reduce((a,s)=>a+n(s.total),0);
+    let companySalesTotal=companySalesTotalV302();
     let collectionTotal=collections.reduce((a,c)=>a+n(c.amount),0);
     let remainingTotal=sales.reduce((a,s)=>a+n(s.remaining),0);
 
@@ -7827,6 +7828,30 @@ render();
     return {label:mode==='count'?'عدد الفواتير':'الكمية',target,achieved};
   }
 
+  function companyApprovedSalesV302(){
+    const rows=[];
+    const seen=new Set();
+
+    (db.sales||[]).forEach(function(s){
+      if(s.approval_status && s.approval_status!=='approved')return;
+      if(!inRangeV189(s))return;
+
+      const key=String(
+        s.id||s.invoice_group_id||s.invoice_number||s.invoice_no||
+        s.order_id||s.sale_order_id||''
+      )+'|'+String(s.product_id||s.product_name||'')+'|'+String(s.qty||'')+'|'+String(s.total||'');
+      if(key && seen.has(key))return;
+      if(key)seen.add(key);
+      rows.push(s);
+    });
+
+    return rows;
+  }
+
+  function companySalesTotalV302(){
+    return companyApprovedSalesV302().reduce(function(sum,s){return sum+n(s.total)},0);
+  }
+
   function buildReportV189(repId){
     let sales=salesRowsV189(repId);
     let collections=collectionRowsV189(repId);
@@ -7856,6 +7881,7 @@ render();
 
     let rows=[...customerMap.values()].sort((a,b)=>(b.sales+b.collections)-(a.sales+a.collections));
     let salesTotal=sales.reduce((a,s)=>a+n(s.total),0);
+    let companySalesTotal=companySalesTotalV302();
     let collectionTotal=collections.reduce((a,c)=>a+n(c.amount),0);
     let remainingTotal=sales.reduce((a,s)=>a+n(s.remaining),0);
     let target=targetInfoV189(repId,sales);
@@ -7863,7 +7889,23 @@ render();
     let remainingTarget=Math.max(0,target.target-target.achieved);
 
     return `
-      <div class="rep-detail-head-v175"><div><h2>${esc(repDisplayV189(repId))}</h2><p>${repReportFilterV189.from||'البداية'} → ${repReportFilterV189.to||'النهاية'}</p></div><button type="button" class="btn blue" onclick="printFilteredRepV189()">طباعة التقرير</button></div><div class="grid grid4 rep-summary-v175"><div class="stat"><span>المبيعات المعتمدة خلال المدة</span><strong>${money(salesTotal)}</strong></div><div class="stat"><span>التحصيلات المعتمدة خلال المدة</span><strong>${money(collectionTotal)}</strong></div><div class="stat"><span>المتبقي على العملاء</span><strong>${money(remainingTotal)}</strong></div><div class="stat"><span>عدد الفواتير المعتمدة</span><strong>${sales.length}</strong></div></div><div class="grid grid4 rep-target-summary-v189"><div class="stat"><span>التارجت (${target.label})</span><strong>${Number(target.target).toLocaleString()}</strong></div><div class="stat"><span>المحقق خلال المدة</span><strong>${Number(target.achieved).toLocaleString()}</strong></div><div class="stat"><span>المتبقي من التارجت</span><strong>${Number(remainingTarget).toLocaleString()}</strong></div><div class="stat"><span>نسبة التحقيق</span><strong>${percent}%</strong></div></div><div class="card"><h3>المبيعات والتحصيل المعتمد لكل عميل</h3>
+      <div class="rep-detail-head-v175"><div><h2>${esc(repDisplayV189(repId))}</h2><p>${repReportFilterV189.from||'البداية'} → ${repReportFilterV189.to||'النهاية'}</p></div><button type="button" class="btn blue" onclick="printFilteredRepV189()">طباعة التقرير</button></div>
+      <div class="v302-company-sales-banner v303-clickable" data-v303-drill="company-sales" onclick="window.openRepDrillDirectV304('company-sales');return false;" title="اضغط لعرض التفاصيل">
+        <span>إجمالي مبيعات الشركة كلها خلال المدة</span>
+        <strong>${money(companySalesTotal)}</strong>
+        <small>يشمل جميع المندوبين — ويتغير تلقائيًا حسب تاريخ من / إلى</small>
+      </div>
+      <div class="grid grid4 rep-summary-v175">
+        <div class="stat v303-clickable" data-v303-drill="rep-sales" onclick="window.openRepDrillDirectV304('rep-sales');return false;" title="اضغط لعرض التفاصيل"><span>مبيعات المندوب / المجموعة خلال المدة</span><strong>${money(salesTotal)}</strong></div>
+        <div class="stat v303-clickable" data-v303-drill="rep-collections" onclick="window.openRepDrillDirectV304('rep-collections');return false;" title="اضغط لعرض التفاصيل"><span>التحصيلات المعتمدة خلال المدة</span><strong>${money(collectionTotal)}</strong></div>
+        <div class="stat v303-clickable" data-v303-drill="rep-remaining" onclick="window.openRepDrillDirectV304('rep-remaining');return false;" title="اضغط لعرض التفاصيل"><span>المتبقي على العملاء</span><strong>${money(remainingTotal)}</strong></div>
+        <div class="stat v303-clickable" data-v303-drill="rep-invoices" onclick="window.openRepDrillDirectV304('rep-invoices');return false;" title="اضغط لعرض التفاصيل"><span>عدد الفواتير المعتمدة</span><strong>${sales.length}</strong></div>
+      </div><div class="grid grid4 rep-target-summary-v189">
+        <div class="stat v303-clickable" data-v303-drill="target" onclick="window.openRepDrillDirectV304('target');return false;" title="اضغط لعرض التفاصيل"><span>التارجت (${target.label})</span><strong>${Number(target.target).toLocaleString()}</strong></div>
+        <div class="stat v303-clickable" data-v303-drill="target-achieved" onclick="window.openRepDrillDirectV304('target-achieved');return false;" title="اضغط لعرض التفاصيل"><span>المحقق خلال المدة</span><strong>${Number(target.achieved).toLocaleString()}</strong></div>
+        <div class="stat v303-clickable" data-v303-drill="target-remaining" onclick="window.openRepDrillDirectV304('target-remaining');return false;" title="اضغط لعرض التفاصيل"><span>المتبقي من التارجت</span><strong>${Number(remainingTarget).toLocaleString()}</strong></div>
+        <div class="stat v303-clickable" data-v303-drill="target-percent" onclick="window.openRepDrillDirectV304('target-percent');return false;" title="اضغط لعرض التفاصيل"><span>نسبة التحقيق</span><strong>${percent}%</strong></div>
+      </div><div class="card"><h3>المبيعات والتحصيل المعتمد لكل عميل</h3>
         ${rows.length?`<table><tr><th>العميل</th><th>المبيعات</th><th>التحصيلات</th><th>المتبقي</th><th>عدد الفواتير</th><th>عدد التحصيلات</th></tr>
           ${rows.map(r=>`<tr><td><b>${esc(r.name)}</b></td><td>${money(r.sales)}</td><td>${money(r.collections)}</td><td>${money(r.remaining)}</td><td>${r.invoiceCount}</td><td>${r.collectionCount}</td></tr>`).join('')}
         </table>`:`<div class="empty">لا توجد بيانات في المدة المحددة</div>`}
@@ -7908,6 +7950,8 @@ render();
         .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
         .stat,.card{border:1px solid #d1d5db;border-radius:10px;padding:14px;margin-bottom:14px}
         .stat span{display:block;color:#64748b}.stat strong{display:block;font-size:22px;margin-top:5px}
+        .v302-company-sales-banner{border:2px solid #16a34a;border-radius:10px;padding:14px;margin:12px 0;background:#f0fdf4}
+        .v302-company-sales-banner span,.v302-company-sales-banner small{display:block}.v302-company-sales-banner strong{display:block;font-size:28px;margin:6px 0}
         button{display:none}
       </style></head><body>${buildReportV189(repReportFilterV189.repId)}</body></html>`);
     w.document.close();
@@ -21848,5 +21892,956 @@ setTimeout(injectV299,1800);
     try{renderAccounts=window.renderAccounts}catch(e){}
   }
   setTimeout(function(){try{injectV300()}catch(e){}},2000);
+})();
+</script>
+
+
+<style id="v301-reps-report-total-sales-style">
+.v301-reps-sales-summary{display:grid;grid-template-columns:minmax(220px,320px);gap:12px;margin:12px 0 14px}
+.v301-reps-sales-summary .stat{background:linear-gradient(135deg,#ecfeff,#f8fafc);border:1px solid #99f6e4}
+.v301-reps-sales-summary .stat strong{font-size:28px}
+.v301-reps-total-row td{font-weight:900;background:#f8fafc;border-top:2px solid #cbd5e1}
+</style>
+
+<script id="v301-reps-report-total-sales">
+(function(){
+  var previousRangeRepsTableV301 = window.rangeRepsTable;
+  window.rangeRepsTable = function(){
+    if(!db.reps.length)return `<div class="empty">${T('empty')}</div>`;
+    var totalSales = typeof totalRepAchievedFiltered==='function'
+      ? totalRepAchievedFiltered()
+      : db.reps.reduce(function(sum,r){
+          return sum + (typeof repAchievementFiltered==='function' ? repAchievementFiltered(r.id) : 0);
+        },0);
+
+    var totalTarget = db.reps.reduce(function(sum,r){return sum+n(r.target)},0);
+    var totalPct = totalTarget ? Math.round(totalSales/totalTarget*100) : 0;
+
+    var rows = db.reps.map(function(r){
+      var a=repAchievementFiltered(r.id),
+          pct=n(r.target)?Math.round(a/n(r.target)*100):0;
+      return `<tr>
+        <td>${esc(r.name)}</td>
+        <td>${money(r.target)}</td>
+        <td>${money(a)}</td>
+        <td>${pct}%<div class="progress"><span style="width:${Math.min(100,pct)}%"></span></div></td>
+      </tr>`;
+    }).join('');
+
+    return `
+      <div class="v301-reps-sales-summary">
+        <div class="stat">
+          <span>${lang==='ar'?'إجمالي المبيعات':'Total sales'}</span>
+          <strong>${money(totalSales)}</strong>
+          <div class="hint">${lang==='ar'?'إجمالي مبيعات جميع المندوبين خلال الفترة المحددة':'Total sales of all sales reps in the selected period'}</div>
+        </div>
+      </div>
+      <table>
+        <tr>
+          <th>${T('rep')}</th>
+          <th>${T('target')}</th>
+          <th>${lang==='ar'?'مبيعات الفترة':'Period sales'}</th>
+          <th>${T('achievement')}</th>
+        </tr>
+        ${rows}
+        <tr class="v301-reps-total-row">
+          <td>${lang==='ar'?'الإجمالي':'Total'}</td>
+          <td>${money(totalTarget)}</td>
+          <td>${money(totalSales)}</td>
+          <td>${totalPct}%</td>
+        </tr>
+      </table>`;
+  };
+  try{rangeRepsTable=window.rangeRepsTable}catch(e){}
+
+  /* Refresh any currently open report/module so the new total appears immediately. */
+  try{
+    if(typeof current!=='undefined' && current==='reports' && typeof renderReports==='function')renderReports();
+    if(typeof current!=='undefined' && current==='reps' && typeof renderReps==='function')renderReps();
+  }catch(e){}
+})();
+</script>
+
+
+<style id="v302-company-sales-banner-style">
+html body .v302-company-sales-banner{
+  display:flex!important;align-items:center!important;gap:18px!important;flex-wrap:wrap!important;
+  margin:14px 0 16px!important;padding:16px 20px!important;border:2px solid #16a34a!important;
+  border-radius:14px!important;background:#f0fdf4!important;color:#14532d!important;
+}
+html body .v302-company-sales-banner span{font-weight:900!important;font-size:16px!important}
+html body .v302-company-sales-banner strong{font-size:30px!important;margin-inline-start:auto!important;color:#166534!important}
+html body .v302-company-sales-banner small{width:100%!important;color:#4b5563!important}
+@media print{
+  html body .v302-company-sales-banner{break-inside:avoid!important}
+}
+</style>
+
+
+<style id="v303-max-interactive-style">
+.v303-clickable,
+html body .stat.v303-auto-clickable,
+html body .summary-box.v303-auto-clickable{
+  cursor:pointer!important;
+  transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease!important;
+  position:relative;
+}
+.v303-clickable:hover,
+html body .stat.v303-auto-clickable:hover,
+html body .summary-box.v303-auto-clickable:hover{
+  transform:translateY(-3px)!important;
+  box-shadow:0 16px 35px rgba(15,23,42,.14)!important;
+  border-color:#14b8a6!important;
+}
+.v303-clickable:after,
+html body .stat.v303-auto-clickable:after,
+html body .summary-box.v303-auto-clickable:after{
+  content:"عرض التفاصيل ↗";
+  position:absolute;left:12px;bottom:8px;
+  font-size:10px;font-weight:900;color:#0f766e;opacity:.72;
+}
+.v302-company-sales-banner.v303-clickable{padding-bottom:28px!important}
+#v303_drill_modal{
+  position:fixed;inset:0;z-index:10050;background:rgba(15,23,42,.72);
+  backdrop-filter:blur(8px);display:none;align-items:stretch;justify-content:stretch;
+}
+#v303_drill_modal.show{display:flex}
+.v303-drill-panel{width:100%;height:100%;background:#f8fafc;overflow:auto}
+.v303-drill-head{
+  position:sticky;top:0;z-index:2;
+  display:flex;justify-content:space-between;gap:16px;align-items:flex-start;
+  padding:20px 28px;background:linear-gradient(135deg,#0f172a,#0f766e);color:#fff;
+  box-shadow:0 10px 28px rgba(15,23,42,.2)
+}
+.v303-drill-head h2{margin:0;font-size:30px}.v303-drill-head p{margin:6px 0 0;color:#ccfbf1}
+.v303-drill-close{border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.12);color:#fff;border-radius:12px;padding:10px 15px;font-weight:900;cursor:pointer}
+.v303-drill-body{padding:24px 28px}
+.v303-drill-summary{display:grid;grid-template-columns:repeat(4,minmax(180px,1fr));gap:12px;margin-bottom:16px}
+.v303-drill-summary .stat{background:#fff}
+.v303-drill-body .card{box-shadow:none}
+.v303-smart-note{font-size:11px;color:#0f766e;font-weight:900;margin-top:6px}
+@media(max-width:850px){.v303-drill-summary{grid-template-columns:1fr 1fr}.v303-drill-body{padding:16px}.v303-drill-head{padding:16px}}
+@media print{.v303-clickable:after,.v303-auto-clickable:after{display:none!important}}
+</style>
+
+<script id="v303-max-interactive-drilldown">
+(function(){
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S(v){return String(v==null?'':v).trim()}
+  function E(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function M(v){try{return money(v)}catch(e){return 'EGP '+N(v).toLocaleString()}}
+  function D(v){try{return dateOnlyV189(v)}catch(e){return S(v).slice(0,10)}}
+
+  function ensureModalV303(){
+    var m=document.getElementById('v303_drill_modal');
+    if(m)return m;
+    m=document.createElement('div');m.id='v303_drill_modal';
+    m.innerHTML='<div class="v303-drill-panel"><div class="v303-drill-head"><div><h2 id="v303_drill_title">التفاصيل</h2><p id="v303_drill_sub"></p></div><button class="v303-drill-close" onclick="closeDrillV303()">إغلاق</button></div><div class="v303-drill-body" id="v303_drill_body"></div></div>';
+    document.body.appendChild(m);
+    m.addEventListener('click',function(e){if(e.target===m)closeDrillV303()});
+    return m;
+  }
+  window.closeDrillV303=function(){
+    var m=document.getElementById('v303_drill_modal');if(m)m.classList.remove('show');
+    document.body.style.overflow='';
+  };
+  function openV303(title,sub,html){
+    var m=ensureModalV303();
+    document.getElementById('v303_drill_title').textContent=title||'التفاصيل';
+    document.getElementById('v303_drill_sub').textContent=sub||'';
+    document.getElementById('v303_drill_body').innerHTML=html||'<div class="empty">لا توجد بيانات</div>';
+    m.classList.add('show');document.body.style.overflow='hidden';
+  }
+  function periodV303(){
+    var f=(typeof repReportFilterV189!=='undefined'&&repReportFilterV189.from)||'البداية';
+    var t=(typeof repReportFilterV189!=='undefined'&&repReportFilterV189.to)||'النهاية';
+    return f+' → '+t;
+  }
+  function currentRepIdV303(){
+    return (typeof repReportFilterV189!=='undefined'&&repReportFilterV189.repId)||'';
+  }
+  function salesTableV303(rows){
+    if(!rows.length)return '<div class="empty">لا توجد مبيعات في الفترة المحددة</div>';
+    return '<div class="card"><table><tr><th>التاريخ</th><th>المندوب</th><th>العميل</th><th>المنتج</th><th>الكمية</th><th>الإجمالي</th><th>المتبقي</th></tr>'+
+      rows.map(function(s){return '<tr><td>'+E(D(s.date))+'</td><td>'+E(typeof repNameV189==='function'?repNameV189(s):(s.rep_name||''))+'</td><td>'+E(s.customer_name||'')+'</td><td>'+E(s.product_name||'')+'</td><td>'+N(s.qty)+'</td><td>'+M(s.total)+'</td><td>'+M(s.remaining)+'</td></tr>'}).join('')+
+      '</table></div>';
+  }
+  function collectionTableV303(rows){
+    if(!rows.length)return '<div class="empty">لا توجد تحصيلات في الفترة المحددة</div>';
+    return '<div class="card"><table><tr><th>التاريخ</th><th>المندوب</th><th>العميل</th><th>المبلغ</th><th>الطريقة</th></tr>'+
+      rows.map(function(c){return '<tr><td>'+E(D(c.date))+'</td><td>'+E(typeof repNameV189==='function'?repNameV189(c):(c.rep_name||''))+'</td><td>'+E(c.customer_name||'')+'</td><td>'+M(c.amount)+'</td><td>'+E(c.method||'')+'</td></tr>'}).join('')+
+      '</table></div>';
+  }
+  function customerRemainingV303(sales){
+    var mp=new Map();
+    sales.forEach(function(s){
+      var k=s.customer_id||S(s.customer_name)||'unknown';
+      if(!mp.has(k))mp.set(k,{name:s.customer_name||'-',sales:0,remaining:0,count:0});
+      var r=mp.get(k);r.sales+=N(s.total);r.remaining+=N(s.remaining);r.count++;
+    });
+    var rows=[...mp.values()].sort(function(a,b){return b.remaining-a.remaining});
+    if(!rows.length)return '<div class="empty">لا توجد أرصدة عملاء في الفترة المحددة</div>';
+    return '<div class="card"><table><tr><th>العميل</th><th>المبيعات</th><th>المتبقي</th><th>عدد الحركات</th></tr>'+
+      rows.map(function(r){return '<tr><td><b>'+E(r.name)+'</b></td><td>'+M(r.sales)+'</td><td>'+M(r.remaining)+'</td><td>'+r.count+'</td></tr>'}).join('')+
+      '</table></div>';
+  }
+
+  function targetDetailV303(repId,sales){
+    var t=targetInfoV189(repId,sales), rem=Math.max(0,N(t.target)-N(t.achieved)), pct=N(t.target)?Math.round(N(t.achieved)/N(t.target)*10000)/100:0;
+    var html='<div class="v303-drill-summary">'+
+      '<div class="stat"><span>التارجت ('+E(t.label)+')</span><strong>'+N(t.target).toLocaleString()+'</strong></div>'+
+      '<div class="stat"><span>المحقق</span><strong>'+N(t.achieved).toLocaleString()+'</strong></div>'+
+      '<div class="stat"><span>المتبقي</span><strong>'+rem.toLocaleString()+'</strong></div>'+
+      '<div class="stat"><span>نسبة التحقيق</span><strong>'+pct+'%</strong></div></div>';
+    if(typeof GROUPS_V189!=='undefined' && GROUPS_V189[repId]){
+      var names=GROUPS_V189[repId].members||[];
+      var reps=(db.reps||[]).filter(function(r){return names.map(function(x){return S(x).toLowerCase()}).includes(S(r.name).toLowerCase())});
+      html+='<div class="card"><h3>تفصيل التارجت على المندوبين</h3><table><tr><th>المندوب</th><th>التارجت</th></tr>'+
+        reps.map(function(r){return '<tr><td>'+E(r.name)+'</td><td>'+N(r.target_value||r.target).toLocaleString()+'</td></tr>'}).join('')+
+        '</table></div>';
+    }
+    return html+salesTableV303(sales);
+  }
+
+  window.openRepDrillV303=function(kind){
+    if(typeof window.openRepDrillDirectV304==='function'){
+      return window.openRepDrillDirectV304(kind);
+    }
+
+    var title='',html='';
+
+    /* Company-wide card does NOT require choosing a rep/group. */
+    if(kind==='company-sales'){
+      var all=typeof companyApprovedSalesV302==='function'?companyApprovedSalesV302():[];
+      var total=all.reduce(function(a,s){return a+N(s.total)},0);
+      title='إجمالي مبيعات الشركة';
+      html='<div class="v303-drill-summary"><div class="stat"><span>إجمالي الشركة</span><strong>'+M(total)+'</strong></div><div class="stat"><span>عدد معاملات البيع</span><strong>'+all.length+'</strong></div></div>'+salesTableV303(all);
+      openV303(title,periodV303(),html);
+      return;
+    }
+
+    var repId=currentRepIdV303();
+    if(!repId)return alert('اختر المندوب أو المجموعة أولًا');
+    var repName=typeof repDisplayV189==='function'?repDisplayV189(repId):repId;
+    var sales=typeof salesRowsV189==='function'?salesRowsV189(repId):[];
+    var cols=typeof collectionRowsV189==='function'?collectionRowsV189(repId):[];
+
+    if(kind==='rep-sales'){
+      title='تفاصيل مبيعات '+repName; html=salesTableV303(sales);
+    }else if(kind==='rep-collections'){
+      title='تفاصيل تحصيلات '+repName; html=collectionTableV303(cols);
+    }else if(kind==='rep-remaining'){
+      title='المتبقي على العملاء — '+repName; html=customerRemainingV303(sales);
+    }else if(kind==='rep-invoices'){
+      title='الفواتير المعتمدة — '+repName; html=salesTableV303(sales);
+    }else{
+      title='تفاصيل التارجت — '+repName; html=targetDetailV303(repId,sales);
+    }
+    openV303(title,periodV303(),html);
+  };
+
+  /* Current sales-rep report: true drill-downs, not just navigation. */
+  document.addEventListener('click',function(e){
+    var drill=e.target.closest('[data-v303-drill]');
+    if(drill){
+      e.preventDefault();
+      e.stopPropagation();
+      if(typeof window.openRepDrillDirectV304==='function'){
+        window.openRepDrillDirectV304(drill.dataset.v303Drill);
+      }else if(typeof window.openRepDrillV303==='function'){
+        window.openRepDrillV303(drill.dataset.v303Drill);
+      }
+      return;
+    }
+  },true);
+
+  /* System-wide smart cards:
+     cards that represent a known module become navigational drill-downs.
+     Existing buttons/onclick cards are left untouched. */
+  var routeMapV303=[
+    {keys:['مبيعات','sales'],view:'sales'},
+    {keys:['تحصيل','collection'],view:'collections'},
+    {keys:['عميل','عملاء','customer'],view:'customers'},
+    {keys:['مورد','supplier'],view:'suppliers'},
+    {keys:['مخزون','inventory','stock','منتج','product'],view:'products'},
+    {keys:['مندوب','مندوبين','rep'],view:'reps'},
+    {keys:['مشتريات','purchase'],view:'purchases'},
+    {keys:['عمليات','operation'],view:'operations'},
+    {keys:['ميزان','trial balance'],view:'trial'},
+    {keys:['تقارير','report'],view:'reports'}
+  ];
+  function routeForTextV303(txt){
+    txt=S(txt).toLowerCase();
+    for(var i=0;i<routeMapV303.length;i++){
+      for(var j=0;j<routeMapV303[i].keys.length;j++){
+        if(txt.indexOf(routeMapV303[i].keys[j])>=0)return routeMapV303[i].view;
+      }
+    }
+    return '';
+  }
+  function enhanceCardsV303(){
+    document.querySelectorAll('.stat,.summary-box').forEach(function(card){
+      if(card.classList.contains('v303-clickable'))return;
+      if(card.closest('#v303_drill_modal'))return;
+      if(card.hasAttribute('onclick')||card.closest('[onclick]'))return;
+      var route=routeForTextV303(card.textContent||'');
+      if(route){
+        card.classList.add('v303-auto-clickable');
+        card.dataset.v303Route=route;
+        card.title='اضغط للانتقال إلى التفاصيل';
+      }
+    });
+  }
+  document.addEventListener('click',function(e){
+    var c=e.target.closest('.v303-auto-clickable');
+    if(!c)return;
+    var route=c.dataset.v303Route;
+    if(route&&typeof show==='function'){
+      e.preventDefault();e.stopPropagation();
+      try{show(route);window.scrollTo({top:0,behavior:'smooth'})}catch(err){}
+    }
+  });
+
+  var obs=new MutationObserver(function(){enhanceCardsV303()});
+  obs.observe(document.body,{childList:true,subtree:true});
+  setTimeout(enhanceCardsV303,900);
+
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape')closeDrillV303();
+  });
+})();
+</script>
+
+
+<script id="v304-direct-card-click-fix">
+(function(){
+  function nV304(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function sV304(v){return String(v==null?'':v).trim()}
+  function eV304(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function mV304(v){try{return money(v)}catch(e){return 'EGP '+nV304(v).toLocaleString()}}
+  function dateV304(v){try{return dateOnlyV189(v)}catch(e){return sV304(v).slice(0,10)}}
+
+  function modalV304(){
+    var m=document.getElementById('v304_modal');
+    if(m)return m;
+    m=document.createElement('div');
+    m.id='v304_modal';
+    m.style.cssText='position:fixed;inset:0;z-index:2147483000;background:rgba(15,23,42,.72);display:none;align-items:stretch;justify-content:stretch;';
+    m.innerHTML=
+      '<div style="background:#f8fafc;width:100%;height:100%;overflow:auto">'+
+        '<div style="position:sticky;top:0;z-index:2;background:linear-gradient(135deg,#0f172a,#0f766e);color:white;padding:18px 24px;display:flex;justify-content:space-between;gap:16px;align-items:center">'+
+          '<div><h2 id="v304_title" style="margin:0;font-size:28px">التفاصيل</h2><div id="v304_sub" style="margin-top:5px;color:#ccfbf1"></div></div>'+
+          '<button type="button" onclick="window.closeDrillDirectV304()" style="background:#dc2626;color:#fff;border:0;border-radius:10px;padding:10px 18px;font-weight:900;cursor:pointer">إغلاق</button>'+
+        '</div>'+
+        '<div id="v304_body" style="padding:22px"></div>'+
+      '</div>';
+    document.body.appendChild(m);
+    return m;
+  }
+  window.closeDrillDirectV304=function(){
+    var m=document.getElementById('v304_modal');
+    if(m)m.style.display='none';
+    document.body.style.overflow='';
+  };
+  function openV304(title,sub,html){
+    var m=modalV304();
+    document.getElementById('v304_title').textContent=title||'التفاصيل';
+    document.getElementById('v304_sub').textContent=sub||'';
+    document.getElementById('v304_body').innerHTML=html||'<div class="empty">لا توجد بيانات</div>';
+    m.style.display='flex';
+    document.body.style.overflow='hidden';
+  }
+  function periodV304(){
+    var f=(typeof repReportFilterV189!=='undefined'&&repReportFilterV189.from)||'البداية';
+    var t=(typeof repReportFilterV189!=='undefined'&&repReportFilterV189.to)||'النهاية';
+    return f+' → '+t;
+  }
+  function salesTableV304(rows){
+    if(!rows||!rows.length)return '<div class="card"><div class="empty">لا توجد مبيعات في الفترة المحددة</div></div>';
+    return '<div class="card" style="overflow:auto"><table><tr><th>التاريخ</th><th>المندوب</th><th>العميل</th><th>المنتج</th><th>الكمية</th><th>الإجمالي</th><th>المتبقي</th></tr>'+
+      rows.map(function(s){
+        var rep='';
+        try{rep=typeof repNameV189==='function'?repNameV189(s):(s.rep_name||'')}catch(e){rep=s.rep_name||''}
+        return '<tr><td>'+eV304(dateV304(s.date))+'</td><td>'+eV304(rep)+'</td><td>'+eV304(s.customer_name||'')+'</td><td>'+eV304(s.product_name||'')+'</td><td>'+nV304(s.qty)+'</td><td>'+mV304(s.total)+'</td><td>'+mV304(s.remaining)+'</td></tr>';
+      }).join('')+'</table></div>';
+  }
+  function collectionTableV304(rows){
+    if(!rows||!rows.length)return '<div class="card"><div class="empty">لا توجد تحصيلات في الفترة المحددة</div></div>';
+    return '<div class="card" style="overflow:auto"><table><tr><th>التاريخ</th><th>المندوب</th><th>العميل</th><th>المبلغ</th><th>الطريقة</th></tr>'+
+      rows.map(function(c){
+        var rep='';
+        try{rep=typeof repNameV189==='function'?repNameV189(c):(c.rep_name||'')}catch(e){rep=c.rep_name||''}
+        return '<tr><td>'+eV304(dateV304(c.date))+'</td><td>'+eV304(rep)+'</td><td>'+eV304(c.customer_name||'')+'</td><td>'+mV304(c.amount)+'</td><td>'+eV304(c.method||'')+'</td></tr>';
+      }).join('')+'</table></div>';
+  }
+  function remainingTableV304(sales){
+    var mp=new Map();
+    (sales||[]).forEach(function(s){
+      var key=s.customer_id||s.customer_name||'unknown';
+      if(!mp.has(key))mp.set(key,{name:s.customer_name||'-',sales:0,remaining:0,count:0});
+      var r=mp.get(key); r.sales+=nV304(s.total); r.remaining+=nV304(s.remaining); r.count++;
+    });
+    var rows=Array.from(mp.values()).sort(function(a,b){return b.remaining-a.remaining});
+    if(!rows.length)return '<div class="card"><div class="empty">لا توجد أرصدة عملاء في الفترة المحددة</div></div>';
+    return '<div class="card" style="overflow:auto"><table><tr><th>العميل</th><th>المبيعات</th><th>المتبقي</th><th>عدد الحركات</th></tr>'+
+      rows.map(function(r){return '<tr><td><b>'+eV304(r.name)+'</b></td><td>'+mV304(r.sales)+'</td><td>'+mV304(r.remaining)+'</td><td>'+r.count+'</td></tr>'}).join('')+
+      '</table></div>';
+  }
+  function companySalesV304(){
+    var rows=[];
+    try{
+      if(typeof companyApprovedSalesV302==='function')rows=companyApprovedSalesV302();
+    }catch(e){}
+    if(!rows.length){
+      try{
+        rows=(db.sales||[]).filter(function(s){
+          if(s.approval_status&&s.approval_status!=='approved')return false;
+          try{return typeof inRangeV189==='function'?inRangeV189(s):true}catch(e){return true}
+        });
+      }catch(e){rows=[]}
+    }
+    return rows;
+  }
+
+  window.openRepDrillDirectV304=function(kind){
+    try{
+      if(kind==='company-sales'){
+        var all=companySalesV304();
+        var total=all.reduce(function(a,s){return a+nV304(s.total)},0);
+        openV304(
+          'إجمالي مبيعات الشركة',
+          periodV304(),
+          '<div class="grid grid4" style="margin-bottom:14px">'+
+            '<div class="stat"><span>إجمالي مبيعات الشركة</span><strong>'+mV304(total)+'</strong></div>'+
+            '<div class="stat"><span>عدد معاملات البيع</span><strong>'+all.length+'</strong></div>'+
+          '</div>'+salesTableV304(all)
+        );
+        return;
+      }
+
+      var repId='';
+      try{repId=repReportFilterV189&&repReportFilterV189.repId||''}catch(e){}
+      if(!repId)return alert('اختر المندوب أو المجموعة أولًا');
+
+      var repName=repId, sales=[], cols=[];
+      try{if(typeof repDisplayV189==='function')repName=repDisplayV189(repId)}catch(e){}
+      try{if(typeof salesRowsV189==='function')sales=salesRowsV189(repId)}catch(e){}
+      try{if(typeof collectionRowsV189==='function')cols=collectionRowsV189(repId)}catch(e){}
+
+      if(kind==='rep-sales'||kind==='rep-invoices'){
+        openV304(kind==='rep-invoices'?'الفواتير المعتمدة — '+repName:'تفاصيل مبيعات '+repName,periodV304(),salesTableV304(sales));
+      }else if(kind==='rep-collections'){
+        openV304('تفاصيل تحصيلات '+repName,periodV304(),collectionTableV304(cols));
+      }else if(kind==='rep-remaining'){
+        openV304('المتبقي على العملاء — '+repName,periodV304(),remainingTableV304(sales));
+      }else{
+        var t={target:0,achieved:0,label:'الكمية'};
+        try{if(typeof targetInfoV189==='function')t=targetInfoV189(repId,sales)}catch(e){}
+        var rem=Math.max(0,nV304(t.target)-nV304(t.achieved));
+        var pct=nV304(t.target)?Math.round(nV304(t.achieved)/nV304(t.target)*10000)/100:0;
+        openV304(
+          'تفاصيل التارجت — '+repName,
+          periodV304(),
+          '<div class="grid grid4">'+
+            '<div class="stat"><span>التارجت</span><strong>'+nV304(t.target).toLocaleString()+'</strong></div>'+
+            '<div class="stat"><span>المحقق</span><strong>'+nV304(t.achieved).toLocaleString()+'</strong></div>'+
+            '<div class="stat"><span>المتبقي</span><strong>'+rem.toLocaleString()+'</strong></div>'+
+            '<div class="stat"><span>نسبة التحقيق</span><strong>'+pct+'%</strong></div>'+
+          '</div>'+salesTableV304(sales)
+        );
+      }
+    }catch(err){
+      console.error('V304 drill error',err);
+      alert('تعذر فتح التفاصيل: '+(err&&err.message?err.message:err));
+    }
+  };
+
+  /* Also bind directly after every report repaint, in case browser strips/rebuilds markup. */
+  function bindV304(){
+    document.querySelectorAll('[data-v303-drill]').forEach(function(el){
+      el.style.cursor='pointer';
+      el.onclick=function(ev){
+        if(ev){ev.preventDefault();ev.stopPropagation()}
+        window.openRepDrillDirectV304(el.getAttribute('data-v303-drill'));
+        return false;
+      };
+    });
+  }
+  var observer=new MutationObserver(function(){bindV304()});
+  observer.observe(document.body,{childList:true,subtree:true});
+  setTimeout(bindV304,500);
+  setTimeout(bindV304,1500);
+})();
+</script>
+
+
+<script id="v306-public-modal-bridge">
+(function(){
+  window.openCompanyAnalyticsModalV306=function(title,sub,html){
+    var m=document.getElementById('v306_company_modal');
+    if(!m){
+      m=document.createElement('div');
+      m.id='v306_company_modal';
+      m.style.cssText='position:fixed;inset:0;z-index:2147483640;background:rgba(15,23,42,.75);display:none';
+      m.innerHTML='<div style="width:100%;height:100%;background:#f8fafc;overflow:auto">'+
+        '<div style="position:sticky;top:0;z-index:3;background:linear-gradient(135deg,#0f172a,#0f766e);color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;gap:14px">'+
+          '<div><h2 id="v306_modal_title" style="margin:0"></h2><div id="v306_modal_sub" style="color:#ccfbf1;margin-top:5px"></div></div>'+
+          '<button type="button" id="v306_modal_close" style="background:#dc2626;color:#fff;border:0;border-radius:10px;padding:10px 18px;font-weight:900;cursor:pointer">إغلاق</button>'+
+        '</div><div id="v306_modal_body" style="padding:22px"></div></div>';
+      document.body.appendChild(m);
+      document.getElementById('v306_modal_close').onclick=function(){m.style.display='none';document.body.style.overflow=''};
+    }
+    document.getElementById('v306_modal_title').textContent=title||'التفاصيل';
+    document.getElementById('v306_modal_sub').textContent=sub||'';
+    document.getElementById('v306_modal_body').innerHTML=html||'';
+    m.style.display='block';document.body.style.overflow='hidden';
+  };
+})();
+</script>
+
+
+<style id="v306-company-sales-analytics-style">
+.v306-kpis{display:grid;grid-template-columns:repeat(4,minmax(180px,1fr));gap:12px;margin-bottom:16px}
+.v306-grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.v306-card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px;box-shadow:0 8px 20px rgba(15,23,42,.05)}
+.v306-card h3{margin:0 0 12px;font-size:19px}
+.v306-rank{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid #eef2f7}
+.v306-rank:last-child{border-bottom:0}
+.v306-rank .name{font-weight:800}
+.v306-rank .meta{font-size:12px;color:#64748b}
+.v306-rank .value{font-weight:900;white-space:nowrap}
+.v306-bar{height:8px;background:#e2e8f0;border-radius:999px;overflow:hidden;margin-top:6px}
+.v306-bar span{display:block;height:100%;background:#0f766e;border-radius:999px}
+.v306-zero{color:#b91c1c;font-weight:800}
+.v306-good{color:#166534;font-weight:800}
+.v306-table-wrap{overflow:auto}
+.v306-table-wrap table{min-width:920px}
+.v306-section-title{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:10px}
+.v306-chip{display:inline-block;padding:4px 8px;border-radius:999px;background:#f1f5f9;font-size:11px;font-weight:800;color:#475569}
+@media(max-width:900px){.v306-kpis,.v306-grid2{grid-template-columns:1fr 1fr}}
+@media(max-width:620px){.v306-kpis,.v306-grid2{grid-template-columns:1fr}}
+</style>
+
+<script id="v306-company-sales-analytics">
+(function(){
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S(v){return String(v==null?'':v).trim()}
+  function E(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function M(v){try{return money(v)}catch(e){return 'EGP '+N(v).toLocaleString()}}
+  function D(v){try{return dateOnlyV189(v)}catch(e){return S(v).slice(0,10)}}
+
+  function periodV306(){
+    var f=(typeof repReportFilterV189!=='undefined'&&repReportFilterV189.from)||'البداية';
+    var t=(typeof repReportFilterV189!=='undefined'&&repReportFilterV189.to)||'النهاية';
+    return f+' → '+t;
+  }
+
+  function allSalesV306(){
+    try{
+      if(typeof companyApprovedSalesV302==='function')return companyApprovedSalesV302();
+    }catch(e){}
+    return (db.sales||[]).filter(function(s){
+      if(s.approval_status&&s.approval_status!=='approved')return false;
+      try{return typeof inRangeV189==='function'?inRangeV189(s):true}catch(e){return true}
+    });
+  }
+
+  function productNameV306(s){
+    return S(s.product_name||s.item_name||s.product||s.item||s.sku_name||'غير محدد');
+  }
+
+  function regionNameV306(s){
+    var direct=S(s.region||s.area||s.zone||s.district||s.city||s.governorate||s.customer_region||s.customer_area||s.customer_city);
+    if(direct)return direct;
+
+    var cid=S(s.customer_id);
+    if(cid){
+      var c=(db.customers||[]).find(function(x){return String(x.id)===cid});
+      if(c){
+        return S(c.region||c.area||c.zone||c.district||c.city||c.governorate||c.customer_region||c.customer_area)||'غير محدد';
+      }
+    }
+    return 'غير محدد';
+  }
+
+  function repNameV306(s){
+    try{return typeof repNameV189==='function'?repNameV189(s):S(s.rep_name)}catch(e){return S(s.rep_name)}
+  }
+
+  function allProductNamesV306(){
+    var set=new Set();
+    (db.products||[]).forEach(function(p){
+      var n=S(p.name||p.product_name||p.title);
+      if(n)set.add(n);
+    });
+    allSalesV306().forEach(function(s){
+      var n=productNameV306(s); if(n)set.add(n);
+    });
+    return Array.from(set);
+  }
+
+  function allRegionsV306(){
+    var set=new Set();
+    (db.customers||[]).forEach(function(c){
+      var r=S(c.region||c.area||c.zone||c.district||c.city||c.governorate||c.customer_region||c.customer_area);
+      if(r)set.add(r);
+    });
+    allSalesV306().forEach(function(s){
+      var r=regionNameV306(s); if(r&&r!=='غير محدد')set.add(r);
+    });
+    return Array.from(set);
+  }
+
+  function analyticsV306(){
+    var sales=allSalesV306();
+    var regionMap=new Map(), productMap=new Map();
+    var totalSales=0,totalQty=0,totalRemaining=0;
+
+    sales.forEach(function(s){
+      var total=N(s.total),qty=N(s.qty),remaining=N(s.remaining);
+      totalSales+=total; totalQty+=qty; totalRemaining+=remaining;
+
+      var region=regionNameV306(s);
+      if(!regionMap.has(region))regionMap.set(region,{name:region,sales:0,qty:0,count:0,remaining:0});
+      var rr=regionMap.get(region); rr.sales+=total; rr.qty+=qty; rr.count++; rr.remaining+=remaining;
+
+      var product=productNameV306(s);
+      if(!productMap.has(product))productMap.set(product,{name:product,sales:0,qty:0,count:0});
+      var pp=productMap.get(product); pp.sales+=total; pp.qty+=qty; pp.count++;
+    });
+
+    allRegionsV306().forEach(function(r){
+      if(!regionMap.has(r))regionMap.set(r,{name:r,sales:0,qty:0,count:0,remaining:0});
+    });
+    allProductNamesV306().forEach(function(p){
+      if(!productMap.has(p))productMap.set(p,{name:p,sales:0,qty:0,count:0});
+    });
+
+    var regions=Array.from(regionMap.values());
+    var products=Array.from(productMap.values());
+
+    return {
+      sales:sales,totalSales:totalSales,totalQty:totalQty,totalRemaining:totalRemaining,
+      regions:regions,products:products
+    };
+  }
+
+  function rankRowsV306(rows,metric,limit,reverse){
+    var arr=rows.slice().sort(function(a,b){return reverse?N(a[metric])-N(b[metric]):N(b[metric])-N(a[metric])});
+    if(limit)arr=arr.slice(0,limit);
+    var max=Math.max.apply(null,arr.map(function(x){return N(x[metric])}).concat([1]));
+    if(!arr.length)return '<div class="empty">لا توجد بيانات</div>';
+    return arr.map(function(r,i){
+      var pct=Math.max(0,Math.min(100,N(r[metric])/max*100));
+      return '<div class="v306-rank">'+
+        '<div style="flex:1"><div class="name">'+(i+1)+'. '+E(r.name)+'</div>'+
+        '<div class="meta">عدد الحركات: '+N(r.count)+' | الكمية: '+N(r.qty).toLocaleString()+'</div>'+
+        '<div class="v306-bar"><span style="width:'+pct+'%"></span></div></div>'+
+        '<div class="value">'+(metric==='sales'?M(r.sales):N(r[metric]).toLocaleString())+'</div>'+
+      '</div>';
+    }).join('');
+  }
+
+  function zeroRowsV306(rows,kind){
+    var z=rows.filter(function(r){return N(r.count)===0||N(r.sales)===0}).slice(0,15);
+    if(!z.length)return '<div class="v306-good">لا توجد عناصر بدون حركة في الفترة المحددة.</div>';
+    return z.map(function(r){
+      return '<div class="v306-rank"><div><div class="name">'+E(r.name)+'</div><div class="meta">'+(kind==='region'?'منطقة غير نشطة بيعيًا':'منتج بدون مبيعات')+'</div></div><div class="v306-zero">0</div></div>';
+    }).join('');
+  }
+
+  function detailsTableV306(rows){
+    if(!rows.length)return '<div class="empty">لا توجد مبيعات في الفترة المحددة</div>';
+    return '<div class="v306-table-wrap"><table><tr>'+
+      '<th>التاريخ</th><th>المندوب</th><th>المنطقة</th><th>العميل</th><th>المنتج</th><th>الكمية</th><th>الإجمالي</th><th>المتبقي</th>'+
+      '</tr>'+rows.map(function(s){
+        return '<tr><td>'+E(D(s.date))+'</td><td>'+E(repNameV306(s))+'</td><td>'+E(regionNameV306(s))+'</td><td>'+E(s.customer_name||'')+'</td><td>'+E(productNameV306(s))+'</td><td>'+N(s.qty).toLocaleString()+'</td><td>'+M(s.total)+'</td><td>'+M(s.remaining)+'</td></tr>';
+      }).join('')+'</table></div>';
+  }
+
+  window.companySalesAnalyticsHtmlV306=function(){
+    var a=analyticsV306();
+    var topRegion=a.regions.slice().sort(function(x,y){return y.sales-x.sales})[0];
+    var topProduct=a.products.slice().sort(function(x,y){return y.qty-x.qty})[0];
+    var activeRegions=a.regions.filter(function(r){return r.count>0}).length;
+    var inactiveRegions=a.regions.filter(function(r){return r.count===0}).length;
+
+    var lowestRegions=a.regions.filter(function(r){return r.count>0}).sort(function(x,y){return x.sales-y.sales}).slice(0,10);
+    var lowProducts=a.products.filter(function(p){return p.count>0}).sort(function(x,y){return x.qty-y.qty}).slice(0,10);
+
+    return '<div class="v306-kpis">'+
+      '<div class="stat"><span>إجمالي مبيعات الشركة</span><strong>'+M(a.totalSales)+'</strong></div>'+
+      '<div class="stat"><span>إجمالي الكمية</span><strong>'+N(a.totalQty).toLocaleString()+'</strong></div>'+
+      '<div class="stat"><span>المناطق النشطة بيعيًا</span><strong>'+activeRegions+'</strong></div>'+
+      '<div class="stat"><span>المناطق غير النشطة</span><strong>'+inactiveRegions+'</strong></div>'+
+    '</div>'+
+    '<div class="v306-grid2">'+
+      '<div class="v306-card"><div class="v306-section-title"><h3>المناطق الأعلى أداءً في المبيعات</h3><span class="v306-chip">'+(topRegion?E(topRegion.name):'—')+'</span></div>'+rankRowsV306(a.regions,'sales',10,false)+'</div>'+
+      '<div class="v306-card"><div class="v306-section-title"><h3>المنتجات الأعلى مبيعًا</h3><span class="v306-chip">'+(topProduct?E(topProduct.name):'—')+'</span></div>'+rankRowsV306(a.products,'qty',10,false)+'</div>'+
+    '</div>'+
+    '<div class="v306-grid2">'+
+      '<div class="v306-card"><h3>المناطق الأقل نشاطًا بيعيًا</h3>'+rankRowsV306(lowestRegions,'sales',10,false)+'</div>'+
+      '<div class="v306-card"><h3>المنتجات الأقل مبيعًا</h3>'+rankRowsV306(lowProducts,'qty',10,false)+'</div>'+
+    '</div>'+
+    '<div class="v306-grid2">'+
+      '<div class="v306-card"><h3>المناطق غير النشطة خلال الفترة</h3>'+zeroRowsV306(a.regions,'region')+'</div>'+
+      '<div class="v306-card"><h3>المنتجات بدون مبيعات خلال الفترة</h3>'+zeroRowsV306(a.products,'product')+'</div>'+
+    '</div>'+
+    '<div class="v306-card" style="margin-bottom:16px"><h2 style="margin:0">تفاصيل الأداء البيعي</h2></div><div class="v306-card"><div class="v306-section-title"><h3>تفاصيل معاملات المبيعات</h3><span class="v306-chip">'+a.sales.length+' حركة</span></div>'+detailsTableV306(a.sales)+'</div>';
+  };
+
+  /* Override the company-sales drill only, leaving all other drilldowns untouched. */
+  var oldOpenV306=window.openRepDrillDirectV304;
+  if(typeof oldOpenV306==='function'){
+    window.openRepDrillDirectV304=function(kind){
+      if(kind==='company-sales'){
+        try{
+          var html=window.companySalesAnalyticsHtmlV306();
+          if(typeof window.openCompanyAnalyticsModalV306==='function'){
+            window.openCompanyAnalyticsModalV306('تحليلات المبيعات المؤسسية',periodV306(),html);
+            return;
+          }
+        }catch(e){console.error(e)}
+      }
+      return oldOpenV306.apply(this,arguments);
+    };
+    try{openRepDrillDirectV304=window.openRepDrillDirectV304}catch(e){}
+  }
+
+  /* The capture listener may call v303, so delegate it too. */
+  var oldV303=window.openRepDrillV303;
+  if(typeof oldV303==='function'){
+    window.openRepDrillV303=function(kind){
+      if(kind==='company-sales'&&typeof window.openRepDrillDirectV304==='function'){
+        return window.openRepDrillDirectV304(kind);
+      }
+      return oldV303.apply(this,arguments);
+    };
+  }
+})();
+</script>
+
+
+<script id="v307-company-sales-data-binding">
+(function(){
+  function N307(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S307(v){return String(v==null?'':v).trim()}
+
+  /* Use the actual sales schema first:
+     region_name / region_id are written by the sales workflow.
+     Then fall back to customer master fields for legacy records. */
+  window.regionNameVerifiedV307=function(s){
+    s=s||{};
+    var direct=S307(
+      s.region_name||s.region||
+      s.customer_region||s.customer_area||s.customer_city||
+      s.area||s.zone||s.district||s.city||s.governorate
+    );
+    if(direct)return direct;
+
+    var rid=S307(s.region_id);
+    if(rid && Array.isArray(db.regions)){
+      var r=db.regions.find(function(x){return String(x.id)===rid});
+      if(r){
+        var rn=S307(r.name||r.name_ar||r.name_en||r.customer_area||r.area);
+        if(rn)return rn;
+      }
+    }
+
+    var cid=S307(s.customer_id);
+    if(cid && Array.isArray(db.customers)){
+      var c=db.customers.find(function(x){return String(x.id)===cid});
+      if(c){
+        var cn=S307(
+          c.region_name||c.region||
+          c.customer_region||c.customer_area||
+          c.area||c.zone||c.district||c.city||c.governorate
+        );
+        if(cn)return cn;
+      }
+    }
+    return 'غير محدد';
+  };
+
+  window.productNameVerifiedV307=function(s){
+    s=s||{};
+    var direct=S307(s.product_name||s.item_name||s.sku_name||s.product||s.item);
+    if(direct)return direct;
+    var pid=S307(s.product_id);
+    if(pid && Array.isArray(db.products)){
+      var p=db.products.find(function(x){return String(x.id)===pid});
+      if(p)return S307(p.name||p.product_name||p.title)||'غير محدد';
+    }
+    return 'غير محدد';
+  };
+
+  window.allRegionsVerifiedV307=function(){
+    var set=new Set();
+
+    /* Region master is the authoritative list for zero-activity regions. */
+    (db.regions||[]).forEach(function(r){
+      var name=S307(r.name||r.name_ar||r.name_en||r.customer_area||r.area);
+      if(name)set.add(name);
+    });
+
+    /* Keep customer-only areas for backward compatibility. */
+    (db.customers||[]).forEach(function(c){
+      var name=S307(
+        c.region_name||c.region||c.customer_region||c.customer_area||
+        c.area||c.zone||c.district||c.city||c.governorate
+      );
+      if(name)set.add(name);
+    });
+
+    try{
+      var rows=typeof companyApprovedSalesV302==='function'?companyApprovedSalesV302():(db.sales||[]);
+      rows.forEach(function(s){
+        var name=window.regionNameVerifiedV307(s);
+        if(name && name!=='غير محدد')set.add(name);
+      });
+    }catch(e){}
+    return Array.from(set);
+  };
+
+  window.allProductsVerifiedV307=function(){
+    var set=new Set();
+    (db.products||[]).forEach(function(p){
+      var name=S307(p.name||p.product_name||p.title);
+      if(name)set.add(name);
+    });
+    try{
+      var rows=typeof companyApprovedSalesV302==='function'?companyApprovedSalesV302():(db.sales||[]);
+      rows.forEach(function(s){
+        var name=window.productNameVerifiedV307(s);
+        if(name && name!=='غير محدد')set.add(name);
+      });
+    }catch(e){}
+    return Array.from(set);
+  };
+
+  window.companyInvoiceCountVerifiedV307=function(rows){
+    var keys=new Set();
+    (rows||[]).forEach(function(s){
+      var key=S307(
+        s.invoice_group_id||s.invoice_number||s.invoice_no||
+        s.order_id||s.sale_order_id||s.sale_id||s.id
+      );
+      if(key)keys.add(key);
+    });
+    return keys.size;
+  };
+
+  /* Override only the analytics helpers used by V306. */
+  try{regionNameV306=window.regionNameVerifiedV307}catch(e){}
+  try{productNameV306=window.productNameVerifiedV307}catch(e){}
+  try{allRegionsV306=window.allRegionsVerifiedV307}catch(e){}
+  try{allProductNamesV306=window.allProductsVerifiedV307}catch(e){}
+
+  /* Rebuild the analytics HTML with verified data bindings.
+     Keeps the visual design and labels already approved. */
+  if(typeof window.companySalesAnalyticsHtmlV306==='function'){
+    window.companySalesAnalyticsHtmlV306=function(){
+      var sales=[];
+      try{
+        sales=typeof companyApprovedSalesV302==='function'?companyApprovedSalesV302():(db.sales||[]);
+      }catch(e){sales=db.sales||[]}
+
+      var regionMap=new Map(), productMap=new Map();
+      var totalSales=0,totalQty=0,totalRemaining=0;
+
+      sales.forEach(function(s){
+        var total=N307(s.total),qty=N307(s.qty),remaining=N307(s.remaining);
+        totalSales+=total;totalQty+=qty;totalRemaining+=remaining;
+
+        var region=window.regionNameVerifiedV307(s);
+        if(!regionMap.has(region))regionMap.set(region,{name:region,sales:0,qty:0,count:0,remaining:0});
+        var rr=regionMap.get(region);rr.sales+=total;rr.qty+=qty;rr.count++;rr.remaining+=remaining;
+
+        var product=window.productNameVerifiedV307(s);
+        if(!productMap.has(product))productMap.set(product,{name:product,sales:0,qty:0,count:0});
+        var pp=productMap.get(product);pp.sales+=total;pp.qty+=qty;pp.count++;
+      });
+
+      window.allRegionsVerifiedV307().forEach(function(name){
+        if(!regionMap.has(name))regionMap.set(name,{name:name,sales:0,qty:0,count:0,remaining:0});
+      });
+      window.allProductsVerifiedV307().forEach(function(name){
+        if(!productMap.has(name))productMap.set(name,{name:name,sales:0,qty:0,count:0});
+      });
+
+      var regions=Array.from(regionMap.values());
+      var products=Array.from(productMap.values());
+      var topRegion=regions.slice().sort(function(a,b){return b.sales-a.sales})[0];
+      var topProduct=products.slice().sort(function(a,b){return b.qty-a.qty})[0];
+      var activeRegions=regions.filter(function(r){return r.count>0}).length;
+      var inactiveRegions=regions.filter(function(r){return r.count===0}).length;
+      var invoiceCount=window.companyInvoiceCountVerifiedV307(sales);
+
+      var lowestRegions=regions.filter(function(r){return r.count>0}).sort(function(a,b){return a.sales-b.sales}).slice(0,10);
+      var lowProducts=products.filter(function(p){return p.count>0}).sort(function(a,b){return a.qty-b.qty}).slice(0,10);
+
+      function rank(rows,metric,limit){
+        var arr=rows.slice().sort(function(a,b){return N307(b[metric])-N307(a[metric])});
+        if(limit)arr=arr.slice(0,limit);
+        var max=Math.max.apply(null,arr.map(function(x){return N307(x[metric])}).concat([1]));
+        if(!arr.length)return '<div class="empty">لا توجد بيانات</div>';
+        return arr.map(function(r,i){
+          var pct=Math.max(0,Math.min(100,N307(r[metric])/max*100));
+          return '<div class="v306-rank"><div style="flex:1"><div class="name">'+(i+1)+'. '+esc(r.name)+'</div>'+
+            '<div class="meta">عدد الحركات: '+N307(r.count)+' | الكمية: '+N307(r.qty).toLocaleString()+'</div>'+
+            '<div class="v306-bar"><span style="width:'+pct+'%"></span></div></div>'+
+            '<div class="value">'+(metric==='sales'?money(r.sales):N307(r[metric]).toLocaleString())+'</div></div>';
+        }).join('');
+      }
+
+      function zero(rows,kind){
+        var arr=rows.filter(function(r){return N307(r.count)===0}).slice(0,30);
+        if(!arr.length)return '<div class="v306-good">لا توجد عناصر بدون حركة في الفترة المحددة.</div>';
+        return arr.map(function(r){
+          return '<div class="v306-rank"><div><div class="name">'+esc(r.name)+'</div>'+
+            '<div class="meta">'+(kind==='region'?'منطقة غير نشطة بيعيًا':'منتج بدون مبيعات')+'</div></div>'+
+            '<div class="v306-zero">0</div></div>';
+        }).join('');
+      }
+
+      function details(rows){
+        if(!rows.length)return '<div class="empty">لا توجد مبيعات في الفترة المحددة</div>';
+        return '<div class="v306-table-wrap"><table><tr>'+
+          '<th>التاريخ</th><th>المندوب</th><th>المنطقة</th><th>العميل</th><th>المنتج</th><th>الكمية</th><th>الإجمالي</th><th>المتبقي</th>'+
+          '</tr>'+rows.map(function(s){
+            var rep='';try{rep=typeof repNameV189==='function'?repNameV189(s):(s.rep_name||'')}catch(e){rep=s.rep_name||''}
+            var dt='';try{dt=typeof dateOnlyV189==='function'?dateOnlyV189(s.date):String(s.date||'').slice(0,10)}catch(e){dt=String(s.date||'').slice(0,10)}
+            return '<tr><td>'+esc(dt)+'</td><td>'+esc(rep)+'</td><td>'+esc(window.regionNameVerifiedV307(s))+'</td>'+
+              '<td>'+esc(s.customer_name||'')+'</td><td>'+esc(window.productNameVerifiedV307(s))+'</td>'+
+              '<td>'+N307(s.qty).toLocaleString()+'</td><td>'+money(s.total)+'</td><td>'+money(s.remaining)+'</td></tr>';
+          }).join('')+'</table></div>';
+      }
+
+      return '<div class="v306-kpis">'+
+        '<div class="stat"><span>إجمالي مبيعات الشركة</span><strong>'+money(totalSales)+'</strong></div>'+
+        '<div class="stat"><span>عدد معاملات البيع</span><strong>'+invoiceCount+'</strong></div>'+
+        '<div class="stat"><span>إجمالي الكمية</span><strong>'+N307(totalQty).toLocaleString()+'</strong></div>'+
+        '<div class="stat"><span>المناطق النشطة بيعيًا</span><strong>'+activeRegions+'</strong></div>'+
+        '<div class="stat"><span>المناطق غير النشطة</span><strong>'+inactiveRegions+'</strong></div>'+
+      '</div>'+
+      '<div class="v306-card" style="margin-bottom:16px"><h2 style="margin:0">تحليل الأداء البيعي حسب المناطق</h2></div>'+
+      '<div class="v306-grid2">'+
+        '<div class="v306-card"><div class="v306-section-title"><h3>المناطق الأعلى أداءً في المبيعات</h3><span class="v306-chip">'+(topRegion?esc(topRegion.name):'—')+'</span></div>'+rank(regions,'sales',10)+'</div>'+
+        '<div class="v306-card"><div class="v306-section-title"><h3>المنتجات الأعلى مبيعًا</h3><span class="v306-chip">'+(topProduct?esc(topProduct.name):'—')+'</span></div>'+rank(products,'qty',10)+'</div>'+
+      '</div>'+
+      '<div class="v306-card" style="margin-bottom:16px"><h2 style="margin:0">تحليل أداء المنتجات والمناطق</h2></div>'+
+      '<div class="v306-grid2">'+
+        '<div class="v306-card"><h3>المناطق الأقل نشاطًا بيعيًا</h3>'+rank(lowestRegions.slice().reverse(),'sales',10)+'</div>'+
+        '<div class="v306-card"><h3>المنتجات الأقل مبيعًا</h3>'+rank(lowProducts.slice().reverse(),'qty',10)+'</div>'+
+      '</div>'+
+      '<div class="v306-card" style="margin-bottom:16px"><h2 style="margin:0">تحليل العناصر غير النشطة</h2></div>'+
+      '<div class="v306-grid2">'+
+        '<div class="v306-card"><h3>المناطق غير النشطة خلال الفترة</h3>'+zero(regions,'region')+'</div>'+
+        '<div class="v306-card"><h3>المنتجات بدون مبيعات خلال الفترة</h3>'+zero(products,'product')+'</div>'+
+      '</div>'+
+      '<div class="v306-card" style="margin-bottom:16px"><h2 style="margin:0">تفاصيل الأداء البيعي</h2></div>'+
+      '<div class="v306-card"><div class="v306-section-title"><h3>تفاصيل معاملات المبيعات</h3><span class="v306-chip">'+invoiceCount+' معاملة / '+sales.length+' سطر بيع</span></div>'+details(sales)+'</div>';
+    };
+  }
 })();
 </script>
