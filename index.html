@@ -22845,3 +22845,162 @@ html body .summary-box.v303-auto-clickable:after{
   }
 })();
 </script>
+
+
+<style id="v308-product-lot-only-style">
+.v308-lot-field{min-width:180px}
+</style>
+
+<script id="v308-product-lot-only">
+(function(){
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S(v){return String(v==null?'':v).trim()}
+  function U(){return typeof uid==='function'?uid():'id_'+Date.now()+'_'+Math.random().toString(36).slice(2)}
+  function ensureLotsV308(){if(!Array.isArray(db.inventory_lots))db.inventory_lots=[];return db.inventory_lots}
+  function saveV308(){try{if(typeof save==='function')save()}catch(e){}}
+
+  /* Product form: remove visible Code field and keep LOT Number as the product identifier shown to the user. */
+  window.productForm=function(){
+    return `<div class="card"><h3>${T('newProduct')}</h3>
+      <div class="grid grid5">
+        ${inp('pr_name','name')}
+        ${inp('pr_brand','brand')}
+        ${inp('pr_cat','category')}
+        ${inp('pr_purchase','purchasePrice','number')}
+        ${inp('pr_sale','salePrice','number')}
+        ${inp('pr_stock','stock','number')}
+        ${inp('pr_min','min','number')}
+        ${inp('pr_exp','expiry','date')}
+        <div class="v308-lot-field"><label>LOT Number</label><input id="pr_lot_v225" type="text" placeholder="${lang==='ar'?'رقم التشغيلة':'LOT Number'}"></div>
+        <div style="display:flex;align-items:end"><button class="btn ok" onclick="addProduct()">${T('add')}</button></div>
+      </div>
+    </div>`;
+  };
+  try{productForm=window.productForm}catch(e){}
+
+  /* Create product without requiring a visible product code.
+     For backward compatibility, internal code mirrors LOT Number when supplied. */
+  window.addProduct=function(){
+    var lotNo=S((document.getElementById('pr_lot_v225')||{}).value);
+    var name=S((document.getElementById('pr_name')||{}).value);
+    if(!name)return alert(T('name'));
+    if(!lotNo)return alert(lang==='ar'?'اكتب LOT Number أولًا.':'Enter LOT Number first.');
+
+    var duplicate=(db.products||[]).some(function(p){
+      return S(p.lot_number||p.lot||p.batch).toLowerCase()===lotNo.toLowerCase();
+    });
+    if(duplicate)return alert(lang==='ar'?'LOT Number موجود بالفعل لمنتج آخر.':'LOT Number already exists for another product.');
+
+    var row={
+      id:U(),
+      code:lotNo, /* internal compatibility only; not shown in UI */
+      name:name,
+      brand:S((document.getElementById('pr_brand')||{}).value),
+      category:S((document.getElementById('pr_cat')||{}).value),
+      purchase:N((document.getElementById('pr_purchase')||{}).value),
+      sale:N((document.getElementById('pr_sale')||{}).value),
+      stock:N((document.getElementById('pr_stock')||{}).value),
+      min:N((document.getElementById('pr_min')||{}).value),
+      expiry:S((document.getElementById('pr_exp')||{}).value),
+      lot_number:lotNo,
+      lot:lotNo
+    };
+    db.products.unshift(row);
+
+    ensureLotsV308();
+    db.inventory_lots.push({
+      id:U(),
+      product_id:row.id,
+      product_name:row.name,
+      lot_number:lotNo,
+      expiry:row.expiry||'',
+      qty:N(row.stock),
+      created_at:new Date().toISOString()
+    });
+
+    saveV308();
+    render();
+  };
+  try{addProduct=window.addProduct}catch(e){}
+
+  function updateLotV308(productId,value){
+    var lotNo=S(value);
+    if(!lotNo)return alert(lang==='ar'?'LOT Number لا يمكن أن يكون فارغًا.':'LOT Number cannot be empty.');
+    var p=(db.products||[]).find(function(x){return String(x.id)===String(productId)});
+    if(!p)return;
+
+    var clash=(db.products||[]).some(function(x){
+      return String(x.id)!==String(productId) &&
+        S(x.lot_number||x.lot||x.batch).toLowerCase()===lotNo.toLowerCase();
+    });
+    if(clash){renderProducts();return alert(lang==='ar'?'LOT Number مستخدم بالفعل.':'LOT Number is already in use.');}
+
+    var old=S(p.lot_number||p.lot||p.batch);
+    p.lot_number=lotNo;p.lot=lotNo;p.code=lotNo;
+
+    ensureLotsV308();
+    var linked=(db.inventory_lots||[]).filter(function(l){
+      return String(l.product_id)===String(productId) &&
+        (!old || S(l.lot_number).toLowerCase()===old.toLowerCase());
+    });
+    if(linked.length){
+      linked.forEach(function(l){l.lot_number=lotNo;l.product_name=p.name||l.product_name||''});
+    }else{
+      db.inventory_lots.push({
+        id:U(),product_id:p.id,product_name:p.name||'',lot_number:lotNo,
+        expiry:p.expiry||'',qty:N(p.stock),created_at:new Date().toISOString()
+      });
+    }
+    saveV308();
+  }
+  window.updateProductLotV308=updateLotV308;
+
+  /* Product list: LOT Number replaces Code visually. */
+  window.productsTable=function(){
+    if(!db.products.length)return `<div class="empty">${T('empty')}</div>`;
+    return `<table>
+      <tr>
+        <th>LOT Number</th>
+        <th>${T('name')}</th>
+        <th>${T('brand')}</th>
+        <th>${T('category')}</th>
+        <th>${T('purchasePrice')}</th>
+        <th>${T('salePrice')}</th>
+        <th>${T('stock')}</th>
+        <th>${T('min')}</th>
+        <th>${T('expiry')}</th>
+        <th>${T('status')}</th>
+        <th></th>
+      </tr>
+      ${(db.products||[]).map(function(p){
+        var st=expiryStatus(p);
+        var lot=S(p.lot_number||p.lot||p.batch||p.code);
+        return `<tr>
+          <td><input value="${esc(lot)}" onchange="updateProductLotV308('${p.id}',this.value)"></td>
+          <td><input value="${esc(p.name||'')}" onchange="editCell('products','${p.id}','name',this.value,false)"></td>
+          <td><input value="${esc(p.brand||'')}" onchange="editCell('products','${p.id}','brand',this.value,false)"></td>
+          <td><input value="${esc(p.category||'')}" onchange="editCell('products','${p.id}','category',this.value,false)"></td>
+          <td><input type="number" value="${N(p.purchase)}" onchange="editCell('products','${p.id}','purchase',this.value,true)"></td>
+          <td><input type="number" value="${N(p.sale)}" onchange="editCell('products','${p.id}','sale',this.value,true)"></td>
+          <td><input type="number" value="${N(p.stock)}" onchange="editCell('products','${p.id}','stock',this.value,true)"></td>
+          <td><input type="number" value="${N(p.min)}" onchange="editCell('products','${p.id}','min',this.value,true)"></td>
+          <td><input value="${esc(p.expiry||'')}" onchange="editCell('products','${p.id}','expiry',this.value,false)"></td>
+          <td><span class="badge ${st.cls}">${st.label}</span></td>
+          <td><button class="btn small danger" onclick="del('products','${p.id}')">${T('delete')}</button></td>
+        </tr>`;
+      }).join('')}
+    </table>`;
+  };
+  try{productsTable=window.productsTable}catch(e){}
+
+  /* Re-render product screen using the new form/table. */
+  window.renderProducts=function(){
+    document.getElementById('view-products').innerHTML=
+      productForm()+
+      `<div class="card"><div class="section-title"><h3>${T('warehouseRequests')}</h3><span class="hint">${lang==='ar'?'أي طلب من Operation يظهر هنا لمسؤول المخزن لتجهيزه':'Operation requests appear here for warehouse preparation'}</span></div>${warehouseRequestsTable()}</div>`+
+      `<div class="card"><h3>${T('productList')}</h3>${productsTable()}</div>`;
+  };
+  try{renderProducts=window.renderProducts}catch(e){}
+
+})();
+</script>
