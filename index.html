@@ -23004,3 +23004,380 @@ html body .summary-box.v303-auto-clickable:after{
 
 })();
 </script>
+
+
+<style id="v309-customer-linked-finance-style">
+.v309-customer-link{border-color:#14b8a6!important;background:#f0fdfa!important;font-weight:800!important}
+.v309-customer-note{font-size:11px;color:#0f766e;font-weight:800;margin-top:5px}
+</style>
+<script id="v309-customer-linked-finance">
+(function(){
+  function S(v){return String(v==null?'':v).trim()}
+  function E(v){return String(v==null?'':v).replace(/[&<>'\"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','\"':'&quot;'}[c]})}
+  function customers(){return Array.isArray(db.customers)?db.customers:[]}
+  function customerName(c){return S(c&&(c.name||c.customer_name||c.full_name))}
+  function opts(selected,allowOther){
+    var h='<option value="">اختر العميل</option>';
+    h+=customers().slice().sort(function(a,b){return customerName(a).localeCompare(customerName(b),'ar')}).map(function(c){
+      return '<option value="'+E(c.id)+'" '+(String(c.id)===String(selected)?'selected':'')+'>'+E(customerName(c))+'</option>';
+    }).join('');
+    if(allowOther)h+='<option value="__OTHER__">جهة أخرى / غير عميل</option>';
+    return h;
+  }
+  function find(ids){for(var i=0;i<ids.length;i++){var e=document.getElementById(ids[i]);if(e)return e}return null}
+  function replaceWithCustomerSelect(field,allowOther,labelText){
+    if(!field)return null;
+    var old=S(field.value), oldId=S(field.dataset&&field.dataset.customerId);
+    var sel;
+    if(field.tagName==='SELECT'){
+      sel=field;
+    }else{
+      sel=document.createElement('select');
+      Array.from(field.attributes).forEach(function(a){if(a.name!=='list'&&a.name!=='type')sel.setAttribute(a.name,a.value)});
+      sel.id=field.id; field.replaceWith(sel);
+    }
+    sel.classList.add('v309-customer-link');
+    sel.innerHTML=opts(oldId,allowOther);
+    if(oldId)sel.value=oldId;
+    else if(old){
+      var c=customers().find(function(x){return customerName(x).toLowerCase()===old.toLowerCase()});
+      if(c)sel.value=c.id; else if(allowOther)sel.value='__OTHER__';
+    }
+    sel.onchange=function(){
+      var c=customers().find(function(x){return String(x.id)===String(sel.value)});
+      sel.dataset.customerId=c?c.id:'';
+      sel.dataset.customerName=c?customerName(c):'';
+    };
+    sel.onchange();
+    var wrap=sel.closest('div');
+    if(wrap){
+      var lab=wrap.querySelector('label'); if(lab&&labelText)lab.textContent=labelText;
+      if(!wrap.querySelector('.v309-customer-note')){
+        var n=document.createElement('div');n.className='v309-customer-note';n.textContent='مرتبط بملف العميل ويظهر في تقاريره وحركاته المالية';wrap.appendChild(n);
+      }
+    }
+    return sel;
+  }
+  function installReceiptCustomers(){
+    replaceWithCustomerSelect(find(['cr_in_from_v159','cr_in_party_v159','cr_in_party','cr_in_customer']),false,'العميل / استلمنا من');
+    replaceWithCustomerSelect(find(['cr_out_to_v159','cr_out_party_v159','cr_out_party','cr_out_customer']),true,'العميل المستفيد / المدفوع له');
+  }
+  function installExpenseCustomers(){
+    ['general','marketing'].forEach(function(kind){
+      var old=document.getElementById('v287_'+kind+'_beneficiary');
+      if(!old)return;
+      var sel=replaceWithCustomerSelect(old,true,'العميل المستفيد / الجهة');
+      if(sel)sel.id='v287_'+kind+'_beneficiary';
+    });
+  }
+  function selectedFrom(sel){
+    if(!sel||sel.value==='__OTHER__'||!sel.value)return null;
+    return customers().find(function(c){return String(c.id)===String(sel.value)})||null;
+  }
+
+  var saveReceiptBase=window.saveCashReceiptV159;
+  if(typeof saveReceiptBase==='function'){
+    window.saveCashReceiptV159=function(type){
+      installReceiptCustomers();
+      var inSel=find(['cr_in_from_v159','cr_in_party_v159','cr_in_party','cr_in_customer']);
+      var outSel=find(['cr_out_to_v159','cr_out_party_v159','cr_out_party','cr_out_customer']);
+      var sel=type==='in'?inSel:outSel;
+      var c=selectedFrom(sel);
+      var before=new Set((type==='in'?(db.cash_receipts_in||[]): (db.cash_receipts_out||[])).map(function(r){return String(r.id)}));
+
+      /* Existing receipt code expects the visible party field to contain a name, not an ID. */
+      var originalValue=sel?sel.value:'';
+      var tempInput=null;
+      if(sel&&sel.tagName==='SELECT'){
+        tempInput=document.createElement('input');
+        Array.from(sel.attributes).forEach(function(a){if(a.name!=='type')tempInput.setAttribute(a.name,a.value)});
+        tempInput.id=sel.id;
+        tempInput.value=c?customerName(c):(sel.value==='__OTHER__'?'جهة أخرى':'');
+        sel.replaceWith(tempInput);
+      }
+
+      var result=saveReceiptBase.apply(this,arguments);
+      var arr=type==='in'?(db.cash_receipts_in||[]): (db.cash_receipts_out||[]);
+      var row=arr.find(function(r){return !before.has(String(r.id))});
+      if(row){
+        row.customer_id=c?c.id:'';
+        row.customer_name=c?customerName(c):'';
+        if(c)row.party=customerName(c);
+        row.party_type=c?'customer':'other';
+        try{if(typeof save==='function')save()}catch(e){}
+      }
+      setTimeout(installReceiptCustomers,80);
+      return result;
+    };
+    try{saveCashReceiptV159=window.saveCashReceiptV159}catch(e){}
+  }
+
+  var expenseBase=window.postExpenseV287;
+  if(typeof expenseBase==='function'){
+    window.postExpenseV287=function(kind){
+      installExpenseCustomers();
+      var sel=document.getElementById('v287_'+kind+'_beneficiary');
+      var c=selectedFrom(sel);
+      var arr=kind==='marketing'?(db.marketing_expenses_v287||[]): (db.general_admin_expenses_v287||[]);
+      var before=new Set(arr.map(function(r){return String(r.id)}));
+
+      var original=null,temp=null;
+      if(sel&&sel.tagName==='SELECT'){
+        original=sel;
+        temp=document.createElement('input');
+        Array.from(sel.attributes).forEach(function(a){if(a.name!=='type')temp.setAttribute(a.name,a.value)});
+        temp.id=sel.id;temp.value=c?customerName(c):(sel.value==='__OTHER__'?'جهة أخرى':'');
+        sel.replaceWith(temp);
+      }
+      var result=expenseBase.apply(this,arguments);
+      var rows=kind==='marketing'?(db.marketing_expenses_v287||[]): (db.general_admin_expenses_v287||[]);
+      var row=rows.find(function(r){return !before.has(String(r.id))});
+      if(row){
+        row.customer_id=c?c.id:'';
+        row.customer_name=c?customerName(c):'';
+        row.beneficiary=c?customerName(c):S(row.beneficiary);
+        row.party_type=c?'customer':'other';
+        try{if(typeof save==='function')save()}catch(e){}
+      }
+      setTimeout(installExpenseCustomers,80);
+      return result;
+    };
+    try{postExpenseV287=window.postExpenseV287}catch(e){}
+  }
+
+  /* Ensure old customer-related expense mirrors inherit customer ID/name when they can be resolved by name. */
+  function backfill(){
+    ['cash_receipts_in','cash_receipts_out','general_admin_expenses_v287','marketing_expenses_v287','general_admin_expenses','customer_cost_center'].forEach(function(k){
+      (db[k]||[]).forEach(function(r){
+        if(r.customer_id)return;
+        var name=S(r.customer_name||r.party||r.beneficiary);
+        if(!name)return;
+        var c=customers().find(function(x){return customerName(x).toLowerCase()===name.toLowerCase()});
+        if(c){r.customer_id=c.id;r.customer_name=customerName(c)}
+      });
+    });
+    try{if(typeof save==='function')save()}catch(e){}
+  }
+
+  function install(){installReceiptCustomers();installExpenseCustomers()}
+  var ra=window.renderAccounts;
+  if(typeof ra==='function'){
+    window.renderAccounts=function(){var r=ra.apply(this,arguments);setTimeout(install,260);return r};
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+  var rr=window.render;
+  if(typeof rr==='function'){
+    window.render=function(){var r=rr.apply(this,arguments);setTimeout(install,280);return r};
+    try{render=window.render}catch(e){}
+  }
+  setTimeout(function(){backfill();install()},700);
+})();
+</script>
+
+
+<style id="v310-receipt-counterpart-parties-style">
+.v310-counterpart-select{border-color:#14b8a6!important;background:#f0fdfa!important;font-weight:800!important}
+.v310-counterpart-note{font-size:11px;color:#0f766e;font-weight:800;margin-top:5px}
+</style>
+<script id="v310-receipt-counterpart-parties">
+(function(){
+  function S(v){return String(v==null?'':v).trim()}
+  function E(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function customers(){return Array.isArray(db.customers)?db.customers:[]}
+  function suppliers(){return Array.isArray(db.suppliers)?db.suppliers:[]}
+  function accounts(){return Array.isArray(db.accounts)?db.accounts:[]}
+  function cName(c){return S(c&&(c.name||c.customer_name||c.full_name))}
+  function sName(s){return S(s&&(s.name||s.supplier_name||s.full_name))}
+
+  function partyField(type){
+    var ids=type==='in'
+      ?['cr_in_from_v159','cr_in_party_v159','cr_in_party','cr_in_customer']
+      :['cr_out_to_v159','cr_out_party_v159','cr_out_party','cr_out_customer'];
+    for(var i=0;i<ids.length;i++){var e=document.getElementById(ids[i]);if(e)return e}
+    return null;
+  }
+
+  function buildOptionsV310(type,selected){
+    var html='<option value="">تحديد تلقائي إن أمكن</option>';
+
+    html+='<optgroup label="العملاء">';
+    customers().slice().sort(function(a,b){return cName(a).localeCompare(cName(b),'ar')}).forEach(function(c){
+      html+='<option value="1200" data-party-type="customer" data-party-id="'+E(c.id)+'" data-party-name="'+E(cName(c))+'" '+
+        (String(selected)==='customer:'+String(c.id)?'selected':'')+'>عميل — '+E(cName(c))+' — 1200</option>';
+    });
+    html+='</optgroup>';
+
+    html+='<optgroup label="الموردون">';
+    suppliers().slice().sort(function(a,b){return sName(a).localeCompare(sName(b),'ar')}).forEach(function(s){
+      html+='<option value="2100" data-party-type="supplier" data-party-id="'+E(s.id)+'" data-party-name="'+E(sName(s))+'" '+
+        (String(selected)==='supplier:'+String(s.id)?'selected':'')+'>مورد — '+E(sName(s))+' — 2100</option>';
+    });
+    html+='</optgroup>';
+
+    html+='<optgroup label="دليل الحسابات">';
+    accounts().filter(function(a){
+      var child=accounts().some(function(x){return String(x.parent||'')===String(a.code)});
+      return !child||['1200','2100','3990','4100','5100','5200','6100'].indexOf(String(a.code))>=0;
+    }).sort(function(a,b){return String(a.code).localeCompare(String(b.code),undefined,{numeric:true})}).forEach(function(a){
+      html+='<option value="'+E(a.code)+'" data-party-type="account" data-party-name="'+E(a.name||'')+'">'+E(a.code+' — '+(a.name||''))+'</option>';
+    });
+    html+='</optgroup>';
+
+    return html;
+  }
+
+  function selectedMeta(sel){
+    if(!sel||sel.selectedIndex<0)return {};
+    var o=sel.options[sel.selectedIndex];
+    return {
+      account:S(o.value),
+      party_type:S(o.dataset.partyType),
+      party_id:S(o.dataset.partyId),
+      party_name:S(o.dataset.partyName)
+    };
+  }
+
+  function syncPartyFromCounterpart(type,sel){
+    var m=selectedMeta(sel);
+    if(!m.party_type||m.party_type==='account')return;
+
+    var f=partyField(type);
+    if(!f)return;
+
+    if(f.tagName==='SELECT'){
+      if(m.party_type==='customer'){
+        var opt=Array.from(f.options).find(function(o){return String(o.value)===String(m.party_id)});
+        if(opt){f.value=m.party_id;f.dispatchEvent(new Event('change',{bubbles:true}))}
+      }
+    }else{
+      f.value=m.party_name||'';
+      f.dataset.customerId=m.party_type==='customer'?m.party_id:'';
+      f.dataset.customerName=m.party_type==='customer'?m.party_name:'';
+    }
+  }
+
+  function syncCounterpartFromParty(type,sel){
+    var f=partyField(type); if(!f||!sel)return;
+    var cid='',cname='';
+
+    if(f.tagName==='SELECT'){
+      cid=S(f.value);
+      var c=customers().find(function(x){return String(x.id)===cid});
+      if(c)cname=cName(c);
+    }else{
+      cid=S(f.dataset.customerId);
+      cname=S(f.dataset.customerName||f.value);
+    }
+
+    if(cid){
+      var opt=Array.from(sel.options).find(function(o){
+        return o.dataset.partyType==='customer'&&String(o.dataset.partyId)===String(cid);
+      });
+      if(opt)sel.selectedIndex=opt.index;
+    }
+  }
+
+  function upgrade(type){
+    var id=(type==='in'?'cr_in':'cr_out')+'_counterpart_v275';
+    var sel=document.getElementById(id);
+    if(!sel)return;
+
+    var oldMeta=selectedMeta(sel);
+    var oldAccount=S(sel.value);
+
+    sel.classList.add('v310-counterpart-select');
+    sel.innerHTML=buildOptionsV310(type,'');
+
+    if(oldMeta.party_type==='customer'&&oldMeta.party_id){
+      var key='customer:'+oldMeta.party_id;
+      var opt=Array.from(sel.options).find(function(o){return o.dataset.partyType==='customer'&&o.dataset.partyId===oldMeta.party_id});
+      if(opt)sel.selectedIndex=opt.index;
+    }else if(oldAccount){
+      var aopt=Array.from(sel.options).find(function(o){return o.dataset.partyType==='account'&&String(o.value)===oldAccount});
+      if(aopt)sel.selectedIndex=aopt.index;
+    }else{
+      syncCounterpartFromParty(type,sel);
+    }
+
+    sel.onchange=function(){
+      syncPartyFromCounterpart(type,sel);
+      var m=selectedMeta(sel);
+      sel.dataset.partyType=m.party_type||'';
+      sel.dataset.partyId=m.party_id||'';
+      sel.dataset.partyName=m.party_name||'';
+    };
+
+    var wrap=sel.closest('div');
+    if(wrap&&!wrap.querySelector('.v310-counterpart-note')){
+      var n=document.createElement('div');
+      n.className='v310-counterpart-note';
+      n.textContent='يمكنك اختيار العميل أو المورد بالاسم، والنظام يرحله تلقائيًا على الحساب المحاسبي الصحيح.';
+      wrap.appendChild(n);
+    }
+
+    var f=partyField(type);
+    if(f&&!f.dataset.v310Bound){
+      f.dataset.v310Bound='1';
+      f.addEventListener('change',function(){syncCounterpartFromParty(type,sel)});
+    }
+  }
+
+  function install(){
+    upgrade('in');
+    upgrade('out');
+  }
+
+  var openBase=window.openFinanceReceiptFullscreenV162;
+  if(typeof openBase==='function'){
+    window.openFinanceReceiptFullscreenV162=function(){
+      var r=openBase.apply(this,arguments);
+      setTimeout(install,120);
+      setTimeout(install,350);
+      return r;
+    };
+    try{openFinanceReceiptFullscreenV162=window.openFinanceReceiptFullscreenV162}catch(e){}
+  }
+
+  var renderBase=window.renderAccounts;
+  if(typeof renderBase==='function'){
+    window.renderAccounts=function(){
+      var r=renderBase.apply(this,arguments);
+      setTimeout(install,420);
+      return r;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  /* Save selected party metadata on receipt as well as counterpart account. */
+  var saveBase=window.saveCashReceiptV159;
+  if(typeof saveBase==='function'){
+    window.saveCashReceiptV159=function(type){
+      install();
+      var p=type==='in'?'cr_in':'cr_out';
+      var sel=document.getElementById(p+'_counterpart_v275');
+      var meta=selectedMeta(sel);
+      var arr=type==='in'?(db.cash_receipts_in||[]): (db.cash_receipts_out||[]);
+      var before=new Set(arr.map(function(x){return String(x.id)}));
+      var r=saveBase.apply(this,arguments);
+      var rows=type==='in'?(db.cash_receipts_in||[]): (db.cash_receipts_out||[]);
+      var row=rows.find(function(x){return !before.has(String(x.id))});
+      if(row&&meta.party_type&&meta.party_type!=='account'){
+        row.counterpart_party_type=meta.party_type;
+        row.counterpart_party_id=meta.party_id;
+        row.counterpart_party_name=meta.party_name;
+        if(meta.party_type==='customer'){
+          row.customer_id=meta.party_id;
+          row.customer_name=meta.party_name;
+          row.party=meta.party_name;
+        }
+        row.counterpart_account_v275=meta.account||row.counterpart_account_v275;
+        try{if(typeof save==='function')save()}catch(e){}
+      }
+      return r;
+    };
+    try{saveCashReceiptV159=window.saveCashReceiptV159}catch(e){}
+  }
+
+  setTimeout(install,900);
+})();
+</script>
