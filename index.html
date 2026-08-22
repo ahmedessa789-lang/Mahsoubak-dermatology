@@ -11511,7 +11511,7 @@ render();
     var pending=rows.filter(function(r){return r.status==='pending'}).reduce(function(s,r){return s+num(r.amount)},0);
     var collected=rows.filter(function(r){return r.status==='collected'}).reduce(function(s,r){return s+num(r.amount)},0);
     var returned=rows.filter(function(r){return r.status==='returned'}).reduce(function(s,r){return s+num(r.amount)},0);
-    return '<div class="card"><h3>إضافة ورقة قبض</h3><div class="grid grid4">'+
+    return '<div class="card"><h3>إضافة شيك</h3><div class="grid grid4">'+
       '<div><label>النوع</label><select id="rp_type_v227"><option value="cheque">شيك</option><option value="promissory">كمبيالة</option><option value="trust_receipt">إيصال أمانة</option></select></div>'+
       '<div><label>رقم الورقة</label><input id="rp_number_v227"></div>'+
       '<div><label>تاريخ الاستلام</label><input id="rp_date_v227" type="date" value="'+todayIso()+'"></div>'+
@@ -11520,7 +11520,7 @@ render();
       '<div><label>البنك / الجهة</label><input id="rp_bank_v227"></div>'+
       '<div><label>المبلغ</label><input id="rp_amount_v227" type="number" step="0.01"></div>'+
       '<div><label>ملاحظات</label><input id="rp_notes_v227"></div></div>'+
-      '<button class="btn ok" style="margin-top:10px" onclick="addReceivablePaperV227()">إضافة ورقة قبض</button></div>'+
+      '<button class="btn ok" style="margin-top:10px" onclick="addReceivablePaperV227()">إضافة شيك</button></div>'+
       '<div class="finance-summary-v227">'+
       '<div class="card stat"><span>تحت التحصيل</span><strong>'+money2(pending)+'</strong></div>'+
       '<div class="card stat"><span>تم التحصيل</span><strong>'+money2(collected)+'</strong></div>'+
@@ -11530,7 +11530,7 @@ render();
         '<button class="btn small ok" onclick="setPaperStatusV227(\''+r.id+'\',\'collected\')">تحصيل</button>'+
         '<button class="btn small warn" onclick="setPaperStatusV227(\''+r.id+'\',\'returned\')">مرتجع</button>'+
         '<button class="btn small danger" onclick="deletePaperV227(\''+r.id+'\')">مسح</button></div></td></tr>'}).join('')+
-      '</table>':'<div class="empty">لا توجد أوراق قبض</div>');
+      '</table>':'<div class="empty">لا توجد شيكات</div>');
   }
 
   function dateDiffDays(date){
@@ -13297,7 +13297,7 @@ render();
         card(lang==='ar'?'الخزينة':'Cashboxes',l.cash,'cash',lang==='ar'?'متاح حاليًا':'Available now')+
         '<div class="liq-arrow">＋</div>'+card(lang==='ar'?'البنوك':'Banks',l.bank,'bank',lang==='ar'?'متاح حاليًا':'Available now')+
         '<div class="liq-arrow">＋</div>'+card(lang==='ar'?'المتبقي على العملاء':'Customer Receivables',customers,'customers',lang==='ar'?'منتظر التحصيل':'Expected collection')+
-        '<div class="liq-arrow">＋</div>'+card(lang==='ar'?'أوراق القبض':'Receivable Papers',receivable,'receivable',lang==='ar'?'غير محصلة':'Uncollected')+
+        '<div class="liq-arrow">＋</div>'+card(lang==='ar'?'أوراق القبض':'Checks',receivable,'receivable',lang==='ar'?'غير محصلة':'Uncollected')+
         '<div class="liq-total resources-total"><span>'+(lang==='ar'?'إجمالي الموارد':'Total Resources')+'</span><strong>'+money2(resources)+'</strong></div></div>'+
       '<div class="liq-vs"><span>VS</span></div><div class="liq-column obligations"><h4>'+(lang==='ar'?'الالتزامات القائمة':'Current Obligations')+'</h4>'+
         card(lang==='ar'?'مستحقات الموردين':'Supplier Dues',suppliers,'suppliers',lang==='ar'?'رصيد مستحق':'Outstanding balance')+
@@ -19677,7 +19677,7 @@ ensureFundAccounts();setTimeout(function(){bind();injectTest()},700);
     var ar=typeof lang!=='undefined'&&lang==='ar';
     return '<div class="card v281-manual-journal" id="v281_manual_journal_card">'+
       '<div class="section-title"><div><h3>'+(ar?'قيد يومية يدوي':'Manual Journal Entry')+'</h3>'+
-      '<div class="hint">'+(ar?'للحركات التي لا تستخدم أوراق قبض أو أوراق دفع، مثل التحويلات البنكية والإيداعات والصرف المباشر.':'For transactions without receipt/payment vouchers, such as bank transfers and direct deposits/withdrawals.')+'</div></div></div>'+
+      '<div class="hint">'+(ar?'للحركات التي لا تستخدم شيكات أو أوراق دفع، مثل التحويلات البنكية والإيداعات والصرف المباشر.':'For transactions without receipt/payment vouchers, such as bank transfers and direct deposits/withdrawals.')+'</div></div></div>'+
       '<div class="v281-grid">'+
         '<div><label>'+(ar?'نوع الحركة':'Transaction Type')+'</label><select id="mj_type_v281" onchange="syncManualFormV281()"><option value="deposit">'+(ar?'إيداع':'Deposit')+'</option><option value="withdrawal">'+(ar?'صرف':'Withdrawal')+'</option><option value="transfer">'+(ar?'تحويل خزنة / بنك':'Fund / Bank Transfer')+'</option></select></div>'+
         '<div><label>'+(ar?'التاريخ':'Date')+'</label><input id="mj_date_v281" type="date" value="'+Tdy()+'"></div>'+
@@ -24276,5 +24276,262 @@ html body .summary-box.v303-auto-clickable:after{
       if(view && !view.classList.contains('hidden')) setTimeout(renderCustomers,120);
     }
   }catch(e){}
+})();
+</script>
+
+
+<style id="v317-order-clinic-address-style">
+.v317-order-field{min-width:190px}
+.v317-order-field input{width:100%}
+.v317-order-note{font-size:11px;color:#64748b;margin-top:4px}
+</style>
+
+<script id="v317-order-clinic-address">
+(function(){
+  function S(v){return String(v==null?'':v).trim()}
+  function E(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function saveDb(){try{if(typeof save==='function')save()}catch(e){}}
+
+  function customerByCurrent(){
+    var sel=document.getElementById('sa_customer');
+    if(!sel)return null;
+    return (db.customers||[]).find(function(c){return String(c.id)===String(sel.value)})||null;
+  }
+
+  function defaultClinic(c){
+    return S(c&&(c.clinic_name||c.name||c.customer_name));
+  }
+  function defaultAddress(c){
+    return S(c&&(c.address||c.customer_address||''));
+  }
+
+  window.fillOrderClinicAddressV317=function(force){
+    var c=customerByCurrent();
+    var clinic=document.getElementById('sa_clinic_name_v317');
+    var address=document.getElementById('sa_address_v317');
+    if(!clinic||!address)return;
+    if(c){
+      if(force || !S(clinic.value))clinic.value=defaultClinic(c);
+      if(force || !S(address.value))address.value=defaultAddress(c);
+    }
+  };
+
+  function installFields(){
+    var customer=document.getElementById('sa_customer');
+    if(!customer)return;
+
+    var grid=customer.closest('.grid');
+    if(!grid)return;
+
+    if(!document.getElementById('sa_clinic_name_v317')){
+      var clinic=document.createElement('div');
+      clinic.className='v317-order-field';
+      clinic.innerHTML='<label>اسم العيادة / Clinic Name</label><input id="sa_clinic_name_v317" type="text" placeholder="اكتب اسم العيادة">';
+      var customerWrap=customer.closest('div');
+      if(customerWrap&&customerWrap.parentNode===grid){
+        customerWrap.insertAdjacentElement('afterend',clinic);
+      }else{
+        grid.insertAdjacentElement('afterbegin',clinic);
+      }
+    }
+
+    if(!document.getElementById('sa_address_v317')){
+      var address=document.createElement('div');
+      address.className='v317-order-field';
+      address.innerHTML='<label>العنوان / Address</label><input id="sa_address_v317" type="text" placeholder="اكتب عنوان العيادة"><div class="v317-order-note">سيظهر هذا العنوان في الفاتورة بدل المنطقة.</div>';
+      var clinicEl=document.getElementById('sa_clinic_name_v317');
+      var clinicWrap=clinicEl&&clinicEl.closest('.v317-order-field');
+      if(clinicWrap)clinicWrap.insertAdjacentElement('afterend',address);
+      else grid.insertAdjacentElement('afterbegin',address);
+    }
+
+    if(!customer.dataset.v317Bound){
+      customer.dataset.v317Bound='1';
+      customer.addEventListener('change',function(){window.fillOrderClinicAddressV317(true)});
+    }
+    window.fillOrderClinicAddressV317(false);
+  }
+
+  function currentMeta(){
+    var c=customerByCurrent();
+    return {
+      clinic_name:S((document.getElementById('sa_clinic_name_v317')||{}).value) || defaultClinic(c),
+      address:S((document.getElementById('sa_address_v317')||{}).value) || defaultAddress(c)
+    };
+  }
+
+  /* Single-order flow: preserve clinic/address on any newly-created pending order or sale. */
+  var addSaleBase=window.addSale || (typeof addSale==='function'?addSale:null);
+  if(typeof addSaleBase==='function'){
+    window.addSale=function(){
+      installFields();
+      var meta=currentMeta();
+      var beforeOrders=new Set((db.sales_orders||[]).map(function(x){return String(x.id)}));
+      var beforeSales=new Set((db.sales||[]).map(function(x){return String(x.id)}));
+
+      var result=addSaleBase.apply(this,arguments);
+
+      var createdOrders=(db.sales_orders||[]).filter(function(x){return !beforeOrders.has(String(x.id))});
+      var createdSales=(db.sales||[]).filter(function(x){return !beforeSales.has(String(x.id))});
+      createdOrders.concat(createdSales).forEach(function(row){
+        row.clinic_name=meta.clinic_name;
+        row.order_clinic_name=meta.clinic_name;
+        row.address=meta.address;
+        row.order_address=meta.address;
+        row.customer_address=meta.address;
+      });
+      if(createdOrders.length||createdSales.length)saveDb();
+      return result;
+    };
+    try{addSale=window.addSale}catch(e){}
+  }
+
+  /* Multi-line invoice/order: store clinic/address on draft lines, then on created rows. */
+  var addLineBase=window.addInvoiceLineV150;
+  if(typeof addLineBase==='function'){
+    window.addInvoiceLineV150=function(){
+      installFields();
+      var meta=currentMeta();
+      var before=(window.salesInvoiceDraftV150||[]).map(function(x){return x.line_id});
+      var result=addLineBase.apply(this,arguments);
+      var added=(window.salesInvoiceDraftV150||[]).filter(function(x){return before.indexOf(x.line_id)<0});
+      if(!added.length && (window.salesInvoiceDraftV150||[]).length){
+        added=[window.salesInvoiceDraftV150[window.salesInvoiceDraftV150.length-1]];
+      }
+      added.forEach(function(line){
+        line.clinic_name=meta.clinic_name;
+        line.order_clinic_name=meta.clinic_name;
+        line.address=meta.address;
+        line.order_address=meta.address;
+        line.customer_address=meta.address;
+      });
+      return result;
+    };
+  }
+
+  var saveMultiBase=window.saveMultiInvoiceV150;
+  if(typeof saveMultiBase==='function'){
+    window.saveMultiInvoiceV150=function(){
+      installFields();
+      var meta=currentMeta();
+      var beforeOrders=new Set((db.sales_orders||[]).map(function(x){return String(x.id)}));
+      var beforeSales=new Set((db.sales||[]).map(function(x){return String(x.id)}));
+      var result=saveMultiBase.apply(this,arguments);
+
+      var createdOrders=(db.sales_orders||[]).filter(function(x){return !beforeOrders.has(String(x.id))});
+      var createdSales=(db.sales||[]).filter(function(x){return !beforeSales.has(String(x.id))});
+      createdOrders.concat(createdSales).forEach(function(row){
+        row.clinic_name=meta.clinic_name;
+        row.order_clinic_name=meta.clinic_name;
+        row.address=meta.address;
+        row.order_address=meta.address;
+        row.customer_address=meta.address;
+      });
+      if(createdOrders.length||createdSales.length)saveDb();
+      return result;
+    };
+  }
+
+  /* Approval: copy clinic/address from the pending order to the approved sale. */
+  var approveBase=window.createApprovedSaleFromOrder ||
+                  (typeof createApprovedSaleFromOrder==='function'?createApprovedSaleFromOrder:null);
+  if(typeof approveBase==='function'){
+    window.createApprovedSaleFromOrder=function(order){
+      var before=new Set((db.sales||[]).map(function(x){return String(x.id)}));
+      var ok=approveBase.apply(this,arguments);
+      if(!ok)return ok;
+
+      var created=(db.sales||[]).filter(function(x){return !before.has(String(x.id))});
+      created.forEach(function(s){
+        var c=(db.customers||[]).find(function(x){return String(x.id)===String(order&&order.customer_id)})||{};
+        var clinic=S(order&&(order.clinic_name||order.order_clinic_name))||defaultClinic(c);
+        var address=S(order&&(order.address||order.order_address||order.customer_address))||defaultAddress(c);
+        s.clinic_name=clinic;
+        s.order_clinic_name=clinic;
+        s.address=address;
+        s.order_address=address;
+        s.customer_address=address;
+      });
+      if(created.length)saveDb();
+      return ok;
+    };
+    try{createApprovedSaleFromOrder=window.createApprovedSaleFromOrder}catch(e){}
+  }
+
+  /*
+    Printed invoice:
+    - Clinic name comes from the order/sale field when available.
+    - Address comes from the order/sale field.
+    - Region is never used as the invoice address fallback.
+  */
+  var docBase=window.saleDocumentHTML ||
+              (typeof saleDocumentHTML==='function'?saleDocumentHTML:null);
+  if(typeof docBase==='function'){
+    window.saleDocumentHTML=function(s,type){
+      var html=docBase.apply(this,arguments);
+      if(type!=='invoice')return html;
+
+      var c=(db.customers||[]).find(function(x){return String(x.id)===String(s.customer_id)})||{};
+      var clinic=S(s.clinic_name||s.order_clinic_name)||defaultClinic(c)||S(s.customer_name);
+      var address=S(s.address||s.order_address||s.customer_address)||defaultAddress(c)||'-';
+
+      /*
+        Replace the customer box value with clinic name while retaining customer phone.
+        This handles the current invoice template.
+      */
+      html=html.replace(
+        /(<div class="doc-box"><span>[^<]*(?:العميل|Customer)[^<]*<\/span><b>)([\s\S]*?)(<\/b>)/i,
+        '$1'+E(clinic)+'$3'
+      );
+
+      /*
+        Replace the address box completely with the saved address.
+        Do not fall back to region/area on printed invoice.
+      */
+      html=html.replace(
+        /(<div class="doc-box"><span>[^<]*(?:العنوان|Address)[^<]*<\/span><b>)([\s\S]*?)(<\/b>)/i,
+        '$1'+E(address)+'$3'
+      );
+
+      /*
+        Some later invoice templates label the field as Region.
+        Rename it to Address and replace its displayed value.
+      */
+      html=html.replace(
+        /(<div class="doc-box"><span>)(?:المنطقة|Region)(<\/span><b>)([\s\S]*?)(<\/b>)/i,
+        '$1'+(lang==='ar'?'العنوان':'Address')+'$2'+E(address)+'$4'
+      );
+
+      return html;
+    };
+    try{saleDocumentHTML=window.saleDocumentHTML}catch(e){}
+  }
+
+  /* Reinstall fields after every sales screen repaint. */
+  var renderSalesBase=window.renderSales;
+  if(typeof renderSalesBase==='function'){
+    window.renderSales=function(){
+      var r=renderSalesBase.apply(this,arguments);
+      setTimeout(installFields,80);
+      return r;
+    };
+    try{renderSales=window.renderSales}catch(e){}
+  }
+
+  var renderBase=window.render;
+  if(typeof renderBase==='function'){
+    window.render=function(){
+      var r=renderBase.apply(this,arguments);
+      setTimeout(function(){
+        try{
+          if(typeof current==='undefined'||current==='sales')installFields();
+        }catch(e){}
+      },160);
+      return r;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  setTimeout(installFields,700);
 })();
 </script>
