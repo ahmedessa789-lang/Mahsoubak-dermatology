@@ -24535,3 +24535,351 @@ html body .summary-box.v303-auto-clickable:after{
   setTimeout(installFields,700);
 })();
 </script>
+
+
+<style id="v318-aging-invoice-dedupe-style">
+.v318-aging-wrap{overflow:auto}
+.v318-aging-wrap table{min-width:1250px!important}
+.v318-aging-badge{display:inline-block;padding:4px 9px;border-radius:999px;font-size:11px;font-weight:900}
+.v318-aging-normal{background:#dcfce7;color:#166534}
+.v318-aging-slow1{background:#fef9c3;color:#854d0e}
+.v318-aging-slow2{background:#ffedd5;color:#9a3412}
+.v318-aging-slow3{background:#fee2e2;color:#991b1b}
+.v318-aging-dead{background:#ede9fe;color:#5b21b6}
+.v318-aging-summary{display:grid;grid-template-columns:repeat(4,minmax(170px,1fr));gap:12px;margin:12px 0}
+@media(max-width:800px){.v318-aging-summary{grid-template-columns:1fr 1fr}}
+</style>
+
+<script id="v318-inventory-aging-and-invoice-dedupe">
+(function(){
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S(v){return String(v==null?'':v).trim()}
+  function E(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function M(v){try{return money(v)}catch(e){return 'EGP '+N(v).toLocaleString()}}
+  function iso(v){
+    if(!v)return '';
+    var d=new Date(v);
+    if(isNaN(d.getTime()))return S(v).slice(0,10);
+    return d.toISOString().slice(0,10);
+  }
+
+  /* ===========================
+     Inventory Aging / Slow Moving
+     =========================== */
+  window.inventoryAgingRuleV318=function(days){
+    days=Math.max(0,Math.floor(N(days)));
+    if(days<=120)return {rate:0,label:'حركة طبيعية',cls:'v318-aging-normal'};
+    if(days<=150)return {rate:2,label:'بطيء الحركة',cls:'v318-aging-slow1'};
+    if(days<=180)return {rate:5,label:'بطيء الحركة',cls:'v318-aging-slow2'};
+    if(days<=210)return {rate:8,label:'بطيء جدًا',cls:'v318-aging-slow3'};
+    return {rate:12,label:'راكد / شديد البطء',cls:'v318-aging-dead'};
+  };
+
+  function lotAgeDaysV318(lot){
+    var raw=lot.received_date||lot.purchase_date||lot.entry_date||lot.created_at||lot.date;
+    if(!raw)return 0;
+    var d=new Date(raw),now=new Date();
+    if(isNaN(d.getTime()))return 0;
+    return Math.max(0,Math.floor((now.getTime()-d.getTime())/86400000));
+  }
+
+  function lotProductV318(lot){
+    return (db.products||[]).find(function(p){return String(p.id)===String(lot.product_id)})||{};
+  }
+
+  function lotOriginalCostV318(lot,p){
+    var c=N(lot.unit_cost||lot.purchase_cost||lot.cost||lot.purchase_price);
+    if(c>0)return c;
+    return N(p.purchase||p.purchase_price||p.cost);
+  }
+
+  window.inventoryAgingRowsV318=function(){
+    if(!Array.isArray(db.inventory_lots))db.inventory_lots=[];
+    return db.inventory_lots.map(function(lot){
+      var p=lotProductV318(lot);
+      var days=lotAgeDaysV318(lot);
+      var rule=window.inventoryAgingRuleV318(days);
+      var cost=lotOriginalCostV318(lot,p);
+      var extra=cost*rule.rate/100;
+      return {
+        lot:lot,
+        product:p,
+        product_name:S(lot.product_name||p.name||p.product_name),
+        lot_number:S(lot.lot_number||lot.lot||lot.batch),
+        qty:N(lot.qty),
+        entry_date:iso(lot.received_date||lot.purchase_date||lot.entry_date||lot.created_at||lot.date),
+        days:days,
+        original_cost:cost,
+        rate:rule.rate,
+        extra_cost:extra,
+        adjusted_cost:cost+extra,
+        rule:rule
+      };
+    }).sort(function(a,b){return b.days-a.days});
+  };
+
+  function agingReportV318(){
+    var rows=window.inventoryAgingRowsV318();
+    var totalQty=rows.reduce(function(a,r){return a+r.qty},0);
+    var slow=rows.filter(function(r){return r.days>120&&r.qty>0});
+    var extraValue=rows.reduce(function(a,r){return a+(r.extra_cost*r.qty)},0);
+    var adjustedValue=rows.reduce(function(a,r){return a+(r.adjusted_cost*r.qty)},0);
+
+    var summary='<div class="v318-aging-summary">'+
+      '<div class="stat"><span>إجمالي LOTs</span><strong>'+rows.length+'</strong></div>'+
+      '<div class="stat"><span>LOTs بطيئة الحركة</span><strong>'+slow.length+'</strong></div>'+
+      '<div class="stat"><span>إجمالي التكلفة الإضافية</span><strong>'+M(extraValue)+'</strong></div>'+
+      '<div class="stat"><span>قيمة المخزون بعد التعديل</span><strong>'+M(adjustedValue)+'</strong></div>'+
+    '</div>';
+
+    if(!rows.length)return summary+'<div class="empty">لا توجد LOTs بالمخزون.</div>';
+
+    var table='<div class="v318-aging-wrap"><table><tr>'+
+      '<th>المنتج</th><th>LOT Number</th><th>الكمية</th><th>تاريخ الدخول</th><th>العمر بالأيام</th><th>التصنيف</th>'+
+      '<th>التكلفة الأصلية / وحدة</th><th>نسبة Slow Moving</th><th>التكلفة الإضافية / وحدة</th><th>Adjusted Cost / وحدة</th>'+
+      '</tr>'+rows.map(function(r){
+        return '<tr>'+
+          '<td><b>'+E(r.product_name||'-')+'</b></td>'+
+          '<td>'+E(r.lot_number||'-')+'</td>'+
+          '<td>'+N(r.qty).toLocaleString()+'</td>'+
+          '<td>'+E(r.entry_date||'-')+'</td>'+
+          '<td><b>'+r.days+'</b></td>'+
+          '<td><span class="v318-aging-badge '+r.rule.cls+'">'+E(r.rule.label)+'</span></td>'+
+          '<td>'+M(r.original_cost)+'</td>'+
+          '<td><b>'+r.rate+'%</b></td>'+
+          '<td>'+M(r.extra_cost)+'</td>'+
+          '<td><b>'+M(r.adjusted_cost)+'</b></td>'+
+        '</tr>';
+      }).join('')+'</table></div>';
+
+    var note='<div class="hint" style="margin-top:10px;line-height:1.8">'+
+      'سياسة Aging: حتى 120 يوم = 0%، 121–150 = 2%، 151–180 = 5%، 181–210 = 8%، أكثر من 210 يوم = 12%. '+
+      'Purchase Cost الأصلي لا يتم تغييره؛ التكلفة الإضافية تظهر كتقييم Slow Moving Cost فقط.'+
+    '</div>';
+
+    return summary+table+note;
+  }
+
+  function installAgingV318(){
+    var view=document.getElementById('view-products');
+    if(!view)return;
+    var old=document.getElementById('v318_aging_card');
+    if(old)old.remove();
+    var card=document.createElement('div');
+    card.className='card';
+    card.id='v318_aging_card';
+    card.innerHTML='<div class="section-title"><div><h3>Inventory Aging & Slow Moving Cost</h3>'+
+      '<div class="hint">تكلفة إضافية حسب مدة بقاء الـLOT في المخزون</div></div></div>'+agingReportV318();
+    view.appendChild(card);
+  }
+
+  var productsBaseV318=window.renderProducts;
+  if(typeof productsBaseV318==='function'){
+    window.renderProducts=function(){
+      var r=productsBaseV318.apply(this,arguments);
+      setTimeout(installAgingV318,100);
+      return r;
+    };
+    try{renderProducts=window.renderProducts}catch(e){}
+  }
+
+  /* ===========================
+     One Invoice = One Row
+     + duplicate-line protection
+     =========================== */
+
+  function saleRowsV318(){
+    try{
+      if(typeof visibleSalesRows==='function')return visibleSalesRows()||[];
+    }catch(e){}
+    return Array.isArray(db.sales)?db.sales:[];
+  }
+
+  function invoiceKeyV318(row){
+    var no=S(row&&row.invoice_no);
+    if(no)return 'NO|'+no.toLowerCase();
+
+    var gid=S(row&&row.invoice_group_id);
+    if(gid)return 'GROUP|'+gid;
+
+    var orderId=S(row&&row.order_id);
+    if(orderId)return 'ORDER|'+orderId;
+
+    /* Last-resort key for legacy single-line sales only. */
+    return 'ROW|'+S(row&&row.id);
+  }
+
+  function lineIdentityV318(row){
+    /* Same approved order must never appear twice inside one invoice. */
+    var oid=S(row&&row.order_id);
+    if(oid)return 'ORDER|'+oid;
+
+    /*
+      Legacy fallback: identical product/LOT/qty/price within same invoice
+      is treated as one duplicated line. LOT keeps legitimate different batches separate.
+    */
+    return [
+      S(row&&row.product_id)||S(row&&row.product_name).toLowerCase(),
+      S(row&&row.lot_id)||S(row&&row.lot_number||row&&row.lot).toLowerCase(),
+      N(row&&row.qty).toFixed(6),
+      N(row&&row.price).toFixed(6),
+      N(row&&row.total).toFixed(6)
+    ].join('|');
+  }
+
+  window.groupInvoicesStrictV318=function(rows){
+    var map=new Map();
+    (rows||[]).forEach(function(row){
+      var key=invoiceKeyV318(row);
+      if(!map.has(key)){
+        map.set(key,{
+          key:key,first:row,rows:[],lineKeys:new Set(),
+          qty:0,total:0,paidValues:[],remainingValues:[]
+        });
+      }
+      var g=map.get(key);
+      var lk=lineIdentityV318(row);
+      if(g.lineKeys.has(lk))return; // duplicated approved line: do not display/count twice
+      g.lineKeys.add(lk);
+      g.rows.push(row);
+      g.qty+=N(row.qty);
+      g.total+=N(row.total);
+      g.paidValues.push(N(row.paid));
+      g.remainingValues.push(N(row.remaining));
+    });
+
+    map.forEach(function(g){
+      var samePaid=g.paidValues.length&&g.paidValues.every(function(v){return v===g.paidValues[0]});
+      var sameRem=g.remainingValues.length&&g.remainingValues.every(function(v){return v===g.remainingValues[0]});
+      g.paid=samePaid?g.paidValues[0]:g.paidValues.reduce(function(a,b){return a+b},0);
+      g.remaining=sameRem?g.remainingValues[0]:g.remainingValues.reduce(function(a,b){return a+b},0);
+    });
+    return Array.from(map.values());
+  };
+
+  function groupInvoiceNoV318(g){
+    var r=g.rows.find(function(x){return S(x.invoice_no)});
+    return r?S(r.invoice_no):'';
+  }
+
+  function productsHtmlV318(g){
+    return g.rows.map(function(r){
+      var type=S(r.order_type_label||r.order_type);
+      var lot=S(r.lot_number||r.lot);
+      return E(r.product_name||'')+' ('+N(r.qty)+')'+
+        (lot?' — LOT '+E(lot):'')+
+        (type?' — '+E(type):'');
+    }).join('<br>');
+  }
+
+  function invoiceAddressV318(r){
+    var c=(db.customers||[]).find(function(x){return String(x.id)===String(r.customer_id)})||{};
+    return S(r.address||r.order_address||r.customer_address||c.address)||'-';
+  }
+
+  function tableV318(rows){
+    var groups=window.groupInvoicesStrictV318(rows);
+    if(!groups.length)return '<div class="empty">'+T('empty')+'</div>';
+
+    return '<div class="orders-v59-table-wrap"><table><tr>'+
+      '<th>'+(lang==='ar'?'رقم الفاتورة':'Invoice no.')+'</th>'+
+      '<th>'+T('date')+'</th>'+
+      '<th>'+T('customer')+'</th>'+
+      '<th>'+(lang==='ar'?'العنوان':'Address')+'</th>'+
+      '<th>'+T('rep')+'</th>'+
+      '<th>'+(lang==='ar'?'المنتجات':'Products')+'</th>'+
+      '<th>'+T('qty')+'</th><th>'+T('total')+'</th><th>'+T('paid')+'</th><th>'+T('remaining')+'</th>'+
+      '<th>'+T('status')+'</th><th>'+(lang==='ar'?'مستندات':'Documents')+'</th></tr>'+
+      groups.map(function(g){
+        var r=g.first;
+        var no=groupInvoiceNoV318(g);
+        var sc=typeof saleStatusBadge==='function'?saleStatusBadge(r):'ok';
+        var sl=typeof saleStatusLabel==='function'?saleStatusLabel(r):T('sold');
+        return '<tr>'+
+          '<td><b>'+E(no||'-')+'</b></td>'+
+          '<td>'+E(r.date||'')+'</td>'+
+          '<td>'+E(r.clinic_name||r.order_clinic_name||r.customer_name||'')+'</td>'+
+          '<td>'+E(invoiceAddressV318(r))+'</td>'+
+          '<td>'+E(r.rep_name||'')+'</td>'+
+          '<td>'+productsHtmlV318(g)+'</td>'+
+          '<td>'+N(g.qty)+'</td>'+
+          '<td>'+M(g.total)+'</td>'+
+          '<td>'+M(g.paid)+'</td>'+
+          '<td>'+M(g.remaining)+'</td>'+
+          '<td><span class="badge '+sc+'">'+sl+'</span></td>'+
+          '<td><div class="actions">'+
+            '<button class="btn small blue" onclick="printSaleDocument(\''+E(r.id)+'\',\'invoice\')">'+(lang==='ar'?'فاتورة':'Invoice')+'</button>'+
+            '<button class="btn small ok" onclick="printSaleDocument(\''+E(r.id)+'\',\'delivery\')">'+(lang==='ar'?'إذن تسليم':'Delivery')+'</button>'+
+            '<button class="btn small secondary" onclick="waSale(\''+E(r.id)+'\')">'+T('whatsapp')+'</button>'+
+          '</div></td>'+
+        '</tr>';
+      }).join('')+
+    '</table></div>';
+  }
+
+  window.groupedSalesTableV318=tableV318;
+  window.salesTable=function(){return tableV318(saleRowsV318())};
+  window.salesRowsTableV59=function(rows){return tableV318(rows||[])};
+  try{salesTable=window.salesTable}catch(e){}
+  try{salesRowsTableV59=window.salesRowsTableV59}catch(e){}
+
+  /*
+    Also force the "All Sales" card after render to use the definitive grouped table,
+    preventing older render hooks from re-inserting line-by-line invoices.
+  */
+  var renderSalesBaseV318=window.renderSales;
+  if(typeof renderSalesBaseV318==='function'){
+    window.renderSales=function(){
+      var r=renderSalesBaseV318.apply(this,arguments);
+      setTimeout(function(){
+        var view=document.getElementById('view-sales');
+        if(!view)return;
+        var cards=[].slice.call(view.querySelectorAll('.card'));
+        var card=cards.find(function(c){
+          var h=c.querySelector('h3');
+          return h&&(/كل المبيعات|all sales|المبيعات/i.test(h.textContent||''));
+        });
+        if(card){
+          var old=card.querySelector('.orders-v59-table-wrap, table, .empty');
+          if(old)old.remove();
+          var h=card.querySelector('h3');
+          if(h)h.insertAdjacentHTML('afterend',tableV318(saleRowsV318()));
+        }
+      },180);
+      return r;
+    };
+    try{renderSales=window.renderSales}catch(e){}
+  }
+
+  /* Orders-center counts must count invoices, not product rows. */
+  var tilesBaseV318=window.ordersTilesV59;
+  if(typeof tilesBaseV318==='function'){
+    window.ordersTilesV59=function(){
+      var html=tilesBaseV318.apply(this,arguments);
+      var invoiceCount=window.groupInvoicesStrictV318(saleRowsV318()).length;
+      /* Preserve existing rich layout; counts inside sold/all-invoices will be refreshed by detail views. */
+      return html.replace(
+        /(<div class="orders-v59-title">(?:كل المبيعات|All sales)<\/div><\/div><div class="orders-v59-count">)([\s\S]*?)(<\/div>)/i,
+        '$1'+invoiceCount+'$3'
+      );
+    };
+    try{ordersTilesV59=window.ordersTilesV59}catch(e){}
+  }
+
+  var renderBaseV318=window.render;
+  if(typeof renderBaseV318==='function'){
+    window.render=function(){
+      var r=renderBaseV318.apply(this,arguments);
+      setTimeout(function(){try{installAgingV318()}catch(e){}},250);
+      return r;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  setTimeout(function(){
+    try{
+      installAgingV318();
+    }catch(e){}
+  },800);
+})();
+</script>
