@@ -25360,3 +25360,225 @@ html body .summary-box.v303-auto-clickable:after{
   setTimeout(injectRegionalCards,1000);
 })();
 </script>
+
+
+<style id="v322-daily-expense-allocation-style">
+.v322-cost-summary{display:grid;grid-template-columns:repeat(5,minmax(160px,1fr));gap:10px;margin:12px 0}
+.v322-cost-summary .stat{background:#fff!important;border:1px solid #dbeafe!important}
+.v322-cost-table{overflow:auto}
+.v322-cost-table table{min-width:1250px!important}
+.v322-note{margin-top:10px;padding:10px 12px;border-radius:10px;background:#eff6ff;color:#1e3a8a;font-size:12px;line-height:1.7}
+@media(max-width:900px){.v322-cost-summary{grid-template-columns:1fr 1fr}}
+</style>
+
+<script id="v322-daily-expense-allocation">
+(function(){
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S(v){return String(v==null?'':v).trim()}
+  function E(v){return typeof esc==='function'?esc(v):S(v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function M(v){return typeof money==='function'?money(v):N(v).toLocaleString()+' EGP'}
+  function todayIso(){return typeof today==='function'?today():new Date().toISOString().slice(0,10)}
+  function ensure(){
+    if(!Array.isArray(db.general_admin_expenses_v287))db.general_admin_expenses_v287=[];
+    if(!Array.isArray(db.marketing_expenses_v287))db.marketing_expenses_v287=[];
+    if(!Array.isArray(db.inventory_lots))db.inventory_lots=[];
+    if(!Array.isArray(db.daily_inventory_expense_allocations_v322))db.daily_inventory_expense_allocations_v322=[];
+  }
+
+  function expenseValue(row){return N(row&&((row.egp_value!=null)?row.egp_value:row.amount))}
+  function dailyExpenses(date){
+    ensure();
+    var ga=db.general_admin_expenses_v287.filter(function(r){return S(r.date).slice(0,10)===date})
+      .reduce(function(a,r){return a+expenseValue(r)},0);
+    var mk=db.marketing_expenses_v287.filter(function(r){return S(r.date).slice(0,10)===date})
+      .reduce(function(a,r){return a+expenseValue(r)},0);
+    return {general:ga,marketing:mk,total:ga+mk};
+  }
+
+  function currentClosingLots(){
+    ensure();
+    return db.inventory_lots.filter(function(l){return N(l.qty)>0});
+  }
+
+  window.recalculateDailyInventoryExpenseV322=function(date){
+    ensure();
+    date=date||todayIso();
+    var exp=dailyExpenses(date);
+    var lots=currentClosingLots();
+    var closingQty=lots.reduce(function(a,l){return a+N(l.qty)},0);
+    var perUnit=closingQty>0?exp.total/closingQty:0;
+
+    var record={
+      id:'daily_expense_'+date,
+      date:date,
+      general_admin_expense:exp.general,
+      marketing_expense:exp.marketing,
+      total_expense:exp.total,
+      closing_stock_qty:closingQty,
+      expense_per_unit:perUnit,
+      calculated_at:new Date().toISOString(),
+      lots:lots.map(function(l){
+        return {
+          lot_id:l.id||'',
+          product_id:l.product_id||'',
+          product_name:l.product_name||'',
+          lot_number:l.lot_number||l.lot||'',
+          closing_qty:N(l.qty),
+          expense_per_unit:perUnit,
+          allocated_amount:N(l.qty)*perUnit
+        };
+      })
+    };
+
+    var idx=db.daily_inventory_expense_allocations_v322.findIndex(function(r){return r.date===date});
+    if(idx>=0)db.daily_inventory_expense_allocations_v322[idx]=record;
+    else db.daily_inventory_expense_allocations_v322.push(record);
+    return record;
+  };
+
+  window.lotAccumulatedDailyExpenseV322=function(lot){
+    ensure();
+    var lid=S(lot&&lot.id),pid=S(lot&&lot.product_id),lotNo=S(lot&&(lot.lot_number||lot.lot)).toLowerCase();
+    return db.daily_inventory_expense_allocations_v322.reduce(function(sum,day){
+      var line=(day.lots||[]).find(function(x){
+        if(lid&&S(x.lot_id)===lid)return true;
+        return pid&&S(x.product_id)===pid&&lotNo&&S(x.lot_number).toLowerCase()===lotNo;
+      });
+      return sum+(line?N(line.expense_per_unit):0);
+    },0);
+  };
+
+  function productForLot(lot){
+    return (db.products||[]).find(function(p){return String(p.id)===String(lot.product_id)})||{};
+  }
+  function originalCost(lot,p){
+    var x=N(lot.unit_cost||lot.purchase_cost||lot.cost||lot.purchase_price);
+    return x>0?x:N(p.purchase||p.purchase_price||p.cost);
+  }
+  function slowRate(days){
+    if(typeof window.inventoryAgingRuleV318==='function')return N(window.inventoryAgingRuleV318(days).rate);
+    if(days<=120)return 0;if(days<=150)return 2;if(days<=180)return 5;if(days<=210)return 8;return 12;
+  }
+  function lotAge(lot){
+    var d=new Date(lot.received_date||lot.purchase_date||lot.entry_date||lot.created_at||lot.date||'');
+    if(isNaN(d.getTime()))return 0;
+    return Math.max(0,Math.floor((Date.now()-d.getTime())/86400000));
+  }
+
+  window.inventoryCostRowsV322=function(){
+    ensure();
+    return db.inventory_lots.map(function(lot){
+      var p=productForLot(lot),base=originalCost(lot,p),days=lotAge(lot),rate=slowRate(days);
+      var slow=base*rate/100;
+      var daily=window.lotAccumulatedDailyExpenseV322(lot);
+      return {
+        lot:lot,
+        product:p,
+        product_name:S(lot.product_name||p.name||p.product_name),
+        lot_number:S(lot.lot_number||lot.lot||lot.batch),
+        qty:N(lot.qty),
+        days:days,
+        original_cost:base,
+        daily_expense_cost:daily,
+        slow_rate:rate,
+        slow_moving_cost:slow,
+        final_adjusted_cost:base+daily+slow
+      };
+    });
+  };
+
+  function reportHtml(){
+    var todayRec=window.recalculateDailyInventoryExpenseV322(todayIso());
+    var rows=window.inventoryCostRowsV322().filter(function(r){return r.qty>0});
+    var invValue=rows.reduce(function(a,r){return a+r.final_adjusted_cost*r.qty},0);
+    var cumulativeDaily=rows.reduce(function(a,r){return a+r.daily_expense_cost*r.qty},0);
+
+    return '<div class="v322-cost-summary">'+
+      '<div class="stat"><span>مصروفات إدارية اليوم</span><strong>'+M(todayRec.general_admin_expense)+'</strong></div>'+
+      '<div class="stat"><span>مصروفات تسويق اليوم</span><strong>'+M(todayRec.marketing_expense)+'</strong></div>'+
+      '<div class="stat"><span>Closing Stock Qty</span><strong>'+N(todayRec.closing_stock_qty).toLocaleString()+'</strong></div>'+
+      '<div class="stat"><span>تحميل اليوم / وحدة</span><strong>'+M(todayRec.expense_per_unit)+'</strong></div>'+
+      '<div class="stat"><span>قيمة المخزون بالتكلفة المعدلة</span><strong>'+M(invValue)+'</strong></div>'+
+      '</div>'+
+      '<div class="v322-cost-table"><table><tr><th>المنتج</th><th>LOT</th><th>الكمية الحالية</th><th>Original Cost</th><th>Accumulated Daily Expenses / Unit</th><th>Slow Moving %</th><th>Slow Moving Cost</th><th>Final Adjusted Cost / Unit</th></tr>'+
+      rows.map(function(r){return '<tr>'+
+        '<td><b>'+E(r.product_name||'-')+'</b></td><td>'+E(r.lot_number||'-')+'</td><td>'+N(r.qty).toLocaleString()+'</td>'+
+        '<td>'+M(r.original_cost)+'</td><td><b>'+M(r.daily_expense_cost)+'</b></td><td>'+r.slow_rate+'%</td>'+
+        '<td>'+M(r.slow_moving_cost)+'</td><td><b>'+M(r.final_adjusted_cost)+'</b></td></tr>'}).join('')+
+      '</table></div>'+
+      '<div class="v322-note">المعادلة اليومية: (مصروفات التسويق + المصروفات الإدارية والعمومية) ÷ كمية Closing Stock. '+
+      'يتم حفظ تحميل كل يوم على الـLOTs الموجودة في المخزن في ذلك اليوم، ولا يتم تغيير Purchase Cost الأصلي. '+
+      'التكلفة النهائية = Original Cost + Accumulated Daily Expense Allocation + Slow Moving Cost.</div>';
+  }
+
+  window.installDailyExpenseCostCardV322=function(){
+    var view=document.getElementById('view-products');if(!view)return;
+    var old=document.getElementById('daily_expense_cost_card_v322');if(old)old.remove();
+    var card=document.createElement('div');card.className='card';card.id='daily_expense_cost_card_v322';
+    card.innerHTML='<div class="section-title"><div><h3>Daily Expense Allocation on Inventory Cost</h3><div class="hint">تحميل المصروفات اليومية على تكلفة كل وحدة موجودة في المخزون</div></div></div>'+reportHtml();
+    view.appendChild(card);
+  };
+
+  /* Every normal save recalculates today's closing-stock allocation BEFORE persistence.
+     This keeps today's record idempotent when expenses or stock change during the day. */
+  var saveBaseV322=window.save;
+  var savingV322=false;
+  if(typeof saveBaseV322==='function'){
+    window.save=function(){
+      if(!savingV322){
+        savingV322=true;
+        try{window.recalculateDailyInventoryExpenseV322(todayIso())}catch(e){}
+        savingV322=false;
+      }
+      return saveBaseV322.apply(this,arguments);
+    };
+    try{save=window.save}catch(e){}
+  }
+
+  var productsBaseV322=window.renderProducts;
+  if(typeof productsBaseV322==='function'){
+    window.renderProducts=function(){
+      var r=productsBaseV322.apply(this,arguments);
+      setTimeout(window.installDailyExpenseCostCardV322,140);
+      return r;
+    };
+    try{renderProducts=window.renderProducts}catch(e){}
+  }
+
+  var renderBaseV322=window.render;
+  if(typeof renderBaseV322==='function'){
+    window.render=function(){
+      try{window.recalculateDailyInventoryExpenseV322(todayIso())}catch(e){}
+      var r=renderBaseV322.apply(this,arguments);
+      setTimeout(function(){
+        var v=document.getElementById('view-products');
+        if(v&&!v.classList.contains('hidden'))window.installDailyExpenseCostCardV322();
+      },220);
+      return r;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  /* If app stays open across midnight, create/recalculate the new day's allocation. */
+  var lastDayV322=todayIso();
+  setInterval(function(){
+    var d=todayIso();
+    if(d!==lastDayV322){
+      lastDayV322=d;
+      try{
+        window.recalculateDailyInventoryExpenseV322(d);
+        if(typeof window.save==='function')window.save();
+      }catch(e){}
+    }
+  },60000);
+
+  setTimeout(function(){
+    try{
+      window.recalculateDailyInventoryExpenseV322(todayIso());
+      if(typeof window.save==='function')window.save();
+      var v=document.getElementById('view-products');
+      if(v&&!v.classList.contains('hidden'))window.installDailyExpenseCostCardV322();
+    }catch(e){}
+  },1000);
+})();
+</script>
