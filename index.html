@@ -25141,3 +25141,222 @@ html body .summary-box.v303-auto-clickable:after{
   },900);
 })();
 </script>
+
+
+<style id="v321-reps-regions-company-target-style">
+.v321-region-card{margin-top:14px!important;border-right:5px solid #0ea5e9!important}
+.v321-region-table-wrap{overflow:auto}
+.v321-region-table-wrap table{min-width:760px!important}
+.v321-ach-bar{height:8px;background:#e2e8f0;border-radius:999px;overflow:hidden;min-width:120px}
+.v321-ach-bar span{display:block;height:100%;background:linear-gradient(90deg,#0ea5e9,#22c55e)}
+.rep-group-card-v321{border:2px solid #0891b2!important;background:#ecfeff!important}
+.rep-group-card-v321:hover,.rep-group-card-v321.active{background:#cffafe!important;border-color:#0e7490!important}
+.v321-company-targets{display:grid;grid-template-columns:repeat(3,minmax(170px,1fr));gap:12px;margin:0 0 16px}
+.v321-company-targets .stat{background:#fff!important;border:1px solid #dbeafe!important}
+@media(max-width:760px){.v321-company-targets{grid-template-columns:1fr}}
+</style>
+
+<script id="v321-reps-regions-company-target">
+(function(){
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S(v){return String(v==null?'':v).trim()}
+  function E(v){return typeof esc==='function'?esc(v):S(v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function M(v){return typeof money==='function'?money(v):N(v).toLocaleString()+' EGP'}
+  function norm(v){
+    return S(v).toLowerCase()
+      .replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه')
+      .replace(/\s+/g,' ');
+  }
+
+  function regionName(row){
+    try{if(typeof window.regionNameVerifiedV307==='function')return window.regionNameVerifiedV307(row)}catch(e){}
+    return S(row&&(row.region_name||row.region||row.area||row.city||row.customer_area))||'غير محدد';
+  }
+  function repForRow(row){
+    if(!row)return null;
+    if(row.rep_id)return (db.reps||[]).find(function(r){return String(r.id)===String(row.rep_id)})||null;
+    var rn=norm(row.rep_name);
+    return (db.reps||[]).find(function(r){return norm(r.name)===rn})||null;
+  }
+  function approvedSales(){
+    try{
+      if(typeof companyApprovedSalesV302==='function')return companyApprovedSalesV302()||[];
+    }catch(e){}
+    return (db.sales||[]).filter(function(s){return !s.approval_status||s.approval_status==='approved'});
+  }
+  function repTarget(rep){
+    return N(rep&&(rep.target_qty!=null?rep.target_qty:(rep.target!=null?rep.target:rep.sales_target)));
+  }
+
+  /* Individual rep region achievement: each region's sold quantity / the rep's total target.
+     This makes the region contributions add up to the rep's overall achievement. */
+  window.repRegionAchievementV321=function(repId){
+    var rep=(db.reps||[]).find(function(r){return String(r.id)===String(repId)});
+    if(!rep)return [];
+    var rows=approvedSales().filter(function(s){
+      return (s.rep_id&&String(s.rep_id)===String(rep.id)) || (!s.rep_id&&norm(s.rep_name)===norm(rep.name));
+    });
+    var map=new Map(),target=repTarget(rep);
+    rows.forEach(function(s){
+      var rn=regionName(s);
+      if(!map.has(rn))map.set(rn,{name:rn,qty:0,sales:0,invoices:new Set()});
+      var x=map.get(rn);x.qty+=N(s.qty);x.sales+=N(s.total);
+      x.invoices.add(S(s.invoice_no||s.invoice_group_id||s.order_id||s.id));
+    });
+    return Array.from(map.values()).map(function(x){
+      x.invoiceCount=x.invoices.size;
+      x.achievement=target>0?(x.qty/target*100):0;
+      return x;
+    }).sort(function(a,b){return b.qty-a.qty});
+  };
+
+  function regionAchievementHtml(repId){
+    var rep=(db.reps||[]).find(function(r){return String(r.id)===String(repId)});
+    if(!rep)return '';
+    var rows=window.repRegionAchievementV321(repId),target=repTarget(rep);
+    var achieved=rows.reduce(function(a,r){return a+r.qty},0);
+    var totalPct=target>0?achieved/target*100:0;
+
+    if(!rows.length)return '<div class="card v321-region-card"><h3>تحقيق التارجت حسب المنطقة</h3><div class="empty">لا توجد مبيعات موزعة على مناطق لهذا المندوب.</div></div>';
+
+    return '<div class="card v321-region-card"><div class="section-title"><div><h3>تحقيق التارجت حسب المنطقة</h3>'+
+      '<div class="hint">تارجت المندوب: '+N(target).toLocaleString()+' وحدة | المحقق: '+N(achieved).toLocaleString()+
+      ' | إجمالي التحقيق: '+totalPct.toFixed(1)+'%</div></div></div>'+
+      '<div class="v321-region-table-wrap"><table><tr><th>المنطقة</th><th>الكمية المباعة</th><th>قيمة المبيعات</th><th>عدد الفواتير</th><th>مساهمة المنطقة في تحقيق التارجت</th></tr>'+
+      rows.map(function(r){
+        var pct=Math.max(0,r.achievement);
+        return '<tr><td><b>'+E(r.name)+'</b></td><td>'+N(r.qty).toLocaleString()+'</td><td>'+M(r.sales)+'</td><td>'+r.invoiceCount+'</td>'+
+          '<td><b>'+pct.toFixed(1)+'%</b><div class="v321-ach-bar"><span style="width:'+Math.min(100,pct)+'%"></span></div></td></tr>';
+      }).join('')+'</table></div></div>';
+  }
+
+  /* Add region breakdown to every real rep detail view. */
+  var openRepBaseV321=window.openRepDetailsV175;
+  if(typeof openRepBaseV321==='function'){
+    window.openRepDetailsV175=function(repId){
+      if(repId==='delta_total_v321'||repId==='alex_total_v321')return window.openRegionalTotalV321(repId);
+      var r=openRepBaseV321.apply(this,arguments);
+      setTimeout(function(){
+        var body=document.getElementById('rep_details_body_v175');
+        if(body && (db.reps||[]).some(function(x){return String(x.id)===String(repId)})){
+          var old=body.querySelector('#v321_rep_region_breakdown');
+          if(old)old.remove();
+          var wrap=document.createElement('div');wrap.id='v321_rep_region_breakdown';
+          wrap.innerHTML=regionAchievementHtml(repId);
+          body.appendChild(wrap);
+        }
+      },50);
+      return r;
+    };
+    try{openRepDetailsV175=window.openRepDetailsV175}catch(e){}
+  }
+
+  /* Delta / Alexandria totals are region-based totals, so they keep working even
+     if sales reps change, unlike hard-coded member lists. */
+  var REGION_GROUPS_V321=[
+    {id:'delta_total_v321',name:'Delta Total',keys:['delta','دلتا']},
+    {id:'alex_total_v321',name:'Alexandria Total',keys:['alexandria','alex','اسكندريه','الاسكندريه','إسكندرية','الإسكندرية']}
+  ];
+  function regionGroup(id){return REGION_GROUPS_V321.find(function(g){return g.id===id})||null}
+  function matchesGroupRegion(name,g){
+    var x=norm(name);
+    return g.keys.some(function(k){return x.indexOf(norm(k))>=0});
+  }
+  function groupSales(g){return approvedSales().filter(function(s){return matchesGroupRegion(regionName(s),g)})}
+  function groupReps(g){
+    var ids=new Set(),names=new Set();
+    groupSales(g).forEach(function(s){
+      var r=repForRow(s);
+      if(r){ids.add(String(r.id));names.add(r.name)}
+    });
+    (db.reps||[]).forEach(function(r){
+      var assigned=S(r.region_name||r.region||r.area||r.zone);
+      if(assigned&&matchesGroupRegion(assigned,g)){ids.add(String(r.id));names.add(r.name)}
+    });
+    return (db.reps||[]).filter(function(r){return ids.has(String(r.id))});
+  }
+  function groupTarget(g){return groupReps(g).reduce(function(a,r){return a+repTarget(r)},0)}
+  function regionalTotalHtml(g){
+    var sales=groupSales(g),reps=groupReps(g),target=groupTarget(g);
+    var qty=sales.reduce(function(a,s){return a+N(s.qty)},0);
+    var amount=sales.reduce(function(a,s){return a+N(s.total)},0);
+    var pct=target>0?qty/target*100:0;
+    var repMap=new Map();
+    sales.forEach(function(s){
+      var rn=S(s.rep_name)||(repForRow(s)||{}).name||'-';
+      if(!repMap.has(rn))repMap.set(rn,{name:rn,qty:0,sales:0});
+      var x=repMap.get(rn);x.qty+=N(s.qty);x.sales+=N(s.total);
+    });
+    var rows=Array.from(repMap.values()).sort(function(a,b){return b.qty-a.qty});
+    return '<div class="rep-detail-head-v175"><div><h2>'+E(g.name)+'</h2><p>'+E(reps.map(function(r){return r.name}).join(' + ')||'Region Total')+'</p></div></div>'+
+      '<div class="grid grid4 rep-summary-v175">'+
+      '<div class="stat"><span>إجمالي المبيعات</span><strong>'+M(amount)+'</strong></div>'+
+      '<div class="stat"><span>الكمية المحققة</span><strong>'+N(qty).toLocaleString()+'</strong></div>'+
+      '<div class="stat"><span>إجمالي التارجت</span><strong>'+N(target).toLocaleString()+'</strong></div>'+
+      '<div class="stat"><span>نسبة التحقيق</span><strong>'+pct.toFixed(1)+'%</strong></div></div>'+
+      '<div class="card"><h3>أداء المناديب داخل '+E(g.name)+'</h3>'+
+      (rows.length?'<table><tr><th>المندوب</th><th>الكمية</th><th>المبيعات</th><th>نسبة من تارجت المجموعة</th></tr>'+
+        rows.map(function(r){return '<tr><td><b>'+E(r.name)+'</b></td><td>'+N(r.qty).toLocaleString()+'</td><td>'+M(r.sales)+'</td><td>'+(target>0?(r.qty/target*100):0).toFixed(1)+'%</td></tr>'}).join('')+
+        '</table>':'<div class="empty">لا توجد مبيعات في هذه المنطقة.</div>')+'</div>';
+  }
+  window.openRegionalTotalV321=function(id){
+    var g=regionGroup(id);if(!g)return;
+    var body=document.getElementById('rep_details_body_v175');if(!body)return;
+    body.innerHTML=regionalTotalHtml(g);
+    document.querySelectorAll('.rep-card-v175').forEach(function(card){card.classList.toggle('active',card.dataset.repId===id)});
+  };
+
+  function injectRegionalCards(){
+    var list=document.querySelector('#rep_performance_modal_v175 .rep-list-v175');
+    if(!list)return;
+    list.querySelectorAll('.rep-group-card-v321').forEach(function(x){x.remove()});
+    REGION_GROUPS_V321.slice().reverse().forEach(function(g){
+      var sales=groupSales(g),target=groupTarget(g);
+      var qty=sales.reduce(function(a,s){return a+N(s.qty)},0);
+      var amount=sales.reduce(function(a,s){return a+N(s.total)},0);
+      var pct=target>0?qty/target*100:0;
+      var b=document.createElement('button');
+      b.type='button';b.className='rep-card-v175 rep-group-card-v321';b.dataset.repId=g.id;
+      b.onclick=function(){window.openRegionalTotalV321(g.id)};
+      b.innerHTML='<b>'+E(g.name)+'</b><span>مبيعات: '+M(amount)+'</span><span>كمية: '+N(qty).toLocaleString()+'</span><span>تحقيق: '+pct.toFixed(1)+'%</span>';
+      list.prepend(b);
+    });
+  }
+
+  var perfBaseV321=window.openRepPerformanceV175;
+  if(typeof perfBaseV321==='function'){
+    window.openRepPerformanceV175=function(){
+      var r=perfBaseV321.apply(this,arguments);
+      setTimeout(injectRegionalCards,90);
+      return r;
+    };
+    try{openRepPerformanceV175=window.openRepPerformanceV175}catch(e){}
+  }
+
+  /* Company target = sum of rep quantity targets.
+     Company achievement = total sold quantity / company quantity target.
+     Monetary company sales remains separate from the quantity target. */
+  window.companyTargetSummaryV321=function(){
+    var target=(db.reps||[]).reduce(function(a,r){return a+repTarget(r)},0);
+    var sales=approvedSales();
+    var qty=sales.reduce(function(a,s){return a+N(s.qty)},0);
+    return {target:target,qty:qty,pct:target>0?qty/target*100:0};
+  };
+
+  var companyBaseV321=window.companySalesAnalyticsHtmlV306;
+  if(typeof companyBaseV321==='function'){
+    window.companySalesAnalyticsHtmlV306=function(){
+      var html=companyBaseV321.apply(this,arguments);
+      var c=window.companyTargetSummaryV321();
+      var block='<div class="v321-company-targets">'+
+        '<div class="stat"><span>تارجت الشركة (كمية)</span><strong>'+N(c.target).toLocaleString()+'</strong></div>'+
+        '<div class="stat"><span>المحقق من تارجت الشركة</span><strong>'+N(c.qty).toLocaleString()+'</strong></div>'+
+        '<div class="stat"><span>نسبة تحقيق تارجت الشركة</span><strong>'+c.pct.toFixed(1)+'%</strong></div>'+
+      '</div>';
+      return block+html;
+    };
+  }
+
+  setTimeout(injectRegionalCards,1000);
+})();
+</script>
