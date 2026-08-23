@@ -24883,3 +24883,261 @@ html body .summary-box.v303-auto-clickable:after{
   },800);
 })();
 </script>
+
+
+<style id="v319-multi-product-add-more-style">
+.v319-add-next-hint{margin-top:8px;font-size:11px;color:#0f766e;font-weight:800}
+</style>
+<script id="v319-multi-product-add-more">
+(function(){
+  function S(v){return String(v==null?'':v).trim()}
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+
+  function getVal(id){
+    var e=document.getElementById(id);
+    return e?e.value:'';
+  }
+  function setVal(id,v){
+    var e=document.getElementById(id);
+    if(e)e.value=v==null?'':v;
+  }
+
+  function captureHeaderV319(){
+    return {
+      customer:getVal('sa_customer'),
+      rep:getVal('sa_rep'),
+      paid:getVal('sa_paid'),
+      vat:getVal('sa_vat_v216'),
+      clinic:getVal('sa_clinic_name_v317'),
+      address:getVal('sa_address_v317')
+    };
+  }
+
+  function restoreHeaderV319(h){
+    if(!h)return;
+    setVal('sa_customer',h.customer);
+    setVal('sa_rep',h.rep);
+    setVal('sa_paid',h.paid);
+    setVal('sa_vat_v216',h.vat);
+    setVal('sa_clinic_name_v317',h.clinic);
+    setVal('sa_address_v317',h.address);
+
+    try{
+      if(typeof updateLinkedRegion==='function')updateLinkedRegion('sa');
+    }catch(e){}
+    try{
+      if(typeof fillOrderClinicAddressV317==='function'){
+        /* keep typed values; do not overwrite with customer defaults */
+        fillOrderClinicAddressV317(false);
+      }
+    }catch(e){}
+  }
+
+  function prepareNextLineV319(){
+    var qty=document.getElementById('sa_qty');
+    if(qty)qty.value='';
+
+    var product=document.getElementById('sa_product');
+    if(product){
+      /* Keep selector enabled and ready for another product. */
+      product.disabled=false;
+      product.removeAttribute('readonly');
+      try{product.focus()}catch(e){}
+    }
+
+    var price=document.getElementById('sa_price');
+    if(price)price.value='';
+
+    /* Refresh price / LOT for the currently selected product. */
+    try{
+      if(typeof saleInfoMultiV150==='function')saleInfoMultiV150();
+    }catch(e){}
+    try{
+      if(typeof refreshOrderLotsV226==='function')refreshOrderLotsV226();
+      else if(typeof autoFillProductLotV225==='function')autoFillProductLotV225();
+    }catch(e){}
+
+    var btn=document.querySelector('#view-sales button[onclick="addInvoiceLineV150()"]');
+    if(btn && !document.getElementById('v319_add_next_hint')){
+      var hint=document.createElement('div');
+      hint.id='v319_add_next_hint';
+      hint.className='v319-add-next-hint';
+      hint.textContent=lang==='ar'
+        ?'يمكنك اختيار منتج آخر وإضافته لنفس الفاتورة قبل الحفظ.'
+        :'You can select another product and add it to the same invoice before saving.';
+      btn.parentElement && btn.parentElement.appendChild(hint);
+    }
+  }
+
+  var addBaseV319=window.addInvoiceLineV150;
+  if(typeof addBaseV319==='function'){
+    window.addInvoiceLineV150=function(){
+      var header=captureHeaderV319();
+
+      var before=(window.salesInvoiceDraftV150||[]).map(function(x){
+        return {id:x.line_id,qty:N(x.qty),product_id:x.product_id};
+      });
+
+      var result=addBaseV319.apply(this,arguments);
+
+      setTimeout(function(){
+        restoreHeaderV319(header);
+
+        var after=window.salesInvoiceDraftV150||[];
+        var changed=after.length!==before.length || after.some(function(x){
+          var old=before.find(function(b){return b.id===x.line_id});
+          return !old || N(x.qty)!==old.qty;
+        });
+
+        if(changed)prepareNextLineV319();
+      },120);
+
+      return result;
+    };
+    try{addInvoiceLineV150=window.addInvoiceLineV150}catch(e){}
+  }
+
+  /* Re-add the helper hint after any sales-screen repaint. */
+  var renderSalesBaseV319=window.renderSales;
+  if(typeof renderSalesBaseV319==='function'){
+    window.renderSales=function(){
+      var r=renderSalesBaseV319.apply(this,arguments);
+      setTimeout(function(){
+        if((window.salesInvoiceDraftV150||[]).length){
+          prepareNextLineV319();
+        }
+      },220);
+      return r;
+    };
+    try{renderSales=window.renderSales}catch(e){}
+  }
+})();
+</script>
+
+
+<style id="v320-sales-target-approval-panel-style">
+#sales_target_approval_panel_v320{
+  margin:0 0 18px!important;
+  border:2px solid #c7d2fe!important;
+  border-right:6px solid #4f46e5!important;
+  background:linear-gradient(135deg,#ffffff,#eef2ff)!important;
+}
+#sales_target_approval_panel_v320 .v320-head{
+  display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px
+}
+#sales_target_approval_panel_v320 .v320-head h3{margin:0!important}
+#sales_target_approval_panel_v320 .v320-count{
+  display:inline-flex;align-items:center;justify-content:center;min-width:42px;height:34px;padding:0 12px;
+  border-radius:999px;background:#fef3c7;color:#92400e;font-weight:900
+}
+#sales_target_approval_panel_v320 .orders-v59-table-wrap{overflow:auto!important}
+#sales_target_approval_panel_v320 table{min-width:1050px!important}
+#sales_target_approval_panel_v320 .btn.ok,
+#sales_target_approval_panel_v320 .btn.danger{
+  display:inline-flex!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important
+}
+</style>
+
+<script id="v320-sales-target-approval-panel">
+(function(){
+  function pendingCountV320(){
+    try{if(typeof ensureSalesOrders==='function')ensureSalesOrders()}catch(e){}
+    return (db.sales_orders||[]).filter(function(o){return o.status==='pending'}).length;
+  }
+
+  function approvalHtmlV320(){
+    var count=pendingCountV320();
+    var table='';
+    try{
+      table=typeof pendingSalesOrdersTable==='function'
+        ? pendingSalesOrdersTable()
+        : '<div class="empty">Approval table unavailable</div>';
+    }catch(e){
+      table='<div class="empty">'+(lang==='ar'?'تعذر تحميل الأوردرات المنتظرة':'Unable to load pending orders')+'</div>';
+    }
+
+    return '<div class="v320-head">'+
+      '<div><h3>'+(lang==='ar'?'موافقات Sales Target':'Sales Target Approvals')+'</h3>'+
+      '<div class="hint">'+(lang==='ar'?'راجع الفواتير/الأوردرات المنتظرة واتخذ قرار الموافقة أو الرفض من هنا.':'Review pending invoices/orders and approve or reject them here.')+'</div></div>'+
+      '<span class="v320-count">'+count+'</span>'+
+      '</div>'+table;
+  }
+
+  window.installSalesTargetApprovalPanelV320=function(){
+    var view=document.getElementById('view-reps');
+    if(!view)return;
+
+    var old=document.getElementById('sales_target_approval_panel_v320');
+    if(old)old.remove();
+
+    var card=document.createElement('div');
+    card.className='card';
+    card.id='sales_target_approval_panel_v320';
+    card.innerHTML=approvalHtmlV320();
+
+    view.insertAdjacentElement('afterbegin',card);
+  };
+
+  window.refreshSalesTargetApprovalPanelV320=function(){
+    var card=document.getElementById('sales_target_approval_panel_v320');
+    if(!card)return installSalesTargetApprovalPanelV320();
+    card.innerHTML=approvalHtmlV320();
+  };
+
+  var repsBaseV320=window.renderReps;
+  if(typeof repsBaseV320==='function'){
+    window.renderReps=function(){
+      var r=repsBaseV320.apply(this,arguments);
+      setTimeout(window.installSalesTargetApprovalPanelV320,120);
+      return r;
+    };
+    try{renderReps=window.renderReps}catch(e){}
+  }
+
+  var approveBaseV320=window.approveSalesOrder;
+  if(typeof approveBaseV320==='function'){
+    window.approveSalesOrder=function(){
+      var r=approveBaseV320.apply(this,arguments);
+      setTimeout(function(){
+        try{window.refreshSalesTargetApprovalPanelV320()}catch(e){}
+      },180);
+      return r;
+    };
+    try{approveSalesOrder=window.approveSalesOrder}catch(e){}
+  }
+
+  var rejectBaseV320=window.rejectSalesOrder;
+  if(typeof rejectBaseV320==='function'){
+    window.rejectSalesOrder=function(){
+      var r=rejectBaseV320.apply(this,arguments);
+      setTimeout(function(){
+        try{window.refreshSalesTargetApprovalPanelV320()}catch(e){}
+      },180);
+      return r;
+    };
+    try{rejectSalesOrder=window.rejectSalesOrder}catch(e){}
+  }
+
+  var renderBaseV320=window.render;
+  if(typeof renderBaseV320==='function'){
+    window.render=function(){
+      var r=renderBaseV320.apply(this,arguments);
+      setTimeout(function(){
+        try{
+          var view=document.getElementById('view-reps');
+          if(view && !view.classList.contains('hidden'))window.installSalesTargetApprovalPanelV320();
+        }catch(e){}
+      },220);
+      return r;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  setTimeout(function(){
+    try{
+      var view=document.getElementById('view-reps');
+      if(view && !view.classList.contains('hidden'))window.installSalesTargetApprovalPanelV320();
+    }catch(e){}
+  },900);
+})();
+</script>
