@@ -25582,3 +25582,369 @@ html body .summary-box.v303-auto-clickable:after{
   },1000);
 })();
 </script>
+
+
+<style id="v323-rep-region-focus-style">
+.v323-focus-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+.v323-focus-card{border:1px solid #dbeafe;border-radius:14px;background:#fff;padding:14px}
+.v323-focus-card h4{margin:0 0 10px;color:#0f172a}
+.v323-focus-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid #eef2f7}
+.v323-focus-row:last-child{border-bottom:0}
+.v323-focus-row b{display:block}
+.v323-focus-row small{display:block;color:#64748b;margin-top:3px}
+.v323-top{border-right:5px solid #16a34a}
+.v323-bottom{border-right:5px solid #f97316}
+@media(max-width:760px){.v323-focus-grid{grid-template-columns:1fr}}
+</style>
+
+<script id="v323-rep-region-focus">
+(function(){
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S(v){return String(v==null?'':v).trim()}
+  function E(v){return typeof esc==='function'?esc(v):S(v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function M(v){return typeof money==='function'?money(v):N(v).toLocaleString()+' EGP'}
+  function norm(v){
+    return S(v).toLowerCase()
+      .replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه')
+      .replace(/\s+/g,' ');
+  }
+
+  function regionName(row){
+    try{if(typeof window.regionNameVerifiedV307==='function')return window.regionNameVerifiedV307(row)}catch(e){}
+    return S(row&&(row.region_name||row.region||row.area||row.city||row.customer_area))||'غير محدد';
+  }
+
+  function approvedSales(){
+    try{
+      if(typeof companyApprovedSalesV302==='function')return companyApprovedSalesV302()||[];
+    }catch(e){}
+    return (db.sales||[]).filter(function(s){return !s.approval_status||s.approval_status==='approved'});
+  }
+
+  function repMatches(row,rep){
+    if(!row||!rep)return false;
+    if(row.rep_id&&rep.id&&String(row.rep_id)===String(rep.id))return true;
+    return norm(row.rep_name)===norm(rep.name);
+  }
+
+  var deltaNamesV323=['منى','منا','mona'];
+
+  function isMonaV323(row){
+    var name=S(row&&row.rep_name);
+    if(!name&&row&&row.rep_id){
+      var r=(db.reps||[]).find(function(x){return String(x.id)===String(row.rep_id)});
+      name=r?r.name:'';
+    }
+    return deltaNamesV323.some(function(n){return norm(name)===norm(n)});
+  }
+
+  function groupSalesV323(groupId){
+    var sales=approvedSales();
+    if(groupId==='delta_total_v321'){
+      return sales.filter(function(s){
+        var rn=norm(regionName(s));
+        return rn.indexOf('delta')>=0 || rn.indexOf('دلتا')>=0 || isMonaV323(s);
+      });
+    }
+    if(groupId==='alex_total_v321'){
+      return sales.filter(function(s){
+        var rn=norm(regionName(s));
+        return rn.indexOf('alexandria')>=0 || rn.indexOf('alex')>=0 ||
+               rn.indexOf('اسكندريه')>=0 || rn.indexOf('الاسكندريه')>=0;
+      });
+    }
+    return [];
+  }
+  window.groupSalesForRegionalTotalV323=groupSalesV323;
+
+  function rowsByRegionV323(rows){
+    var map=new Map();
+    (rows||[]).forEach(function(s){
+      var rn=regionName(s);
+      if(!map.has(rn))map.set(rn,{name:rn,qty:0,sales:0,invoices:new Set()});
+      var x=map.get(rn);
+      x.qty+=N(s.qty);
+      x.sales+=N(s.total);
+      x.invoices.add(S(s.invoice_no||s.invoice_group_id||s.order_id||s.id));
+    });
+    return Array.from(map.values()).map(function(x){
+      x.invoiceCount=x.invoices.size;
+      return x;
+    }).filter(function(x){return x.qty>0||x.sales>0});
+  }
+
+  function focusHtmlV323(rows,title){
+    var regions=rowsByRegionV323(rows).sort(function(a,b){return b.sales-a.sales || b.qty-a.qty});
+    if(!regions.length){
+      return '<div class="card"><h3>'+E(title||'تحليل المناطق')+'</h3><div class="empty">لا توجد مبيعات موزعة على مناطق.</div></div>';
+    }
+
+    var top=regions.slice(0,Math.min(3,regions.length));
+    var bottom=regions.slice().sort(function(a,b){return a.sales-b.sales || a.qty-b.qty}).slice(0,Math.min(3,regions.length));
+
+    function list(items){
+      return items.map(function(r){
+        return '<div class="v323-focus-row"><div><b>'+E(r.name)+'</b>'+
+          '<small>الكمية: '+N(r.qty).toLocaleString()+' | الفواتير: '+r.invoiceCount+'</small></div>'+
+          '<strong>'+M(r.sales)+'</strong></div>';
+      }).join('');
+    }
+
+    return '<div class="card"><h3>'+E(title||'تركيز المبيعات حسب المنطقة')+'</h3>'+
+      '<div class="v323-focus-grid">'+
+        '<div class="v323-focus-card v323-top"><h4>أكثر المناطق تركيزًا في البيع</h4>'+list(top)+'</div>'+
+        '<div class="v323-focus-card v323-bottom"><h4>أقل المناطق بيعًا</h4>'+list(bottom)+'</div>'+
+      '</div></div>';
+  }
+
+  function repRowsV323(repId){
+    var rep=(db.reps||[]).find(function(r){return String(r.id)===String(repId)});
+    if(!rep)return [];
+    return approvedSales().filter(function(s){return repMatches(s,rep)});
+  }
+
+  window.appendRegionFocusV323=function(repId){
+    var body=document.getElementById('rep_details_body_v175');
+    if(!body)return;
+
+    var old=document.getElementById('v323_region_focus');
+    if(old)old.remove();
+
+    var rows=[],title='تركيز المبيعات حسب المنطقة';
+    if(repId==='delta_total_v321'){
+      rows=groupSalesV323(repId);
+      title='Delta Total — أكثر وأقل المناطق بيعًا';
+    }else if(repId==='alex_total_v321'){
+      rows=groupSalesV323(repId);
+      title='Alexandria Total — أكثر وأقل المناطق بيعًا';
+    }else{
+      rows=repRowsV323(repId);
+      var rep=(db.reps||[]).find(function(r){return String(r.id)===String(repId)});
+      title=(rep?rep.name:'المندوب')+' — أكثر وأقل المناطق بيعًا';
+    }
+
+    var wrap=document.createElement('div');
+    wrap.id='v323_region_focus';
+    wrap.innerHTML=focusHtmlV323(rows,title);
+    body.appendChild(wrap);
+  };
+
+  var openRepBaseV323=window.openRepDetailsV175;
+  if(typeof openRepBaseV323==='function'){
+    window.openRepDetailsV175=function(repId){
+      var r=openRepBaseV323.apply(this,arguments);
+      setTimeout(function(){window.appendRegionFocusV323(repId)},120);
+      return r;
+    };
+    try{openRepDetailsV175=window.openRepDetailsV175}catch(e){}
+  }
+
+  var regionalBaseV323=window.openRegionalTotalV321;
+  if(typeof regionalBaseV323==='function'){
+    window.openRegionalTotalV321=function(id){
+      var r=regionalBaseV323.apply(this,arguments);
+      setTimeout(function(){window.appendRegionFocusV323(id)},120);
+      return r;
+    };
+  }
+
+  function updateDeltaCardV323(){
+    var card=document.querySelector('.rep-card-v175[data-rep-id="delta_total_v321"]');
+    if(!card)return;
+    if(card.innerHTML.indexOf('منى')<0){
+      card.insertAdjacentHTML('beforeend','<span>يشمل مبيعات: منى</span>');
+    }
+  }
+
+  var perfBaseV323=window.openRepPerformanceV175;
+  if(typeof perfBaseV323==='function'){
+    window.openRepPerformanceV175=function(){
+      var r=perfBaseV323.apply(this,arguments);
+      setTimeout(updateDeltaCardV323,180);
+      return r;
+    };
+    try{openRepPerformanceV175=window.openRepPerformanceV175}catch(e){}
+  }
+
+  setTimeout(updateDeltaCardV323,1100);
+})();
+</script>
+
+
+<style id="v324-rep-region-assignment-style">
+.v324-region-btn{min-width:120px!important;background:#e0f2fe!important;color:#075985!important;border:1px solid #7dd3fc!important}
+.v324-region-badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.v324-region-chip{display:inline-flex;padding:4px 8px;border-radius:999px;background:#ecfeff;color:#155e75;font-size:11px;font-weight:800;border:1px solid #a5f3fc}
+#v324_rep_regions_modal{position:fixed;inset:0;z-index:2147483600;background:rgba(15,23,42,.72);display:none;padding:18px;overflow:auto}
+#v324_rep_regions_modal.show{display:block}
+.v324-modal-panel{max-width:760px;margin:40px auto;background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.35)}
+.v324-modal-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 22px;background:linear-gradient(135deg,#0f172a,#0e7490);color:#fff}
+.v324-modal-head h2{margin:0;color:#fff!important}
+.v324-modal-body{padding:20px}
+.v324-region-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.v324-region-option{display:flex;align-items:center;gap:10px;padding:12px;border:1px solid #cbd5e1;border-radius:12px;background:#f8fafc;cursor:pointer}
+.v324-region-option input{width:auto!important}
+.v324-modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+@media(max-width:650px){.v324-region-grid{grid-template-columns:1fr}}
+</style>
+
+<script id="v324-rep-region-assignment">
+(function(){
+  function S(v){return String(v==null?'':v).trim()}
+  function E(v){return typeof esc==='function'?esc(v):S(v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function saveDb(){try{if(typeof save==='function')save()}catch(e){}}
+  function norm(v){
+    return S(v).toLowerCase()
+      .replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه')
+      .replace(/\s+/g,' ');
+  }
+
+  function allRegionsV324(){
+    var set=new Set();
+    (db.regions||[]).forEach(function(r){
+      var name=S(r.name||r.name_ar||r.name_en||r.region_name||r.area);
+      if(name)set.add(name);
+    });
+    (db.customers||[]).forEach(function(c){
+      var name=S(c.region_name||c.region||c.customer_region||c.customer_area||c.area||c.zone||c.district||c.city||c.governorate);
+      if(name)set.add(name);
+    });
+    try{
+      if(typeof window.allRegionsVerifiedV307==='function'){
+        (window.allRegionsVerifiedV307()||[]).forEach(function(name){if(S(name))set.add(S(name))});
+      }
+    }catch(e){}
+    return Array.from(set).sort(function(a,b){return a.localeCompare(b,'ar')});
+  }
+
+  function repById(id){return (db.reps||[]).find(function(r){return String(r.id)===String(id)})||null}
+  function assigned(rep){
+    if(!rep)return [];
+    var arr=rep.assigned_regions_v324||rep.regions||rep.sales_regions||[];
+    if(!Array.isArray(arr)){
+      arr=S(arr)?S(arr).split(/[,،;]/).map(S).filter(Boolean):[];
+    }
+    return Array.from(new Set(arr.map(S).filter(Boolean)));
+  }
+
+  window.repAssignedRegionsV324=function(repId){
+    return assigned(repById(repId));
+  };
+
+  function modal(){
+    var m=document.getElementById('v324_rep_regions_modal');
+    if(m)return m;
+    m=document.createElement('div');m.id='v324_rep_regions_modal';
+    m.innerHTML='<div class="v324-modal-panel">'+
+      '<div class="v324-modal-head"><div><h2 id="v324_region_title">تحديد مناطق المندوب</h2><div id="v324_region_sub"></div></div>'+
+      '<button type="button" class="btn danger" onclick="closeRepRegionsV324()">إغلاق</button></div>'+
+      '<div class="v324-modal-body"><div id="v324_region_grid" class="v324-region-grid"></div>'+
+      '<div class="v324-modal-actions"><button type="button" class="btn secondary" onclick="closeRepRegionsV324()">إلغاء</button>'+
+      '<button type="button" class="btn ok" onclick="saveRepRegionsV324()">حفظ المناطق</button></div></div></div>';
+    document.body.appendChild(m);
+    return m;
+  }
+
+  var activeRepV324='';
+
+  window.openRepRegionsV324=function(repId){
+    var rep=repById(repId);if(!rep)return;
+    activeRepV324=repId;
+    var m=modal(),regions=allRegionsV324(),selected=new Set(assigned(rep).map(norm));
+    document.getElementById('v324_region_title').textContent='تحديد مناطق المندوب';
+    document.getElementById('v324_region_sub').textContent=rep.name||'';
+    var grid=document.getElementById('v324_region_grid');
+    grid.innerHTML=regions.length?regions.map(function(name){
+      var checked=selected.has(norm(name))?' checked':'';
+      return '<label class="v324-region-option"><input type="checkbox" class="v324-region-check" value="'+E(name)+'"'+checked+'><span>'+E(name)+'</span></label>';
+    }).join(''):'<div class="empty">لا توجد مناطق مسجلة في النظام.</div>';
+    m.classList.add('show');document.body.style.overflow='hidden';
+  };
+
+  window.closeRepRegionsV324=function(){
+    var m=document.getElementById('v324_rep_regions_modal');if(m)m.classList.remove('show');
+    document.body.style.overflow='';activeRepV324='';
+  };
+
+  window.saveRepRegionsV324=function(){
+    var rep=repById(activeRepV324);if(!rep)return;
+    var values=[].slice.call(document.querySelectorAll('#v324_region_grid .v324-region-check:checked')).map(function(x){return S(x.value)}).filter(Boolean);
+    rep.assigned_regions_v324=values;
+    rep.regions=values.slice();
+    rep.region_name=values[0]||'';
+    saveDb();
+    window.closeRepRegionsV324();
+    try{if(typeof renderReps==='function')renderReps()}catch(e){}
+  };
+
+  function chips(rep){
+    var arr=assigned(rep);
+    if(!arr.length)return '<div class="v324-region-badges"><span class="v324-region-chip">بدون مناطق محددة</span></div>';
+    return '<div class="v324-region-badges">'+arr.map(function(x){return '<span class="v324-region-chip">'+E(x)+'</span>'}).join('')+'</div>';
+  }
+
+  /* Inject button into current rep management rows. */
+  function installButtons(){
+    var rows=[].slice.call(document.querySelectorAll('#view-reps .rep-row-v185'));
+    rows.forEach(function(row){
+      if(row.dataset.v324Done==='1')return;
+      var del=row.querySelector('.rep-delete-v185');
+      if(!del)return;
+      var id='';
+      var m=(del.getAttribute('onclick')||'').match(/deleteRepV185\(['"]([^'"]+)['"]\)/);
+      if(m)id=m[1];
+      if(!id)return;
+      var rep=repById(id);if(!rep)return;
+
+      var btn=document.createElement('button');
+      btn.type='button';
+      btn.className='btn small v324-region-btn';
+      btn.textContent='تحديد المناطق';
+      btn.onclick=function(){window.openRepRegionsV324(id)};
+      del.insertAdjacentElement('beforebegin',btn);
+
+      var info=row.querySelector('.rep-info-v185');
+      if(info)info.insertAdjacentHTML('beforeend',chips(rep));
+
+      row.dataset.v324Done='1';
+    });
+  }
+
+  var repsBaseV324=window.renderReps;
+  if(typeof repsBaseV324==='function'){
+    window.renderReps=function(){
+      var r=repsBaseV324.apply(this,arguments);
+      setTimeout(installButtons,140);
+      return r;
+    };
+    try{renderReps=window.renderReps}catch(e){}
+  }
+
+  var renderBaseV324=window.render;
+  if(typeof renderBaseV324==='function'){
+    window.render=function(){
+      var r=renderBaseV324.apply(this,arguments);
+      setTimeout(installButtons,240);
+      return r;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  /* Override V321 regional grouping so totals use explicit rep assignments first,
+     then fall back to invoice/customer region matching. */
+  function repAssignedToGroup(rep,groupId){
+    var arr=assigned(rep).map(norm);
+    if(groupId==='delta_total_v321'){
+      return arr.some(function(x){return x.indexOf('delta')>=0||x.indexOf('دلتا')>=0});
+    }
+    if(groupId==='alex_total_v321'){
+      return arr.some(function(x){return x.indexOf('alexandria')>=0||x.indexOf('alex')>=0||x.indexOf('اسكندريه')>=0||x.indexOf('الاسكندريه')>=0});
+    }
+    return false;
+  }
+
+  window.repAssignedToRegionalTotalV324=repAssignedToGroup;
+
+  setTimeout(installButtons,1000);
+})();
+</script>
