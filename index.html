@@ -28438,6 +28438,129 @@ html body .summary-box.v303-auto-clickable:after{
 .v338-rep-label{display:inline-flex;margin-top:7px;padding:4px 8px;border-radius:999px;background:#eef2ff;color:#3730a3;font-size:11px;font-weight:900}
 </style>
 
+
+<script id="v339-area-number-matching-fix">
+(function(){
+  function S(v){return String(v==null?'':v).trim()}
+  function norm(v){
+    return S(v).toLowerCase()
+      .replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه')
+      .replace(/[ًٌٍَُِّْـ]/g,'')
+      .replace(/[^a-z0-9\u0600-\u06ff]+/g,' ')
+      .replace(/\s+/g,' ').trim();
+  }
+
+  var AREA_ALIASES_V339={
+    'زايد':['زايد','zayed','sheikh zayed','el sheikh zayed','new giza'],
+    'حدائق الأهرام':['حدائق الاهرام','hadaeq el ahram','hadayek el ahram','gardens of pyramids'],
+    'فيصل':['فيصل','faisal','faysal'],
+    'الهرم':['الهرم','haram','el haram','pyramids'],
+    'الدقي':['الدقي','dokki','el dokki'],
+    'المهندسين':['المهندسين','mohandessin','mohandeseen','el mohandessin'],
+    'المعادي':['المعادي','maadi','el maadi'],
+    'الزمالك':['الزمالك','zamalek','el zamalek'],
+    'المنيل':['المنيل','manial','el manial'],
+    'أكتوبر':['اكتوبر','6 october','6th october','october','sixth october'],
+    'التجمع':['التجمع','tagamoa','tagamo3','new cairo','fifth settlement','5th settlement','settlement'],
+    'الرحاب':['الرحاب','rehab','el rehab','al rehab'],
+    'مدينتي':['مدينتي','madinaty','madinty'],
+    'مصر الجديدة':['مصر الجديده','heliopolis','masr el gedida','masr el gededa'],
+    'مدينة نصر':['مدينه نصر','nasr city','madinet nasr'],
+    'العبور':['العبور','obour','el obour','al obour'],
+    'طنطا':['طنطا','tanta'],
+    'المنصورة':['المنصوره','mansoura','mansura'],
+    'بنها':['بنها','banha','benha'],
+    'شبين الكوم':['شبين الكوم','shebin el kom','shibin el kom','shebeen el kom'],
+    'المنوفية':['المنوفيه','monufia','menoufia','monofia'],
+    'مدينة السادات':['مدينه السادات','sadat city','el sadat city'],
+    'إسكندرية':['اسكندريه','الاسكندريه','alexandria','alex'],
+    'رشيد':['رشيد','rosetta','rashid']
+  };
+
+  function candidates(c,s){
+    return [
+      c.customer_region_v327,c.customer_region,
+      s.customer_region_v327,s.customer_region,
+      c.customer_area,c.zone,c.district,c.city,c.region_name,c.region,
+      s.customer_area,s.zone,s.district,s.city,
+      c.address,c.customer_address,s.address,s.customer_address,s.order_address
+    ].map(S).filter(Boolean);
+  }
+
+  window.areaMatchesV339=function(c,s,area){
+    var aliases=(AREA_ALIASES_V339[area]||[area]).map(norm);
+    var vals=candidates(c||{},s||{}).map(norm);
+    return vals.some(function(v){
+      return aliases.some(function(a){
+        if(!a)return false;
+        return v===a || v.indexOf(a)>=0 || a.indexOf(v)>=0;
+      });
+    });
+  };
+
+  /* Override final V338 area-sales resolver with tolerant matching. */
+  window.areaSalesV339=function(totalId,subId,area){
+    var rows=[];
+    try{
+      var g=window.FINAL_GROUPS_V338&&window.FINAL_GROUPS_V338[totalId];
+      if(!g)return [];
+      var rep='';
+      if(subId && Array.isArray(g.subgroups)){
+        var sg=g.subgroups.find(function(x){return x.id===subId});
+        rep=sg&&sg.rep||'';
+      }else{
+        rep=g.rep||'';
+      }
+      var nrep=norm(rep);
+      rows=(typeof companyApprovedSalesV302==='function'?companyApprovedSalesV302():(db.sales||[])).filter(function(s){
+        if(s.approval_status&&s.approval_status!=='approved')return false;
+        try{if(typeof inRangeV189==='function'&&!inRangeV189(s))return false}catch(e){}
+        var rn=S(s.rep_name);
+        if(!rn && s.rep_id){
+          var r=(db.reps||[]).find(function(x){return String(x.id)===String(s.rep_id)});
+          rn=r&&r.name||'';
+        }
+        if(norm(rn)!==nrep)return false;
+        var c=(db.customers||[]).find(function(x){return String(x.id)===String(s.customer_id)})||{};
+        return window.areaMatchesV339(c,s,area);
+      });
+    }catch(e){rows=[]}
+    return rows;
+  };
+
+  /* Rebind V338 detail functions so their area rows use tolerant matcher. */
+  if(typeof window.openSubgroupAreasV338==='function'){
+    var oldSub=window.openSubgroupAreasV338;
+    window.openSubgroupAreasV338=function(totalId,subId){
+      var originalAreaSales = window.areaSalesV338;
+      window.areaSalesV338 = window.areaSalesV339;
+      try{return oldSub.apply(this,arguments)}
+      finally{window.areaSalesV338 = originalAreaSales}
+    };
+  }
+
+  if(typeof window.openDirectAreasV338==='function'){
+    var oldDirect=window.openDirectAreasV338;
+    window.openDirectAreasV338=function(totalId){
+      var originalAreaSales = window.areaSalesV338;
+      window.areaSalesV338 = window.areaSalesV339;
+      try{return oldDirect.apply(this,arguments)}
+      finally{window.areaSalesV338 = originalAreaSales}
+    };
+  }
+
+  if(typeof window.openAreaDetailsV338==='function'){
+    var oldDetail=window.openAreaDetailsV338;
+    window.openAreaDetailsV338=function(totalId,subId,area){
+      var originalAreaSales = window.areaSalesV338;
+      window.areaSalesV338 = window.areaSalesV339;
+      try{return oldDetail.apply(this,arguments)}
+      finally{window.areaSalesV338 = originalAreaSales}
+    };
+  }
+})();
+</script>
+
 <script id="v338-final-area-hierarchy">
 (function(){
   function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
@@ -28532,7 +28655,11 @@ html body .summary-box.v303-auto-clickable:after{
   function areaSales(totalId,subId,area){
     var rows=subId?subgroupSales(totalId,subId):directGroupSales(totalId);
     return rows.filter(function(s){
-      return norm(customerArea(customerForSale(s),s))===norm(area);
+      var c=customerForSale(s);
+      if(typeof window.areaMatchesV339==='function'){
+        return window.areaMatchesV339(c,s,area);
+      }
+      return norm(customerArea(c,s))===norm(area);
     });
   }
 
@@ -28746,6 +28873,109 @@ html body .summary-box.v303-auto-clickable:after{
       return r;
     };
     try{openRepPerformanceV175=window.openRepPerformanceV175}catch(e){}
+  }
+})();
+</script>
+
+
+<style id="v340-area-activity-summary-style">
+.v340-activity-wrap{margin:14px 0 18px}
+.v340-activity-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.v340-activity-card{background:#fff;border:1px solid #dbeafe;border-radius:14px;padding:14px}
+.v340-activity-card h4{margin:0 0 8px}
+.v340-focus-card{border-color:#86efac;background:#f0fdf4}
+.v340-low-card{border-color:#fde68a;background:#fffbeb}
+.v340-area-name{font-size:22px;font-weight:900;margin:6px 0}
+.v340-active-list{background:#fff;border:1px solid #bfdbfe;border-radius:14px;padding:14px}
+.v340-active-list h4{margin:0 0 10px}
+.v340-active-chips{display:flex;gap:7px;flex-wrap:wrap}
+.v340-active-chip{display:inline-flex;gap:5px;align-items:center;padding:6px 9px;border-radius:999px;background:#dcfce7;color:#166534;font-size:11px;font-weight:900}
+.v340-none{color:#64748b;font-weight:700}
+@media(max-width:800px){.v340-activity-grid{grid-template-columns:1fr}}
+</style>
+
+<script id="v340-area-activity-summary-visible">
+(function(){
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S(v){return String(v==null?'':v).trim()}
+  function E(v){return typeof esc==='function'?esc(v):S(v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function M(v){return typeof money==='function'?money(v):N(v).toLocaleString()+' EGP'}
+
+  function buildSummaryFromCards(){
+    var cards=Array.from(document.querySelectorAll('#v335_body .v335-area-card'));
+    var rows=cards.map(function(card){
+      var area=S((card.querySelector('h4')||{}).textContent);
+      var meta=Array.from(card.querySelectorAll('.v335-meta div'));
+      var salesText=meta[0] ? S((meta[0].querySelector('b')||{}).textContent) : '';
+      var qtyText=meta[1] ? S((meta[1].querySelector('b')||{}).textContent) : '';
+      var invText=meta[2] ? S((meta[2].querySelector('b')||{}).textContent) : '';
+      var sales=N(salesText.replace(/[^\d.-]/g,''));
+      var qty=N(qtyText.replace(/[^\d.-]/g,''));
+      var inv=N(invText.replace(/[^\d.-]/g,''));
+      return {area:area,sales:sales,qty:qty,invoices:inv};
+    });
+
+    var active=rows.filter(function(x){return x.sales>0||x.qty>0||x.invoices>0})
+      .sort(function(a,b){return b.sales-a.sales||b.qty-a.qty||b.invoices-a.invoices});
+    var focus=active[0]||null;
+    var low=active.length?active[active.length-1]:null;
+
+    var html='<div class="v340-activity-wrap">'+
+      '<div class="v340-activity-grid">'+
+        '<div class="v340-activity-card v340-focus-card">'+
+          '<h4>الأكثر نشاطًا</h4>'+
+          (focus?'<div class="v340-area-name">'+E(focus.area)+'</div>'+
+            '<div>المبيعات: <b>'+M(focus.sales)+'</b> | الكمية: <b>'+N(focus.qty).toLocaleString()+'</b> | الفواتير: <b>'+N(focus.invoices).toLocaleString()+'</b></div>'
+            :'<div class="v340-none">لا توجد مبيعات مسجلة</div>')+
+        '</div>'+
+        '<div class="v340-activity-card v340-low-card">'+
+          '<h4>الأقل بيعًا بين الأحياء النشطة</h4>'+
+          (low?'<div class="v340-area-name">'+E(low.area)+'</div>'+
+            '<div>المبيعات: <b>'+M(low.sales)+'</b> | الكمية: <b>'+N(low.qty).toLocaleString()+'</b> | الفواتير: <b>'+N(low.invoices).toLocaleString()+'</b></div>'
+            :'<div class="v340-none">لا توجد أحياء نشطة</div>')+
+        '</div>'+
+      '</div>'+
+      '<div class="v340-active-list"><h4>الأحياء النشطة ('+active.length+')</h4>'+
+        '<div class="v340-active-chips">'+
+        (active.length?active.map(function(x){
+          return '<span class="v340-active-chip">'+E(x.area)+' — '+M(x.sales)+'</span>';
+        }).join(''):'<span class="v340-none">لا توجد أحياء نشطة في الفترة المحددة</span>')+
+        '</div></div>'+
+    '</div>';
+    return html;
+  }
+
+  function injectSummary(){
+    var body=document.getElementById('v335_body');
+    if(!body)return;
+    var old=document.getElementById('v340_activity_summary');
+    if(old)old.remove();
+
+    var areaGrid=body.querySelector('.v335-area-grid');
+    if(!areaGrid)return;
+
+    var wrap=document.createElement('div');
+    wrap.id='v340_activity_summary';
+    wrap.innerHTML=buildSummaryFromCards();
+    areaGrid.insertAdjacentElement('beforebegin',wrap);
+  }
+
+  var subBase=window.openSubgroupAreasV338;
+  if(typeof subBase==='function'){
+    window.openSubgroupAreasV338=function(){
+      var r=subBase.apply(this,arguments);
+      setTimeout(injectSummary,0);
+      return r;
+    };
+  }
+
+  var directBase=window.openDirectAreasV338;
+  if(typeof directBase==='function'){
+    window.openDirectAreasV338=function(){
+      var r=directBase.apply(this,arguments);
+      setTimeout(injectSummary,0);
+      return r;
+    };
   }
 })();
 </script>
