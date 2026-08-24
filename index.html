@@ -7757,7 +7757,7 @@ render();
         GROUPS_V189[repId].members.map(normV189).includes(normV189(r.name))
       );
       let target=reps.reduce((sum,r)=>sum+n(r.target_value||r.target||0),0);
-      let achieved=sales.reduce((sum,s)=>sum+n(s.qty),0);
+      let achieved=sales.reduce((sum,s)=>sum+(typeof window.targetSaleQtyV346==='function'?window.targetSaleQtyV346(s):n(s.qty)),0);
       return {label:'الكمية',target,achieved};
     }
 
@@ -7766,7 +7766,7 @@ render();
 
     let mode=rep.target_mode||rep.target_type||'qty';
     let target=n(rep.target_value||rep.target||0);
-    let achieved=mode==='count'?new Set(sales.map(s=>s.invoice_key||s.invoice_number||s.order_id||s.sale_id||s.id)).size:sales.reduce((sum,s)=>sum+n(s.qty),0);
+    let achieved=mode==='count'?new Set(sales.map(s=>s.invoice_key||s.invoice_number||s.order_id||s.sale_id||s.id)).size:sales.reduce((sum,s)=>sum+(typeof window.targetSaleQtyV346==='function'?window.targetSaleQtyV346(s):n(s.qty)),0);
 
     return {label:mode==='count'?'عدد الفواتير':'الكمية',target,achieved};
   }
@@ -7836,21 +7836,21 @@ render();
 
     return `
       <div class="rep-detail-head-v175"><div><h2>${esc(repDisplayV189(repId))}</h2><p>${repReportFilterV189.from||'البداية'} → ${repReportFilterV189.to||'النهاية'}</p></div><button type="button" class="btn blue" onclick="printFilteredRepV189()">طباعة التقرير</button></div>
-      <div class="v302-company-sales-banner v303-clickable" data-v303-drill="company-sales" onclick="window.openRepDrillDirectV304('company-sales');return false;" title="اضغط لعرض التفاصيل">
+      <div class="v302-company-sales-banner v303-clickable" data-v303-drill="company-sales" onclick="window.openRepDrillDirectV304('company-sales');return false;" title="اضغط على الكارت">
         <span>إجمالي مبيعات الشركة كلها خلال المدة</span>
         <strong>${money(companySalesTotal)}</strong>
         <small>يشمل جميع المندوبين — ويتغير تلقائيًا حسب تاريخ من / إلى</small>
       </div>
       <div class="grid grid4 rep-summary-v175">
-        <div class="stat v303-clickable" data-v303-drill="rep-sales" onclick="window.openRepDrillDirectV304('rep-sales');return false;" title="اضغط لعرض التفاصيل"><span>المبيعات خلال المدة</span><strong>${money(salesTotal)}</strong></div>
-        <div class="stat v303-clickable" data-v303-drill="rep-collections" onclick="window.openRepDrillDirectV304('rep-collections');return false;" title="اضغط لعرض التفاصيل"><span>التحصيلات خلال المدة</span><strong>${money(collectionTotal)}</strong></div>
-        <div class="stat v303-clickable" data-v303-drill="rep-remaining" onclick="window.openRepDrillDirectV304('rep-remaining');return false;" title="اضغط لعرض التفاصيل"><span>المتبقي على العملاء</span><strong>${money(remainingTotal)}</strong></div>
-        <div class="stat v303-clickable" data-v303-drill="rep-invoices" onclick="window.openRepDrillDirectV304('rep-invoices');return false;" title="اضغط لعرض التفاصيل"><span>عدد الفواتير</span><strong>${sales.length}</strong></div>
+        <div class="stat v303-clickable" data-v303-drill="rep-sales" onclick="window.openRepDrillDirectV304('rep-sales');return false;" title="اضغط على الكارت"><span>المبيعات خلال المدة</span><strong>${money(salesTotal)}</strong></div>
+        <div class="stat v303-clickable" data-v303-drill="rep-collections" onclick="window.openRepDrillDirectV304('rep-collections');return false;" title="اضغط على الكارت"><span>التحصيلات خلال المدة</span><strong>${money(collectionTotal)}</strong></div>
+        <div class="stat v303-clickable" data-v303-drill="rep-remaining" onclick="window.openRepDrillDirectV304('rep-remaining');return false;" title="اضغط على الكارت"><span>المتبقي على العملاء</span><strong>${money(remainingTotal)}</strong></div>
+        <div class="stat v303-clickable" data-v303-drill="rep-invoices" onclick="window.openRepDrillDirectV304('rep-invoices');return false;" title="اضغط على الكارت"><span>عدد الفواتير</span><strong>${sales.length}</strong></div>
       </div><div class="grid grid4 rep-target-summary-v189">
-        <div class="stat v303-clickable" data-v303-drill="target" onclick="window.openRepDrillDirectV304('target');return false;" title="اضغط لعرض التفاصيل"><span>التارجت (${target.label})</span><strong>${Number(target.target).toLocaleString()}</strong></div>
-        <div class="stat v303-clickable" data-v303-drill="target-achieved" onclick="window.openRepDrillDirectV304('target-achieved');return false;" title="اضغط لعرض التفاصيل"><span>المحقق خلال المدة</span><strong>${Number(target.achieved).toLocaleString()}</strong></div>
-        <div class="stat v303-clickable" data-v303-drill="target-remaining" onclick="window.openRepDrillDirectV304('target-remaining');return false;" title="اضغط لعرض التفاصيل"><span>المتبقي من التارجت</span><strong>${Number(remainingTarget).toLocaleString()}</strong></div>
-        <div class="stat v303-clickable" data-v303-drill="target-percent" onclick="window.openRepDrillDirectV304('target-percent');return false;" title="اضغط لعرض التفاصيل"><span>نسبة التحقيق</span><strong>${percent}%</strong></div>
+        <div class="stat v303-clickable" data-v303-drill="target" onclick="window.openRepDrillDirectV304('target');return false;" title="اضغط على الكارت"><span>التارجت (${target.label})</span><strong>${Number(target.target).toLocaleString()}</strong></div>
+        <div class="stat v303-clickable" data-v303-drill="target-achieved" onclick="window.openRepDrillDirectV304('target-achieved');return false;" title="اضغط على الكارت"><span>المحقق خلال المدة</span><strong>${Number(target.achieved).toLocaleString()}</strong></div>
+        <div class="stat v303-clickable" data-v303-drill="target-remaining" onclick="window.openRepDrillDirectV304('target-remaining');return false;" title="اضغط على الكارت"><span>المتبقي من التارجت</span><strong>${Number(remainingTarget).toLocaleString()}</strong></div>
+        <div class="stat v303-clickable" data-v303-drill="target-percent" onclick="window.openRepDrillDirectV304('target-percent');return false;" title="اضغط على الكارت"><span>نسبة التحقيق</span><strong>${percent}%</strong></div>
       </div>`;
   }
 
@@ -20041,10 +20041,8 @@ setTimeout(patch,700);setTimeout(patch,1400);
   function ESC(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
   function achievedQty(repId){
     return (db.sales||[]).filter(function(s){return String(s.rep_id||'')===String(repId)}).reduce(function(t,s){
+      if(typeof window.targetSaleQtyV346==='function')return t+window.targetSaleQtyV346(s);
       var q=N(s.qty||s.quantity||s.total_qty||s.units||s.count||0);
-      if(!q&&Array.isArray(s.items)){
-        q=s.items.reduce(function(a,it){return a+N(it.qty||it.quantity||it.units||it.count||0)},0);
-      }
       return t+q;
     },0);
   }
@@ -21934,7 +21932,7 @@ html body .summary-box.v303-auto-clickable:hover{
 .v303-clickable:after,
 html body .stat.v303-auto-clickable:after,
 html body .summary-box.v303-auto-clickable:after{
-  content:"عرض التفاصيل ↗";
+  content:"";display:none;
   position:absolute;left:12px;bottom:8px;
   font-size:10px;font-weight:900;color:#0f766e;opacity:.72;
 }
@@ -22059,7 +22057,15 @@ html body .summary-box.v303-auto-clickable:after{
     }
 
     var repId=currentRepIdV303();
-    if(!repId)return alert('اختر المندوب أو المجموعة أولًا');
+    if(!repId){
+      var activeCardV303=document.querySelector('#rep_performance_modal_v175 .rep-card-v175.active[data-rep-id]');
+      if(activeCardV303)repId=activeCardV303.getAttribute('data-rep-id')||'';
+    }
+    if(!repId){
+      var selectV303=document.getElementById('rep_report_rep_v189');
+      if(selectV303)repId=selectV303.value||'';
+    }
+    if(!repId)return;
     var repName=typeof repDisplayV189==='function'?repDisplayV189(repId):repId;
     var sales=typeof salesRowsV189==='function'?salesRowsV189(repId):[];
     var cols=typeof collectionRowsV189==='function'?collectionRowsV189(repId):[];
@@ -22259,7 +22265,20 @@ html body .summary-box.v303-auto-clickable:after{
 
       var repId='';
       try{repId=repReportFilterV189&&repReportFilterV189.repId||''}catch(e){}
-      if(!repId)return alert('اختر المندوب أو المجموعة أولًا');
+      if(!repId){
+        var activeCardV304=document.querySelector('#rep_performance_modal_v175 .rep-card-v175.active[data-rep-id]');
+        if(activeCardV304)repId=activeCardV304.getAttribute('data-rep-id')||'';
+      }
+      if(!repId){
+        var selectV304=document.getElementById('rep_report_rep_v189');
+        if(selectV304)repId=selectV304.value||'';
+      }
+      if(repId){
+        try{
+          if(typeof repReportFilterV189!=='undefined'&&repReportFilterV189)repReportFilterV189.repId=repId;
+        }catch(e){}
+      }
+      if(!repId)return;
 
       var repName=repId, sales=[], cols=[];
       try{if(typeof repDisplayV189==='function')repName=repDisplayV189(repId)}catch(e){}
@@ -25138,7 +25157,7 @@ html body .summary-box.v303-auto-clickable:after{
     rows.forEach(function(s){
       var rn=regionName(s);
       if(!map.has(rn))map.set(rn,{name:rn,qty:0,sales:0,invoices:new Set()});
-      var x=map.get(rn);x.qty+=N(s.qty);x.sales+=N(s.total);
+      var x=map.get(rn);x.qty+=(typeof window.targetSaleQtyV346==='function'?window.targetSaleQtyV346(s):N(s.qty));x.sales+=N(s.total);
       x.invoices.add(S(s.invoice_no||s.invoice_group_id||s.order_id||s.id));
     });
     return Array.from(map.values()).map(function(x){
@@ -25891,6 +25910,123 @@ html body .summary-box.v303-auto-clickable:after{
 </script>
 
 
+
+<script id="v346-company-target-regions-sale-qty">
+(function(){
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S(v){return String(v==null?'':v).trim()}
+  function E(v){return typeof esc==='function'?esc(v):S(v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function M(v){return typeof money==='function'?money(v):N(v).toLocaleString()+' EGP'}
+
+  function originalRow(row){
+    if(!row)return {};
+    if(row.sale_id){
+      var s=(db.sales||[]).find(function(x){return String(x.id)===String(row.sale_id)});
+      if(s)return s;
+    }
+    return row;
+  }
+
+  window.isTargetSaleRowV346=function(row){
+    var r=originalRow(row);
+    var raw=S(r.order_type_label||r.order_type||r.sale_type||r.type||r.kind||'sale').toLowerCase();
+    if(raw.indexOf('bonus')>=0||raw.indexOf('بونص')>=0)return false;
+    if(raw.indexOf('sample')>=0||raw.indexOf('free')>=0||raw.indexOf('display')>=0||
+       raw.indexOf('عين')>=0||raw.indexOf('عرض')>=0)return false;
+    return true;
+  };
+
+  window.targetSaleQtyV346=function(row){
+    if(!window.isTargetSaleRowV346(row))return 0;
+    return N(row&&(row.qty!=null?row.qty:(row.allocated_qty!=null?row.allocated_qty:
+      (row.quantity!=null?row.quantity:(row.total_qty!=null?row.total_qty:row.units)))));
+  };
+
+  window.repQtyTargetV346=function(rep){
+    return N(rep&&(rep.target_qty!=null?rep.target_qty:
+      (rep.target_value!=null?rep.target_value:
+      (rep.target!=null?rep.target:rep.sales_target))));
+  };
+
+  window.companyQtyTargetV346=function(){
+    return (db.reps||[]).reduce(function(sum,r){return sum+window.repQtyTargetV346(r)},0);
+  };
+
+  function approvedSales(){
+    try{if(typeof companyApprovedSalesV302==='function')return companyApprovedSalesV302()||[]}catch(e){}
+    return (db.sales||[]).filter(function(s){return !s.approval_status||s.approval_status==='approved'});
+  }
+
+  function customerForSale(s){
+    return (db.customers||[]).find(function(c){return String(c.id)===String(s.customer_id)})||{};
+  }
+
+  function regionName(s){
+    var c=customerForSale(s);
+    var direct=S(c.customer_region_v327||c.customer_region||s.customer_region_v327||s.customer_region);
+    if(direct)return direct;
+    try{if(typeof window.regionNameVerifiedV307==='function')return S(window.regionNameVerifiedV307(s))||'غير محدد'}catch(e){}
+    return S(c.region_name||c.region||c.area||s.region_name||s.region||s.area)||'غير محدد';
+  }
+
+  window.companyTopRegionsV346=function(){
+    var map=new Map();
+    approvedSales().forEach(function(s){
+      var name=regionName(s);
+      if(!name||name==='غير محدد')return;
+      if(!map.has(name))map.set(name,{name:name,sales:0,qty:0,invoices:new Set()});
+      var x=map.get(name);
+      x.sales+=N(s.total);
+      x.qty+=window.targetSaleQtyV346(s); // sale quantity only; bonus/free excluded
+      x.invoices.add(S(s.invoice_no||s.invoice_number||s.invoice_group_id||s.order_id||s.id));
+    });
+    return Array.from(map.values()).map(function(x){
+      x.invoiceCount=x.invoices.size;
+      return x;
+    }).sort(function(a,b){return b.sales-a.sales||b.qty-a.qty});
+  };
+
+  window.companyTopRegionsHtmlV346=function(){
+    var rows=window.companyTopRegionsV346();
+    if(!rows.length){
+      return '<div class="card v346-top-regions"><h3>المناطق الأكثر مبيعًا</h3><div class="empty">لا توجد مبيعات موزعة على مناطق في الفترة المحددة.</div></div>';
+    }
+    var top=rows.slice(0,Math.min(10,rows.length));
+    return '<div class="card v346-top-regions">'+
+      '<div class="section-title"><div><h3>المناطق الأكثر مبيعًا</h3>'+
+      '<div class="hint">الترتيب حسب قيمة المبيعات من الأعلى إلى الأقل. الكمية هنا كمية البيع فقط بدون البونص.</div></div></div>'+
+      '<div class="v346-region-grid">'+top.slice(0,3).map(function(r,i){
+        return '<div class="v346-region-card"><span>#'+(i+1)+'</span><h4>'+E(r.name)+'</h4>'+
+          '<strong>'+M(r.sales)+'</strong><small>الكمية: '+N(r.qty).toLocaleString()+' | الفواتير: '+r.invoiceCount+'</small></div>';
+      }).join('')+'</div>'+
+      '<div class="v346-table"><table><tr><th>الترتيب</th><th>المنطقة</th><th>قيمة المبيعات</th><th>كمية البيع</th><th>عدد الفواتير</th></tr>'+
+      top.map(function(r,i){
+        return '<tr><td>'+(i+1)+'</td><td><b>'+E(r.name)+'</b></td><td>'+M(r.sales)+'</td>'+
+          '<td>'+N(r.qty).toLocaleString()+'</td><td>'+r.invoiceCount+'</td></tr>';
+      }).join('')+'</table></div></div>';
+  };
+
+  /* Final company analytics append: top-selling regions. */
+  var companyBaseV346=window.companySalesAnalyticsHtmlV306;
+  if(typeof companyBaseV346==='function'){
+    window.companySalesAnalyticsHtmlV306=function(){
+      var html=companyBaseV346.apply(this,arguments);
+      return html+window.companyTopRegionsHtmlV346();
+    };
+  }
+})();
+</script>
+
+<style id="v346-company-target-regions-sale-qty-style">
+.v346-top-regions{margin-top:16px}
+.v346-region-grid{display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:10px;margin:12px 0}
+.v346-region-card{border:1px solid #dbeafe;border-radius:14px;background:#fff;padding:12px}
+.v346-region-card>span{display:inline-flex;padding:3px 7px;border-radius:999px;background:#eff6ff;color:#1d4ed8;font-size:10px;font-weight:900}
+.v346-region-card h4{margin:7px 0 4px}.v346-region-card strong{display:block;font-size:20px}.v346-region-card small{display:block;margin-top:5px;color:#64748b}
+.v346-table{overflow:auto}.v346-table table{min-width:760px!important}
+@media(max-width:800px){.v346-region-grid{grid-template-columns:1fr}}
+</style>
+
 <style id="v325-money-targets-inventory-qty-style">
 .v325-money-target-box{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;margin-top:8px}
 .v325-money-target-box label{display:grid;gap:5px;font-size:11px;font-weight:800;color:#475569}
@@ -25965,11 +26101,13 @@ html body .summary-box.v303-auto-clickable:after{
   };
 
   window.companyTargetSummaryV325=function(){
-    var stockQty=currentStockQty();
+    var qtyTarget=(typeof window.companyQtyTargetV346==='function')
+      ?window.companyQtyTargetV346()
+      :(db.reps||[]).reduce(function(sum,r){return sum+N(r.target_qty!=null?r.target_qty:(r.target_value!=null?r.target_value:(r.target!=null?r.target:r.sales_target)))},0);
     var salesValue=companySalesValue();
     var moneyTarget=companyMoneyTarget();
     return {
-      quantityTarget:stockQty,
+      quantityTarget:qtyTarget,
       companySalesValue:salesValue,
       moneyTarget:moneyTarget,
       moneyPct:moneyTarget>0?salesValue/moneyTarget*100:0
@@ -26035,13 +26173,13 @@ html body .summary-box.v303-auto-clickable:after{
   function companyTargetBlock(){
     var c=window.companyTargetSummaryV325();
     return '<div class="v325-company-target-grid">'+
-      '<div class="stat"><span>تارجت الشركة بالكمية</span><strong>'+N(c.quantityTarget).toLocaleString()+' وحدة</strong><small>من المخزون الفعلي الحالي</small></div>'+
+      '<div class="stat"><span>تارجت الشركة بالكمية</span><strong>'+N(c.quantityTarget).toLocaleString()+' وحدة</strong><small>مجموع تارجت المناديب بالكمية</small></div>'+
       '<div class="stat"><span>المبيعات المحققة بالقيمة</span><strong>'+M(c.companySalesValue)+'</strong></div>'+
       '<div class="stat v325-editable"><span>تارجت الشركة بالفلوس</span><strong>'+M(c.moneyTarget)+'</strong>'+
         '<div class="v325-target-input-row"><input type="number" min="0" step="1" value="'+c.moneyTarget+'" id="v325_company_money_target">'+
         '<button class="btn small ok" onclick="setCompanyMoneyTargetV325(document.getElementById(\'v325_company_money_target\').value)">حفظ</button></div></div>'+
       '<div class="stat"><span>نسبة تحقيق التارجت المالي</span><strong>'+c.moneyPct.toFixed(1)+'%</strong></div>'+
-      '<div class="stat"><span>مصدر Quantity Target</span><strong>Current Stock</strong><small>يتغير مع الإضافة والخصم</small></div>'+
+      '<div class="stat"><span>مصدر Quantity Target</span><strong>Rep Targets Sum</strong><small>مجموع تارجت كل المناديب</small></div>'+
       '<div class="stat"><span>عدد LOTs النشطة</span><strong>'+((db.inventory_lots||[]).filter(function(l){return N(l.qty)>0}).length)+'</strong></div>'+
     '</div>';
   }
@@ -26148,7 +26286,9 @@ html body .summary-box.v303-auto-clickable:after{
   }
   function summary(){
     var sales=approvedSales(),lots=activeLots();
-    var qty=lots.reduce(function(a,l){return a+N(l.qty)},0);
+    var qty=(typeof window.companyQtyTargetV346==='function')
+      ?window.companyQtyTargetV346()
+      :(db.reps||[]).reduce(function(a,r){return a+N(r.target_qty!=null?r.target_qty:(r.target_value!=null?r.target_value:(r.target!=null?r.target:r.sales_target)))},0);
     var value=sales.reduce(function(a,s){return a+N(s.total)},0);
     var target=0;
     try{target=N(db.money_targets_v325&&db.money_targets_v325.company)}catch(e){}
@@ -26200,9 +26340,10 @@ html body .summary-box.v303-auto-clickable:after{
     var x=summary(),title='',sub='',html='';
     if(kind==='qty'){
       title='تارجت الشركة بالكمية';
-      sub='المخزون الفعلي الحالي — يتغير تلقائيًا مع الإضافة والخصم';
-      html='<div class="v326-summary"><div class="stat"><span>إجمالي الكمية الحالية</span><strong>'+N(x.qty).toLocaleString()+' وحدة</strong></div>'+
-        '<div class="stat"><span>عدد LOTs النشطة</span><strong>'+x.lots.length+'</strong></div></div>'+stockTable(x);
+      sub='مجموع تارجت كل المناديب بالكمية';
+      html='<div class="v326-summary"><div class="stat"><span>إجمالي تارجت المناديب</span><strong>'+N(x.qty).toLocaleString()+' وحدة</strong></div>'+
+        '<div class="stat"><span>عدد المناديب</span><strong>'+((db.reps||[]).length)+'</strong></div></div>'+
+        (typeof window.repTargetTable==='function'?'<div class="v326-table">'+window.repTargetTable()+'</div>':'');
     }else if(kind==='sales'){
       title='المبيعات المحققة بالقيمة';
       sub='تفاصيل المبيعات المعتمدة المستخدمة في حساب التحقيق';
@@ -26240,13 +26381,13 @@ html body .summary-box.v303-auto-clickable:after{
       var html=companyBaseV326.apply(this,arguments);
       var x=summary();
       var block='<div class="v325-company-target-grid">'+
-        '<div class="stat v326-clickable" onclick="openCompanyCardDetailV326(\'qty\',event)"><span>تارجت الشركة بالكمية</span><strong>'+N(x.qty).toLocaleString()+' وحدة</strong><small>من المخزون الفعلي الحالي</small></div>'+
+        '<div class="stat v326-clickable" onclick="openCompanyCardDetailV326(\'qty\',event)"><span>تارجت الشركة بالكمية</span><strong>'+N(x.qty).toLocaleString()+' وحدة</strong><small>مجموع تارجت المناديب</small></div>'+
         '<div class="stat v326-clickable" onclick="openCompanyCardDetailV326(\'sales\',event)"><span>المبيعات المحققة بالقيمة</span><strong>'+M(x.value)+'</strong></div>'+
         '<div class="stat v325-editable v326-clickable" onclick="openCompanyCardDetailV326(\'money-target\',event)"><span>تارجت الشركة بالفلوس</span><strong>'+M(x.target)+'</strong>'+
           '<div class="v325-target-input-row" onclick="event.stopPropagation()"><input type="number" min="0" step="1" value="'+x.target+'" id="v325_company_money_target">'+
           '<button class="btn small ok" onclick="event.stopPropagation();setCompanyMoneyTargetV325(document.getElementById(\'v325_company_money_target\').value)">حفظ</button></div></div>'+
         '<div class="stat v326-clickable" onclick="openCompanyCardDetailV326(\'money-pct\',event)"><span>نسبة تحقيق التارجت المالي</span><strong>'+x.pct.toFixed(1)+'%</strong></div>'+
-        '<div class="stat v326-clickable" onclick="openCompanyCardDetailV326(\'stock-source\',event)"><span>مصدر Quantity Target</span><strong>Current Stock</strong><small>يتغير مع الإضافة والخصم</small></div>'+
+        '<div class="stat v326-clickable" onclick="openCompanyCardDetailV326(\'qty\',event)"><span>مصدر Quantity Target</span><strong>Rep Targets Sum</strong><small>مجموع تارجت كل المناديب</small></div>'+
         '<div class="stat v326-clickable" onclick="openCompanyCardDetailV326(\'lots\',event)"><span>عدد LOTs النشطة</span><strong>'+x.lots.length+'</strong></div>'+
       '</div>';
 
@@ -28344,7 +28485,7 @@ html body .summary-box.v303-auto-clickable:after{
     return '<div class="v335-root">'+
       '<div class="v302-company-sales-banner v303-clickable" data-v303-drill="company-sales" '+
         'onclick="window.openRepDrillDirectV304(\'company-sales\');return false;" '+
-        'title="اضغط لعرض التفاصيل">'+
+        'title="اضغط على الكارت">'+
         '<span>إجمالي مبيعات الشركة كلها خلال المدة</span>'+
         '<strong>'+companyMoney+'</strong>'+
         '<small>يشمل جميع المندوبين — ويتغير تلقائيًا حسب تاريخ من / إلى</small>'+
@@ -28612,7 +28753,7 @@ html body .summary-box.v303-auto-clickable:after{
       }
     }catch(e){}
     return '<div class="v302-company-sales-banner v303-clickable" data-v303-drill="company-sales" '+
-      'onclick="window.openRepDrillDirectV304(\'company-sales\');return false;" title="اضغط لعرض التفاصيل">'+
+      'onclick="window.openRepDrillDirectV304(\'company-sales\');return false;" title="اضغط على الكارت">'+
       '<span>إجمالي مبيعات الشركة كلها خلال المدة</span><strong>'+M(total)+'</strong>'+
       '<small>يشمل جميع المندوبين — ويتغير تلقائيًا حسب تاريخ من / إلى</small></div>';
   }
@@ -29150,4 +29291,14 @@ html body .summary-box.v303-auto-clickable:after{
 
 <style id="v344-single-active-lowest-fix-style">
 .v335-summary .stat strong{overflow-wrap:anywhere}
+</style>
+
+
+<style id="v345-hide-old-details-pseudo-labels">
+#rep_performance_modal_v175 .v303-clickable:after,
+#rep_performance_modal_v175 .stat.v303-auto-clickable:after,
+#rep_performance_modal_v175 .summary-box.v303-auto-clickable:after{
+  content:""!important;
+  display:none!important;
+}
 </style>
