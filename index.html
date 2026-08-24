@@ -26318,3 +26318,631 @@ html body .summary-box.v303-auto-clickable:after{
   document.addEventListener('keydown',function(e){if(e.key==='Escape')window.closeCompanyCardDetailV326()});
 })();
 </script>
+
+<style id="v327-customer-region-invoice-style">
+#view-customers .wide-customer-table table{min-width:1580px!important}
+.v327-region-input{min-width:150px!important}
+</style>
+
+<script id="v327-customer-region-invoice">
+(function(){
+  function S(v){return String(v==null?'':v).trim()}
+  function E(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function saveDb(){try{if(typeof save==='function')save()}catch(e){}}
+
+  function customerRegion(c){
+    return S(c&&(c.customer_region_v327||c.customer_region||c.region_name||c.region||''));
+  }
+  window.customerRegionV327=customerRegion;
+
+  /* =========================
+     Customer master: new field
+     ========================= */
+  var formBaseV327=window.customerFormV46 || (typeof customerFormV46==='function'?customerFormV46:null);
+  if(typeof formBaseV327==='function'){
+    window.customerFormV46=function(){
+      var html=formBaseV327.apply(this,arguments);
+      if(html.indexOf('customers_customer_region_v327')>=0)return html;
+
+      var field='<div><label>منطقة العميل / Customer Region</label><input id="customers_customer_region_v327" placeholder="مثال: West 1"></div>';
+      html=html.replace(
+        '<div><label>'+T('address')+'</label><input id="customers_address"></div>',
+        '<div><label>'+T('address')+'</label><input id="customers_address"></div>'+field
+      );
+      return html;
+    };
+    try{customerFormV46=window.customerFormV46}catch(e){}
+  }
+
+  var addSimpleBaseV327=window.addSimple || (typeof addSimple==='function'?addSimple:null);
+  if(typeof addSimpleBaseV327==='function'){
+    window.addSimple=function(table){
+      if(table!=='customers')return addSimpleBaseV327.apply(this,arguments);
+
+      var before=new Set((db.customers||[]).map(function(c){return String(c.id)}));
+      var region=S((document.getElementById('customers_customer_region_v327')||{}).value);
+      var result=addSimpleBaseV327.apply(this,arguments);
+      var created=(db.customers||[]).find(function(c){return !before.has(String(c.id))});
+      if(created){
+        created.customer_region_v327=region;
+        created.customer_region=region;
+        created.region_name=region;
+        saveDb();
+      }
+      return result;
+    };
+    try{addSimple=window.addSimple}catch(e){}
+  }
+
+  window.updateCustomerRegionV327=function(id,value){
+    var c=(db.customers||[]).find(function(x){return String(x.id)===String(id)});
+    if(!c)return;
+    var v=S(value);
+    c.customer_region_v327=v;
+    c.customer_region=v;
+    c.region_name=v;
+    saveDb();
+  };
+
+  /* Customer list: add an editable Customer Region column. */
+  var rowBaseV327=window.customerEditRowV46 || (typeof customerEditRowV46==='function'?customerEditRowV46:null);
+  if(typeof rowBaseV327==='function'){
+    window.customerEditRowV46=function(c){
+      var html=rowBaseV327.apply(this,arguments);
+      if(html.indexOf('updateCustomerRegionV327')>=0)return html;
+
+      var cell='<td><input class="v327-region-input" value="'+E(customerRegion(c))+'" onchange="updateCustomerRegionV327(\''+E(c.id)+'\',this.value)"></td>';
+
+      /* Insert the new region immediately before Address. Existing row order:
+         official name, clinic, type, phone, area, address, ... */
+      var tds=html.match(/<td[\s\S]*?<\/td>/g);
+      if(tds&&tds.length>=6){
+        var target=tds[5];
+        html=html.replace(target,cell+target);
+      }
+      return html;
+    };
+    try{customerEditRowV46=window.customerEditRowV46}catch(e){}
+  }
+
+  var tableBaseV327=window.customersTableV46 || (typeof customersTableV46==='function'?customersTableV46:null);
+  if(typeof tableBaseV327==='function'){
+    window.customersTableV46=function(){
+      var html=tableBaseV327.apply(this,arguments);
+      if(html.indexOf('منطقة العميل / Customer Region')>=0)return html;
+
+      /* Insert header before Address. */
+      var addressHeader='<th>'+T('address')+'</th>';
+      if(html.indexOf(addressHeader)>=0){
+        html=html.replace(addressHeader,'<th>منطقة العميل / Customer Region</th>'+addressHeader);
+      }
+      return html;
+    };
+    try{customersTableV46=window.customersTableV46}catch(e){}
+  }
+
+  /* =========================
+     Invoice values
+     COMPANY Name = clinic
+     Customer's Name = official customer name
+     Address = address
+     City = Customer Region
+     ========================= */
+  var docBaseV327=window.saleDocumentHTML || (typeof saleDocumentHTML==='function'?saleDocumentHTML:null);
+  if(typeof docBaseV327==='function'){
+    window.saleDocumentHTML=function(s,type){
+      var html=docBaseV327.apply(this,arguments);
+      if(type!=='invoice')return html;
+
+      var c=(db.customers||[]).find(function(x){return String(x.id)===String(s.customer_id)})||{};
+      var official=S(c.customer_name||s.customer_name||'-');
+      var clinic=S(s.clinic_name||s.order_clinic_name||c.clinic_name||c.name||'-');
+      var address=S(s.address||s.order_address||s.customer_address||c.address||c.customer_address||'-');
+      var city=customerRegion(c)||'-';
+
+      /* Exact proforma labels used by the current invoice template. */
+      html=html.replace(
+        /(COMPANY\s*Name\s*:\s*<\/[^>]+>\s*<[^>]+>)([\s\S]*?)(<\/[^>]+>)/i,
+        function(all,a,old,b){return a+E(clinic)+b}
+      );
+      html=html.replace(
+        /(Customer(?:’|')s\s*Name\s*:\s*<\/[^>]+>\s*<[^>]+>)([\s\S]*?)(<\/[^>]+>)/i,
+        function(all,a,old,b){return a+E(official)+b}
+      );
+      html=html.replace(
+        /(Address\s*line\s*:\s*<\/[^>]+>\s*<[^>]+>)([\s\S]*?)(<\/[^>]+>)/i,
+        function(all,a,old,b){return a+E(address)+b}
+      );
+      html=html.replace(
+        /(City\s*:\s*<\/[^>]+>\s*<[^>]+>)([\s\S]*?)(<\/[^>]+>)/i,
+        function(all,a,old,b){return a+E(city)+b}
+      );
+
+      /* Fallback for common row-based label/value templates. */
+      html=html.replace(/(<span[^>]*>\s*Customer(?:’|')s Name\s*:?\s*<\/span>\s*<b[^>]*>)[\s\S]*?(<\/b>)/i,'$1'+E(official)+'$2');
+      html=html.replace(/(<span[^>]*>\s*COMPANY Name\s*:?\s*<\/span>\s*<b[^>]*>)[\s\S]*?(<\/b>)/i,'$1'+E(clinic)+'$2');
+      html=html.replace(/(<span[^>]*>\s*Address line\s*:?\s*<\/span>\s*<b[^>]*>)[\s\S]*?(<\/b>)/i,'$1'+E(address)+'$2');
+      html=html.replace(/(<span[^>]*>\s*City\s*:?\s*<\/span>\s*<b[^>]*>)[\s\S]*?(<\/b>)/i,'$1'+E(city)+'$2');
+
+      return html;
+    };
+    try{saleDocumentHTML=window.saleDocumentHTML}catch(e){}
+  }
+
+  /* Refresh customers screen when open. */
+  try{
+    var view=document.getElementById('view-customers');
+    if(view&&!view.classList.contains('hidden')&&typeof renderCustomers==='function')setTimeout(renderCustomers,120);
+  }catch(e){}
+})();
+</script>
+
+
+<style id="v328-inventory-cost-allocation-fixed-style">
+#daily_expense_cost_card_v322{display:none!important}
+.v328-grid{display:grid;grid-template-columns:repeat(6,minmax(150px,1fr));gap:10px;margin:12px 0}
+.v328-grid .stat{background:#fff!important;border:1px solid #dbeafe!important}
+.v328-controls{display:grid;grid-template-columns:minmax(180px,260px) auto 1fr;gap:10px;align-items:end;margin:12px 0}
+.v328-controls label{display:grid;gap:5px;font-weight:800}
+.v328-table{overflow:auto}
+.v328-table table{min-width:1350px!important}
+.v328-status{padding:10px 12px;border-radius:10px;background:#eff6ff;color:#1e3a8a;font-size:12px;line-height:1.7}
+.v328-warn{background:#fff7ed;color:#9a3412;border:1px solid #fed7aa}
+@media(max-width:900px){.v328-grid{grid-template-columns:1fr 1fr}.v328-controls{grid-template-columns:1fr}}
+</style>
+
+<script id="v328-inventory-cost-allocation-fixed">
+(function(){
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S(v){return String(v==null?'':v).trim()}
+  function E(v){return typeof esc==='function'?esc(v):S(v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function M(v){return typeof money==='function'?money(v):N(v).toLocaleString()+' EGP'}
+  function day(){return typeof today==='function'?today():new Date().toISOString().slice(0,10)}
+  function saveRaw(){
+    try{
+      var base=window.save;
+      if(typeof base==='function')base();
+      else if(typeof save==='function')save();
+    }catch(e){}
+  }
+  function ensure(){
+    if(!Array.isArray(db.general_admin_expenses_v287))db.general_admin_expenses_v287=[];
+    if(!Array.isArray(db.marketing_expenses_v287))db.marketing_expenses_v287=[];
+    if(!Array.isArray(db.inventory_lots))db.inventory_lots=[];
+    if(!Array.isArray(db.products))db.products=[];
+    if(!Array.isArray(db.daily_inventory_expense_allocations_v328))db.daily_inventory_expense_allocations_v328=[];
+  }
+
+  function expAmount(r){
+    if(r==null)return 0;
+    if(r.egp_value!=null)return N(r.egp_value);
+    if(r.amount_egp!=null)return N(r.amount_egp);
+    return N(r.amount);
+  }
+
+  window.dailyExpenseTotalsV328=function(date){
+    ensure();
+    var general=db.general_admin_expenses_v287
+      .filter(function(r){return S(r.date).slice(0,10)===date})
+      .reduce(function(a,r){return a+expAmount(r)},0);
+    var marketing=db.marketing_expenses_v287
+      .filter(function(r){return S(r.date).slice(0,10)===date})
+      .reduce(function(a,r){return a+expAmount(r)},0);
+    return {general:general,marketing:marketing,total:general+marketing};
+  };
+
+  function positiveLots(){
+    ensure();
+    return db.inventory_lots.filter(function(l){return N(l.qty)>0});
+  }
+
+  /* inventory_lots is the source of truth. If older data has no active LOTs,
+     fall back to product stock so the calculation never stays at zero incorrectly. */
+  function stockSnapshot(){
+    var lots=positiveLots();
+    if(lots.length){
+      return {
+        source:'LOT',
+        qty:lots.reduce(function(a,l){return a+N(l.qty)},0),
+        lines:lots.map(function(l){
+          return {
+            lot_id:S(l.id),product_id:S(l.product_id),
+            product_name:S(l.product_name),
+            lot_number:S(l.lot_number||l.lot||l.batch),
+            qty:N(l.qty)
+          };
+        })
+      };
+    }
+    var products=(db.products||[]).filter(function(p){return N(p.stock)>0});
+    return {
+      source:'PRODUCT',
+      qty:products.reduce(function(a,p){return a+N(p.stock)},0),
+      lines:products.map(function(p){
+        return {
+          lot_id:'',product_id:S(p.id),
+          product_name:S(p.name||p.product_name),
+          lot_number:S(p.lot_number||p.lot||p.batch||''),
+          qty:N(p.stock)
+        };
+      })
+    };
+  }
+
+  window.recalculateInventoryExpenseV328=function(date,persist){
+    ensure();
+    date=date||day();
+    var exp=window.dailyExpenseTotalsV328(date);
+    var stock=stockSnapshot();
+    var perUnit=stock.qty>0?exp.total/stock.qty:0;
+
+    var rec={
+      id:'v328_'+date,
+      date:date,
+      general_admin_expense:exp.general,
+      marketing_expense:exp.marketing,
+      total_expense:exp.total,
+      closing_stock_qty:stock.qty,
+      stock_source:stock.source,
+      expense_per_unit:perUnit,
+      calculated_at:new Date().toISOString(),
+      lines:stock.lines.map(function(x){
+        return {
+          lot_id:x.lot_id,product_id:x.product_id,
+          product_name:x.product_name,lot_number:x.lot_number,
+          closing_qty:x.qty,
+          expense_per_unit:perUnit,
+          allocated_amount:x.qty*perUnit
+        };
+      })
+    };
+
+    var idx=db.daily_inventory_expense_allocations_v328.findIndex(function(x){return x.date===date});
+    if(idx>=0)db.daily_inventory_expense_allocations_v328[idx]=rec;
+    else db.daily_inventory_expense_allocations_v328.push(rec);
+
+    if(persist!==false)saveRaw();
+    return rec;
+  };
+
+  function productFor(lot){
+    return (db.products||[]).find(function(p){return String(p.id)===String(lot.product_id)})||{};
+  }
+  function baseCost(lot,p){
+    var x=N(lot.unit_cost||lot.purchase_cost||lot.cost||lot.purchase_price);
+    if(x>0)return x;
+    return N(p.purchase||p.purchase_price||p.cost);
+  }
+  function lotAge(lot){
+    var d=new Date(lot.received_date||lot.purchase_date||lot.entry_date||lot.created_at||lot.date||'');
+    if(isNaN(d.getTime()))return 0;
+    return Math.max(0,Math.floor((Date.now()-d.getTime())/86400000));
+  }
+  function slowRate(days){
+    try{
+      if(typeof window.inventoryAgingRuleV318==='function')return N(window.inventoryAgingRuleV318(days).rate);
+    }catch(e){}
+    if(days<=120)return 0;if(days<=150)return 2;if(days<=180)return 5;if(days<=210)return 8;return 12;
+  }
+
+  window.accumulatedExpensePerUnitV328=function(lot){
+    ensure();
+    var lid=S(lot&&lot.id),pid=S(lot&&lot.product_id),lotNo=S(lot&&(lot.lot_number||lot.lot||lot.batch)).toLowerCase();
+    return db.daily_inventory_expense_allocations_v328.reduce(function(sum,rec){
+      var line=(rec.lines||[]).find(function(x){
+        if(lid&&S(x.lot_id)===lid)return true;
+        if(pid&&S(x.product_id)===pid){
+          if(!lotNo)return true;
+          return S(x.lot_number).toLowerCase()===lotNo;
+        }
+        return false;
+      });
+      return sum+(line?N(line.expense_per_unit):0);
+    },0);
+  };
+
+  window.inventoryAdjustedCostRowsV328=function(){
+    ensure();
+    var lots=positiveLots();
+    if(!lots.length){
+      return (db.products||[]).filter(function(p){return N(p.stock)>0}).map(function(p){
+        var synthetic={id:'',product_id:p.id,product_name:p.name||'',lot_number:p.lot_number||p.lot||'',qty:N(p.stock),created_at:p.created_at||''};
+        var base=baseCost(synthetic,p),days=lotAge(synthetic),rate=slowRate(days),slow=base*rate/100;
+        var daily=window.accumulatedExpensePerUnitV328(synthetic);
+        return {lot:synthetic,product:p,product_name:p.name||'',lot_number:synthetic.lot_number,qty:N(p.stock),days:days,base:base,daily:daily,rate:rate,slow:slow,final:base+daily+slow};
+      });
+    }
+
+    return lots.map(function(lot){
+      var p=productFor(lot),base=baseCost(lot,p),days=lotAge(lot),rate=slowRate(days);
+      var slow=base*rate/100,daily=window.accumulatedExpensePerUnitV328(lot);
+      return {
+        lot:lot,product:p,product_name:S(lot.product_name||p.name||p.product_name),
+        lot_number:S(lot.lot_number||lot.lot||lot.batch),
+        qty:N(lot.qty),days:days,base:base,daily:daily,rate:rate,slow:slow,
+        final:base+daily+slow
+      };
+    });
+  };
+
+  function selectedDate(){
+    var e=document.getElementById('v328_calc_date');
+    return e&&e.value?e.value:day();
+  }
+
+  function report(date){
+    date=date||day();
+    var rec=window.recalculateInventoryExpenseV328(date,false);
+    var rows=window.inventoryAdjustedCostRowsV328();
+    var finalValue=rows.reduce(function(a,r){return a+r.final*r.qty},0);
+    var allocated=rec.expense_per_unit*rec.closing_stock_qty;
+    var status='';
+    if(rec.total_expense<=0){
+      status='<div class="v328-status v328-warn">لا توجد مصروفات تسويق أو مصروفات إدارية وعمومية مسجلة بتاريخ <b>'+E(date)+'</b>، لذلك تحميل اليوم = 0. أضف مصروفًا بنفس التاريخ أو اختر تاريخ المصروف من الأعلى.</div>';
+    }else if(rec.closing_stock_qty<=0){
+      status='<div class="v328-status v328-warn">يوجد مصروفات، لكن كمية المخزون المستخدمة في الحساب = 0. راجع كميات الـLOTs / المخزون.</div>';
+    }else{
+      status='<div class="v328-status">تم الحساب فعليًا: <b>'+M(rec.total_expense)+'</b> ÷ <b>'+N(rec.closing_stock_qty).toLocaleString()+' وحدة</b> = <b>'+M(rec.expense_per_unit)+'</b> تحميل على كل وحدة.</div>';
+    }
+
+    return '<div class="v328-controls">'+
+      '<label>تاريخ الحساب / Calculation Date<input type="date" id="v328_calc_date" value="'+E(date)+'"></label>'+
+      '<button class="btn ok" onclick="recalcAndRefreshV328()">إعادة الحساب / Recalculate</button>'+
+      '<div class="hint">مصدر المخزون: '+E(rec.stock_source==='LOT'?'LOTs الفعلية':'Product Stock (fallback)')+'</div>'+
+      '</div>'+
+      status+
+      '<div class="v328-grid">'+
+        '<div class="stat"><span>G&A Expenses</span><strong>'+M(rec.general_admin_expense)+'</strong></div>'+
+        '<div class="stat"><span>Marketing Expenses</span><strong>'+M(rec.marketing_expense)+'</strong></div>'+
+        '<div class="stat"><span>Total Daily Expenses</span><strong>'+M(rec.total_expense)+'</strong></div>'+
+        '<div class="stat"><span>Closing Stock Qty</span><strong>'+N(rec.closing_stock_qty).toLocaleString()+'</strong></div>'+
+        '<div class="stat"><span>Expense / Unit</span><strong>'+M(rec.expense_per_unit)+'</strong></div>'+
+        '<div class="stat"><span>Allocated Total Check</span><strong>'+M(allocated)+'</strong></div>'+
+      '</div>'+
+      '<div class="v328-table"><table><tr>'+
+        '<th>المنتج</th><th>LOT</th><th>الكمية الحالية</th><th>Original Cost</th>'+
+        '<th>Accumulated Daily Expense / Unit</th><th>Slow Moving %</th><th>Slow Moving Cost</th><th>Final Adjusted Cost / Unit</th><th>Final Stock Value</th>'+
+      '</tr>'+rows.map(function(r){
+        return '<tr>'+
+          '<td><b>'+E(r.product_name||'-')+'</b></td><td>'+E(r.lot_number||'-')+'</td>'+
+          '<td>'+N(r.qty).toLocaleString()+'</td><td>'+M(r.base)+'</td>'+
+          '<td><b>'+M(r.daily)+'</b></td><td>'+N(r.rate).toFixed(0)+'%</td><td>'+M(r.slow)+'</td>'+
+          '<td><b>'+M(r.final)+'</b></td><td><b>'+M(r.final*r.qty)+'</b></td>'+
+        '</tr>';
+      }).join('')+'</table></div>'+
+      '<div class="v328-status" style="margin-top:10px">قيمة المخزون الحالية بعد التحميل: <b>'+M(finalValue)+'</b><br>'+
+      'Final Adjusted Cost = Original Cost + Accumulated Daily Expense Allocation + Slow Moving Cost.</div>';
+  }
+
+  window.installInventoryCostAllocationV328=function(date){
+    var view=document.getElementById('view-products');if(!view)return;
+    var old=document.getElementById('inventory_cost_allocation_v328');
+    if(old)old.remove();
+    var card=document.createElement('div');
+    card.className='card';card.id='inventory_cost_allocation_v328';
+    card.innerHTML='<div class="section-title"><div><h3>Inventory Cost Allocation — الحساب الفعلي</h3>'+
+      '<div class="hint">تحميل مصروفات التسويق + الإداري والعمومي على المخزون يوميًا</div></div></div>'+report(date||day());
+    view.appendChild(card);
+  };
+
+  window.recalcAndRefreshV328=function(){
+    var d=selectedDate();
+    window.recalculateInventoryExpenseV328(d,true);
+    window.installInventoryCostAllocationV328(d);
+  };
+
+  /* Recalculate today's record after an expense is posted. */
+  var expenseBaseV328=window.postExpenseV287;
+  if(typeof expenseBaseV328==='function'){
+    window.postExpenseV287=function(){
+      var r=expenseBaseV328.apply(this,arguments);
+      setTimeout(function(){
+        try{window.recalculateInventoryExpenseV328(day(),true)}catch(e){}
+      },80);
+      return r;
+    };
+    try{postExpenseV287=window.postExpenseV287}catch(e){}
+  }
+
+  /* Recalculate after stock operations / purchases / approved sales via general render. */
+  var productsBaseV328=window.renderProducts;
+  if(typeof productsBaseV328==='function'){
+    window.renderProducts=function(){
+      try{window.recalculateInventoryExpenseV328(day(),false)}catch(e){}
+      var r=productsBaseV328.apply(this,arguments);
+      setTimeout(function(){window.installInventoryCostAllocationV328(day())},160);
+      return r;
+    };
+    try{renderProducts=window.renderProducts}catch(e){}
+  }
+
+  var renderBaseV328=window.render;
+  if(typeof renderBaseV328==='function'){
+    window.render=function(){
+      try{window.recalculateInventoryExpenseV328(day(),false)}catch(e){}
+      var r=renderBaseV328.apply(this,arguments);
+      setTimeout(function(){
+        var v=document.getElementById('view-products');
+        if(v&&!v.classList.contains('hidden'))window.installInventoryCostAllocationV328(day());
+      },260);
+      return r;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  setTimeout(function(){
+    try{
+      window.recalculateInventoryExpenseV328(day(),true);
+      var v=document.getElementById('view-products');
+      if(v&&!v.classList.contains('hidden'))window.installInventoryCostAllocationV328(day());
+    }catch(e){}
+  },1000);
+})();
+</script>
+
+
+<style id="v329-expense-backfill-style">
+.v329-backfill-note{margin-top:10px;padding:10px 12px;border-radius:10px;background:#ecfdf5;color:#166534;border:1px solid #bbf7d0;font-size:12px;line-height:1.7}
+</style>
+
+<script id="v329-expense-backfill">
+(function(){
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S(v){return String(v==null?'':v).trim()}
+  function todayIso(){return typeof today==='function'?today():new Date().toISOString().slice(0,10)}
+  function ensure(){
+    if(!Array.isArray(db.general_admin_expenses_v287))db.general_admin_expenses_v287=[];
+    if(!Array.isArray(db.marketing_expenses_v287))db.marketing_expenses_v287=[];
+    if(!Array.isArray(db.daily_inventory_expense_allocations_v328))db.daily_inventory_expense_allocations_v328=[];
+    if(!Array.isArray(db.daily_inventory_expense_allocations_v322))db.daily_inventory_expense_allocations_v322=[];
+  }
+
+  function expenseDates(){
+    ensure();
+    var set=new Set();
+    [db.general_admin_expenses_v287,db.marketing_expenses_v287].forEach(function(arr){
+      arr.forEach(function(r){
+        var d=S(r.date).slice(0,10);
+        if(d)set.add(d);
+      });
+    });
+    return Array.from(set).sort();
+  }
+
+  function hasV328(date){
+    return db.daily_inventory_expense_allocations_v328.some(function(r){return r.date===date});
+  }
+
+  function migrateV322(date){
+    var old=(db.daily_inventory_expense_allocations_v322||[]).find(function(r){return r.date===date});
+    if(!old)return false;
+
+    var rec={
+      id:'v328_'+date,
+      date:date,
+      general_admin_expense:N(old.general_admin_expense),
+      marketing_expense:N(old.marketing_expense),
+      total_expense:N(old.total_expense),
+      closing_stock_qty:N(old.closing_stock_qty),
+      stock_source:'V322_MIGRATED',
+      expense_per_unit:N(old.expense_per_unit),
+      calculated_at:old.calculated_at||new Date().toISOString(),
+      backfilled_v329:true,
+      backfill_source_v329:'v322',
+      lines:(old.lots||[]).map(function(x){
+        return {
+          lot_id:S(x.lot_id),product_id:S(x.product_id),
+          product_name:S(x.product_name),lot_number:S(x.lot_number),
+          closing_qty:N(x.closing_qty),
+          expense_per_unit:N(x.expense_per_unit),
+          allocated_amount:N(x.allocated_amount)
+        };
+      })
+    };
+    db.daily_inventory_expense_allocations_v328.push(rec);
+    return true;
+  }
+
+  window.backfillMissingExpenseAllocationsV329=function(){
+    ensure();
+    var dates=expenseDates(),created=0,migrated=0,skipped=0;
+
+    dates.forEach(function(date){
+      if(hasV328(date)){skipped++;return}
+
+      if(migrateV322(date)){migrated++;return}
+
+      /* No historical snapshot exists. Use the current stock snapshot as the best
+         available fallback so old expenses do not remain completely unallocated. */
+      try{
+        if(typeof window.recalculateInventoryExpenseV328==='function'){
+          var rec=window.recalculateInventoryExpenseV328(date,false);
+          if(rec){
+            rec.backfilled_v329=true;
+            rec.backfill_source_v329='current_stock_fallback';
+            created++;
+          }
+        }
+      }catch(e){}
+    });
+
+    try{if(typeof save==='function')save()}catch(e){}
+    return {created:created,migrated:migrated,skipped:skipped,totalDates:dates.length};
+  };
+
+  function installNote(){
+    var card=document.getElementById('inventory_cost_allocation_v328');
+    if(!card)return;
+    var old=document.getElementById('v329_backfill_note');
+    if(old)old.remove();
+
+    var stats=window.backfillMissingExpenseAllocationsV329();
+    var note=document.createElement('div');
+    note.id='v329_backfill_note';
+    note.className='v329-backfill-note';
+    note.innerHTML='تمت مراجعة أيام المصروفات تلقائيًا. '+
+      'أيام تم تحميلها الآن: <b>'+stats.created+'</b>، '+
+      'أيام تم استعادتها من السجل القديم: <b>'+stats.migrated+'</b>، '+
+      'أيام كانت محسوبة بالفعل: <b>'+stats.skipped+'</b>.';
+    card.appendChild(note);
+  }
+
+  var productsBaseV329=window.renderProducts;
+  if(typeof productsBaseV329==='function'){
+    window.renderProducts=function(){
+      var stats=window.backfillMissingExpenseAllocationsV329();
+      var r=productsBaseV329.apply(this,arguments);
+      setTimeout(function(){
+        try{
+          if(typeof window.installInventoryCostAllocationV328==='function')
+            window.installInventoryCostAllocationV328(todayIso());
+          installNote();
+        }catch(e){}
+      },200);
+      return r;
+    };
+    try{renderProducts=window.renderProducts}catch(e){}
+  }
+
+  var renderBaseV329=window.render;
+  if(typeof renderBaseV329==='function'){
+    window.render=function(){
+      window.backfillMissingExpenseAllocationsV329();
+      var r=renderBaseV329.apply(this,arguments);
+      setTimeout(installNote,320);
+      return r;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  /* After adding any new expense, ensure its date is allocated immediately. */
+  var expenseBaseV329=window.postExpenseV287;
+  if(typeof expenseBaseV329==='function'){
+    window.postExpenseV287=function(){
+      var r=expenseBaseV329.apply(this,arguments);
+      setTimeout(function(){
+        try{
+          window.backfillMissingExpenseAllocationsV329();
+          if(typeof window.installInventoryCostAllocationV328==='function')
+            window.installInventoryCostAllocationV328(todayIso());
+          installNote();
+        }catch(e){}
+      },150);
+      return r;
+    };
+    try{postExpenseV287=window.postExpenseV287}catch(e){}
+  }
+
+  setTimeout(function(){
+    try{
+      window.backfillMissingExpenseAllocationsV329();
+      var v=document.getElementById('view-products');
+      if(v&&!v.classList.contains('hidden')){
+        if(typeof window.installInventoryCostAllocationV328==='function')
+          window.installInventoryCostAllocationV328(todayIso());
+        installNote();
+      }
+    }catch(e){}
+  },1200);
+})();
+</script>
