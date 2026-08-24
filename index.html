@@ -29302,3 +29302,117 @@ html body .summary-box.v303-auto-clickable:after{
   display:none!important;
 }
 </style>
+
+
+<style id="v347-macro-area-top-bottom-style">
+.v347-area-summary{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0 16px}
+.v347-area-card{border:1px solid #dbeafe;border-radius:14px;background:#fff;padding:14px}
+.v347-area-card.top{background:#f0fdf4;border-color:#86efac}
+.v347-area-card.low{background:#fff7ed;border-color:#fdba74}
+.v347-area-card span{display:block;font-size:12px;font-weight:800;color:#475569}
+.v347-area-card strong{display:block;font-size:24px;margin-top:6px;color:#0f172a}
+.v347-area-card small{display:block;margin-top:5px;color:#64748b}
+@media(max-width:760px){.v347-area-summary{grid-template-columns:1fr}}
+</style>
+
+<script id="v347-macro-area-top-bottom">
+(function(){
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S(v){return String(v==null?'':v).trim()}
+  function E(v){return typeof esc==='function'?esc(v):S(v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function M(v){return typeof money==='function'?money(v):N(v).toLocaleString()+' EGP'}
+  function norm(v){
+    return S(v).toLowerCase()
+      .replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه')
+      .replace(/\s+/g,' ');
+  }
+
+  function approvedSales(){
+    try{
+      if(typeof companyApprovedSalesV302==='function')return companyApprovedSalesV302()||[];
+    }catch(e){}
+    return (db.sales||[]).filter(function(s){
+      if(s.approval_status&&s.approval_status!=='approved')return false;
+      try{if(typeof inRangeV189==='function'&&!inRangeV189(s))return false}catch(e){}
+      return true;
+    });
+  }
+
+  function repName(s){
+    if(S(s.rep_name))return S(s.rep_name);
+    var r=(db.reps||[]).find(function(x){return String(x.id)===String(s.rep_id)});
+    return r?S(r.name):'';
+  }
+
+  function areas(){
+    var arr=[];
+    try{
+      var g=window.FINAL_GROUPS_V338||{};
+      Object.keys(g).forEach(function(totalId){
+        var x=g[totalId];
+        if(Array.isArray(x.subgroups)){
+          x.subgroups.forEach(function(sg){
+            arr.push({name:S(sg.label||sg.id),rep:S(sg.rep)});
+          });
+        }else if(x&&x.direct&&x.rep){
+          arr.push({name:S(x.name||totalId),rep:S(x.rep)});
+        }
+      });
+    }catch(e){}
+
+    /* fallback if the final hierarchy object is unavailable */
+    if(!arr.length){
+      arr=[
+        {name:'West 1',rep:'مارينا'},
+        {name:'West 2',rep:'عماد'},
+        {name:'East 1',rep:'سيف'},
+        {name:'East 2',rep:'ماهينور'},
+        {name:'Heliopolis',rep:'نوران'},
+        {name:'سلمى',rep:'سلمى'},
+        {name:'Delta Total',rep:'منى'},
+        {name:'Alex Total',rep:'يحي فتحي'}
+      ];
+    }
+    return arr;
+  }
+
+  window.macroAreaSalesV347=function(){
+    var sales=approvedSales();
+    return areas().map(function(a){
+      var rn=norm(a.rep);
+      var value=sales.filter(function(s){return norm(repName(s))===rn})
+        .reduce(function(sum,s){return sum+N(s.total)},0);
+      return {name:a.name,rep:a.rep,value:value};
+    }).sort(function(a,b){return b.value-a.value});
+  };
+
+  window.macroAreaTopBottomHtmlV347=function(){
+    var rows=window.macroAreaSalesV347();
+    var active=rows.filter(function(x){return x.value>0});
+    var top=active[0]||null;
+    var low=active.length>1?active[active.length-1]:null;
+
+    return '<div class="v347-area-summary">'+
+      '<div class="v347-area-card top"><span>أكثر Area مبيعًا</span>'+
+        '<strong>'+E(top?top.name:'—')+'</strong>'+
+        (top?'<small>'+M(top.value)+'</small>':'<small>لا توجد مبيعات</small>')+
+      '</div>'+
+      '<div class="v347-area-card low"><span>أقل Area مبيعًا</span>'+
+        '<strong>'+E(low?low.name:(active.length===1?'لا توجد Area أخرى للمقارنة':'—'))+'</strong>'+
+        (low?'<small>'+M(low.value)+'</small>':'')+
+      '</div>'+
+    '</div>';
+  };
+
+  var base=window.companyRepInnerAreaAnalysisHtmlV332;
+  if(typeof base==='function'){
+    window.companyRepInnerAreaAnalysisHtmlV332=function(){
+      var html=base.apply(this,arguments);
+      return html.replace(
+        /(<div class="section-title">[\s\S]*?<\/div>\s*<\/div>)/,
+        '$1'+window.macroAreaTopBottomHtmlV347()
+      );
+    };
+  }
+})();
+</script>
