@@ -27240,3 +27240,191 @@ html body .summary-box.v303-auto-clickable:after{
   window.invoiceRecipientValuesV331=recipientValuesV331;
 })();
 </script>
+
+
+<style id="v332-company-rep-inner-area-style">
+.v332-area-section{margin-top:18px}
+.v332-rep-summary-grid{display:grid;grid-template-columns:repeat(2,minmax(320px,1fr));gap:14px}
+.v332-rep-card{border:1px solid #dbeafe;border-radius:14px;background:#fff;padding:14px}
+.v332-rep-card h4{margin:0 0 8px;color:#0f172a}
+.v332-tags{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.v332-tag{display:inline-flex;padding:4px 8px;border-radius:999px;background:#eef2ff;color:#3730a3;font-size:11px;font-weight:800}
+.v332-tag.inactive{background:#fee2e2;color:#991b1b}
+.v332-tag.focus{background:#dcfce7;color:#166534}
+.v332-table{overflow:auto;margin-top:10px}
+.v332-table table{min-width:980px!important}
+.v332-status{font-weight:900}
+.v332-active{color:#166534}.v332-inactive{color:#991b1b}
+.v332-details{margin-top:10px}
+.v332-details summary{cursor:pointer;font-weight:900;color:#0f766e}
+@media(max-width:900px){.v332-rep-summary-grid{grid-template-columns:1fr}}
+</style>
+
+<script id="v332-company-rep-inner-area-analysis">
+(function(){
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S(v){return String(v==null?'':v).trim()}
+  function E(v){return typeof esc==='function'?esc(v):S(v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function M(v){return typeof money==='function'?money(v):N(v).toLocaleString()+' EGP'}
+  function norm(v){
+    return S(v).toLowerCase()
+      .replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه')
+      .replace(/\s+/g,' ');
+  }
+
+  var CORE_GROUPS_V332=['West 1','West 2','East 1','East 2'];
+
+  function customerForSale(s){
+    return (db.customers||[]).find(function(c){return String(c.id)===String(s.customer_id)})||{};
+  }
+
+  function customerGroup(c,s){
+    var raw=S(
+      c.area||c.sales_group||c.region_group||
+      s.customer_group||s.area_group||''
+    );
+    var n=norm(raw);
+    if(n==='west 1'||n==='west1')return 'West 1';
+    if(n==='west 2'||n==='west2')return 'West 2';
+    if(n==='east 1'||n==='east1')return 'East 1';
+    if(n==='east 2'||n==='east2')return 'East 2';
+    return raw||'غير محدد';
+  }
+
+  function customerInnerArea(c,s){
+    return S(
+      c.customer_region_v327||c.customer_region||
+      s.customer_region_v327||s.customer_region||
+      ''
+    )||'غير محدد';
+  }
+
+  function approvedSales(){
+    try{if(typeof companyApprovedSalesV302==='function')return companyApprovedSalesV302()||[]}catch(e){}
+    return (db.sales||[]).filter(function(s){return !s.approval_status||s.approval_status==='approved'});
+  }
+
+  function repMatches(s,r){
+    if(s.rep_id&&r.id&&String(s.rep_id)===String(r.id))return true;
+    return norm(s.rep_name)===norm(r.name);
+  }
+
+  function allAreasByGroup(){
+    var map=new Map();
+    CORE_GROUPS_V332.forEach(function(g){map.set(g,new Set())});
+
+    (db.customers||[]).forEach(function(c){
+      var g=customerGroup(c,{});
+      var a=customerInnerArea(c,{});
+      if(map.has(g)&&a&&a!=='غير محدد')map.get(g).add(a);
+    });
+
+    approvedSales().forEach(function(s){
+      var c=customerForSale(s),g=customerGroup(c,s),a=customerInnerArea(c,s);
+      if(map.has(g)&&a&&a!=='غير محدد')map.get(g).add(a);
+    });
+
+    return map;
+  }
+
+  window.repInnerAreaAnalysisV332=function(repId){
+    var rep=(db.reps||[]).find(function(r){return String(r.id)===String(repId)});
+    if(!rep)return {rep:null,rows:[],focus:null,inactive:[]};
+
+    var sales=approvedSales().filter(function(s){return repMatches(s,rep)});
+    var all=allAreasByGroup();
+    var rowMap=new Map();
+
+    CORE_GROUPS_V332.forEach(function(g){
+      Array.from(all.get(g)||[]).forEach(function(a){
+        rowMap.set(g+'|'+norm(a),{group:g,area:a,qty:0,sales:0,invoices:new Set()});
+      });
+    });
+
+    sales.forEach(function(s){
+      var c=customerForSale(s),g=customerGroup(c,s),a=customerInnerArea(c,s);
+      if(CORE_GROUPS_V332.indexOf(g)<0)return;
+      var key=g+'|'+norm(a);
+      if(!rowMap.has(key))rowMap.set(key,{group:g,area:a,qty:0,sales:0,invoices:new Set()});
+      var x=rowMap.get(key);
+      x.qty+=N(s.qty);
+      x.sales+=N(s.total);
+      x.invoices.add(S(s.invoice_no||s.invoice_group_id||s.order_id||s.id));
+    });
+
+    var totalSales=sales.reduce(function(a,s){return a+N(s.total)},0);
+    var rows=Array.from(rowMap.values()).map(function(x){
+      x.invoiceCount=x.invoices.size;
+      x.share=totalSales>0?x.sales/totalSales*100:0;
+      x.active=x.sales>0||x.qty>0;
+      return x;
+    }).sort(function(a,b){
+      var ga=CORE_GROUPS_V332.indexOf(a.group),gb=CORE_GROUPS_V332.indexOf(b.group);
+      if(ga!==gb)return ga-gb;
+      return b.sales-a.sales || a.area.localeCompare(b.area,'ar');
+    });
+
+    var active=rows.filter(function(x){return x.active}).sort(function(a,b){return b.sales-a.sales||b.qty-a.qty});
+    var focus=active[0]||null;
+    var inactive=rows.filter(function(x){return !x.active});
+    var lowest=active.length?active[active.length-1]:null;
+
+    return {rep:rep,rows:rows,focus:focus,lowest:lowest,inactive:inactive,totalSales:totalSales};
+  };
+
+  function repCardHtml(rep){
+    var a=window.repInnerAreaAnalysisV332(rep.id);
+    var inactiveNames=a.inactive.map(function(x){return x.area+' ('+x.group+')'});
+    var focus=a.focus?(a.focus.area+' — '+a.focus.group):'لا توجد مبيعات';
+    var lowest=a.lowest?(a.lowest.area+' — '+a.lowest.group):'—';
+
+    var rowsHtml=a.rows.map(function(r){
+      return '<tr>'+
+        '<td><b>'+E(r.group)+'</b></td>'+
+        '<td>'+E(r.area)+'</td>'+
+        '<td>'+N(r.qty).toLocaleString()+'</td>'+
+        '<td>'+M(r.sales)+'</td>'+
+        '<td>'+r.invoiceCount+'</td>'+
+        '<td>'+r.share.toFixed(1)+'%</td>'+
+        '<td class="v332-status '+(r.active?'v332-active':'v332-inactive')+'">'+(r.active?'نشط':'غير نشط')+'</td>'+
+      '</tr>';
+    }).join('');
+
+    return '<div class="v332-rep-card">'+
+      '<h4>'+E(rep.name||'-')+'</h4>'+
+      '<div class="v332-tags">'+
+        '<span class="v332-tag focus">Focus Area: '+E(focus)+'</span>'+
+        '<span class="v332-tag">Lowest Active Area: '+E(lowest)+'</span>'+
+      '</div>'+
+      '<div><b>Inactive Areas:</b> '+(inactiveNames.length
+        ? inactiveNames.map(function(x){return '<span class="v332-tag inactive">'+E(x)+'</span>'}).join(' ')
+        : '<span class="v332-tag focus">لا توجد مناطق غير نشطة</span>')+
+      '</div>'+
+      '<details class="v332-details"><summary>عرض كل المناطق الداخلية</summary>'+
+        '<div class="v332-table"><table><tr>'+
+          '<th>Group</th><th>Area</th><th>الكمية</th><th>قيمة المبيعات</th><th>عدد الفواتير</th><th>% من مبيعات المندوب</th><th>الحالة</th>'+
+        '</tr>'+rowsHtml+'</table></div>'+
+      '</details>'+
+    '</div>';
+  }
+
+  window.companyRepInnerAreaAnalysisHtmlV332=function(){
+    var reps=(db.reps||[]).slice();
+    if(!reps.length)return '<div class="empty">لا يوجد مناديب.</div>';
+
+    return '<div class="card v332-area-section">'+
+      '<div class="section-title"><div><h3>تحليل تركيز المناديب داخل المناطق</h3>'+
+      '<div class="hint">Group = West 1 / West 2 / East 1 / East 2، وArea = منطقة العميل الفعلية من Customer Region.</div></div></div>'+
+      '<div class="v332-rep-summary-grid">'+reps.map(repCardHtml).join('')+'</div>'+
+    '</div>';
+  };
+
+  var companyBaseV332=window.companySalesAnalyticsHtmlV306;
+  if(typeof companyBaseV332==='function'){
+    window.companySalesAnalyticsHtmlV306=function(){
+      var html=companyBaseV332.apply(this,arguments);
+      return html+window.companyRepInnerAreaAnalysisHtmlV332();
+    };
+  }
+})();
+</script>
