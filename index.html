@@ -27148,3 +27148,95 @@ html body .summary-box.v303-auto-clickable:after{
   },1300);
 })();
 </script>
+
+
+<script id="v331-definitive-invoice-recipient">
+(function(){
+  function S(v){return String(v==null?'':v).trim()}
+  function E(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+
+  function customerForSaleV331(s){
+    return (db.customers||[]).find(function(c){return String(c.id)===String(s&&s.customer_id)})||{};
+  }
+
+  function orderForSaleV331(s){
+    var orders=Array.isArray(db.sales_orders)?db.sales_orders:[];
+    if(!s)return null;
+
+    if(s.order_id){
+      var byId=orders.find(function(o){return String(o.id)===String(s.order_id)});
+      if(byId)return byId;
+    }
+    if(s.invoice_group_id){
+      var byGroup=orders.find(function(o){return String(o.invoice_group_id)===String(s.invoice_group_id)});
+      if(byGroup)return byGroup;
+    }
+    if(s.invoice_no){
+      var byNo=orders.find(function(o){return S(o.invoice_no)===S(s.invoice_no)});
+      if(byNo)return byNo;
+    }
+    return null;
+  }
+
+  function recipientValuesV331(s){
+    var c=customerForSaleV331(s);
+    var o=orderForSaleV331(s)||{};
+
+    var clinic=S(
+      o.clinic_name||o.order_clinic_name||
+      s.clinic_name||s.order_clinic_name||
+      c.clinic_name||c.name||''
+    );
+
+    var address=S(
+      o.address||o.order_address||o.customer_address||
+      s.address||s.order_address||s.customer_address||
+      c.address||c.customer_address||''
+    );
+
+    var official=S(c.customer_name||s.customer_name||'');
+
+    /* City comes ONLY from the dedicated Customer Region field. */
+    var city=S(c.customer_region_v327||c.customer_region||'');
+
+    return {
+      clinic:clinic||'-',
+      official:official||'-',
+      address:address||'-',
+      city:city||'-'
+    };
+  }
+
+  var baseV331=window.saleDocumentHTML || (typeof saleDocumentHTML==='function'?saleDocumentHTML:null);
+  if(typeof baseV331==='function'){
+    window.saleDocumentHTML=function(s,type){
+      var html=baseV331.apply(this,arguments);
+      if(type!=='invoice')return html;
+
+      var v=recipientValuesV331(s);
+
+      html=html.replace(
+        /(<span class="label">COMPANY Name\s*:<\/span>\s*<b>)[\s\S]*?(<\/b>)/i,
+        '$1'+E(v.clinic)+'$2'
+      );
+      html=html.replace(
+        /(<span class="label">Customer(?:’|')s Name\s*:<\/span>\s*<span>)[\s\S]*?(<\/span>)/i,
+        '$1'+E(v.official)+'$2'
+      );
+      html=html.replace(
+        /(<span class="label">Address line\s*:<\/span>\s*<span>)[\s\S]*?(<\/span>)/i,
+        '$1'+E(v.address)+'$2'
+      );
+      html=html.replace(
+        /(<span class="label">City\s*:<\/span>\s*<span>)[\s\S]*?(<\/span>)/i,
+        '$1'+E(v.city)+'$2'
+      );
+
+      return html;
+    };
+    try{saleDocumentHTML=window.saleDocumentHTML}catch(e){}
+  }
+
+  window.invoiceRecipientValuesV331=recipientValuesV331;
+})();
+</script>
