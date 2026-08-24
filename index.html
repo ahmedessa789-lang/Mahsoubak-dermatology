@@ -26946,3 +26946,205 @@ html body .summary-box.v303-auto-clickable:after{
   },1200);
 })();
 </script>
+
+
+<style id="v330-all-expense-sources-style">
+.v330-source-note{margin-top:10px;padding:10px 12px;border-radius:10px;background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;font-size:12px;line-height:1.7}
+</style>
+
+<script id="v330-all-expense-sources">
+(function(){
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S(v){return String(v==null?'':v).trim()}
+  function D(v){return S(v).slice(0,10)}
+  function ensure(){
+    if(!Array.isArray(db.general_admin_expenses_v287))db.general_admin_expenses_v287=[];
+    if(!Array.isArray(db.marketing_expenses_v287))db.marketing_expenses_v287=[];
+    if(!Array.isArray(db.general_admin_expenses))db.general_admin_expenses=[];
+    if(!Array.isArray(db.cash_receipts_out))db.cash_receipts_out=[];
+    if(!Array.isArray(db.daily_inventory_expense_allocations_v328))db.daily_inventory_expense_allocations_v328=[];
+  }
+  function amount(r){
+    if(r&&r.egp_value!=null)return N(r.egp_value);
+    if(r&&r.amount_egp!=null)return N(r.amount_egp);
+    return N(r&&r.amount);
+  }
+
+  /* Build one deduplicated expense stream from every finance path that can create
+     G&A / Marketing expenses in this application. */
+  window.expenseRowsForInventoryCostV330=function(){
+    ensure();
+    var rows=[],seen=new Set();
+
+    function add(kind,row,source){
+      if(!row)return;
+      var date=D(row.date||row.created_at);
+      if(!date)return;
+      var value=amount(row);
+      if(!value)return;
+
+      /* Strongest available de-duplication key:
+         same receipt/source entry should never be counted twice across old/new registers. */
+      var sourceId=S(
+        row.source_receipt_id||row.receipt_id||
+        row.source_entry_id||row.source_id_v291||
+        row.sourceId||row.source_id
+      );
+      var id=S(row.id);
+      var key=sourceId
+        ? kind+'|SRC|'+sourceId
+        : kind+'|ID|'+source+'|'+id;
+
+      if(seen.has(key))return;
+      seen.add(key);
+      rows.push({kind:kind,date:date,amount:value,source:source,id:id,source_id:sourceId});
+    }
+
+    /* Definitive modern registers. */
+    db.general_admin_expenses_v287.forEach(function(r){add('general',r,'general_admin_expenses_v287')});
+    db.marketing_expenses_v287.forEach(function(r){add('marketing',r,'marketing_expenses_v287')});
+
+    /* Legacy G&A register created from cash-out receipts. */
+    db.general_admin_expenses.forEach(function(r){add('general',r,'general_admin_expenses')});
+
+    /* Some older receipts may have the allocation flag but no mirrored register row. */
+    db.cash_receipts_out.forEach(function(r){
+      var alloc=S(r.expense_allocation||r.expense_category||r.expense_account_name).toLowerCase();
+      var isGeneral =
+        alloc==='general_admin' ||
+        alloc.indexOf('عمومية')>=0 ||
+        alloc.indexOf('ادارية')>=0 ||
+        alloc.indexOf('إدارية')>=0;
+      if(isGeneral)add('general',r,'cash_receipts_out');
+    });
+
+    return rows;
+  };
+
+  window.dailyExpenseTotalsV328=function(date){
+    var rows=window.expenseRowsForInventoryCostV330().filter(function(r){return r.date===date});
+    var general=rows.filter(function(r){return r.kind==='general'}).reduce(function(a,r){return a+N(r.amount)},0);
+    var marketing=rows.filter(function(r){return r.kind==='marketing'}).reduce(function(a,r){return a+N(r.amount)},0);
+    return {general:general,marketing:marketing,total:general+marketing,rows:rows};
+  };
+
+  function allExpenseDates(){
+    var set=new Set();
+    window.expenseRowsForInventoryCostV330().forEach(function(r){if(r.date)set.add(r.date)});
+    return Array.from(set).sort();
+  }
+
+  function updateExistingAllocation(date){
+    ensure();
+    var totals=window.dailyExpenseTotalsV328(date);
+    var rec=db.daily_inventory_expense_allocations_v328.find(function(r){return r.date===date});
+    if(!rec)return false;
+
+    rec.general_admin_expense=totals.general;
+    rec.marketing_expense=totals.marketing;
+    rec.total_expense=totals.total;
+
+    var qty=N(rec.closing_stock_qty);
+    rec.expense_per_unit=qty>0?totals.total/qty:0;
+    (rec.lines||[]).forEach(function(line){
+      line.expense_per_unit=rec.expense_per_unit;
+      line.allocated_amount=N(line.closing_qty)*rec.expense_per_unit;
+    });
+    rec.recalculated_v330=true;
+    rec.recalculated_at_v330=new Date().toISOString();
+    rec.expense_source_count_v330=totals.rows.length;
+    return true;
+  }
+
+  window.forceBackfillAllExpenseDatesV330=function(){
+    ensure();
+    var dates=allExpenseDates(),updated=0,created=0;
+
+    dates.forEach(function(date){
+      if(updateExistingAllocation(date)){updated++;return}
+
+      try{
+        if(typeof window.recalculateInventoryExpenseV328==='function'){
+          var rec=window.recalculateInventoryExpenseV328(date,false);
+          if(rec){
+            rec.backfilled_v330=true;
+            rec.expense_source_count_v330=window.dailyExpenseTotalsV328(date).rows.length;
+            created++;
+          }
+        }
+      }catch(e){}
+    });
+
+    try{if(typeof save==='function')save()}catch(e){}
+    return {dates:dates.length,updated:updated,created:created};
+  };
+
+  /* Replace the previous skip-if-existing backfill behavior.
+     Existing zero records are recalculated because that was the reported bug. */
+  window.backfillMissingExpenseAllocationsV329=function(){
+    return window.forceBackfillAllExpenseDatesV330();
+  };
+
+  function addSourceNote(){
+    var card=document.getElementById('inventory_cost_allocation_v328');
+    if(!card)return;
+    var old=document.getElementById('v330_source_note');if(old)old.remove();
+
+    var rows=window.expenseRowsForInventoryCostV330();
+    var dates=new Set(rows.map(function(r){return r.date}));
+    var g=rows.filter(function(r){return r.kind==='general'}).length;
+    var m=rows.filter(function(r){return r.kind==='marketing'}).length;
+
+    var note=document.createElement('div');
+    note.id='v330_source_note';note.className='v330-source-note';
+    note.innerHTML='مصادر المصروفات المقروءة فعليًا: <b>'+g+'</b> حركة G&A و <b>'+m+
+      '</b> حركة Marketing عبر <b>'+dates.size+'</b> يوم. يتم منع تكرار نفس إيصال/قيد المصروف تلقائيًا.';
+    card.appendChild(note);
+  }
+
+  var recalcBase=window.recalcAndRefreshV328;
+  if(typeof recalcBase==='function'){
+    window.recalcAndRefreshV328=function(){
+      window.forceBackfillAllExpenseDatesV330();
+      var r=recalcBase.apply(this,arguments);
+      setTimeout(addSourceNote,80);
+      return r;
+    };
+  }
+
+  var productsBase=window.renderProducts;
+  if(typeof productsBase==='function'){
+    window.renderProducts=function(){
+      window.forceBackfillAllExpenseDatesV330();
+      var r=productsBase.apply(this,arguments);
+      setTimeout(addSourceNote,260);
+      return r;
+    };
+    try{renderProducts=window.renderProducts}catch(e){}
+  }
+
+  var renderBase=window.render;
+  if(typeof renderBase==='function'){
+    window.render=function(){
+      window.forceBackfillAllExpenseDatesV330();
+      var r=renderBase.apply(this,arguments);
+      setTimeout(addSourceNote,360);
+      return r;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  setTimeout(function(){
+    try{
+      window.forceBackfillAllExpenseDatesV330();
+      if(typeof window.installInventoryCostAllocationV328==='function'){
+        var v=document.getElementById('view-products');
+        if(v&&!v.classList.contains('hidden'))window.installInventoryCostAllocationV328(
+          typeof today==='function'?today():new Date().toISOString().slice(0,10)
+        );
+      }
+      setTimeout(addSourceNote,120);
+    }catch(e){}
+  },1300);
+})();
+</script>
