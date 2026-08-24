@@ -7200,67 +7200,7 @@ render();
     if(group && window.directTotalHierarchyHtmlV337 && window.isTotalRepCardV337(group.id)){
       return window.directTotalHierarchyHtmlV337(group.id);
     }
-    let sales=salesForGroupV186(group);
-    let collections=collectionsForGroupV186(group);
-    let customerMap=new Map();
-
-    sales.forEach(s=>{
-      let key=s.customer_id||normV186(s.customer_name)||'unknown';
-      if(!customerMap.has(key)){
-        customerMap.set(key,{
-          name:s.customer_name||'-',
-          sales:0,
-          collections:0,
-          remaining:0,
-          invoiceCount:0,
-          collectionCount:0
-        });
-      }
-      let row=customerMap.get(key);
-      row.sales+=n(s.total);
-      row.remaining+=n(s.remaining);
-      row.invoiceCount++;
-    });
-
-    collections.forEach(c=>{
-      let key=c.customer_id||normV186(c.customer_name)||'unknown';
-      if(!customerMap.has(key)){
-        customerMap.set(key,{
-          name:c.customer_name||'-',
-          sales:0,
-          collections:0,
-          remaining:0,
-          invoiceCount:0,
-          collectionCount:0
-        });
-      }
-      let row=customerMap.get(key);
-      row.collections+=n(c.amount);
-      row.collectionCount++;
-    });
-
-    let customerRows=[...customerMap.values()].sort((a,b)=>
-      (b.sales+b.collections)-(a.sales+a.collections)
-    );
-
-    let salesTotal=sales.reduce((a,s)=>a+n(s.total),0);
-    let collectionTotal=collections.reduce((a,c)=>a+n(c.amount),0);
-    let remainingTotal=sales.reduce((a,s)=>a+n(s.remaining),0);
-
-    return `
-      <div class="rep-detail-head-v175"><div><h2>${esc(group.name)}</h2><p>${group.members.map(esc).join(' + ')}</p></div><button type="button" class="btn blue" onclick="printGroupRepV186('${group.id}')">طباعة التقرير</button></div><div class="grid grid4 rep-summary-v175"><div class="stat"><span>إجمالي المبيعات المعتمدة</span><strong>${money(salesTotal)}</strong></div><div class="stat"><span>إجمالي التحصيلات المعتمدة</span><strong>${money(collectionTotal)}</strong></div><div class="stat"><span>المتبقي على العملاء</span><strong>${money(remainingTotal)}</strong></div><div class="stat"><span>عدد الفواتير المعتمدة</span><strong>${sales.length}</strong></div></div><div class="card"><h3>المبيعات والتحصيل لكل عميل</h3>
-        ${customerRows.length?`<table><tr><th>العميل</th><th>المبيعات</th><th>التحصيلات</th><th>المتبقي</th><th>عدد الفواتير</th><th>عدد التحصيلات</th></tr>
-          ${customerRows.map(r=>`<tr><td><b>${esc(r.name)}</b></td><td>${money(r.sales)}</td><td>${money(r.collections)}</td><td>${money(r.remaining)}</td><td>${r.invoiceCount}</td><td>${r.collectionCount}</td></tr>`).join('')}
-        </table>`:`<div class="empty">لا توجد بيانات معتمدة</div>`}
-      </div><div class="card"><h3>تفاصيل المبيعات المعتمدة</h3>
-        ${sales.length?`<table><tr><th>التاريخ</th><th>المندوب</th><th>العميل</th><th>المنتج</th><th>الكمية</th><th>الإجمالي</th><th>المتبقي</th></tr>
-          ${sales.map(s=>`<tr><td>${esc(s.date||'')}</td><td>${esc(repNameFromRowV186(s))}</td><td>${esc(s.customer_name||'')}</td><td>${esc(s.product_name||'')}</td><td>${n(s.qty)}</td><td>${money(s.total)}</td><td>${money(s.remaining)}</td></tr>`).join('')}
-        </table>`:`<div class="empty">لا توجد مبيعات معتمدة</div>`}
-      </div><div class="card"><h3>تفاصيل التحصيلات المعتمدة</h3>
-        ${collections.length?`<table><tr><th>التاريخ</th><th>المندوب</th><th>العميل</th><th>المبلغ</th><th>الطريقة</th></tr>
-          ${collections.map(c=>`<tr><td>${esc(c.date||'')}</td><td>${esc(repNameFromRowV186(c))}</td><td>${esc(c.customer_name||'')}</td><td>${money(c.amount)}</td><td>${esc(c.method||'')}</td></tr>`).join('')}
-        </table>`:`<div class="empty">لا توجد تحصيلات معتمدة</div>`}
-      </div>`;
+    return '<div class="empty">اضغط على كارت المجموعة لعرض التفاصيل.</div>';
   }
 
   const openRepDetailsBaseV186=window.openRepDetailsV175;
@@ -7911,18 +7851,6 @@ render();
         <div class="stat v303-clickable" data-v303-drill="target-achieved" onclick="window.openRepDrillDirectV304('target-achieved');return false;" title="اضغط لعرض التفاصيل"><span>المحقق خلال المدة</span><strong>${Number(target.achieved).toLocaleString()}</strong></div>
         <div class="stat v303-clickable" data-v303-drill="target-remaining" onclick="window.openRepDrillDirectV304('target-remaining');return false;" title="اضغط لعرض التفاصيل"><span>المتبقي من التارجت</span><strong>${Number(remainingTarget).toLocaleString()}</strong></div>
         <div class="stat v303-clickable" data-v303-drill="target-percent" onclick="window.openRepDrillDirectV304('target-percent');return false;" title="اضغط لعرض التفاصيل"><span>نسبة التحقيق</span><strong>${percent}%</strong></div>
-      </div><div class="card"><h3>المبيعات والتحصيل لكل عميل</h3>
-        ${rows.length?`<table><tr><th>العميل</th><th>المبيعات</th><th>التحصيلات</th><th>المتبقي</th><th>عدد الفواتير</th><th>عدد التحصيلات</th></tr>
-          ${rows.map(r=>`<tr><td><b>${esc(r.name)}</b></td><td>${money(r.sales)}</td><td>${money(r.collections)}</td><td>${money(r.remaining)}</td><td>${r.invoiceCount}</td><td>${r.collectionCount}</td></tr>`).join('')}
-        </table>`:`<div class="empty">لا توجد بيانات في المدة المحددة</div>`}
-      </div><div class="card"><h3>تفاصيل المبيعات</h3>
-        ${sales.length?`<table><tr><th>التاريخ</th><th>المندوب</th><th>العميل</th><th>المنتج</th><th>الكمية</th><th>الإجمالي</th><th>المتبقي</th></tr>
-          ${sales.map(s=>`<tr><td>${esc(dateOnlyV189(s.date))}</td><td>${esc(repNameV189(s))}</td><td>${esc(s.customer_name||'')}</td><td>${esc(s.product_name||'')}</td><td>${n(s.qty)}</td><td>${money(s.total)}</td><td>${money(s.remaining)}</td></tr>`).join('')}
-        </table>`:`<div class="empty">لا توجد مبيعات في المدة المحددة</div>`}
-      </div><div class="card"><h3>تفاصيل التحصيلات</h3>
-        ${collections.length?`<table><tr><th>التاريخ</th><th>المندوب</th><th>العميل</th><th>المبلغ</th><th>الطريقة</th></tr>
-          ${collections.map(c=>`<tr><td>${esc(dateOnlyV189(c.date))}</td><td>${esc(repNameV189(c))}</td><td>${esc(c.customer_name||'')}</td><td>${money(c.amount)}</td><td>${esc(c.method||'')}</td></tr>`).join('')}
-        </table>`:`<div class="empty">لا توجد تحصيلات في المدة المحددة</div>`}
       </div>`;
   }
 
@@ -29168,5 +29096,50 @@ html body .summary-box.v303-auto-clickable:after{
   obs.observe(document.body,{childList:true,subtree:true});
 
   setTimeout(bindDirectCards,700);
+})();
+</script>
+
+
+<script id="v343-remove-legacy-static-rep-sections">
+(function(){
+  var HEADS=[
+    'المبيعات والتحصيل لكل عميل',
+    'تفاصيل المبيعات',
+    'تفاصيل التحصيلات'
+  ];
+
+  function cleanup(){
+    var body=document.getElementById('rep_details_body_v175');
+    if(!body)return;
+    Array.from(body.querySelectorAll('.card')).forEach(function(card){
+      var h=card.querySelector('h3');
+      var t=h?String(h.textContent||'').trim():'';
+      if(HEADS.indexOf(t)>=0)card.remove();
+    });
+  }
+
+  var repBase=window.openRepDetailsV175;
+  if(typeof repBase==='function'){
+    window.openRepDetailsV175=function(){
+      var r=repBase.apply(this,arguments);
+      setTimeout(cleanup,0);
+      setTimeout(cleanup,120);
+      return r;
+    };
+    try{openRepDetailsV175=window.openRepDetailsV175}catch(e){}
+  }
+
+  var perfBase=window.openRepPerformanceV175;
+  if(typeof perfBase==='function'){
+    window.openRepPerformanceV175=function(){
+      var r=perfBase.apply(this,arguments);
+      setTimeout(cleanup,100);
+      return r;
+    };
+    try{openRepPerformanceV175=window.openRepPerformanceV175}catch(e){}
+  }
+
+  var obs=new MutationObserver(cleanup);
+  obs.observe(document.body,{childList:true,subtree:true});
 })();
 </script>
