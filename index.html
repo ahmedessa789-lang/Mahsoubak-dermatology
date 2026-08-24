@@ -25948,3 +25948,373 @@ html body .summary-box.v303-auto-clickable:after{
   setTimeout(installButtons,1000);
 })();
 </script>
+
+
+<style id="v325-money-targets-inventory-qty-style">
+.v325-money-target-box{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;margin-top:8px}
+.v325-money-target-box label{display:grid;gap:5px;font-size:11px;font-weight:800;color:#475569}
+.v325-money-target-box input{min-width:150px!important;padding:8px 10px!important;border:1px solid #cbd5e1!important;border-radius:9px!important;background:#fff!important}
+.v325-company-target-grid{display:grid;grid-template-columns:repeat(6,minmax(160px,1fr));gap:10px;margin:0 0 16px}
+.v325-company-target-grid .stat{background:#fff!important;border:1px solid #dbeafe!important}
+.v325-editable{border-color:#fde68a!important;background:#fffbeb!important}
+.v325-target-input-row{display:flex;gap:8px;align-items:center;margin-top:7px}
+.v325-target-input-row input{width:150px!important;padding:6px 8px!important;border:1px solid #f59e0b!important;border-radius:8px!important;background:#fff!important}
+.v325-region-money-target{margin:10px 0;padding:10px 12px;border:1px dashed #f59e0b;border-radius:10px;background:#fffbeb}
+@media(max-width:1000px){.v325-company-target-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:700px){.v325-company-target-grid{grid-template-columns:1fr 1fr}.v325-money-target-box{grid-template-columns:1fr}}
+</style>
+
+<script id="v325-money-targets-inventory-quantity">
+(function(){
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S(v){return String(v==null?'':v).trim()}
+  function E(v){return typeof esc==='function'?esc(v):S(v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function M(v){return typeof money==='function'?money(v):N(v).toLocaleString()+' EGP'}
+  function saveDb(){try{if(typeof save==='function')save()}catch(e){}}
+
+  function ensure(){
+    if(!Array.isArray(db.reps))db.reps=[];
+    if(!Array.isArray(db.inventory_lots))db.inventory_lots=[];
+    if(!db.money_targets_v325||typeof db.money_targets_v325!=='object')db.money_targets_v325={company:0,groups:{}};
+    if(!db.money_targets_v325.groups||typeof db.money_targets_v325.groups!=='object')db.money_targets_v325.groups={};
+  }
+
+  function currentStockQty(){
+    ensure();
+    return (db.inventory_lots||[]).reduce(function(sum,l){
+      return sum+Math.max(0,N(l.qty));
+    },0);
+  }
+  window.currentWarehouseQtyV325=currentStockQty;
+
+  function approvedSales(){
+    try{
+      if(typeof companyApprovedSalesV302==='function')return companyApprovedSalesV302()||[];
+    }catch(e){}
+    return (db.sales||[]).filter(function(s){return !s.approval_status||s.approval_status==='approved'});
+  }
+
+  function companySalesValue(){
+    return approvedSales().reduce(function(a,s){return a+N(s.total)},0);
+  }
+
+  function repSalesValue(rep){
+    return approvedSales().filter(function(s){
+      if(s.rep_id&&rep.id&&String(s.rep_id)===String(rep.id))return true;
+      return S(s.rep_name).toLowerCase()===S(rep.name).toLowerCase();
+    }).reduce(function(a,s){return a+N(s.total)},0);
+  }
+
+  function companyMoneyTarget(){ensure();return N(db.money_targets_v325.company)}
+  function repMoneyTarget(rep){return N(rep&&rep.money_target_v325)}
+  function groupMoneyTarget(id){ensure();return N(db.money_targets_v325.groups[id])}
+
+  window.setCompanyMoneyTargetV325=function(v){
+    ensure();db.money_targets_v325.company=Math.max(0,N(v));saveDb();
+    try{if(typeof renderReps==='function')renderReps()}catch(e){}
+  };
+  window.setRepMoneyTargetV325=function(repId,v){
+    var rep=(db.reps||[]).find(function(r){return String(r.id)===String(repId)});
+    if(!rep)return;
+    rep.money_target_v325=Math.max(0,N(v));saveDb();
+    try{if(typeof renderReps==='function')renderReps()}catch(e){}
+  };
+  window.setGroupMoneyTargetV325=function(id,v){
+    ensure();db.money_targets_v325.groups[id]=Math.max(0,N(v));saveDb();
+  };
+
+  window.companyTargetSummaryV325=function(){
+    var stockQty=currentStockQty();
+    var salesValue=companySalesValue();
+    var moneyTarget=companyMoneyTarget();
+    return {
+      quantityTarget:stockQty,
+      companySalesValue:salesValue,
+      moneyTarget:moneyTarget,
+      moneyPct:moneyTarget>0?salesValue/moneyTarget*100:0
+    };
+  };
+
+  function injectMoneyTargetEditors(){
+    ensure();
+    var rows=[].slice.call(document.querySelectorAll('#view-reps .rep-row-v185'));
+    rows.forEach(function(row){
+      if(row.querySelector('.v325-money-target-box'))return;
+      var del=row.querySelector('.rep-delete-v185');
+      if(!del)return;
+      var m=(del.getAttribute('onclick')||'').match(/deleteRepV185\(['"]([^'"]+)['"]\)/);
+      if(!m)return;
+      var id=m[1];
+      var rep=(db.reps||[]).find(function(r){return String(r.id)===String(id)});
+      if(!rep)return;
+
+      var box=document.createElement('div');
+      box.className='v325-money-target-box';
+      box.innerHTML='<label>Money Target / التارجت المالي<input type="number" min="0" step="1" value="'+N(rep.money_target_v325)+'" id="v325_rep_money_'+E(id)+'"></label>'+
+        '<button type="button" class="btn small ok">حفظ</button>';
+      box.querySelector('button').onclick=function(){
+        var inp=box.querySelector('input');
+        window.setRepMoneyTargetV325(id,inp.value);
+      };
+      var info=row.querySelector('.rep-info-v185');
+      if(info)info.appendChild(box);
+    });
+  }
+
+  function repMoneyCard(repId){
+    var rep=(db.reps||[]).find(function(r){return String(r.id)===String(repId)});
+    if(!rep)return '';
+    var target=repMoneyTarget(rep),sales=repSalesValue(rep),pct=target>0?sales/target*100:0;
+    return '<div class="card v325-editable"><h3>التارجت المالي للمندوب</h3>'+
+      '<div class="grid grid3">'+
+        '<div class="stat"><span>Money Target</span><strong>'+M(target)+'</strong>'+
+          '<div class="v325-target-input-row"><input type="number" min="0" step="1" value="'+target+'" id="v325_detail_rep_target"><button class="btn small ok" onclick="setRepMoneyTargetV325(\''+E(rep.id)+'\',document.getElementById(\'v325_detail_rep_target\').value)">حفظ</button></div></div>'+
+        '<div class="stat"><span>المبيعات المحققة بالقيمة</span><strong>'+M(sales)+'</strong></div>'+
+        '<div class="stat"><span>نسبة تحقيق التارجت المالي</span><strong>'+pct.toFixed(1)+'%</strong></div>'+
+      '</div></div>';
+  }
+
+  var openRepBaseV325=window.openRepDetailsV175;
+  if(typeof openRepBaseV325==='function'){
+    window.openRepDetailsV175=function(repId){
+      var r=openRepBaseV325.apply(this,arguments);
+      setTimeout(function(){
+        if(repId==='delta_total_v321'||repId==='alex_total_v321')return;
+        var body=document.getElementById('rep_details_body_v175');
+        if(!body)return;
+        var old=document.getElementById('v325_rep_money_card');if(old)old.remove();
+        var wrap=document.createElement('div');wrap.id='v325_rep_money_card';wrap.innerHTML=repMoneyCard(repId);
+        body.insertAdjacentElement('afterbegin',wrap);
+      },120);
+      return r;
+    };
+    try{openRepDetailsV175=window.openRepDetailsV175}catch(e){}
+  }
+
+  function companyTargetBlock(){
+    var c=window.companyTargetSummaryV325();
+    return '<div class="v325-company-target-grid">'+
+      '<div class="stat"><span>تارجت الشركة بالكمية</span><strong>'+N(c.quantityTarget).toLocaleString()+' وحدة</strong><small>من المخزون الفعلي الحالي</small></div>'+
+      '<div class="stat"><span>المبيعات المحققة بالقيمة</span><strong>'+M(c.companySalesValue)+'</strong></div>'+
+      '<div class="stat v325-editable"><span>تارجت الشركة بالفلوس</span><strong>'+M(c.moneyTarget)+'</strong>'+
+        '<div class="v325-target-input-row"><input type="number" min="0" step="1" value="'+c.moneyTarget+'" id="v325_company_money_target">'+
+        '<button class="btn small ok" onclick="setCompanyMoneyTargetV325(document.getElementById(\'v325_company_money_target\').value)">حفظ</button></div></div>'+
+      '<div class="stat"><span>نسبة تحقيق التارجت المالي</span><strong>'+c.moneyPct.toFixed(1)+'%</strong></div>'+
+      '<div class="stat"><span>مصدر Quantity Target</span><strong>Current Stock</strong><small>يتغير مع الإضافة والخصم</small></div>'+
+      '<div class="stat"><span>عدد LOTs النشطة</span><strong>'+((db.inventory_lots||[]).filter(function(l){return N(l.qty)>0}).length)+'</strong></div>'+
+    '</div>';
+  }
+
+  var companyBaseV325=window.companySalesAnalyticsHtmlV306;
+  if(typeof companyBaseV325==='function'){
+    window.companySalesAnalyticsHtmlV306=function(){
+      var html=companyBaseV325.apply(this,arguments);
+      /* Remove the old v321 company target strip if it is still prepended. */
+      html=html.replace(/<div class="v321-company-targets">[\s\S]*?<\/div>\s*<\/div>\s*<\/div>/,'');
+      return companyTargetBlock()+html;
+    };
+  }
+
+  function groupSalesValue(id){
+    try{
+      if(typeof window.groupSalesForRegionalTotalV323==='function'){
+        return (window.groupSalesForRegionalTotalV323(id)||[]).reduce(function(a,s){return a+N(s.total)},0);
+      }
+    }catch(e){}
+    return 0;
+  }
+
+  function injectGroupMoneyTarget(id){
+    var body=document.getElementById('rep_details_body_v175');if(!body)return;
+    var target=groupMoneyTarget(id),sales=groupSalesValue(id),pct=target>0?sales/target*100:0;
+    var old=document.getElementById('v325_group_money_target');if(old)old.remove();
+    var box=document.createElement('div');box.id='v325_group_money_target';box.className='v325-region-money-target';
+    box.innerHTML='<b>Money Target / التارجت المالي للمنطقة</b>'+
+      '<div class="v325-target-input-row"><input type="number" min="0" step="1" value="'+target+'" id="v325_group_money_input">'+
+      '<button class="btn small ok" onclick="setGroupMoneyTargetV325(\''+E(id)+'\',document.getElementById(\'v325_group_money_input\').value)">حفظ</button>'+
+      '<span>المبيعات: <b>'+M(sales)+'</b> | التحقيق: <b>'+pct.toFixed(1)+'%</b></span></div>';
+    body.insertAdjacentElement('afterbegin',box);
+  }
+
+  var regionalBaseV325=window.openRegionalTotalV321;
+  if(typeof regionalBaseV325==='function'){
+    window.openRegionalTotalV321=function(id){
+      var r=regionalBaseV325.apply(this,arguments);
+      setTimeout(function(){injectGroupMoneyTarget(id)},130);
+      return r;
+    };
+  }
+
+  var repsBaseV325=window.renderReps;
+  if(typeof repsBaseV325==='function'){
+    window.renderReps=function(){
+      var r=repsBaseV325.apply(this,arguments);
+      setTimeout(injectMoneyTargetEditors,160);
+      return r;
+    };
+    try{renderReps=window.renderReps}catch(e){}
+  }
+
+  var renderBaseV325=window.render;
+  if(typeof renderBaseV325==='function'){
+    window.render=function(){
+      var r=renderBaseV325.apply(this,arguments);
+      setTimeout(injectMoneyTargetEditors,260);
+      return r;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  setTimeout(injectMoneyTargetEditors,1100);
+})();
+</script>
+
+<style id="v326-company-card-details-style">
+.v325-company-target-grid .stat.v326-clickable{cursor:pointer!important;transition:transform .15s ease,box-shadow .15s ease!important}
+.v325-company-target-grid .stat.v326-clickable:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(15,23,42,.10)!important}
+.v326-more{display:block;margin-top:8px;color:#0f766e;font-size:11px;font-weight:900}
+#v326_company_detail_modal{position:fixed;inset:0;z-index:2147483646;background:rgba(15,23,42,.76);display:none}
+#v326_company_detail_modal.show{display:block}
+.v326-panel{width:100%;height:100%;background:#f8fafc;overflow:auto}
+.v326-head{position:sticky;top:0;z-index:4;display:flex;justify-content:space-between;align-items:center;gap:14px;padding:18px 24px;background:linear-gradient(135deg,#0f172a,#0f766e);color:#fff}
+.v326-head h2{margin:0;color:#fff!important}.v326-head p{margin:5px 0 0;color:#ccfbf1}
+.v326-body{padding:22px}.v326-summary{display:grid;grid-template-columns:repeat(4,minmax(170px,1fr));gap:12px;margin-bottom:16px}
+.v326-table{overflow:auto;background:#fff;border:1px solid #e2e8f0;border-radius:14px}.v326-table table{min-width:1000px!important;margin:0!important}
+@media(max-width:800px){.v326-summary{grid-template-columns:1fr 1fr}}
+</style>
+
+<script id="v326-company-card-details">
+(function(){
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S(v){return String(v==null?'':v).trim()}
+  function E(v){return typeof esc==='function'?esc(v):S(v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function M(v){return typeof money==='function'?money(v):N(v).toLocaleString()+' EGP'}
+
+  function approvedSales(){
+    try{if(typeof companyApprovedSalesV302==='function')return companyApprovedSalesV302()||[]}catch(e){}
+    return (db.sales||[]).filter(function(s){return !s.approval_status||s.approval_status==='approved'});
+  }
+  function activeLots(){
+    return (db.inventory_lots||[]).filter(function(l){return N(l.qty)>0});
+  }
+  function productName(l){
+    var p=(db.products||[]).find(function(x){return String(x.id)===String(l.product_id)})||{};
+    return S(l.product_name||p.name||p.product_name)||'-';
+  }
+  function regionName(s){
+    try{if(typeof window.regionNameVerifiedV307==='function')return window.regionNameVerifiedV307(s)}catch(e){}
+    return S(s.region_name||s.region||s.area||s.city)||'-';
+  }
+  function summary(){
+    var sales=approvedSales(),lots=activeLots();
+    var qty=lots.reduce(function(a,l){return a+N(l.qty)},0);
+    var value=sales.reduce(function(a,s){return a+N(s.total)},0);
+    var target=0;
+    try{target=N(db.money_targets_v325&&db.money_targets_v325.company)}catch(e){}
+    return {sales:sales,lots:lots,qty:qty,value:value,target:target,pct:target>0?value/target*100:0};
+  }
+
+  function modal(){
+    var m=document.getElementById('v326_company_detail_modal');
+    if(m)return m;
+    m=document.createElement('div');m.id='v326_company_detail_modal';
+    m.innerHTML='<div class="v326-panel"><div class="v326-head"><div><h2 id="v326_title"></h2><p id="v326_sub"></p></div>'+
+      '<button type="button" class="btn danger" onclick="closeCompanyCardDetailV326()">إغلاق</button></div>'+
+      '<div class="v326-body" id="v326_body"></div></div>';
+    document.body.appendChild(m);return m;
+  }
+
+  window.closeCompanyCardDetailV326=function(){
+    var m=document.getElementById('v326_company_detail_modal');if(m)m.classList.remove('show');
+    document.body.style.overflow='';
+  };
+
+  function stockTable(x){
+    if(!x.lots.length)return '<div class="empty">لا يوجد مخزون فعلي حاليًا.</div>';
+    return '<div class="v326-table"><table><tr><th>المنتج</th><th>LOT</th><th>الكمية الحالية</th><th>تاريخ الدخول</th><th>Expiry</th></tr>'+
+      x.lots.map(function(l){return '<tr><td><b>'+E(productName(l))+'</b></td><td>'+E(l.lot_number||l.lot||'-')+'</td>'+
+        '<td>'+N(l.qty).toLocaleString()+'</td><td>'+E(S(l.received_date||l.purchase_date||l.entry_date||l.created_at).slice(0,10)||'-')+'</td>'+
+        '<td>'+E(l.expiry||'-')+'</td></tr>'}).join('')+'</table></div>';
+  }
+
+  function salesTable(x){
+    if(!x.sales.length)return '<div class="empty">لا توجد مبيعات معتمدة في الفترة الحالية.</div>';
+    return '<div class="v326-table"><table><tr><th>التاريخ</th><th>رقم الفاتورة</th><th>المندوب</th><th>المنطقة</th><th>العميل</th><th>المنتج</th><th>الكمية</th><th>الإجمالي</th></tr>'+
+      x.sales.map(function(s){return '<tr><td>'+E(s.date||'')+'</td><td>'+E(s.invoice_no||s.invoice_number||s.invoice_group_id||'-')+'</td>'+
+        '<td>'+E(s.rep_name||'-')+'</td><td>'+E(regionName(s))+'</td><td>'+E(s.customer_name||'-')+'</td><td>'+E(s.product_name||'-')+'</td>'+
+        '<td>'+N(s.qty).toLocaleString()+'</td><td><b>'+M(s.total)+'</b></td></tr>'}).join('')+'</table></div>';
+  }
+
+  function moneySummary(x){
+    return '<div class="v326-summary">'+
+      '<div class="stat"><span>التارجت المالي</span><strong>'+M(x.target)+'</strong></div>'+
+      '<div class="stat"><span>المبيعات المحققة</span><strong>'+M(x.value)+'</strong></div>'+
+      '<div class="stat"><span>نسبة التحقيق</span><strong>'+x.pct.toFixed(1)+'%</strong></div>'+
+      '<div class="stat"><span>المتبقي للتارجت</span><strong>'+M(Math.max(0,x.target-x.value))+'</strong></div>'+
+      '</div>';
+  }
+
+  window.openCompanyCardDetailV326=function(kind,ev){
+    if(ev&&ev.target&&/INPUT|BUTTON|SELECT|TEXTAREA/.test(ev.target.tagName))return;
+    var x=summary(),title='',sub='',html='';
+    if(kind==='qty'){
+      title='تارجت الشركة بالكمية';
+      sub='المخزون الفعلي الحالي — يتغير تلقائيًا مع الإضافة والخصم';
+      html='<div class="v326-summary"><div class="stat"><span>إجمالي الكمية الحالية</span><strong>'+N(x.qty).toLocaleString()+' وحدة</strong></div>'+
+        '<div class="stat"><span>عدد LOTs النشطة</span><strong>'+x.lots.length+'</strong></div></div>'+stockTable(x);
+    }else if(kind==='sales'){
+      title='المبيعات المحققة بالقيمة';
+      sub='تفاصيل المبيعات المعتمدة المستخدمة في حساب التحقيق';
+      html='<div class="v326-summary"><div class="stat"><span>إجمالي المبيعات</span><strong>'+M(x.value)+'</strong></div>'+
+        '<div class="stat"><span>عدد سطور المبيعات</span><strong>'+x.sales.length+'</strong></div></div>'+salesTable(x);
+    }else if(kind==='money-target'){
+      title='تارجت الشركة بالفلوس';
+      sub='التارجت المالي الذي أدخله العميل ومقارنته بالمبيعات الفعلية';
+      html=moneySummary(x)+salesTable(x);
+    }else if(kind==='money-pct'){
+      title='نسبة تحقيق التارجت المالي';
+      sub='المبيعات الفعلية ÷ التارجت المالي × 100';
+      html=moneySummary(x)+salesTable(x);
+    }else if(kind==='stock-source'){
+      title='مصدر Quantity Target';
+      sub='تفاصيل المخزون الفعلي الذي يتم منه احتساب تارجت الكمية';
+      html=stockTable(x);
+    }else if(kind==='lots'){
+      title='LOTs النشطة';
+      sub='كل LOT كميته الحالية أكبر من صفر';
+      html=stockTable(x);
+    }else return;
+
+    var m=modal();
+    document.getElementById('v326_title').textContent=title;
+    document.getElementById('v326_sub').textContent=sub;
+    document.getElementById('v326_body').innerHTML=html;
+    m.classList.add('show');document.body.style.overflow='hidden';
+  };
+
+  /* Rebuild the V325 top cards with click handlers. */
+  var companyBaseV326=window.companySalesAnalyticsHtmlV306;
+  if(typeof companyBaseV326==='function'){
+    window.companySalesAnalyticsHtmlV306=function(){
+      var html=companyBaseV326.apply(this,arguments);
+      var x=summary();
+      var block='<div class="v325-company-target-grid">'+
+        '<div class="stat v326-clickable" onclick="openCompanyCardDetailV326(\'qty\',event)"><span>تارجت الشركة بالكمية</span><strong>'+N(x.qty).toLocaleString()+' وحدة</strong><small>من المخزون الفعلي الحالي</small><span class="v326-more">عرض التفاصيل ↗</span></div>'+
+        '<div class="stat v326-clickable" onclick="openCompanyCardDetailV326(\'sales\',event)"><span>المبيعات المحققة بالقيمة</span><strong>'+M(x.value)+'</strong><span class="v326-more">عرض التفاصيل ↗</span></div>'+
+        '<div class="stat v325-editable v326-clickable" onclick="openCompanyCardDetailV326(\'money-target\',event)"><span>تارجت الشركة بالفلوس</span><strong>'+M(x.target)+'</strong>'+
+          '<div class="v325-target-input-row" onclick="event.stopPropagation()"><input type="number" min="0" step="1" value="'+x.target+'" id="v325_company_money_target">'+
+          '<button class="btn small ok" onclick="event.stopPropagation();setCompanyMoneyTargetV325(document.getElementById(\'v325_company_money_target\').value)">حفظ</button></div><span class="v326-more">عرض التفاصيل ↗</span></div>'+
+        '<div class="stat v326-clickable" onclick="openCompanyCardDetailV326(\'money-pct\',event)"><span>نسبة تحقيق التارجت المالي</span><strong>'+x.pct.toFixed(1)+'%</strong><span class="v326-more">عرض التفاصيل ↗</span></div>'+
+        '<div class="stat v326-clickable" onclick="openCompanyCardDetailV326(\'stock-source\',event)"><span>مصدر Quantity Target</span><strong>Current Stock</strong><small>يتغير مع الإضافة والخصم</small><span class="v326-more">عرض التفاصيل ↗</span></div>'+
+        '<div class="stat v326-clickable" onclick="openCompanyCardDetailV326(\'lots\',event)"><span>عدد LOTs النشطة</span><strong>'+x.lots.length+'</strong><span class="v326-more">عرض التفاصيل ↗</span></div>'+
+      '</div>';
+
+      /* Hide the previous non-clickable V325 target strip and prepend the definitive clickable strip. */
+      html=html.replace('<div class="v325-company-target-grid">','<div class="v325-company-target-grid" style="display:none">');
+      return block+html;
+    };
+  }
+
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')window.closeCompanyCardDetailV326()});
+})();
+</script>
