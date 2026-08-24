@@ -26309,14 +26309,14 @@ html body .summary-box.v303-auto-clickable:after{
       var html=companyBaseV326.apply(this,arguments);
       var x=summary();
       var block='<div class="v325-company-target-grid">'+
-        '<div class="stat v326-clickable" onclick="openCompanyCardDetailV326(\'qty\',event)"><span>تارجت الشركة بالكمية</span><strong>'+N(x.qty).toLocaleString()+' وحدة</strong><small>من المخزون الفعلي الحالي</small><span class="v326-more">عرض التفاصيل ↗</span></div>'+
-        '<div class="stat v326-clickable" onclick="openCompanyCardDetailV326(\'sales\',event)"><span>المبيعات المحققة بالقيمة</span><strong>'+M(x.value)+'</strong><span class="v326-more">عرض التفاصيل ↗</span></div>'+
+        '<div class="stat v326-clickable" onclick="openCompanyCardDetailV326(\'qty\',event)"><span>تارجت الشركة بالكمية</span><strong>'+N(x.qty).toLocaleString()+' وحدة</strong><small>من المخزون الفعلي الحالي</small></div>'+
+        '<div class="stat v326-clickable" onclick="openCompanyCardDetailV326(\'sales\',event)"><span>المبيعات المحققة بالقيمة</span><strong>'+M(x.value)+'</strong></div>'+
         '<div class="stat v325-editable v326-clickable" onclick="openCompanyCardDetailV326(\'money-target\',event)"><span>تارجت الشركة بالفلوس</span><strong>'+M(x.target)+'</strong>'+
           '<div class="v325-target-input-row" onclick="event.stopPropagation()"><input type="number" min="0" step="1" value="'+x.target+'" id="v325_company_money_target">'+
-          '<button class="btn small ok" onclick="event.stopPropagation();setCompanyMoneyTargetV325(document.getElementById(\'v325_company_money_target\').value)">حفظ</button></div><span class="v326-more">عرض التفاصيل ↗</span></div>'+
-        '<div class="stat v326-clickable" onclick="openCompanyCardDetailV326(\'money-pct\',event)"><span>نسبة تحقيق التارجت المالي</span><strong>'+x.pct.toFixed(1)+'%</strong><span class="v326-more">عرض التفاصيل ↗</span></div>'+
-        '<div class="stat v326-clickable" onclick="openCompanyCardDetailV326(\'stock-source\',event)"><span>مصدر Quantity Target</span><strong>Current Stock</strong><small>يتغير مع الإضافة والخصم</small><span class="v326-more">عرض التفاصيل ↗</span></div>'+
-        '<div class="stat v326-clickable" onclick="openCompanyCardDetailV326(\'lots\',event)"><span>عدد LOTs النشطة</span><strong>'+x.lots.length+'</strong><span class="v326-more">عرض التفاصيل ↗</span></div>'+
+          '<button class="btn small ok" onclick="event.stopPropagation();setCompanyMoneyTargetV325(document.getElementById(\'v325_company_money_target\').value)">حفظ</button></div></div>'+
+        '<div class="stat v326-clickable" onclick="openCompanyCardDetailV326(\'money-pct\',event)"><span>نسبة تحقيق التارجت المالي</span><strong>'+x.pct.toFixed(1)+'%</strong></div>'+
+        '<div class="stat v326-clickable" onclick="openCompanyCardDetailV326(\'stock-source\',event)"><span>مصدر Quantity Target</span><strong>Current Stock</strong><small>يتغير مع الإضافة والخصم</small></div>'+
+        '<div class="stat v326-clickable" onclick="openCompanyCardDetailV326(\'lots\',event)"><span>عدد LOTs النشطة</span><strong>'+x.lots.length+'</strong></div>'+
       '</div>';
 
       /* Hide the previous non-clickable V325 target strip and prepend the definitive clickable strip. */
@@ -28977,5 +28977,196 @@ html body .summary-box.v303-auto-clickable:after{
       return r;
     };
   }
+})();
+</script>
+
+
+<script id="v341-card-context-definitive-fix">
+(function(){
+  function S(v){return String(v==null?'':v).trim()}
+
+  window.repCardContextV341=window.repCardContextV341||{id:''};
+
+  function setCtx(id){
+    id=S(id);
+    if(!id)return;
+    window.repCardContextV341.id=id;
+    try{
+      if(typeof repReportFilterV189!=='undefined'&&repReportFilterV189){
+        repReportFilterV189.repId=id;
+      }
+    }catch(e){}
+    var sel=document.getElementById('rep_report_rep_v189');
+    if(sel){
+      try{
+        if(Array.from(sel.options).some(function(o){return o.value===id}))sel.value=id;
+      }catch(e){}
+    }
+  }
+
+  function inferCtx(){
+    var id='';
+    try{id=S(repReportFilterV189&&repReportFilterV189.repId)}catch(e){}
+    if(id)return id;
+
+    var active=document.querySelector('#rep_performance_modal_v175 .rep-card-v175.active[data-rep-id]');
+    if(active&&S(active.dataset.repId))return S(active.dataset.repId);
+
+    var sel=document.getElementById('rep_report_rep_v189');
+    if(sel&&S(sel.value))return S(sel.value);
+
+    if(S(window.repCardContextV341.id))return S(window.repCardContextV341.id);
+    if(window.repDrillContextV333&&S(window.repDrillContextV333.id))return S(window.repDrillContextV333.id);
+
+    return '';
+  }
+
+  /* Always remember the exact report card/group that was opened. */
+  var openBase341=window.openRepDetailsV175;
+  if(typeof openBase341==='function'){
+    window.openRepDetailsV175=function(repId){
+      setCtx(repId);
+      return openBase341.apply(this,arguments);
+    };
+    try{openRepDetailsV175=window.openRepDetailsV175}catch(e){}
+  }
+
+  var regionalBase341=window.openRegionalTotalV321;
+  if(typeof regionalBase341==='function'){
+    window.openRegionalTotalV321=function(id){
+      setCtx(id);
+      return regionalBase341.apply(this,arguments);
+    };
+    try{openRegionalTotalV321=window.openRegionalTotalV321}catch(e){}
+  }
+
+  /*
+    Definitive drill wrapper:
+    before ANY rep-card drill, restore the active report context.
+  */
+  var drillBase341=window.openRepDrillDirectV304;
+  if(typeof drillBase341==='function'){
+    window.openRepDrillDirectV304=function(kind){
+      if(kind!=='company-sales'){
+        var id=inferCtx();
+        if(id)setCtx(id);
+      }
+      return drillBase341.apply(this,arguments);
+    };
+  }
+
+  /* Capture clicks before old handlers execute. */
+  document.addEventListener('click',function(e){
+    var drill=e.target.closest('[data-v303-drill]');
+    if(!drill)return;
+    if(drill.getAttribute('data-v303-drill')==='company-sales')return;
+
+    var id=inferCtx();
+    if(id)setCtx(id);
+  },true);
+
+  /* Also remember direct clicks on rep/group cards. */
+  document.addEventListener('click',function(e){
+    var card=e.target.closest('#rep_performance_modal_v175 .rep-card-v175[data-rep-id]');
+    if(card&&S(card.dataset.repId))setCtx(card.dataset.repId);
+  },true);
+})();
+</script>
+
+
+<style id="v342-cards-direct-click-only-style">
+/* No separate "عرض التفاصيل" affordance inside rep-report cards. The card itself is the action. */
+#rep_performance_modal_v175 .v303-clickable,
+#rep_performance_modal_v175 .rep-card-v175,
+#rep_performance_modal_v175 .stat[data-v303-drill],
+#rep_performance_modal_v175 .v302-company-sales-banner[data-v303-drill]{
+  cursor:pointer!important;
+}
+#rep_performance_modal_v175 .v303-clickable small.v342-remove,
+#rep_performance_modal_v175 .v303-clickable .v342-remove{display:none!important}
+</style>
+
+<script id="v342-cards-direct-click-only">
+(function(){
+  function S(v){return String(v==null?'':v).trim()}
+
+  function stripDetailsText(root){
+    root=root||document;
+    root.querySelectorAll('#rep_performance_modal_v175 *').forEach(function(el){
+      if(el.children.length===0 && S(el.textContent)==='عرض التفاصيل'){
+        el.remove();
+      }
+    });
+    root.querySelectorAll('#rep_performance_modal_v175 [title]').forEach(function(el){
+      var t=S(el.getAttribute('title'));
+      if(t.indexOf('اضغط لعرض التفاصيل')>=0 || t.indexOf('عرض التفاصيل')>=0){
+        el.setAttribute('title','اضغط على الكارت لفتح التفاصيل');
+      }
+    });
+  }
+
+  function bindDirectCards(){
+    var modal=document.getElementById('rep_performance_modal_v175');
+    if(!modal)return;
+
+    /* Summary/stat cards: whole card opens its drill. */
+    modal.querySelectorAll('[data-v303-drill]').forEach(function(card){
+      var kind=S(card.getAttribute('data-v303-drill'));
+      if(!kind)return;
+      card.style.cursor='pointer';
+      card.onclick=function(ev){
+        if(ev){ev.preventDefault();ev.stopPropagation()}
+        if(typeof window.openRepDrillDirectV304==='function'){
+          window.openRepDrillDirectV304(kind);
+        }
+        return false;
+      };
+    });
+
+    /* Rep/group cards already carry the rep id; clicking anywhere opens them. */
+    modal.querySelectorAll('.rep-card-v175[data-rep-id]').forEach(function(card){
+      var id=S(card.dataset.repId);
+      if(!id)return;
+      card.style.cursor='pointer';
+      card.onclick=function(ev){
+        if(ev){ev.preventDefault();ev.stopPropagation()}
+        if(typeof window.openRepDetailsV175==='function'){
+          window.openRepDetailsV175(id);
+        }
+        return false;
+      };
+    });
+
+    stripDetailsText(modal);
+  }
+
+  var perfBase342=window.openRepPerformanceV175;
+  if(typeof perfBase342==='function'){
+    window.openRepPerformanceV175=function(){
+      var r=perfBase342.apply(this,arguments);
+      setTimeout(bindDirectCards,80);
+      setTimeout(bindDirectCards,250);
+      return r;
+    };
+    try{openRepPerformanceV175=window.openRepPerformanceV175}catch(e){}
+  }
+
+  var repBase342=window.openRepDetailsV175;
+  if(typeof repBase342==='function'){
+    window.openRepDetailsV175=function(){
+      var r=repBase342.apply(this,arguments);
+      setTimeout(bindDirectCards,0);
+      setTimeout(bindDirectCards,120);
+      return r;
+    };
+    try{openRepDetailsV175=window.openRepDetailsV175}catch(e){}
+  }
+
+  var obs=new MutationObserver(function(){
+    bindDirectCards();
+  });
+  obs.observe(document.body,{childList:true,subtree:true});
+
+  setTimeout(bindDirectCards,700);
 })();
 </script>
