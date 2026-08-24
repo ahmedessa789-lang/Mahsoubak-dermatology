@@ -25618,7 +25618,9 @@ html body .summary-box.v303-auto-clickable:after{
     }
 
     var top=regions.slice(0,Math.min(3,regions.length));
-    var bottom=regions.slice().sort(function(a,b){return a.sales-b.sales || a.qty-b.qty}).slice(0,Math.min(3,regions.length));
+    var bottom=regions.length>1
+      ? [regions.slice().sort(function(a,b){return a.sales-b.sales || a.qty-b.qty})[0]]
+      : [];
 
     function list(items){
       return items.map(function(r){
@@ -25631,7 +25633,8 @@ html body .summary-box.v303-auto-clickable:after{
     return '<div class="card"><h3>'+E(title||'تركيز المبيعات حسب المنطقة')+'</h3>'+
       '<div class="v323-focus-grid">'+
         '<div class="v323-focus-card v323-top"><h4>أكثر المناطق تركيزًا في البيع</h4>'+list(top)+'</div>'+
-        '<div class="v323-focus-card v323-bottom"><h4>أقل المناطق بيعًا</h4>'+list(bottom)+'</div>'+
+        '<div class="v323-focus-card v323-bottom"><h4>أقل المناطق بيعًا</h4>'+
+          (bottom.length?list(bottom):'<div class="empty">لا توجد منطقة أخرى نشطة للمقارنة</div>')+'</div>'+
       '</div></div>';
   }
 
@@ -28090,14 +28093,14 @@ html body .summary-box.v303-auto-clickable:after{
     });
     var active=data.filter(function(x){return x.stats.value>0||x.stats.qty>0}).sort(function(a,b){return b.stats.value-a.stats.value||b.stats.qty-a.stats.qty});
     var focus=active[0]||null;
-    var low=active.length?active[active.length-1]:null;
+    var low=active.length>1?active[active.length-1]:null;
 
     var summary='<div class="v335-summary">'+
       '<div class="stat"><span>عدد الأحياء</span><strong>'+areas.length+'</strong></div>'+
       '<div class="stat"><span>الأحياء النشطة</span><strong>'+active.length+'</strong></div>'+
       '<div class="stat"><span>الأحياء غير النشطة</span><strong>'+(areas.length-active.length)+'</strong></div>'+
       '<div class="stat"><span>أكثر منطقة نشاطًا</span><strong>'+E(focus?focus.area:'—')+'</strong></div>'+
-      '<div class="stat"><span>أقل منطقة بيعًا</span><strong>'+E(low?low.area:'—')+'</strong></div>'+
+      '<div class="stat"><span>أقل منطقة بيعًا</span><strong>'+E(low?low.area:'لا توجد منطقة أخرى نشطة للمقارنة')+'</strong></div>'+
     '</div>';
 
     var cards='<div class="v335-area-grid">'+data.map(function(x){
@@ -28670,14 +28673,14 @@ html body .summary-box.v303-auto-clickable:after{
     var active=data.filter(function(x){return x.stats.value>0||x.stats.qty>0})
       .sort(function(a,b){return b.stats.value-a.stats.value||b.stats.qty-a.stats.qty});
     var focus=active[0]||null;
-    var low=active.length?active[active.length-1]:null;
+    var low=active.length>1?active[active.length-1]:null;
 
     var summary='<div class="v335-summary">'+
       '<div class="stat"><span>المندوب</span><strong>'+E(rep)+'</strong></div>'+
       '<div class="stat"><span>عدد الأحياء</span><strong>'+areas.length+'</strong></div>'+
       '<div class="stat"><span>الأحياء النشطة</span><strong>'+active.length+'</strong></div>'+
       '<div class="stat"><span>الأكثر نشاطًا</span><strong>'+E(focus?focus.area:'—')+'</strong></div>'+
-      '<div class="stat"><span>الأقل بيعًا</span><strong>'+E(low?low.area:'—')+'</strong></div>'+
+      '<div class="stat"><span>الأقل بيعًا</span><strong>'+E(low?low.area:'لا توجد منطقة أخرى نشطة للمقارنة')+'</strong></div>'+
     '</div>';
 
     var cards='<div class="v335-area-grid">'+data.map(function(x){
@@ -28846,7 +28849,7 @@ html body .summary-box.v303-auto-clickable:after{
     var active=rows.filter(function(x){return x.sales>0||x.qty>0||x.invoices>0})
       .sort(function(a,b){return b.sales-a.sales||b.qty-a.qty||b.invoices-a.invoices});
     var focus=active[0]||null;
-    var low=active.length?active[active.length-1]:null;
+    var low=active.length>1?active[active.length-1]:null;
 
     var html='<div class="v340-activity-wrap">'+
       '<div class="v340-activity-grid">'+
@@ -28860,7 +28863,7 @@ html body .summary-box.v303-auto-clickable:after{
           '<h4>الأقل بيعًا بين الأحياء النشطة</h4>'+
           (low?'<div class="v340-area-name">'+E(low.area)+'</div>'+
             '<div>المبيعات: <b>'+M(low.sales)+'</b> | الكمية: <b>'+N(low.qty).toLocaleString()+'</b> | الفواتير: <b>'+N(low.invoices).toLocaleString()+'</b></div>'
-            :'<div class="v340-none">لا توجد أحياء نشطة</div>')+
+            :'<div class="v340-none">'+(active.length===1?'لا يوجد حي آخر نشط للمقارنة':'لا توجد أحياء نشطة')+'</div>')+
         '</div>'+
       '</div>'+
       '<div class="v340-active-list"><h4>الأحياء النشطة ('+active.length+')</h4>'+
@@ -29143,3 +29146,8 @@ html body .summary-box.v303-auto-clickable:after{
   obs.observe(document.body,{childList:true,subtree:true});
 })();
 </script>
+
+
+<style id="v344-single-active-lowest-fix-style">
+.v335-summary .stat strong{overflow-wrap:anywhere}
+</style>
