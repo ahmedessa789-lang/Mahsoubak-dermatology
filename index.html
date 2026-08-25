@@ -9618,9 +9618,44 @@ render();
     const c=(db.customers||[]).find(function(x){return String(x.id)===String(s.customer_id)})||{};
     const invNo=invoiceNoV214(s);
     const deliveryNo='DN-'+invNo.replace(/^INV-/i,'');
-    const customer=String(s.customer_name||c.name||c.customer_name||'-');
-    const address=String(c.address||c.area||s.region_name||'-');
-    const city=String(c.city||c.area||s.region_name||'-');
+    const order=(db.sales_orders||[]).find(function(o){return s.order_id&&String(o.id)===String(s.order_id)}) ||
+                (db.sales_orders||[]).find(function(o){return s.invoice_group_id&&String(o.invoice_group_id)===String(s.invoice_group_id)}) ||
+                (db.sales_orders||[]).find(function(o){return s.invoice_no&&String(o.invoice_no||'')===String(s.invoice_no||'')}) || {};
+    const split=(db.customerRepSplits||[]).find(function(x){return String(x.customer_id||'')===String(c.id||'')})||{};
+
+    const customer=String(
+      c.customer_name||
+      s.customer_name||
+      c.official_name||
+      c.name||
+      '-'
+    );
+
+    const clinic=String(
+      order.clinic_name||order.order_clinic_name||
+      s.clinic_name||s.order_clinic_name||
+      split.clinic_name||
+      c.clinic_name||
+      c.name||
+      '-'
+    );
+
+    const address=String(
+      c.address||c.customer_address||
+      order.customer_address||order.address||order.order_address||
+      s.customer_address||s.address||s.order_address||
+      '-'
+    );
+
+    const city=String(
+      order.clinic_city||order.customer_city||order.city||
+      s.clinic_city||s.customer_city||s.city||
+      c.clinic_city||c.customer_city||c.city||
+      split.clinic_city_v353||split.clinic_city||
+      c.customer_region_v327||c.customer_region||
+      '-'
+    );
+
     const phone=String(c.phone||'-');
     const payment=String(s.payment_method||s.method||'-');
     function vatRateForInvoiceRowV223(r){
@@ -9701,9 +9736,9 @@ render();
         '<div class="info-row"><span>Delivery Method:</span><span>Road transport</span></div>'+
         '<div class="info-row"><span>Method Of Payment&nbsp; :</span><span>'+escV214(payment)+'</span></div>'+
       '</div><div class="recipient"><h3>Recipient</h3>'+
-        '<div class="recipient-row"><span class="label">COMPANY Name :</span><b>'+escV214(customer)+'</b></div>'+
-        '<div class="recipient-row italic"><span class="label">Customer’s Name:</span><span>'+escV214(customer)+'</span></div>'+
-        '<div class="recipient-row italic"><span class="label">Address line:</span><span>'+escV214(address)+'</span></div>'+
+        '<div class="recipient-row"><span class="label">Customer Name:</span><b>'+escV214(customer)+'</b></div>'+
+        '<div class="recipient-row italic"><span class="label">Clinic Name:</span><span>'+escV214(clinic)+'</span></div>'+
+        '<div class="recipient-row italic"><span class="label">Address:</span><span>'+escV214(address)+'</span></div>'+
         '<div class="recipient-row italic"><span class="label">City:</span><span>'+escV214(city)+'</span></div>'+
         '<div class="recipient-row italic"><span class="label">Phone:</span><span>'+escV214(phone)+'</span></div>'+
       '</div></section>'+
@@ -30567,5 +30602,30 @@ html body .summary-box.v303-auto-clickable:after{
   obs.observe(document.body,{childList:true,subtree:true});
   setTimeout(injectBonusCard,800);
   document.addEventListener('keydown',function(e){if(e.key==='Escape')window.closeCompanyBonusV357()});
+})();
+</script>
+
+
+<script id="v358-print-invoice-source-definitive">
+(function(){
+  var basePrint=window.printSaleDocument || (typeof printSaleDocument==='function'?printSaleDocument:null);
+  window.printSaleDocument=function(id,type){
+    var s=(db.sales||[]).find(function(x){return String(x.id)===String(id)});
+    if(!s){
+      alert(typeof lang!=='undefined'&&lang==='ar'?'لم يتم العثور على الفاتورة':'Sale not found');
+      return;
+    }
+    if(type!=='invoice' && typeof basePrint==='function')return basePrint.apply(this,arguments);
+
+    var html=typeof saleDocumentHTML==='function'?saleDocumentHTML(s,'invoice'):'';
+    var w=window.open('','_blank','width=1000,height=800');
+    if(!w)return alert(typeof lang!=='undefined'&&lang==='ar'?'اسمح بفتح النوافذ المنبثقة':'Allow popups');
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    setTimeout(function(){try{w.print()}catch(e){}},350);
+  };
+  try{printSaleDocument=window.printSaleDocument}catch(e){}
 })();
 </script>
