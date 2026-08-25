@@ -30401,3 +30401,171 @@ html body .summary-box.v303-auto-clickable:after{
   }
 })();
 </script>
+
+
+<style id="v357-company-bonus-card-style">
+.v357-bonus-card{border:1px solid #c4b5fd!important;background:#faf5ff!important;cursor:pointer}
+.v357-bonus-card strong{color:#6d28d9!important}
+#v357_bonus_modal{position:fixed;inset:0;z-index:2147483647;background:rgba(15,23,42,.78);display:none}
+#v357_bonus_modal.show{display:block}
+.v357-panel{width:100%;height:100%;background:#f8fafc;overflow:auto}
+.v357-head{position:sticky;top:0;z-index:5;display:flex;justify-content:space-between;gap:12px;align-items:center;padding:18px 24px;background:linear-gradient(135deg,#3b0764,#7e22ce);color:#fff}
+.v357-head h2{margin:0;color:#fff!important}.v357-head p{margin:4px 0 0;color:#f3e8ff}
+.v357-body{padding:22px}
+.v357-summary{display:grid;grid-template-columns:repeat(4,minmax(170px,1fr));gap:10px;margin-bottom:16px}
+.v357-table{overflow:auto;background:#fff;border:1px solid #e2e8f0;border-radius:14px}
+.v357-table table{min-width:1200px!important;margin:0!important}
+@media(max-width:800px){.v357-summary{grid-template-columns:1fr 1fr}}
+</style>
+
+<script id="v357-company-bonus-card">
+(function(){
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S(v){return String(v==null?'':v).trim()}
+  function E(v){return S(v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function M(v){try{return money(v)}catch(e){return 'EGP '+N(v).toLocaleString()}}
+
+  function isBonusRow(s){
+    var raw=S(s.order_type_label||s.order_type||s.sale_type||s.type||s.kind||'').toLowerCase();
+    if(raw.indexOf('bonus')>=0||raw.indexOf('بونص')>=0)return true;
+    if(N(s.bonus_qty)>0||N(s.free_qty)>0||N(s.qty_bonus)>0)return true;
+    return false;
+  }
+
+  function approvedSales(){
+    var rows=[];
+    try{
+      rows=typeof companyApprovedSalesV302==='function'?companyApprovedSalesV302():(db.sales||[]);
+    }catch(e){rows=db.sales||[]}
+    return (rows||[]).filter(function(s){
+      try{if(typeof inRangeV189==='function'&&!inRangeV189(s))return false}catch(e){}
+      return isBonusRow(s);
+    });
+  }
+
+  function bonusQty(s){
+    var explicit=N(s.bonus_qty||s.free_qty||s.qty_bonus);
+    if(explicit>0)return explicit;
+    return N(s.qty||s.quantity||s.total_qty||s.units);
+  }
+
+  function customerForSale(s){
+    return (db.customers||[]).find(function(c){return String(c.id)===String(s.customer_id)})||{};
+  }
+
+  function bonusSummary(){
+    var rows=approvedSales();
+    var qty=rows.reduce(function(a,s){return a+bonusQty(s)},0);
+    var products=new Set(rows.map(function(s){return S(s.product_id||s.product_name)}).filter(Boolean));
+    var customers=new Set(rows.map(function(s){return S(s.customer_id||s.customer_name)}).filter(Boolean));
+    var invoices=new Set(rows.map(function(s){return S(s.invoice_no||s.invoice_number||s.invoice_group_id||s.order_id||s.id)}).filter(Boolean));
+    return {rows:rows,qty:qty,products:products.size,customers:customers.size,invoices:invoices.size};
+  }
+
+  window.companyBonusSummaryV357=bonusSummary;
+
+  function ensureModal(){
+    var m=document.getElementById('v357_bonus_modal');
+    if(m)return m;
+    m=document.createElement('div');
+    m.id='v357_bonus_modal';
+    m.innerHTML='<div class="v357-panel"><div class="v357-head"><div><h2>تفاصيل البونص</h2><p>كل المنتجات التي خرجت للعملاء على سبيل Bonus خلال الفترة المحددة</p></div>'+
+      '<button class="btn danger" onclick="closeCompanyBonusV357()">إغلاق</button></div><div class="v357-body" id="v357_bonus_body"></div></div>';
+    document.body.appendChild(m);
+    return m;
+  }
+
+  window.closeCompanyBonusV357=function(){
+    var m=document.getElementById('v357_bonus_modal');
+    if(m)m.classList.remove('show');
+    document.body.style.overflow='';
+  };
+
+  window.openCompanyBonusV357=function(){
+    var x=bonusSummary();
+    var productMap=new Map();
+    x.rows.forEach(function(s){
+      var key=S(s.product_id||s.product_name);
+      if(!productMap.has(key))productMap.set(key,{name:S(s.product_name||'-'),qty:0,lines:0});
+      var p=productMap.get(key);p.qty+=bonusQty(s);p.lines++;
+    });
+    var products=Array.from(productMap.values()).sort(function(a,b){return b.qty-a.qty});
+
+    var html='<div class="v357-summary">'+
+      '<div class="stat"><span>إجمالي كمية البونص</span><strong>'+N(x.qty).toLocaleString()+'</strong></div>'+
+      '<div class="stat"><span>عدد المنتجات</span><strong>'+x.products+'</strong></div>'+
+      '<div class="stat"><span>عدد العملاء</span><strong>'+x.customers+'</strong></div>'+
+      '<div class="stat"><span>عدد الفواتير</span><strong>'+x.invoices+'</strong></div>'+
+    '</div>';
+
+    html+='<div class="card"><h3>ملخص المنتجات</h3>'+
+      (products.length?'<div class="v357-table"><table><tr><th>المنتج</th><th>إجمالي كمية البونص</th><th>عدد السطور</th></tr>'+
+        products.map(function(p){return '<tr><td><b>'+E(p.name)+'</b></td><td>'+N(p.qty).toLocaleString()+'</td><td>'+p.lines+'</td></tr>'}).join('')+
+      '</table></div>':'<div class="empty">لا توجد منتجات بونص في الفترة المحددة.</div>')+
+    '</div>';
+
+    html+='<div class="card"><h3>تفاصيل البونص</h3>'+
+      (x.rows.length?'<div class="v357-table"><table><tr>'+
+        '<th>التاريخ</th><th>الفاتورة</th><th>العميل</th><th>العيادة</th><th>المندوب</th><th>المنتج</th><th>LOT</th><th>كمية البونص</th><th>سعر الوحدة</th><th>القيمة</th>'+
+      '</tr>'+x.rows.map(function(s){
+        var c=customerForSale(s);
+        var q=bonusQty(s),price=N(s.price||s.unit_price),total=N(s.total);
+        return '<tr>'+
+          '<td>'+E(S(s.date).slice(0,10))+'</td>'+
+          '<td>'+E(S(s.invoice_no||s.invoice_number||s.invoice_group_id||s.order_id||s.id)||'-')+'</td>'+
+          '<td>'+E(c.customer_name||s.customer_name||c.name||'-')+'</td>'+
+          '<td>'+E(s.clinic_name||c.clinic_name||c.name||'-')+'</td>'+
+          '<td>'+E(s.rep_name||'-')+'</td>'+
+          '<td><b>'+E(s.product_name||'-')+'</b></td>'+
+          '<td>'+E(s.lot_number||s.lot||'-')+'</td>'+
+          '<td>'+N(q).toLocaleString()+'</td>'+
+          '<td>'+M(price)+'</td>'+
+          '<td>'+M(total)+'</td>'+
+        '</tr>';
+      }).join('')+'</table></div>':'<div class="empty">لا توجد بيانات بونص في الفترة المحددة.</div>')+
+    '</div>';
+
+    var m=ensureModal();
+    document.getElementById('v357_bonus_body').innerHTML=html;
+    m.classList.add('show');
+    document.body.style.overflow='hidden';
+  };
+
+  function injectBonusCard(){
+    var grid=document.querySelector('.v351-company-top-grid') || document.querySelector('.v325-company-target-grid');
+    if(!grid)return;
+    if(grid.querySelector('.v357-bonus-card'))return;
+
+    var x=bonusSummary();
+    var card=document.createElement('div');
+    card.className='stat v357-bonus-card';
+    card.onclick=function(){window.openCompanyBonusV357()};
+    card.innerHTML='<span>البونص</span><strong>'+N(x.qty).toLocaleString()+' وحدة</strong><small>'+x.products+' منتج / '+x.customers+' عميل</small>';
+    grid.appendChild(card);
+  }
+
+  var analyticsBase=window.companySalesAnalyticsHtmlV306;
+  if(typeof analyticsBase==='function'){
+    window.companySalesAnalyticsHtmlV306=function(){
+      var html=analyticsBase.apply(this,arguments);
+      setTimeout(injectBonusCard,0);
+      return html;
+    };
+  }
+
+  var openCompanyBase=window.openCompanyAnalyticsModalV306;
+  if(typeof openCompanyBase==='function'){
+    window.openCompanyAnalyticsModalV306=function(){
+      var r=openCompanyBase.apply(this,arguments);
+      setTimeout(injectBonusCard,100);
+      setTimeout(injectBonusCard,300);
+      return r;
+    };
+  }
+
+  var obs=new MutationObserver(function(){injectBonusCard()});
+  obs.observe(document.body,{childList:true,subtree:true});
+  setTimeout(injectBonusCard,800);
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')window.closeCompanyBonusV357()});
+})();
+</script>
