@@ -29733,3 +29733,100 @@ html body .summary-box.v303-auto-clickable:after{
   }
 })();
 </script>
+
+
+<style id="v353-clinic-city-customer-split-style">
+#split_clinic_city_v353{min-width:170px}
+.v353-city-note{font-size:11px;color:#64748b;margin-top:4px}
+</style>
+
+<script id="v353-clinic-city-customer-split">
+(function(){
+  function S(v){return String(v==null?'':v).trim()}
+  function saveDb(){try{if(typeof save==='function')save()}catch(e){}}
+
+  function selectedCustomer(){
+    var id=S((document.getElementById('split_customer_id')||{}).value);
+    return (db.customers||[]).find(function(c){return String(c.id)===id})||null;
+  }
+
+  function customerCity(c){
+    return S(c&&(c.clinic_city||c.customer_city||c.city||c.customer_region_v327||c.customer_region));
+  }
+
+  /* Add a dedicated Clinic City field inside "توزيع العملاء على المناديب". */
+  var managerBase=window.customerRepSplitManagerV45 || (typeof customerRepSplitManagerV45==='function'?customerRepSplitManagerV45:null);
+  if(typeof managerBase==='function'){
+    window.customerRepSplitManagerV45=function(){
+      var html=managerBase.apply(this,arguments);
+      if(html.indexOf('split_clinic_city_v353')>=0)return html;
+
+      var anchor='<div><label>'+((typeof T==='function')?T('clinicName'):'اسم العيادة')+'</label><input id="split_clinic_name"></div>';
+      var field='<div><label>'+(typeof lang!=='undefined'&&lang==='ar'?'منطقة / مدينة العيادة':'Clinic City / Area')+'</label>'+
+        '<input id="split_clinic_city_v353" placeholder="'+(typeof lang!=='undefined'&&lang==='ar'?'مثال: زايد / مدينة نصر / التجمع':'Example: Zayed / Nasr City / Tagamoa')+'">'+
+        '<div class="v353-city-note">'+(typeof lang!=='undefined'&&lang==='ar'?'تُحفظ في بيانات العميل وتظهر في الفاتورة داخل City':'Saved to customer data and printed as invoice City')+'</div></div>';
+
+      if(html.indexOf(anchor)>=0){
+        html=html.replace(anchor,anchor+field);
+      }else{
+        html=html.replace('<div><label>${T(\'regionCode\')}</label>',field+'<div><label>${T(\'regionCode\')}</label>');
+      }
+      return html;
+    };
+    try{customerRepSplitManagerV45=window.customerRepSplitManagerV45}catch(e){}
+  }
+
+  /* Capture city before the base add function re-renders the screen. */
+  var addBase=window.addCustomerRepSplitV45 || (typeof addCustomerRepSplitV45==='function'?addCustomerRepSplitV45:null);
+  if(typeof addBase==='function'){
+    window.addCustomerRepSplitV45=function(){
+      var city=S((document.getElementById('split_clinic_city_v353')||{}).value);
+      var c=selectedCustomer();
+      var customerId=c?String(c.id):'';
+
+      var beforeIds=new Set((db.customerRepSplits||[]).map(function(x){return String(x.id)}));
+      var r=addBase.apply(this,arguments);
+
+      if(city){
+        if(!c && customerId){
+          c=(db.customers||[]).find(function(x){return String(x.id)===customerId})||null;
+        }
+        if(c){
+          c.clinic_city=city;
+          c.customer_city=city;
+          c.city=city;
+          /* Keep dedicated Customer Region synchronized for old records/reports without touching rep region fields. */
+          c.customer_region_v327=city;
+          c.customer_region=city;
+        }
+
+        var created=(db.customerRepSplits||[]).find(function(x){return !beforeIds.has(String(x.id))});
+        if(created){
+          created.clinic_city_v353=city;
+          created.clinic_city=city;
+        }
+        saveDb();
+      }
+      return r;
+    };
+    try{addCustomerRepSplitV45=window.addCustomerRepSplitV45}catch(e){}
+  }
+
+  /* When an existing customer is selected, auto-fill its stored clinic city. */
+  document.addEventListener('change',function(e){
+    if(!e.target||e.target.id!=='split_customer_id')return;
+    setTimeout(function(){
+      var c=selectedCustomer();
+      var inp=document.getElementById('split_clinic_city_v353');
+      if(inp&&c)inp.value=customerCity(c);
+    },0);
+  },true);
+
+  /* If the manager is already visible, fill city from current selection. */
+  setTimeout(function(){
+    var c=selectedCustomer();
+    var inp=document.getElementById('split_clinic_city_v353');
+    if(inp&&c&&!S(inp.value))inp.value=customerCity(c);
+  },500);
+})();
+</script>
