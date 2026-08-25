@@ -25952,6 +25952,22 @@ html body .summary-box.v303-auto-clickable:after{
     return (db.reps||[]).reduce(function(sum,r){return sum+window.repQtyTargetV346(r)},0);
   };
 
+  window.companyAchievedSaleQtyV349=function(){
+    var rows=[];
+    try{
+      rows=typeof companyApprovedSalesV302==='function'?companyApprovedSalesV302():(db.sales||[]);
+    }catch(e){rows=(db.sales||[])}
+    return (rows||[]).reduce(function(sum,s){
+      return sum+(typeof window.targetSaleQtyV346==='function'?window.targetSaleQtyV346(s):N(s.qty));
+    },0);
+  };
+
+  window.companyQtyAchievementPctV349=function(){
+    var target=typeof window.companyQtyTargetV346==='function'?window.companyQtyTargetV346():0;
+    var achieved=typeof window.companyAchievedSaleQtyV349==='function'?window.companyAchievedSaleQtyV349():0;
+    return target>0?achieved/target*100:0;
+  };
+
   function approvedSales(){
     try{if(typeof companyApprovedSalesV302==='function')return companyApprovedSalesV302()||[]}catch(e){}
     return (db.sales||[]).filter(function(s){return !s.approval_status||s.approval_status==='approved'});
@@ -26380,8 +26396,10 @@ html body .summary-box.v303-auto-clickable:after{
     window.companySalesAnalyticsHtmlV306=function(){
       var html=companyBaseV326.apply(this,arguments);
       var x=summary();
-      var block='<div class="v325-company-target-grid">'+
+      var block='<div class="v325-company-target-grid v351-company-top-grid">'+
         '<div class="stat v326-clickable" onclick="openCompanyCardDetailV326(\'qty\',event)"><span>تارجت الشركة بالكمية</span><strong>'+N(x.qty).toLocaleString()+' وحدة</strong><small>مجموع تارجت المناديب</small></div>'+
+        '<div class="stat"><span>المبيعات المحققة بالكمية</span><strong>'+N(typeof window.companyAchievedSaleQtyV349==='function'?window.companyAchievedSaleQtyV349():0).toLocaleString()+' وحدة</strong><small>بيع فقط بدون بونص</small></div>'+
+        '<div class="stat"><span>نسبة تحقيق التارجت بالكمية</span><strong>'+((N(x.qty)>0?(N(typeof window.companyAchievedSaleQtyV349==='function'?window.companyAchievedSaleQtyV349():0)/N(x.qty)*100):0).toFixed(1))+'%</strong></div>'+
         '<div class="stat v326-clickable" onclick="openCompanyCardDetailV326(\'sales\',event)"><span>المبيعات المحققة بالقيمة</span><strong>'+M(x.value)+'</strong></div>'+
         '<div class="stat v325-editable v326-clickable" onclick="openCompanyCardDetailV326(\'money-target\',event)"><span>تارجت الشركة بالفلوس</span><strong>'+M(x.target)+'</strong>'+
           '<div class="v325-target-input-row" onclick="event.stopPropagation()"><input type="number" min="0" step="1" value="'+x.target+'" id="v325_company_money_target">'+
@@ -28185,6 +28203,43 @@ html body .summary-box.v303-auto-clickable:after{
     return {qty:qty,value:value,remaining:remaining,invoices:invoices.size,rows:rows.length};
   }
 
+  function totalGroupMembersV350(totalId){
+    if(totalId==='west_total_v186')return ['مارينا','عماد'];
+    if(totalId==='east_total_v186')return ['سيف','ماهينور','نوران','سلمى','سلمي'];
+    return [];
+  }
+
+  function totalGroupSummaryV350(totalId){
+    var members=totalGroupMembersV350(totalId).map(norm);
+    var reps=(db.reps||[]).filter(function(r){return members.indexOf(norm(r.name))>=0});
+
+    var target=reps.reduce(function(sum,r){
+      return sum+(typeof window.repQtyTargetV346==='function'
+        ?window.repQtyTargetV346(r)
+        :N(r.target_qty!=null?r.target_qty:(r.target_value!=null?r.target_value:(r.target!=null?r.target:r.sales_target))));
+    },0);
+
+    var rows=approvedSales().filter(function(s){return members.indexOf(norm(repName(s)))>=0});
+    var achieved=rows.reduce(function(sum,s){
+      return sum+(typeof window.targetSaleQtyV346==='function'?window.targetSaleQtyV346(s):N(s.qty));
+    },0);
+    var salesValue=rows.reduce(function(sum,s){return sum+N(s.total)},0);
+    var pct=target>0?achieved/target*100:0;
+
+    return {salesValue:salesValue,target:target,achieved:achieved,pct:pct,repCount:reps.length};
+  }
+
+  function totalGroupSummaryHtmlV350(totalId){
+    var x=totalGroupSummaryV350(totalId);
+    return '<div class="v350-total-summary">'+
+      '<div class="stat"><span>إجمالي المبيعات</span><strong>'+M(x.salesValue)+'</strong></div>'+
+      '<div class="stat"><span>تارجت المنطقة بالكمية</span><strong>'+N(x.target).toLocaleString()+' وحدة</strong><small>مجموع تارجت المناديب</small></div>'+
+      '<div class="stat"><span>المحقق بالكمية</span><strong>'+N(x.achieved).toLocaleString()+' وحدة</strong><small>بيع فقط بدون بونص</small></div>'+
+      '<div class="stat"><span>نسبة تحقيق التارجت</span><strong>'+x.pct.toFixed(1)+'%</strong>'+
+        '<div class="v350-ach-bar"><span style="width:'+Math.min(100,Math.max(0,x.pct))+'%"></span></div></div>'+
+    '</div>';
+  }
+
   function subgroupCards(totalId){
     var g=TOTAL_GROUPS_V335[totalId];if(!g)return '';
     return '<div class="v335-root"><div class="section-title"><div><h3>تقسيم '+E(g.name)+'</h3><div class="hint">اضغط على West/East subgroup لعرض الأحياء الداخلية ونشاط البيع.</div></div></div>'+
@@ -28752,10 +28807,24 @@ html body .summary-box.v303-auto-clickable:after{
         total=(companyApprovedSalesV302()||[]).reduce(function(a,s){return a+N(s.total)},0);
       }
     }catch(e){}
-    return '<div class="v302-company-sales-banner v303-clickable" data-v303-drill="company-sales" '+
+    var qtyTarget=typeof window.companyQtyTargetV346==='function'?window.companyQtyTargetV346():0;
+    var qtyAchieved=typeof window.companyAchievedSaleQtyV349==='function'?window.companyAchievedSaleQtyV349():0;
+    var qtyPct=qtyTarget>0?qtyAchieved/qtyTarget*100:0;
+    var moneyTarget=0;
+    try{moneyTarget=N(db.money_targets_v325&&db.money_targets_v325.company)}catch(e){}
+    var moneyPct=moneyTarget>0?total/moneyTarget*100:0;
+
+    return '<div class="v302-company-sales-banner v303-clickable v349-company-sales-banner" data-v303-drill="company-sales" '+
       'onclick="window.openRepDrillDirectV304(\'company-sales\');return false;" title="اضغط على الكارت">'+
       '<span>إجمالي مبيعات الشركة كلها خلال المدة</span><strong>'+M(total)+'</strong>'+
-      '<small>يشمل جميع المندوبين — ويتغير تلقائيًا حسب تاريخ من / إلى</small></div>';
+      '<div class="v349-company-qty-grid v350-company-all-targets">'+
+        '<div><span>تارجت الشركة بالكمية</span><b>'+N(qtyTarget).toLocaleString()+' وحدة</b></div>'+
+        '<div><span>المبيعات المحققة بالكمية</span><b>'+N(qtyAchieved).toLocaleString()+' وحدة</b><small>بيع فقط بدون بونص</small></div>'+
+        '<div><span>نسبة تحقيق التارجت بالكمية</span><b>'+qtyPct.toFixed(1)+'%</b></div>'+
+        '<div><span>تارجت الشركة بالفلوس</span><b>'+M(moneyTarget)+'</b></div>'+
+        '<div><span>نسبة تحقيق التارجت المالي</span><b>'+moneyPct.toFixed(1)+'%</b></div>'+
+      '</div>'+
+      '<small>يشمل جميع المناديب — ويتغير تلقائيًا حسب الفترة المحددة</small></div>';
   }
 
   function subgroupCards(totalId){
@@ -28768,7 +28837,8 @@ html body .summary-box.v303-auto-clickable:after{
     return companyBanner()+
       '<div class="v335-root">'+
         '<div class="v336-total-head"><div><h2>'+E(g.name)+'</h2>'+
-        '<div class="v338-subtitle">اختر منطقة المندوب لعرض الأحياء ونشاط البيع.</div></div></div>'+
+        '<div class="v338-subtitle">إجمالي أداء مناديب المنطقة ثم تفاصيل كل مندوب ومناطقه.</div></div></div>'+
+        ((totalId==='west_total_v186'||totalId==='east_total_v186')?totalGroupSummaryHtmlV350(totalId):'')+
         '<div class="v335-group-grid">'+g.subgroups.map(function(sg){
           var st=stats(subgroupSales(totalId,sg.id));
           return '<div class="v335-group-card" onclick="openSubgroupAreasV338(\''+E(totalId)+'\',\''+E(sg.id)+'\')">'+
@@ -28806,6 +28876,24 @@ html body .summary-box.v303-auto-clickable:after{
     m.classList.add('show');document.body.style.overflow='hidden';
   }
 
+  function repTargetAchievementV348(totalId,subId,repNameValue){
+    var repObj=(db.reps||[]).find(function(r){return norm(r.name)===norm(repNameValue)})||null;
+    var target=repObj
+      ? (typeof window.repQtyTargetV346==='function'
+          ? window.repQtyTargetV346(repObj)
+          : N(repObj.target_qty!=null?repObj.target_qty:(repObj.target_value!=null?repObj.target_value:(repObj.target!=null?repObj.target:repObj.sales_target))))
+      : 0;
+
+    var rows=subId?subgroupSales(totalId,subId):directGroupSales(totalId);
+    var achieved=(rows||[]).reduce(function(sum,s){
+      return sum+(typeof window.targetSaleQtyV346==='function'?window.targetSaleQtyV346(s):N(s.qty));
+    },0);
+
+    var remaining=Math.max(0,target-achieved);
+    var pct=target>0?(achieved/target*100):0;
+    return {target:target,achieved:achieved,remaining:remaining,pct:pct};
+  }
+
   function areaCards(totalId,subId,label,rep,areas){
     var data=areas.map(function(area){
       var rows=areaSales(totalId,subId,area);
@@ -28815,9 +28903,18 @@ html body .summary-box.v303-auto-clickable:after{
       .sort(function(a,b){return b.stats.value-a.stats.value||b.stats.qty-a.stats.qty});
     var focus=active[0]||null;
     var low=active.length>1?active[active.length-1]:null;
+    var targetInfo=repTargetAchievementV348(totalId,subId,rep);
 
-    var summary='<div class="v335-summary">'+
+    var targetSummary='<div class="v348-target-summary">'+
       '<div class="stat"><span>المندوب</span><strong>'+E(rep)+'</strong></div>'+
+      '<div class="stat"><span>تارجت المندوب بالكمية</span><strong>'+N(targetInfo.target).toLocaleString()+' وحدة</strong></div>'+
+      '<div class="stat"><span>المحقق من البيع فقط</span><strong>'+N(targetInfo.achieved).toLocaleString()+' وحدة</strong><small>البونص غير محسوب</small></div>'+
+      '<div class="stat"><span>المتبقي من التارجت</span><strong>'+N(targetInfo.remaining).toLocaleString()+' وحدة</strong></div>'+
+      '<div class="stat"><span>نسبة تحقيق التارجت</span><strong>'+targetInfo.pct.toFixed(1)+'%</strong>'+
+        '<div class="v348-ach-bar"><span style="width:'+Math.min(100,Math.max(0,targetInfo.pct))+'%"></span></div></div>'+
+    '</div>';
+
+    var summary=targetSummary+'<div class="v335-summary">'+
       '<div class="stat"><span>عدد الأحياء</span><strong>'+areas.length+'</strong></div>'+
       '<div class="stat"><span>الأحياء النشطة</span><strong>'+active.length+'</strong></div>'+
       '<div class="stat"><span>الأكثر نشاطًا</span><strong>'+E(focus?focus.area:'—')+'</strong></div>'+
@@ -29416,3 +29513,112 @@ html body .summary-box.v303-auto-clickable:after{
   }
 })();
 </script>
+
+
+<style id="v348-area-rep-target-achievement-style">
+.v348-target-summary{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(160px,1fr));
+  gap:10px;
+  margin:12px 0 14px;
+}
+.v348-target-summary .stat{
+  background:#fff!important;
+  border:1px solid #dbeafe!important;
+}
+.v348-ach-bar{
+  height:8px;
+  margin-top:8px;
+  background:#e5e7eb;
+  border-radius:999px;
+  overflow:hidden;
+}
+.v348-ach-bar span{
+  display:block;
+  height:100%;
+  background:linear-gradient(90deg,#14b8a6,#2563eb);
+  border-radius:999px;
+}
+@media(max-width:1000px){.v348-target-summary{grid-template-columns:repeat(2,minmax(160px,1fr))}}
+@media(max-width:620px){.v348-target-summary{grid-template-columns:1fr}}
+</style>
+
+
+<style id="v349-company-sales-qty-achievement-style">
+.v349-company-sales-banner{padding-bottom:18px!important}
+.v349-company-qty-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(170px,1fr));
+  gap:10px;
+  margin-top:12px;
+}
+.v349-company-qty-grid>div{
+  background:rgba(255,255,255,.72);
+  border:1px solid rgba(16,185,129,.22);
+  border-radius:10px;
+  padding:9px 11px;
+}
+.v349-company-qty-grid span{
+  display:block;
+  font-size:11px;
+  font-weight:800;
+  opacity:.8;
+}
+.v349-company-qty-grid b{
+  display:block;
+  margin-top:4px;
+  font-size:16px;
+}
+@media(max-width:760px){
+  .v349-company-qty-grid{grid-template-columns:1fr}
+}
+</style>
+
+
+<style id="v350-total-target-summary-style">
+.v350-company-all-targets{
+  grid-template-columns:repeat(5,minmax(150px,1fr))!important;
+}
+.v350-total-summary{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(170px,1fr));
+  gap:10px;
+  margin:12px 0 16px;
+}
+.v350-total-summary .stat{
+  background:#fff!important;
+  border:1px solid #dbeafe!important;
+}
+.v350-ach-bar{
+  height:8px;
+  margin-top:8px;
+  border-radius:999px;
+  overflow:hidden;
+  background:#e5e7eb;
+}
+.v350-ach-bar span{
+  display:block;height:100%;
+  background:linear-gradient(90deg,#14b8a6,#2563eb);
+  border-radius:999px;
+}
+@media(max-width:1050px){
+  .v350-company-all-targets{grid-template-columns:repeat(2,minmax(150px,1fr))!important}
+  .v350-total-summary{grid-template-columns:repeat(2,minmax(170px,1fr))}
+}
+@media(max-width:620px){
+  .v350-company-all-targets,.v350-total-summary{grid-template-columns:1fr!important}
+}
+</style>
+
+
+<style id="v351-company-top-qty-cards-style">
+.v351-company-top-grid{
+  grid-template-columns:repeat(4,minmax(180px,1fr))!important;
+}
+@media(max-width:1100px){
+  .v351-company-top-grid{grid-template-columns:repeat(2,minmax(170px,1fr))!important}
+}
+@media(max-width:620px){
+  .v351-company-top-grid{grid-template-columns:1fr!important}
+}
+</style>
