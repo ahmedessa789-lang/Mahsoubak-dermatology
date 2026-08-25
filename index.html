@@ -29622,3 +29622,114 @@ html body .summary-box.v303-auto-clickable:after{
   .v351-company-top-grid{grid-template-columns:1fr!important}
 }
 </style>
+
+
+<script id="v352-invoice-recipient-definitive-no-rep-region">
+(function(){
+  function S(v){return String(v==null?'':v).trim()}
+  function E(v){return S(v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+
+  function customerForSale(s){
+    return (db.customers||[]).find(function(c){return String(c.id)===String(s&&s.customer_id)})||{};
+  }
+
+  function orderForSale(s){
+    var rows=Array.isArray(db.sales_orders)?db.sales_orders:[];
+    var byId=rows.find(function(o){return s.order_id&&String(o.id)===String(s.order_id)});
+    if(byId)return byId;
+    var byGroup=rows.find(function(o){
+      return s.invoice_group_id&&String(o.invoice_group_id)===String(s.invoice_group_id);
+    });
+    if(byGroup)return byGroup;
+    return rows.find(function(o){
+      return s.invoice_no&&String(o.invoice_no||'')===String(s.invoice_no||'');
+    })||{};
+  }
+
+  function values(s){
+    var c=customerForSale(s),o=orderForSale(s);
+
+    var customer=S(
+      c.customer_name||
+      s.customer_name||
+      c.name||
+      ''
+    );
+
+    var clinic=S(
+      o.clinic_name||o.order_clinic_name||
+      s.clinic_name||s.order_clinic_name||
+      c.clinic_name||
+      ''
+    );
+
+    /* Customer address only. Do NOT use rep region/area as address fallback. */
+    var address=S(
+      c.address||c.customer_address||
+      o.customer_address||o.address||o.order_address||
+      s.customer_address||s.address||s.order_address||
+      ''
+    );
+
+    /* Clinic city / customer geographic city only.
+       Explicitly excluded: rep region_name, rep area, sales region, sales group. */
+    var city=S(
+      o.clinic_city||o.customer_city||o.city||
+      s.clinic_city||s.customer_city||s.city||
+      c.clinic_city||c.customer_city||c.city||
+      c.customer_region_v327||c.customer_region||
+      ''
+    );
+
+    return {
+      customer:customer||'-',
+      clinic:clinic||'-',
+      address:address||'-',
+      city:city||'-'
+    };
+  }
+
+  window.invoiceRecipientValuesV352=values;
+
+  var base=window.saleDocumentHTML || (typeof saleDocumentHTML==='function'?saleDocumentHTML:null);
+  if(typeof base==='function'){
+    window.saleDocumentHTML=function(s,type){
+      var html=base.apply(this,arguments);
+      if(type!=='invoice')return html;
+
+      var v=values(s);
+
+      /* First recipient row = Clinic Name. */
+      html=html.replace(
+        /<div class="recipient-row">\s*<span class="label">(?:COMPANY Name|Clinic Name)\s*:<\/span>\s*<b>[\s\S]*?<\/b>\s*<\/div>/i,
+        '<div class="recipient-row"><span class="label">Clinic Name:</span><b>'+E(v.clinic)+'</b></div>'
+      );
+
+      /* Second recipient row = official Customer Name. */
+      html=html.replace(
+        /<div class="recipient-row italic">\s*<span class="label">Customer(?:’|')s Name\s*:<\/span>\s*<span>[\s\S]*?<\/span>\s*<\/div>/i,
+        '<div class="recipient-row italic"><span class="label">Customer Name:</span><span>'+E(v.customer)+'</span></div>'
+      );
+
+      html=html.replace(
+        /<div class="recipient-row italic">\s*<span class="label">Address line\s*:<\/span>\s*<span>[\s\S]*?<\/span>\s*<\/div>/i,
+        '<div class="recipient-row italic"><span class="label">Address:</span><span>'+E(v.address)+'</span></div>'
+      );
+
+      html=html.replace(
+        /<div class="recipient-row italic">\s*<span class="label">City\s*:<\/span>\s*<span>[\s\S]*?<\/span>\s*<\/div>/i,
+        '<div class="recipient-row italic"><span class="label">City:</span><span>'+E(v.city)+'</span></div>'
+      );
+
+      /* Defensive cleanup: a rep/sales region must never appear as a recipient field. */
+      html=html.replace(
+        /<div class="recipient-row(?: italic)?">\s*<span class="label">(?:Rep Region|Sales Region|Rep Area|Sales Area|مندوب Region|منطقة المندوب)\s*:<\/span>[\s\S]*?<\/div>/gi,
+        ''
+      );
+
+      return html;
+    };
+    try{saleDocumentHTML=window.saleDocumentHTML}catch(e){}
+  }
+})();
+</script>
