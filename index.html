@@ -30629,3 +30629,119 @@ html body .summary-box.v303-auto-clickable:after{
   try{printSaleDocument=window.printSaleDocument}catch(e){}
 })();
 </script>
+
+
+<style id="v359-customer-clinic-city-form-style">
+.v359-city-note{font-size:11px;color:#64748b;margin-top:4px}
+</style>
+
+<script id="v359-move-clinic-city-to-customer-form">
+(function(){
+  function S(v){return String(v==null?'':v).trim()}
+
+  /* 1) Add Clinic City / Area directly to New Customer form. */
+  var formBase=window.customerFormV46 || (typeof customerFormV46==='function'?customerFormV46:null);
+  if(typeof formBase==='function'){
+    window.customerFormV46=function(){
+      var html=formBase.apply(this,arguments);
+      if(html.indexOf('customers_clinic_city_v359')>=0)return html;
+
+      var addressField='<div><label>'+((typeof T==='function')?T('address'):'العنوان')+'</label><input id="customers_address"></div>';
+      var cityField='<div><label>'+(typeof lang!=='undefined'&&lang==='ar'?'منطقة / مدينة العيادة':'Clinic City / Area')+'</label>'+
+        '<input id="customers_clinic_city_v359" placeholder="'+(typeof lang!=='undefined'&&lang==='ar'?'مثال: زايد / مدينة نصر / التجمع':'Example: Zayed / Nasr City / Tagamoa')+'">'+
+        '<div class="v359-city-note">'+(typeof lang!=='undefined'&&lang==='ar'?'تظهر في الفاتورة داخل خانة City':'Printed in the invoice City field')+'</div></div>';
+
+      if(html.indexOf(addressField)>=0)html=html.replace(addressField,addressField+cityField);
+      else html=html.replace('<div><label>${T(\'balance\')}</label>',cityField+'<div><label>${T(\'balance\')}</label>');
+      return html;
+    };
+    try{customerFormV46=window.customerFormV46}catch(e){}
+  }
+
+  /* 2) Save the field with the customer itself when Add Customer is pressed. */
+  var addBase=window.addSimple || (typeof addSimple==='function'?addSimple:null);
+  if(typeof addBase==='function'){
+    window.addSimple=function(table){
+      if(table!=='customers')return addBase.apply(this,arguments);
+
+      var city=S((document.getElementById('customers_clinic_city_v359')||{}).value);
+      var before=new Set((db.customers||[]).map(function(c){return String(c.id)}));
+      var r=addBase.apply(this,arguments);
+
+      var created=(db.customers||[]).find(function(c){return !before.has(String(c.id))});
+      if(created){
+        created.clinic_city=city;
+        created.customer_city=city;
+        created.city=city;
+        created.customer_region_v327=city;
+        created.customer_region=city;
+        try{if(typeof save==='function')save()}catch(e){}
+      }
+      return r;
+    };
+    try{addSimple=window.addSimple}catch(e){}
+  }
+
+  /* 3) Remove the field from Customer -> Rep Distribution manager. */
+  var managerBase=window.customerRepSplitManagerV45 || (typeof customerRepSplitManagerV45==='function'?customerRepSplitManagerV45:null);
+  if(typeof managerBase==='function'){
+    window.customerRepSplitManagerV45=function(){
+      var html=managerBase.apply(this,arguments);
+      html=html.replace(
+        /<div><label>(?:منطقة \/ مدينة العيادة|Clinic City \/ Area)<\/label>\s*<input id="split_clinic_city_v353"[\s\S]*?<\/div>\s*<\/div>/i,
+        ''
+      );
+      return html;
+    };
+    try{customerRepSplitManagerV45=window.customerRepSplitManagerV45}catch(e){}
+  }
+
+  /* 4) Make clinic city editable from Customers table too. */
+  var rowBase=window.customerEditRowV46 || (typeof customerEditRowV46==='function'?customerEditRowV46:null);
+  if(typeof rowBase==='function'){
+    window.customerEditRowV46=function(c){
+      var html=rowBase.apply(this,arguments);
+      if(html.indexOf('data-v359-city-cell')>=0)return html;
+      var addressCell='<td><input value="'+(typeof esc==='function'?esc(c.address||''):S(c.address))+'" onchange="editCell(\'customers\',\''+c.id+'\',\'address\',this.value,false)"></td>';
+      var cityCell='<td data-v359-city-cell><input value="'+(typeof esc==='function'?esc(c.clinic_city||c.customer_city||c.city||c.customer_region_v327||c.customer_region||''):S(c.clinic_city||c.customer_city||c.city||c.customer_region_v327||c.customer_region))+'" onchange="updateCustomerClinicCityV359(\''+c.id+'\',this.value)"></td>';
+      if(html.indexOf(addressCell)>=0)html=html.replace(addressCell,addressCell+cityCell);
+      return html;
+    };
+    try{customerEditRowV46=window.customerEditRowV46}catch(e){}
+  }
+
+  window.updateCustomerClinicCityV359=function(id,val){
+    var c=(db.customers||[]).find(function(x){return String(x.id)===String(id)});
+    if(!c)return;
+    val=S(val);
+    c.clinic_city=val;
+    c.customer_city=val;
+    c.city=val;
+    c.customer_region_v327=val;
+    c.customer_region=val;
+    try{if(typeof save==='function')save()}catch(e){}
+  };
+
+  var tableBase=window.customersTableV46 || (typeof customersTableV46==='function'?customersTableV46:null);
+  if(typeof tableBase==='function'){
+    window.customersTableV46=function(){
+      var html=tableBase.apply(this,arguments);
+      if(html.indexOf('منطقة / مدينة العيادة')>=0 || html.indexOf('Clinic City / Area')>=0)return html;
+      var th='<th>'+((typeof T==='function')?T('address'):'العنوان')+'</th>';
+      if(html.indexOf(th)>=0){
+        html=html.replace(th,th+'<th>'+(typeof lang!=='undefined'&&lang==='ar'?'منطقة / مدينة العيادة':'Clinic City / Area')+'</th>');
+      }
+      return html;
+    };
+    try{customersTableV46=window.customersTableV46}catch(e){}
+  }
+
+  /* Re-render Customers view so the field location changes immediately. */
+  setTimeout(function(){
+    try{
+      var v=document.getElementById('view-customers');
+      if(v && !v.classList.contains('hidden') && typeof renderCustomers==='function')renderCustomers();
+    }catch(e){}
+  },500);
+})();
+</script>
