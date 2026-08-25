@@ -30254,3 +30254,150 @@ html body .summary-box.v303-auto-clickable:after{
   document.addEventListener('keydown',function(e){if(e.key==='Escape')window.closeRepDrillV355()});
 })();
 </script>
+
+
+<script id="v356-rep-drill-identity-data-definitive">
+(function(){
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S(v){return String(v==null?'':v).trim()}
+  function norm(v){
+    return S(v).toLowerCase().replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ');
+  }
+
+  function isTotal(v){
+    v=S(v);
+    return v==='west_total_v186'||v==='east_total_v186'||v==='delta_total_v321'||v==='alex_total_v321';
+  }
+
+  window.resolveRepIdV356=function(ref){
+    ref=S(ref);
+    if(!ref||isTotal(ref))return ref;
+    var byId=(db.reps||[]).find(function(r){return String(r.id)===ref});
+    if(byId)return String(byId.id);
+    var byName=(db.reps||[]).find(function(r){return norm(r.name)===norm(ref)});
+    return byName?String(byName.id):ref;
+  };
+
+  window.resolveRepNameV356=function(ref){
+    var id=window.resolveRepIdV356(ref);
+    var r=(db.reps||[]).find(function(x){return String(x.id)===String(id)});
+    return r?S(r.name):S(ref);
+  };
+
+  function inPeriod(s){
+    try{if(typeof inRangeV189==='function')return inRangeV189(s)}catch(e){}
+    var d=S(s.date).slice(0,10),from='',to='';
+    try{
+      from=S(repReportFilterV189&&repReportFilterV189.from);
+      to=S(repReportFilterV189&&repReportFilterV189.to);
+    }catch(e){}
+    if(from&&d<from)return false;
+    if(to&&d>to)return false;
+    return true;
+  }
+
+  function matchesRep(s,id,name){
+    if(S(s.rep_id)&&S(s.rep_id)===S(id))return true;
+    if(norm(s.rep_name)&&norm(s.rep_name)===norm(name))return true;
+    try{
+      if(typeof repNameV189==='function'&&norm(repNameV189(s))===norm(name))return true;
+    }catch(e){}
+    return false;
+  }
+
+  var baseSalesRowsV356=(typeof salesRowsV189==='function'?salesRowsV189:null);
+  var baseCollectionRowsV356=(typeof collectionRowsV189==='function'?collectionRowsV189:null);
+
+  window.repSalesRowsDefinitiveV356=function(ref){
+    var id=window.resolveRepIdV356(ref),name=window.resolveRepNameV356(ref);
+    var rows=[];
+    try{
+      if(typeof baseSalesRowsV356==='function')rows=baseSalesRowsV356(id)||[];
+    }catch(e){rows=[]}
+
+    if(rows.length)return rows;
+
+    /* Fallback only when allocation report is empty:
+       use approved real sales for the same rep and period. */
+    return (db.sales||[]).filter(function(s){
+      if(s.approval_status&&s.approval_status!=='approved')return false;
+      if(!inPeriod(s))return false;
+      return matchesRep(s,id,name);
+    }).map(function(s){
+      var c=(db.customers||[]).find(function(x){return String(x.id)===String(s.customer_id)})||{};
+      return Object.assign({},s,{
+        invoice_key:s.invoice_group_id||s.invoice_number||s.invoice_no||s.order_id||s.id,
+        invoice_number:s.invoice_number||s.invoice_no||'',
+        customer_name:s.customer_name||c.customer_name||c.name||'',
+        rep_id:id,
+        rep_name:name
+      });
+    });
+  };
+
+  window.repCollectionRowsDefinitiveV356=function(ref){
+    var id=window.resolveRepIdV356(ref),name=window.resolveRepNameV356(ref);
+    var rows=[];
+    try{
+      if(typeof baseCollectionRowsV356==='function')rows=baseCollectionRowsV356(id)||[];
+    }catch(e){rows=[]}
+    if(rows.length)return rows;
+    return (db.collections||[]).filter(function(c){
+      if(c.approval_status&&c.approval_status!=='approved')return false;
+      if(!inPeriod(c))return false;
+      return matchesRep(c,id,name);
+    });
+  };
+
+  /* Patch V355's public click route by forcing its stored context to a real rep ID. */
+  var oldOpen=window.openRepDetailsV175;
+  if(typeof oldOpen==='function'){
+    window.openRepDetailsV175=function(repRef){
+      var resolved=isTotal(repRef)?repRef:window.resolveRepIdV356(repRef);
+      if(!isTotal(resolved)){
+        window.currentRepDrillRepV355=resolved;
+        try{
+          if(typeof repReportFilterV189!=='undefined'&&repReportFilterV189)repReportFilterV189.repId=resolved;
+        }catch(e){}
+      }
+      return oldOpen.call(this,resolved);
+    };
+    try{openRepDetailsV175=window.openRepDetailsV175}catch(e){}
+  }
+
+  /* Replace the V355 data functions at call-time by shadowing the source helpers it consumes. */
+  var drillOld=window.openRepDrillDirectV304;
+  if(typeof drillOld==='function'){
+    window.openRepDrillDirectV304=function(kind){
+      if(kind==='company-sales')return drillOld.apply(this,arguments);
+
+      var ref=S(window.currentRepDrillRepV355);
+      if(!ref){
+        try{ref=S(repReportFilterV189&&repReportFilterV189.repId)}catch(e){}
+      }
+      if(ref&&!isTotal(ref)){
+        var resolved=window.resolveRepIdV356(ref);
+        window.currentRepDrillRepV355=resolved;
+        try{
+          if(typeof repReportFilterV189!=='undefined'&&repReportFilterV189)repReportFilterV189.repId=resolved;
+        }catch(e){}
+
+        /* Temporarily make V189 functions return definitive rows to V355. */
+        var salesOrig=window.salesRowsV189 || (typeof salesRowsV189==='function'?salesRowsV189:null);
+        var collOrig=window.collectionRowsV189 || (typeof collectionRowsV189==='function'?collectionRowsV189:null);
+        try{
+          window.salesRowsV189=function(){return window.repSalesRowsDefinitiveV356(resolved)};
+          window.collectionRowsV189=function(){return window.repCollectionRowsDefinitiveV356(resolved)};
+          try{salesRowsV189=window.salesRowsV189}catch(e){}
+          try{collectionRowsV189=window.collectionRowsV189}catch(e){}
+          return drillOld.apply(this,arguments);
+        }finally{
+          if(salesOrig){window.salesRowsV189=salesOrig;try{salesRowsV189=salesOrig}catch(e){}}
+          if(collOrig){window.collectionRowsV189=collOrig;try{collectionRowsV189=collOrig}catch(e){}}
+        }
+      }
+      return drillOld.apply(this,arguments);
+    };
+  }
+})();
+</script>
