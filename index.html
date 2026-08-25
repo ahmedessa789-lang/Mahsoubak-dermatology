@@ -30055,3 +30055,202 @@ html body .summary-box.v303-auto-clickable:after{
   }
 })();
 </script>
+
+
+<style id="v355-rep-card-drill-data-style">
+#v355_rep_drill_modal{position:fixed;inset:0;z-index:2147483647;background:rgba(15,23,42,.78);display:none}
+#v355_rep_drill_modal.show{display:block}
+.v355-panel{width:100%;height:100%;background:#f8fafc;overflow:auto}
+.v355-head{position:sticky;top:0;z-index:5;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 24px;background:linear-gradient(135deg,#0f172a,#1d4ed8);color:#fff}
+.v355-head h2{margin:0;color:#fff!important}.v355-head p{margin:5px 0 0;color:#dbeafe}
+.v355-body{padding:22px}
+.v355-summary{display:grid;grid-template-columns:repeat(4,minmax(170px,1fr));gap:10px;margin-bottom:15px}
+.v355-table{overflow:auto;background:#fff;border:1px solid #e2e8f0;border-radius:14px}
+.v355-table table{min-width:1000px!important;margin:0!important}
+@media(max-width:800px){.v355-summary{grid-template-columns:1fr 1fr}}
+</style>
+
+<script id="v355-rep-card-drill-data">
+(function(){
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S(v){return String(v==null?'':v).trim()}
+  function E(v){return S(v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function M(v){try{return money(v)}catch(e){return 'EGP '+N(v).toLocaleString()}}
+
+  window.currentRepDrillRepV355='';
+
+  function isTotal(id){
+    return id==='west_total_v186'||id==='east_total_v186'||id==='delta_total_v321'||id==='alex_total_v321';
+  }
+
+  function remember(id){
+    id=S(id);
+    if(!id)return;
+    window.currentRepDrillRepV355=id;
+    try{
+      if(typeof repReportFilterV189!=='undefined'&&repReportFilterV189)repReportFilterV189.repId=id;
+    }catch(e){}
+  }
+
+  function currentRep(){
+    var id=S(window.currentRepDrillRepV355);
+    if(id&&!isTotal(id))return id;
+
+    try{
+      id=S(repReportFilterV189&&repReportFilterV189.repId);
+      if(id&&!isTotal(id))return id;
+    }catch(e){}
+
+    var active=document.querySelector('#rep_performance_modal_v175 .rep-card-v175.active[data-rep-id]');
+    if(active){
+      id=S(active.dataset.repId);
+      if(id&&!isTotal(id))return id;
+    }
+    return '';
+  }
+
+  function repName(id){
+    var r=(db.reps||[]).find(function(x){return String(x.id)===String(id)});
+    return r?S(r.name):'';
+  }
+
+  function salesRows(id){
+    try{if(typeof salesRowsV189==='function')return salesRowsV189(id)||[]}catch(e){}
+    return [];
+  }
+  function collectionRows(id){
+    try{if(typeof collectionRowsV189==='function')return collectionRowsV189(id)||[]}catch(e){}
+    return [];
+  }
+  function targetInfo(id,sales){
+    try{if(typeof targetInfoV189==='function')return targetInfoV189(id,sales)}catch(e){}
+    var r=(db.reps||[]).find(function(x){return String(x.id)===String(id)})||{};
+    var target=N(r.target_qty!=null?r.target_qty:(r.target_value!=null?r.target_value:r.target));
+    var achieved=(sales||[]).reduce(function(a,s){
+      return a+(typeof window.targetSaleQtyV346==='function'?window.targetSaleQtyV346(s):N(s.qty));
+    },0);
+    return {label:'الكمية',target:target,achieved:achieved};
+  }
+
+  function invoiceKey(s){return S(s.invoice_number||s.invoice_no||s.invoice_key||s.invoice_group_id||s.order_id||s.id)||'-'}
+
+  function modal(){
+    var m=document.getElementById('v355_rep_drill_modal');
+    if(m)return m;
+    m=document.createElement('div');m.id='v355_rep_drill_modal';
+    m.innerHTML='<div class="v355-panel"><div class="v355-head"><div><h2 id="v355_title"></h2><p id="v355_sub"></p></div>'+
+      '<button class="btn danger" onclick="closeRepDrillV355()">إغلاق</button></div><div class="v355-body" id="v355_body"></div></div>';
+    document.body.appendChild(m);return m;
+  }
+  window.closeRepDrillV355=function(){
+    var m=document.getElementById('v355_rep_drill_modal');if(m)m.classList.remove('show');
+    document.body.style.overflow='';
+  };
+  function show(title,sub,html){
+    var m=modal();
+    document.getElementById('v355_title').textContent=title;
+    document.getElementById('v355_sub').textContent=sub||'';
+    document.getElementById('v355_body').innerHTML=html||'';
+    m.classList.add('show');document.body.style.overflow='hidden';
+  }
+
+  function salesTable(rows){
+    if(!rows.length)return '<div class="empty">لا توجد بيانات لهذا المندوب في الفترة المحددة.</div>';
+    return '<div class="v355-table"><table><tr><th>التاريخ</th><th>الفاتورة</th><th>العميل</th><th>المنتج</th><th>الكمية</th><th>قيمة المبيعات</th><th>المتبقي</th></tr>'+
+      rows.map(function(s){
+        return '<tr><td>'+E(S(s.date).slice(0,10))+'</td><td>'+E(invoiceKey(s))+'</td><td>'+E(s.customer_name||'-')+'</td>'+
+          '<td>'+E(s.product_name||'-')+'</td><td>'+N(s.qty).toLocaleString()+'</td><td>'+M(s.total)+'</td><td>'+M(s.remaining)+'</td></tr>';
+      }).join('')+'</table></div>';
+  }
+
+  function collectionTable(rows){
+    if(!rows.length)return '<div class="empty">لا توجد تحصيلات لهذا المندوب في الفترة المحددة.</div>';
+    return '<div class="v355-table"><table><tr><th>التاريخ</th><th>العميل</th><th>المبلغ</th><th>الطريقة</th><th>ملاحظات</th></tr>'+
+      rows.map(function(c){
+        return '<tr><td>'+E(S(c.date).slice(0,10))+'</td><td>'+E(c.customer_name||c.party||'-')+'</td>'+
+          '<td>'+M(c.amount)+'</td><td>'+E(c.method||c.payment_method||'-')+'</td><td>'+E(c.notes||c.details||'-')+'</td></tr>';
+      }).join('')+'</table></div>';
+  }
+
+  function targetSummary(id,sales){
+    var t=targetInfo(id,sales),remaining=Math.max(0,N(t.target)-N(t.achieved)),pct=N(t.target)>0?N(t.achieved)/N(t.target)*100:0;
+    return '<div class="v355-summary">'+
+      '<div class="stat"><span>التارجت</span><strong>'+N(t.target).toLocaleString()+'</strong></div>'+
+      '<div class="stat"><span>المحقق من البيع فقط</span><strong>'+N(t.achieved).toLocaleString()+'</strong><small>البونص غير محسوب</small></div>'+
+      '<div class="stat"><span>المتبقي</span><strong>'+remaining.toLocaleString()+'</strong></div>'+
+      '<div class="stat"><span>نسبة التحقيق</span><strong>'+pct.toFixed(1)+'%</strong></div>'+
+    '</div>';
+  }
+
+  function openRepKind(kind){
+    var id=currentRep();
+    if(!id)return false;
+
+    var name=repName(id)||'المندوب';
+    var sales=salesRows(id),collections=collectionRows(id);
+    var t=targetInfo(id,sales);
+    var salesTotal=sales.reduce(function(a,s){return a+N(s.total)},0);
+    var collectionTotal=collections.reduce(function(a,c){return a+N(c.amount)},0);
+    var remainingTotal=sales.reduce(function(a,s){return a+N(s.remaining)},0);
+    var qty=sales.reduce(function(a,s){return a+(typeof window.targetSaleQtyV346==='function'?window.targetSaleQtyV346(s):N(s.qty))},0);
+
+    if(kind==='rep-sales'){
+      show('مبيعات '+name,'تفاصيل مبيعات المندوب في الفترة المحددة',
+        '<div class="v355-summary"><div class="stat"><span>إجمالي المبيعات</span><strong>'+M(salesTotal)+'</strong></div>'+
+        '<div class="stat"><span>كمية البيع</span><strong>'+qty.toLocaleString()+'</strong></div>'+
+        '<div class="stat"><span>عدد السطور</span><strong>'+sales.length+'</strong></div></div>'+salesTable(sales));
+      return true;
+    }
+    if(kind==='rep-collections'){
+      show('تحصيلات '+name,'تفاصيل التحصيلات الخاصة بالمندوب',
+        '<div class="v355-summary"><div class="stat"><span>إجمالي التحصيلات</span><strong>'+M(collectionTotal)+'</strong></div>'+
+        '<div class="stat"><span>عدد التحصيلات</span><strong>'+collections.length+'</strong></div></div>'+collectionTable(collections));
+      return true;
+    }
+    if(kind==='rep-remaining'){
+      show('المتبقي على عملاء '+name,'تفاصيل المبيعات التي عليها أرصدة متبقية',
+        '<div class="v355-summary"><div class="stat"><span>إجمالي المتبقي</span><strong>'+M(remainingTotal)+'</strong></div></div>'+
+        salesTable(sales.filter(function(s){return N(s.remaining)>0})));
+      return true;
+    }
+    if(kind==='rep-invoices'){
+      var keys=new Set(sales.map(invoiceKey));
+      show('فواتير '+name,'الفواتير الخاصة بالمندوب',
+        '<div class="v355-summary"><div class="stat"><span>عدد الفواتير</span><strong>'+keys.size+'</strong></div>'+
+        '<div class="stat"><span>إجمالي المبيعات</span><strong>'+M(salesTotal)+'</strong></div></div>'+salesTable(sales));
+      return true;
+    }
+    if(kind==='target'||kind==='target-achieved'||kind==='target-remaining'||kind==='target-percent'){
+      show('تارجت '+name,'التارجت مقابل البيع المحقق للمندوب',targetSummary(id,sales)+salesTable(sales));
+      return true;
+    }
+    return false;
+  }
+
+  /* Remember every normal rep opened. */
+  var openBase=window.openRepDetailsV175;
+  if(typeof openBase==='function'){
+    window.openRepDetailsV175=function(repId){
+      if(repId&&!isTotal(repId))remember(repId);
+      return openBase.apply(this,arguments);
+    };
+    try{openRepDetailsV175=window.openRepDetailsV175}catch(e){}
+  }
+
+  /* Final drill override for rep cards. */
+  var drillBase=window.openRepDrillDirectV304;
+  window.openRepDrillDirectV304=function(kind){
+    if(kind==='company-sales')return typeof drillBase==='function'?drillBase.apply(this,arguments):undefined;
+    if(openRepKind(kind))return;
+    return typeof drillBase==='function'?drillBase.apply(this,arguments):undefined;
+  };
+
+  /* Capture current rep before any old click wrapper runs. */
+  document.addEventListener('click',function(e){
+    var active=document.querySelector('#rep_performance_modal_v175 .rep-card-v175.active[data-rep-id]');
+    if(active&&!isTotal(active.dataset.repId))remember(active.dataset.repId);
+  },true);
+
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')window.closeRepDrillV355()});
+})();
+</script>
