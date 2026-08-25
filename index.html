@@ -29830,3 +29830,228 @@ html body .summary-box.v303-auto-clickable:after{
   },500);
 })();
 </script>
+
+
+<style id="v354-unified-definitive-style">
+.v354-total-summary{
+  display:grid;grid-template-columns:repeat(4,minmax(170px,1fr));
+  gap:10px;margin:14px 0 16px
+}
+.v354-total-summary .stat{
+  background:#fff!important;border:1px solid #dbeafe!important
+}
+.v354-pct-bar{height:8px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin-top:8px}
+.v354-pct-bar span{display:block;height:100%;background:linear-gradient(90deg,#14b8a6,#2563eb);border-radius:999px}
+.v354-rep-grid{display:grid;grid-template-columns:repeat(2,minmax(260px,1fr));gap:12px}
+.v354-rep-card{background:#fff;border:1px solid #cbd5e1;border-radius:14px;padding:14px;cursor:pointer}
+.v354-rep-card h4{margin:0 0 8px}.v354-rep-card small{color:#64748b}
+@media(max-width:850px){.v354-total-summary,.v354-rep-grid{grid-template-columns:1fr}}
+</style>
+
+<script id="v354-unified-definitive-fix">
+(function(){
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S(v){return String(v==null?'':v).trim()}
+  function E(v){return S(v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function M(v){try{return money(v)}catch(e){return 'EGP '+N(v).toLocaleString()}}
+  function norm(v){
+    return S(v).toLowerCase().replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ');
+  }
+
+  /* ===========================
+     1) Definitive invoice recipient
+     =========================== */
+  function customerForSale(s){
+    return (db.customers||[]).find(function(c){return String(c.id)===String(s&&s.customer_id)})||{};
+  }
+  function orderForSale(s){
+    var rows=Array.isArray(db.sales_orders)?db.sales_orders:[];
+    return rows.find(function(o){return s.order_id&&String(o.id)===String(s.order_id)}) ||
+           rows.find(function(o){return s.invoice_group_id&&String(o.invoice_group_id)===String(s.invoice_group_id)}) ||
+           rows.find(function(o){return s.invoice_no&&String(o.invoice_no||'')===String(s.invoice_no||'')}) || {};
+  }
+  function splitForCustomer(c){
+    if(!c)return {};
+    return (db.customerRepSplits||[]).find(function(x){return String(x.customer_id||'')===String(c.id||'')})||{};
+  }
+  function invoiceRecipientV354(s){
+    var c=customerForSale(s),o=orderForSale(s),sp=splitForCustomer(c);
+    var customer=S(c.customer_name||s.customer_name||c.name||sp.customer_name);
+    var clinic=S(
+      o.clinic_name||o.order_clinic_name||
+      s.clinic_name||s.order_clinic_name||
+      sp.clinic_name||
+      c.clinic_name||c.name
+    );
+    var address=S(
+      c.address||c.customer_address||
+      o.customer_address||o.address||o.order_address||
+      s.customer_address||s.address||s.order_address
+    );
+    var city=S(
+      o.clinic_city||o.customer_city||o.city||
+      s.clinic_city||s.customer_city||s.city||
+      c.clinic_city||c.customer_city||c.city||
+      sp.clinic_city_v353||sp.clinic_city||
+      c.customer_region_v327||c.customer_region
+    );
+    return {customer:customer||'-',clinic:clinic||'-',address:address||'-',city:city||'-'};
+  }
+  window.invoiceRecipientV354=invoiceRecipientV354;
+
+  var saleDocBase=window.saleDocumentHTML || (typeof saleDocumentHTML==='function'?saleDocumentHTML:null);
+  if(typeof saleDocBase==='function'){
+    window.saleDocumentHTML=function(s,type){
+      var html=saleDocBase.apply(this,arguments);
+      if(type!=='invoice')return html;
+
+      var v=invoiceRecipientV354(s);
+      var recipient=
+        '<div class="recipient"><h3>Recipient</h3>'+
+          '<div class="recipient-row"><span class="label">Customer Name:</span><b>'+E(v.customer)+'</b></div>'+
+          '<div class="recipient-row italic"><span class="label">Clinic Name:</span><span>'+E(v.clinic)+'</span></div>'+
+          '<div class="recipient-row italic"><span class="label">Address:</span><span>'+E(v.address)+'</span></div>'+
+          '<div class="recipient-row italic"><span class="label">City:</span><span>'+E(v.city)+'</span></div>'+
+        '</div>';
+
+      /* Replace the whole recipient box, regardless of older label versions. */
+      html=html.replace(
+        /<div class="recipient"><h3>Recipient<\/h3>[\s\S]*?<\/div>\s*<\/section>/i,
+        recipient+'</section>'
+      );
+
+      /* Fallback replacements if another invoice template is used. */
+      html=html.replace(/(<span class="label">(?:COMPANY Name|Customer Name)\s*:<\/span>\s*<b>)[\s\S]*?(<\/b>)/i,'$1'+E(v.customer)+'$2');
+      html=html.replace(/(<span class="label">(?:Customer(?:’|')s Name|Clinic Name)\s*:<\/span>\s*<span>)[\s\S]*?(<\/span>)/i,'$1'+E(v.clinic)+'$2');
+      html=html.replace(/(<span class="label">(?:Address line|Address)\s*:<\/span>\s*<span>)[\s\S]*?(<\/span>)/i,'$1'+E(v.address)+'$2');
+      html=html.replace(/(<span class="label">City\s*:<\/span>\s*<span>)[\s\S]*?(<\/span>)/i,'$1'+E(v.city)+'$2');
+
+      /* Never print sales-rep grouping in recipient data. */
+      html=html.replace(/<div class="recipient-row(?: italic)?">[\s\S]*?(?:Rep Region|Sales Region|Rep Area|Sales Area|منطقة المندوب)[\s\S]*?<\/div>/gi,'');
+
+      return html;
+    };
+    try{saleDocumentHTML=window.saleDocumentHTML}catch(e){}
+  }
+
+  /* ===========================
+     2) Definitive West/East Total
+     =========================== */
+  var TOTALS={
+    west_total_v186:{
+      name:'West Total',
+      reps:[
+        {name:'مارينا',sub:'West 1'},
+        {name:'عماد',sub:'West 2'}
+      ]
+    },
+    east_total_v186:{
+      name:'East Total',
+      reps:[
+        {name:'سيف',sub:'East 1'},
+        {name:'ماهينور',sub:'East 2'},
+        {name:'نوران',sub:'Heliopolis'},
+        {name:'سلمى',sub:'Salma'}
+      ]
+    }
+  };
+
+  function approvedSales(){
+    try{if(typeof companyApprovedSalesV302==='function')return companyApprovedSalesV302()||[]}catch(e){}
+    return (db.sales||[]).filter(function(s){
+      if(s.approval_status&&s.approval_status!=='approved')return false;
+      try{if(typeof inRangeV189==='function'&&!inRangeV189(s))return false}catch(e){}
+      return true;
+    });
+  }
+  function repName(s){
+    if(S(s.rep_name))return S(s.rep_name);
+    var r=(db.reps||[]).find(function(x){return String(x.id)===String(s.rep_id)});
+    return r?S(r.name):'';
+  }
+  function repObj(name){
+    return (db.reps||[]).find(function(r){return norm(r.name)===norm(name)})||null;
+  }
+  function repTarget(r){
+    if(!r)return 0;
+    return typeof window.repQtyTargetV346==='function'
+      ?window.repQtyTargetV346(r)
+      :N(r.target_qty!=null?r.target_qty:(r.target_value!=null?r.target_value:(r.target!=null?r.target:r.sales_target)));
+  }
+  function saleQty(s){
+    return typeof window.targetSaleQtyV346==='function'?window.targetSaleQtyV346(s):N(s.qty);
+  }
+  function groupSummary(id){
+    var g=TOTALS[id];if(!g)return null;
+    var wanted=g.reps.map(function(x){return norm(x.name)});
+    var reps=(db.reps||[]).filter(function(r){return wanted.indexOf(norm(r.name))>=0});
+    var rows=approvedSales().filter(function(s){return wanted.indexOf(norm(repName(s)))>=0});
+    var target=reps.reduce(function(a,r){return a+repTarget(r)},0);
+    var achieved=rows.reduce(function(a,s){return a+saleQty(s)},0);
+    var sales=rows.reduce(function(a,s){return a+N(s.total)},0);
+    return {target:target,achieved:achieved,sales:sales,pct:target>0?achieved/target*100:0,rows:rows};
+  }
+  function repSummary(name){
+    var r=repObj(name);
+    var rows=approvedSales().filter(function(s){return norm(repName(s))===norm(name)});
+    var target=repTarget(r),achieved=rows.reduce(function(a,s){return a+saleQty(s)},0);
+    var sales=rows.reduce(function(a,s){return a+N(s.total)},0);
+    return {target:target,achieved:achieved,sales:sales,pct:target>0?achieved/target*100:0};
+  }
+  function companyBanner(){
+    var total=approvedSales().reduce(function(a,s){return a+N(s.total)},0);
+    return '<div class="v302-company-sales-banner v303-clickable" data-v303-drill="company-sales" '+
+      "onclick=\"window.openRepDrillDirectV304('company-sales');return false;\">"+
+      '<span>إجمالي مبيعات الشركة كلها خلال المدة</span><strong>'+M(total)+'</strong></div>';
+  }
+  function totalHtml(id){
+    var g=TOTALS[id],x=groupSummary(id);if(!g||!x)return '';
+    return companyBanner()+
+      '<div class="v335-root">'+
+        '<div class="v336-total-head"><div><h2>'+E(g.name)+'</h2>'+
+        '<div class="v338-subtitle">إجمالي أداء مناديب المنطقة</div></div></div>'+
+        '<div class="v354-total-summary">'+
+          '<div class="stat"><span>إجمالي المبيعات</span><strong>'+M(x.sales)+'</strong></div>'+
+          '<div class="stat"><span>تارجت المنطقة بالكمية</span><strong>'+N(x.target).toLocaleString()+' وحدة</strong><small>مجموع تارجت المناديب</small></div>'+
+          '<div class="stat"><span>المحقق بالكمية</span><strong>'+N(x.achieved).toLocaleString()+' وحدة</strong><small>بيع فقط بدون بونص</small></div>'+
+          '<div class="stat"><span>نسبة تحقيق التارجت</span><strong>'+x.pct.toFixed(1)+'%</strong>'+
+            '<div class="v354-pct-bar"><span style="width:'+Math.min(100,Math.max(0,x.pct))+'%"></span></div></div>'+
+        '</div>'+
+        '<div class="v354-rep-grid">'+g.reps.map(function(rr){
+          var z=repSummary(rr.name);
+          return '<div class="v354-rep-card" data-total-id="'+E(id)+'" data-sub-id="'+E(rr.sub)+'" '+
+            'onclick="openSubgroupAreasV338(this.dataset.totalId,this.dataset.subId)">'+
+            '<h4>'+E(rr.sub)+' — '+E(rr.name)+'</h4>'+
+            '<small>مبيعات: '+M(z.sales)+' | تارجت: '+N(z.target).toLocaleString()+
+            ' | محقق: '+N(z.achieved).toLocaleString()+' | تحقيق: '+z.pct.toFixed(1)+'%</small>'+
+          '</div>';
+        }).join('')+'</div>'+
+      '</div>';
+  }
+
+  var openRepBase=window.openRepDetailsV175;
+  if(typeof openRepBase==='function'){
+    window.openRepDetailsV175=function(repId){
+      if(TOTALS[repId]){
+        try{
+          if(typeof repReportFilterV189!=='undefined'&&repReportFilterV189)repReportFilterV189.repId=repId;
+        }catch(e){}
+
+        var body=document.getElementById('rep_details_body_v175');
+        if(!body){
+          try{openRepBase.apply(this,arguments)}catch(e){}
+          body=document.getElementById('rep_details_body_v175');
+        }
+        if(body)body.innerHTML=totalHtml(repId);
+
+        document.querySelectorAll('#rep_performance_modal_v175 .rep-card-v175').forEach(function(card){
+          card.classList.toggle('active',card.dataset.repId===repId);
+        });
+        return;
+      }
+      return openRepBase.apply(this,arguments);
+    };
+    try{openRepDetailsV175=window.openRepDetailsV175}catch(e){}
+  }
+})();
+</script>
