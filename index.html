@@ -8326,6 +8326,7 @@ render();
 
     input.addEventListener('input',function(){
       this.dataset.customerId='';
+      if(select)select.value='';
       renderCustomerResultsV194(this.value);
     });
 
@@ -8363,8 +8364,8 @@ render();
           if(exact){
             selectCustomerV194(exact);
           }else{
-            let current=customerByIdV194(select.value);
-            if(current)selectCustomerV194(current);
+            select.value='';
+            input.dataset.customerId='';
           }
         }
       },120);
@@ -30844,8 +30845,17 @@ html body .summary-box.v303-auto-clickable:after{
       input.dataset.v361Bound='1';
 
       input.addEventListener('input',function(){
+        if(sel)sel.value='';
+        input.dataset.customerId='';
         clearTimeout(window.__v361Timer);
-        window.__v361Timer=setTimeout(syncFromRealInput,100);
+        window.__v361Timer=setTimeout(function(){
+          var c=findCustomerByTypedName(input.value);
+          if(c && norm(input.value)===norm(c.customer_name||c.official_name||c.name||c.clinic_name||'')){
+            applyCustomer(c);
+          }else{
+            clearCustomerFields();
+          }
+        },180);
       });
 
       input.addEventListener('change',function(){
@@ -31692,9 +31702,12 @@ html body .summary-box.v303-auto-clickable:after{
     var c=customerById(sel.value);
     if(!c)return;
 
+    /* Do not fight the user while typing a different customer.
+       Normalize only after a real customer selection has bound the input. */
+    if(String(input.dataset.customerId||'')!==String(c.id))return;
+
     var off=official(c);
     if(off && S(input.value)!==off)input.value=off;
-    input.dataset.customerId=c.id;
 
     var clinicEl=document.getElementById('sa_clinic_name_v317');
     if(clinicEl){
@@ -31724,5 +31737,18 @@ html body .summary-box.v303-auto-clickable:after{
     };
     try{renderSales=window.renderSales}catch(e){}
   }
+})();
+</script>
+
+
+<script id="v406-customer-search-editable-guard">
+(function(){
+  document.addEventListener('input',function(e){
+    var input=e.target;
+    if(!input || input.id!=='sa_customer_search_v173')return;
+    var sel=document.getElementById('sa_customer');
+    if(sel)sel.value='';
+    input.dataset.customerId='';
+  },true);
 })();
 </script>
