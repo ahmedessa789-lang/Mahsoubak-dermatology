@@ -32955,3 +32955,315 @@ html body .summary-box.v303-auto-clickable:after{
   window.refreshRepPerformanceCardsV413=refreshCards;
 })();
 </script>
+
+
+<script id="v414-rep-region-mapping-definitive">
+(function(){
+  function A(v){return Array.isArray(v)?v:[]}
+  function S(v){return String(v==null?'':v).trim()}
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+
+  function norm(v){
+    return S(v).toLowerCase()
+      .replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه')
+      .replace(/[\s_\-]+/g,' ')
+      .replace(/\s+/g,' ')
+      .trim();
+  }
+
+  function regionKey(v){
+    var x=norm(v)
+      .replace(/\bwwst\b/g,'west')
+      .replace(/\bwst\b/g,'west')
+      .replace(/\bwesst\b/g,'west')
+      .replace(/\beest\b/g,'east')
+      .replace(/\beasst\b/g,'east')
+      .replace(/\bhelio\b/g,'heliopolis')
+      .replace(/\bhelioplis\b/g,'heliopolis')
+      .replace(/\balexandria\b/g,'alex')
+      .replace(/\bdelta total\b/g,'delta')
+      .replace(/\balex total\b/g,'alex');
+
+    x=x.replace(/\bwest\s*1\b/g,'west 1')
+       .replace(/\bwest\s*2\b/g,'west 2')
+       .replace(/\beast\s*1\b/g,'east 1')
+       .replace(/\beast\s*2\b/g,'east 2');
+
+    return x;
+  }
+
+  function knownRepNameForRegion(region){
+    var k=regionKey(region);
+    var map={
+      'west 1':'مارينا',
+      'west 2':'عماد',
+      'east 1':'سيف',
+      'east 2':'ماهينور',
+      'heliopolis':'نوران',
+      'salma':'سلمى',
+      'delta':'منى',
+      'alex':'يحي فتحي'
+    };
+    return map[k]||'';
+  }
+
+  function repRegions(rep){
+    var vals=[];
+    function push(v){
+      if(Array.isArray(v)){v.forEach(push);return}
+      S(v).split(/[,،;|]+/).forEach(function(x){
+        x=S(x);if(x)vals.push(regionKey(x));
+      });
+    }
+    push(rep&&rep.region_code);
+    push(rep&&rep.assigned_regions_v324);
+    push(rep&&rep.regions);
+    push(rep&&rep.sales_regions);
+    return Array.from(new Set(vals));
+  }
+
+  window.repForSplitRegionV414=function(split){
+    if(!split)return null;
+    var reps=A(db&&db.reps);
+
+    /* Best case: split already carries explicit rep identity. */
+    if(split.rep_id){
+      var byId=reps.find(function(r){return String(r.id)===String(split.rep_id)});
+      if(byId)return byId;
+    }
+    if(split.rep_name){
+      var byName=reps.find(function(r){return norm(r.name)===norm(split.rep_name)});
+      if(byName)return byName;
+    }
+
+    var key=regionKey(split.region_code||split.region_name||'');
+
+    /* Exact region code after typo normalization. */
+    var exact=reps.find(function(r){return regionKey(r.region_code)===key});
+    if(exact)return exact;
+
+    /* Multi-region assignment. */
+    var multi=reps.find(function(r){return repRegions(r).indexOf(key)>=0});
+    if(multi)return multi;
+
+    /* Established business mapping for the standard territories. */
+    var knownName=knownRepNameForRegion(key);
+    if(knownName){
+      var known=reps.find(function(r){return norm(r.name)===norm(knownName)});
+      if(known)return known;
+    }
+
+    return null;
+  };
+
+  function customerForSale(sale){
+    var customers=A(db&&db.customers);
+    if(sale&&sale.customer_id){
+      var c=customers.find(function(x){return String(x.id)===String(sale.customer_id)});
+      if(c)return c;
+    }
+    var n=norm(sale&&sale.customer_name);
+    return customers.find(function(c){
+      return [c.customer_name,c.official_name,c.name,c.clinic_name]
+        .some(function(v){return norm(v)===n});
+    })||null;
+  }
+
+  function splitRowsForCustomer(c){
+    if(!c)return [];
+    var id=String(c.id||'');
+    var official=norm(c.customer_name||c.official_name);
+    var clinic=norm(c.clinic_name||c.name);
+
+    return A(db&&db.customerRepSplits).filter(function(s){
+      if(id&&String(s.customer_id||'')===id)return N(s.percentage)>0;
+
+      var so=norm(s.customer_name),sc=norm(s.clinic_name);
+      if(official&&so===official){
+        if(!clinic||!sc||sc===clinic)return N(s.percentage)>0;
+      }
+      return false;
+    });
+  }
+
+  /*
+    Authoritative allocation:
+    customer split percentage -> normalized region -> exact rep for that territory.
+  */
+  window.salesAllocationRowsV52=function(){
+    var sales=[];
+    try{sales=typeof visibleSalesRows==='function'?visibleSalesRows():A(db&&db.sales)}
+    catch(e){sales=A(db&&db.sales)}
+
+    var rows=[];
+
+    sales.forEach(function(s){
+      var c=customerForSale(s);
+      var splits=splitRowsForCustomer(c);
+
+      if(!splits.length){
+        var directRep=A(db&&db.reps).find(function(r){
+          return String(r.id||'')===String(s.rep_id||'');
+        })||null;
+
+        rows.push({
+          id:String(s.id||'')+'_fallback',
+          sale_id:s.id||'',
+          date:s.date||'',
+          customer_name:s.customer_name||c&&c.customer_name||'',
+          clinic_name:s.clinic_name||c&&c.clinic_name||'',
+          product_name:s.product_name||'',
+          region_code:s.region_name||directRep&&directRep.region_code||'',
+          rep_id:directRep&&directRep.id||s.rep_id||'',
+          rep_name:directRep&&directRep.name||s.rep_name||'',
+          percentage:100,
+          total_qty:N(s.qty),
+          total_amount:N(s.total),
+          allocated_qty:N(s.qty),
+          allocated_amount:N(s.total),
+          paid:N(s.paid),
+          remaining:N(s.remaining),
+          _fallback:true
+        });
+        return;
+      }
+
+      splits.forEach(function(sp){
+        var pct=N(sp.percentage);
+        if(pct<=0)return;
+
+        var rep=window.repForSplitRegionV414(sp);
+
+        rows.push({
+          id:String(s.id||'')+'_'+String(sp.id||sp.region_code||Math.random()),
+          sale_id:s.id||'',
+          date:s.date||'',
+          customer_name:s.customer_name||sp.customer_name||'',
+          clinic_name:sp.clinic_name||s.clinic_name||'',
+          product_name:s.product_name||'',
+          region_code:regionKey(sp.region_code||''),
+          region_name:regionKey(sp.region_code||''),
+          rep_id:rep&&rep.id||'',
+          rep_name:rep&&rep.name||'',
+          percentage:pct,
+          total_qty:N(s.qty),
+          total_amount:N(s.total),
+          allocated_qty:N(s.qty)*pct/100,
+          allocated_amount:N(s.total)*pct/100,
+          paid:N(s.paid)*pct/100,
+          remaining:N(s.remaining)*pct/100,
+          _percentage_allocation_v414:true,
+          _mapping_status:rep?'mapped':'unmapped'
+        });
+      });
+    });
+
+    return rows;
+  };
+  try{salesAllocationRowsV52=window.salesAllocationRowsV52}catch(e){}
+
+  /*
+    Individual rep reports must only accept allocation rows whose final mapped
+    rep_id / rep_name matches that rep. No group/region fuzzy matcher.
+  */
+  window.salesRowsV189=function(repId){
+    var rep=A(db&&db.reps).find(function(r){return String(r.id)===String(repId)})||null;
+    var name=rep&&rep.name||'';
+    var alloc=window.salesAllocationRowsV52();
+
+    var rows=alloc.filter(function(a){
+      if(a._mapping_status==='unmapped')return false;
+      if(String(a.rep_id||'')===String(repId))return true;
+      if(name&&norm(a.rep_name)===norm(name))return true;
+      return false;
+    });
+
+    var saleById=new Map(A(db&&db.sales).map(function(s){return [String(s.id||''),s]}));
+    var grouped=new Map();
+
+    rows.forEach(function(a){
+      var original=saleById.get(String(a.sale_id||''))||{};
+      if(original.approval_status&&original.approval_status!=='approved')return;
+
+      try{
+        if(typeof inRangeV189==='function'&&!inRangeV189(a))return;
+      }catch(e){}
+
+      var invoiceKey=String(
+        original.invoice_group_id||original.invoice_no||original.invoice_number||
+        original.order_id||a.sale_id||a.id||''
+      );
+      var key=[invoiceKey,norm(a.product_name),String(a.rep_id||''),regionKey(a.region_code)].join('|');
+
+      if(!grouped.has(key)){
+        grouped.set(key,{
+          id:'v414_'+key,
+          sale_id:a.sale_id||'',
+          invoice_key:invoiceKey,
+          invoice_group_id:original.invoice_group_id||'',
+          invoice_no:original.invoice_no||original.invoice_number||'',
+          date:a.date||original.date||'',
+          customer_id:original.customer_id||'',
+          customer_name:a.customer_name||original.customer_name||'',
+          clinic_name:a.clinic_name||original.clinic_name||'',
+          product_id:original.product_id||'',
+          product_name:a.product_name||original.product_name||'',
+          rep_id:a.rep_id||'',
+          rep_name:a.rep_name||'',
+          region_code:a.region_code||'',
+          region_name:a.region_code||'',
+          qty:0,total:0,paid:0,remaining:0,
+          price:N(original.price),
+          approval_status:'approved',
+          order_type:original.order_type||'sale',
+          _allocated:true
+        });
+      }
+
+      var r=grouped.get(key);
+      r.qty+=N(a.allocated_qty);
+      r.total+=N(a.allocated_amount);
+      r.paid+=N(a.paid);
+      r.remaining+=N(a.remaining);
+    });
+
+    return Array.from(grouped.values());
+  };
+  try{salesRowsV189=window.salesRowsV189}catch(e){}
+
+  /* Force the late report bridge to use these rows too. */
+  window.repSalesRowsDefinitiveV356=function(ref){
+    var id=ref;
+    try{
+      if(typeof window.resolveRepIdV356==='function')id=window.resolveRepIdV356(ref);
+    }catch(e){}
+    return window.salesRowsV189(id)||[];
+  };
+
+  /*
+    Visible diagnostic: useful if any current customer split has a territory
+    that still cannot be mapped to a rep. This prevents silent wrong totals.
+  */
+  window.unmappedCustomerRepSplitsV414=function(){
+    var bad=[];
+    A(db&&db.customerRepSplits).forEach(function(sp){
+      if(N(sp.percentage)<=0)return;
+      if(!window.repForSplitRegionV414(sp)){
+        bad.push({
+          customer:sp.customer_name||'',
+          clinic:sp.clinic_name||'',
+          region:sp.region_code||'',
+          percentage:N(sp.percentage)
+        });
+      }
+    });
+    return bad;
+  };
+
+  try{
+    db.sales_allocations=window.salesAllocationRowsV52();
+    if(typeof saveDb==='function')saveDb();
+    else if(typeof save==='function')save();
+  }catch(e){console.error('V414 snapshot refresh',e)}
+})();
+</script>
