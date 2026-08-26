@@ -8157,6 +8157,9 @@ render();
     if(typeof updateLinkedRegion==='function'){
       updateLinkedRegion('sa');
     }
+    if(typeof window.fillSalesCustomerDataV360==='function'){
+      setTimeout(function(){window.fillSalesCustomerDataV360(true)},0);
+    }
   }
 
   const addInvoiceLineBaseV191=window.addInvoiceLineV150;
@@ -8236,6 +8239,10 @@ render();
     if(typeof updateLinkedRegion==='function'){
       updateLinkedRegion('sa');
     }
+    try{select.dispatchEvent(new Event('change',{bubbles:true}))}catch(e){}
+    if(typeof window.fillSalesCustomerDataV360==='function'){
+      setTimeout(function(){window.fillSalesCustomerDataV360(true)},0);
+    }
   }
 
   function renderCustomerResultsV194(query){
@@ -8250,7 +8257,11 @@ render();
     }
 
     let rows=(db.customers||[])
-      .filter(c=>normV194(c.name).includes(q))
+      .filter(c=>
+        normV194(c.customer_name).includes(q) ||
+        normV194(c.name).includes(q) ||
+        normV194(c.clinic_name).includes(q)
+      )
       .slice(0,50);
 
     if(!rows.length){
@@ -8261,7 +8272,8 @@ render();
 
     menu.innerHTML=rows.map(c=>`
       <button type="button" class="customer-option-v194" data-customer-id="${esc(c.id)}">
-        ${esc(c.name||'')}
+        <b>${esc(c.customer_name||c.name||'')}</b>
+        ${c.clinic_name||c.name ? `<small>${esc(c.clinic_name||c.name||'')}</small>` : ''}
       </button>
     `).join('');
 
@@ -8340,7 +8352,11 @@ render();
         menu.hidden=true;
 
         if(!input.dataset.customerId){
-          let exact=(db.customers||[]).find(c=>normV194(c.name)===normV194(input.value));
+          let exact=(db.customers||[]).find(c=>
+            normV194(c.customer_name)===normV194(input.value) ||
+            normV194(c.name)===normV194(input.value) ||
+            normV194(c.clinic_name)===normV194(input.value)
+          );
           if(exact){
             selectCustomerV194(exact);
           }else{
@@ -30763,7 +30779,8 @@ html body .summary-box.v303-auto-clickable:after{
 
   function customerByAnyValue(){
     var sel=document.getElementById('sa_customer');
-    var txt=document.getElementById('sa_customer_text_v203') ||
+    var txt=document.getElementById('sa_customer_search_v173') ||
+            document.getElementById('sa_customer_text_v203') ||
             document.getElementById('sa_customer_text') ||
             document.querySelector('#view-sales input[placeholder*="عميل"],#view-sales input[placeholder*="customer" i]');
 
@@ -30835,7 +30852,8 @@ html body .summary-box.v303-auto-clickable:after{
     ensureCityField();
 
     var sel=document.getElementById('sa_customer');
-    var txt=document.getElementById('sa_customer_text_v203') ||
+    var txt=document.getElementById('sa_customer_search_v173') ||
+            document.getElementById('sa_customer_text_v203') ||
             document.getElementById('sa_customer_text');
 
     if(sel && !sel.dataset.v360Bound){
@@ -30957,3 +30975,149 @@ html body .summary-box.v303-auto-clickable:after{
   setTimeout(bind,700);
 })();
 </script>
+
+
+<script id="v361-real-sales-customer-autofill">
+(function(){
+  function S(v){return String(v==null?'':v).trim()}
+  function norm(v){
+    return S(v).toLowerCase()
+      .replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه')
+      .replace(/\s+/g,' ');
+  }
+
+  function findCustomerByTypedName(value){
+    var n=norm(value);
+    if(!n)return null;
+    return (db.customers||[]).find(function(c){
+      return norm(c.customer_name)===n ||
+             norm(c.name)===n ||
+             norm(c.clinic_name)===n;
+    })||null;
+  }
+
+  function clinic(c){return S(c&&(c.clinic_name||c.name||c.customer_name))}
+  function address(c){return S(c&&(c.address||c.customer_address))}
+  function city(c){
+    return S(c&&(c.clinic_city||c.customer_city||c.city||c.customer_region_v327||c.customer_region));
+  }
+
+  function clearCustomerFields(){
+    var clinicEl=document.getElementById('sa_clinic_name_v317');
+    var addressEl=document.getElementById('sa_address_v317');
+    var cityEl=document.getElementById('sa_clinic_city_v360');
+    if(clinicEl)clinicEl.value='';
+    if(addressEl)addressEl.value='';
+    if(cityEl)cityEl.value='';
+  }
+
+  function applyCustomer(c){
+    if(!c)return false;
+    var sel=document.getElementById('sa_customer');
+    var input=document.getElementById('sa_customer_search_v173');
+    var clinicEl=document.getElementById('sa_clinic_name_v317');
+    var addressEl=document.getElementById('sa_address_v317');
+    var cityEl=document.getElementById('sa_clinic_city_v360');
+
+    if(sel)sel.value=c.id;
+    if(input){
+      input.dataset.customerId=c.id;
+      /* Keep what the user typed if it is an official customer name;
+         otherwise show the display/clinic name used by this search UI. */
+      if(!S(input.value))input.value=c.customer_name||c.name||c.clinic_name||'';
+    }
+
+    if(clinicEl)clinicEl.value=clinic(c);
+    if(addressEl)addressEl.value=address(c);
+    if(cityEl)cityEl.value=city(c);
+
+    try{if(typeof updateLinkedRegion==='function')updateLinkedRegion('sa')}catch(e){}
+    return true;
+  }
+
+  function syncFromRealInput(){
+    var input=document.getElementById('sa_customer_search_v173');
+    if(!input)return;
+    var c=findCustomerByTypedName(input.value);
+    if(c){
+      applyCustomer(c);
+    }else{
+      var sel=document.getElementById('sa_customer');
+      if(sel)sel.value='';
+      input.dataset.customerId='';
+      clearCustomerFields();
+    }
+  }
+
+  function bind(){
+    var input=document.getElementById('sa_customer_search_v173');
+    var sel=document.getElementById('sa_customer');
+    if(!input)return;
+
+    if(!input.dataset.v361Bound){
+      input.dataset.v361Bound='1';
+
+      input.addEventListener('input',function(){
+        clearTimeout(window.__v361Timer);
+        window.__v361Timer=setTimeout(syncFromRealInput,100);
+      });
+
+      input.addEventListener('change',function(){
+        setTimeout(syncFromRealInput,0);
+      });
+
+      input.addEventListener('blur',function(){
+        setTimeout(syncFromRealInput,150);
+      });
+    }
+
+    if(sel && !sel.dataset.v361Bound){
+      sel.dataset.v361Bound='1';
+      sel.addEventListener('change',function(){
+        var c=(db.customers||[]).find(function(x){return String(x.id)===String(sel.value)});
+        if(c)applyCustomer(c);
+      });
+    }
+
+    /* If current hidden select already points to a customer, refresh all fields now. */
+    if(sel&&sel.value){
+      var c=(db.customers||[]).find(function(x){return String(x.id)===String(sel.value)});
+      if(c)applyCustomer(c);
+    }
+  }
+
+  /* Menu selection in V194 happens on mousedown. Run AFTER it updates sa_customer. */
+  document.addEventListener('mousedown',function(e){
+    var item=e.target.closest('.customer-option-v194[data-customer-id]');
+    if(!item)return;
+    setTimeout(function(){
+      var c=(db.customers||[]).find(function(x){return String(x.id)===String(item.dataset.customerId)});
+      if(c)applyCustomer(c);
+    },0);
+  },true);
+
+  var renderSalesBase=window.renderSales;
+  if(typeof renderSalesBase==='function'){
+    window.renderSales=function(){
+      var r=renderSalesBase.apply(this,arguments);
+      setTimeout(bind,80);
+      setTimeout(bind,180);
+      return r;
+    };
+    try{renderSales=window.renderSales}catch(e){}
+  }
+
+  var obs=new MutationObserver(function(){
+    if(document.getElementById('sa_customer_search_v173'))bind();
+  });
+  obs.observe(document.body,{childList:true,subtree:true});
+
+  setTimeout(bind,700);
+})();
+</script>
+
+
+<style id="v362-customer-search-result-identity-style">
+.customer-option-v194{display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:2px!important}
+.customer-option-v194 small{font-size:11px;color:#64748b;font-weight:600}
+</style>
