@@ -32477,3 +32477,41 @@ html body .summary-box.v303-auto-clickable:after{
   try{rejectSalesOrder=window.rejectSalesOrder}catch(e){}
 })();
 </script>
+
+
+<script id="v410-invoice-grand-total-vat-label">
+(function(){
+  function A(v){return Array.isArray(v)?v:[]}
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function sameInvoiceV410(a,b){
+    var ka=a&&(a.invoice_group_id||a.invoice_no||a.id);
+    var kb=b&&(b.invoice_group_id||b.invoice_no||b.id);
+    return String(ka||'')===String(kb||'');
+  }
+  function invoiceHasVatV410(s){
+    var rows=A(db&&db.sales).filter(function(x){return sameInvoiceV410(x,s)});
+    if(!rows.length)rows=[s];
+    return rows.some(function(r){
+      return N(r.vat_percent!=null?r.vat_percent:r.vat_rate)>0 || N(r.vat_amount)>0;
+    });
+  }
+
+  var base=window.saleDocumentHTML || (typeof saleDocumentHTML==='function'?saleDocumentHTML:null);
+  if(typeof base==='function'){
+    window.saleDocumentHTML=function(s,type){
+      var html=base.apply(this,arguments);
+      if(type!=='invoice')return html;
+
+      var label=invoiceHasVatV410(s)
+        ? 'Grand Total Including VAT'
+        : 'Grand Total Excluding VAT';
+
+      html=html.replace(/Grand\s*Total\s*Including\s*VAT/gi,label);
+      html=html.replace(/Grand\s*Total\s*Excluding\s*VAT/gi,label);
+
+      return html;
+    };
+    try{saleDocumentHTML=window.saleDocumentHTML}catch(e){}
+  }
+})();
+</script>
