@@ -31752,3 +31752,398 @@ html body .summary-box.v303-auto-clickable:after{
   },true);
 })();
 </script>
+
+
+<script id="v407-warehouse-cycle-definitive">
+(function(){
+  function A(v){return Array.isArray(v)?v:[]}
+  function S(v){return String(v==null?'':v).trim()}
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function same(a,b){return S(a).toLowerCase()===S(b).toLowerCase()}
+  function uid407(){
+    try{if(typeof uid==='function')return uid()}catch(e){}
+    return 'id_'+Math.random().toString(36).slice(2,9)+Date.now().toString(36);
+  }
+  function today407(){
+    try{if(typeof today==='function')return today()}catch(e){}
+    return new Date().toISOString().slice(0,10);
+  }
+  function save407(){
+    try{
+      if(typeof saveDb==='function'){saveDb();return}
+      if(typeof save==='function'){save();return}
+    }catch(e){}
+  }
+  function role407(){
+    try{
+      if(typeof roleNameV73==='function')return roleNameV73();
+      if(typeof currentUser==='function'){var u=currentUser()||{};return u.name||u.email||u.role||''}
+    }catch(e){}
+    return '';
+  }
+
+  function ensureLots407(){
+    if(!Array.isArray(db.inventory_lots))db.inventory_lots=[];
+  }
+  function lotsFor407(pid){
+    ensureLots407();
+    return db.inventory_lots.filter(function(l){return String(l.product_id)===String(pid)});
+  }
+  function lotBy407(pid,id,no){
+    ensureLots407();
+    if(id){
+      var byId=db.inventory_lots.find(function(l){
+        return String(l.id)===String(id)&&String(l.product_id)===String(pid);
+      });
+      if(byId)return byId;
+    }
+    if(no){
+      return db.inventory_lots.find(function(l){
+        return String(l.product_id)===String(pid)&&same(l.lot_number,no);
+      })||null;
+    }
+    return null;
+  }
+  function syncProduct407(pid){
+    var p=A(db.products).find(function(x){return String(x.id)===String(pid)});
+    if(!p)return 0;
+    var total=lotsFor407(pid).reduce(function(a,l){return a+Math.max(0,N(l.qty))},0);
+    p.stock=total;
+    return total;
+  }
+  function snapshotLotTotal407(pid,lotNo){
+    return A(db.inventory_lots).filter(function(l){
+      return String(l.product_id)===String(pid)&&same(l.lot_number,lotNo);
+    }).reduce(function(a,l){return a+N(l.qty)},0);
+  }
+  function normalizePurchaseLot407(pid,lotNo,expiry,beforeTotal,qty){
+    if(!pid||!lotNo||qty<=0)return;
+    ensureLots407();
+    var matches=db.inventory_lots.filter(function(l){
+      return String(l.product_id)===String(pid)&&same(l.lot_number,lotNo);
+    });
+    var keep=matches[0]||null;
+    var p=A(db.products).find(function(x){return String(x.id)===String(pid)})||{};
+    if(!keep){
+      keep={
+        id:uid407(),
+        product_id:pid,
+        product_name:p.name||'',
+        lot_number:lotNo,
+        expiry:expiry||'',
+        qty:0,
+        created_at:new Date().toISOString()
+      };
+      db.inventory_lots.push(keep);
+    }
+    keep.product_name=p.name||keep.product_name||'';
+    keep.lot_number=lotNo;
+    if(expiry)keep.expiry=expiry;
+    keep.qty=Math.max(0,N(beforeTotal)+N(qty));
+
+    /* Remove only duplicate LOT records created for the exact same product/LOT
+       during the same layered save. Existing different LOTs are untouched. */
+    db.inventory_lots=db.inventory_lots.filter(function(l){
+      if(l===keep)return true;
+      return !(String(l.product_id)===String(pid)&&same(l.lot_number,lotNo));
+    });
+    syncProduct407(pid);
+  }
+
+  /* ------------------------------------------------------------------
+     1) PURCHASES: old layers may add the same purchase to LOT twice.
+        We let the existing purchase/accounting workflow run, then force the
+        exact LOT net movement to +qty once and derive Product Stock from LOTs.
+     ------------------------------------------------------------------ */
+  var purchaseBase407=window.addPurchase || (typeof addPurchase==='function'?addPurchase:null);
+  if(typeof purchaseBase407==='function'){
+    window.addPurchase=function(){
+      ensureLots407();
+      var pid=S((document.getElementById('pu_product')||{}).value);
+      var qty=N((document.getElementById('pu_qty')||{}).value);
+      var lotNo=S((document.getElementById('pu_lot_v226')||{}).value)||
+                S((document.getElementById('pu_lot_v215')||{}).value);
+      var expiry=S((document.getElementById('pu_lot_expiry_v226')||{}).value)||
+                 S((document.getElementById('pu_lot_expiry_v215')||{}).value);
+      var beforePurchases=new Set(A(db.purchases).map(function(x){return String(x.id)}));
+      var beforeTotal=lotNo?snapshotLotTotal407(pid,lotNo):0;
+
+      var result=purchaseBase407.apply(this,arguments);
+
+      var created=A(db.purchases).filter(function(x){return !beforePurchases.has(String(x.id))});
+      if(created.length&&pid&&lotNo&&qty>0){
+        normalizePurchaseLot407(pid,lotNo,expiry,beforeTotal,qty);
+        created.forEach(function(r){
+          r.lot_number=lotNo;
+          r.lot=lotNo;
+          if(expiry){r.lot_expiry=expiry;r.product_expiry=expiry}
+        });
+        save407();
+      }
+      return result;
+    };
+    try{addPurchase=window.addPurchase}catch(e){}
+  }
+
+  /* ------------------------------------------------------------------
+     2) AUTHORITATIVE WAREHOUSE DISPATCH.
+        This bypasses the old stacked createApprovedSaleFromOrder wrappers,
+        so the exact LOT is deducted ONCE only.
+     ------------------------------------------------------------------ */
+  window.dispatchOrderFromWarehouseV407=function(order){
+    if(!order)return false;
+    ensureLots407();
+
+    var existing=A(db.sales).find(function(s){
+      return String(s.order_id||'')===String(order.id||'');
+    });
+    if(existing){
+      order.sale_id=existing.id;
+      order.operation_status='dispatched';
+      if(!order.dispatched_date)order.dispatched_date=today407();
+      if(!order.dispatched_by)order.dispatched_by=role407();
+      save407();
+      return true;
+    }
+
+    var p=A(db.products).find(function(x){return String(x.id)===String(order.product_id)})||null;
+    var c=A(db.customers).find(function(x){return String(x.id)===String(order.customer_id)})||null;
+    if(!p||!c){
+      alert(typeof lang!=='undefined'&&lang==='ar'
+        ?'تعذر خروج المخزن: بيانات المنتج أو العميل غير موجودة.'
+        :'Warehouse dispatch failed: product or customer is missing.');
+      return false;
+    }
+
+    var qty=N(order.qty);
+    if(qty<=0){
+      alert(typeof lang!=='undefined'&&lang==='ar'?'الكمية غير صحيحة.':'Invalid quantity.');
+      return false;
+    }
+
+    var lot=lotBy407(order.product_id,order.lot_id,order.lot_number||order.lot);
+    if(!lot){
+      alert(typeof lang!=='undefined'&&lang==='ar'
+        ?'تعذر خروج المخزن: LOT Number الخاص بالأوردر غير موجود.'
+        :'Warehouse dispatch failed: order LOT was not found.');
+      return false;
+    }
+    if(qty>N(lot.qty)){
+      alert((typeof lang!=='undefined'&&lang==='ar'
+        ?'رصيد LOT غير كافٍ. المتاح: '
+        :'Insufficient LOT stock. Available: ')+N(lot.qty));
+      return false;
+    }
+
+    var saleId=uid407();
+    var total=N(order.total);
+    var paid=N(order.paid);
+    var remaining=N(order.remaining);
+    var orderType=S(order.order_type)||'sale';
+    if(orderType!=='sale'){
+      total=0;paid=0;remaining=0;
+    }
+    var cost=N(p.purchase)*qty;
+
+    var sale={
+      id:saleId,
+      date:today407(),
+      order_id:order.id,
+      invoice_group_id:order.invoice_group_id||order.id,
+      invoice_no:order.invoice_no||'',
+      customer_id:c.id,
+      customer_name:order.customer_name||c.customer_name||c.official_name||c.name||'',
+      clinic_name:order.clinic_name||order.order_clinic_name||c.clinic_name||'',
+      order_clinic_name:order.order_clinic_name||order.clinic_name||c.clinic_name||'',
+      address:order.address||order.order_address||order.customer_address||c.address||'',
+      order_address:order.order_address||order.address||order.customer_address||c.address||'',
+      customer_address:order.customer_address||order.address||order.order_address||c.address||'',
+      clinic_city:order.clinic_city||order.customer_city||order.city||c.clinic_city||c.customer_city||c.city||'',
+      customer_city:order.customer_city||order.clinic_city||order.city||c.customer_city||c.clinic_city||c.city||'',
+      city:order.city||order.clinic_city||order.customer_city||c.city||c.clinic_city||c.customer_city||'',
+      region_id:order.region_id||'',
+      region_name:order.region_name||'',
+      rep_id:order.rep_id||'',
+      rep_name:order.rep_name||'',
+      product_id:p.id,
+      product_name:p.name||order.product_name||'',
+      product_expiry:lot.expiry||order.product_expiry||p.expiry||'',
+      lot_id:lot.id,
+      lot_number:lot.lot_number,
+      lot:lot.lot_number,
+      lot_expiry:lot.expiry||'',
+      qty:qty,
+      price:orderType==='sale'?N(order.price):0,
+      subtotal_before_vat:orderType==='sale'?N(order.subtotal_before_vat||order.total):0,
+      vat_percent:orderType==='sale'?N(order.vat_percent!=null?order.vat_percent:order.vat_rate):0,
+      vat_rate:orderType==='sale'?N(order.vat_percent!=null?order.vat_percent:order.vat_rate):0,
+      vat_amount:orderType==='sale'?N(order.vat_amount):0,
+      total_including_vat:orderType==='sale'?N(order.total_including_vat||order.total):0,
+      total:total,
+      paid:paid,
+      remaining:remaining,
+      order_type:orderType,
+      order_type_label:order.order_type_label||orderType,
+      approval_status:'approved',
+      approved_by:order.approved_by||role407(),
+      approved_date:order.approved_date||today407(),
+      created_by_id:order.created_by_id||'',
+      created_by_email:order.created_by_email||''
+    };
+
+    /* Commit inventory exactly once. */
+    lot.qty=N(lot.qty)-qty;
+    if(lot.qty<0)lot.qty=0;
+    syncProduct407(p.id);
+
+    /* Commit business transaction. */
+    db.sales.unshift(sale);
+    c.balance=N(c.balance)+remaining;
+    order.sale_id=saleId;
+    order.status='approved';
+    order.approval_status='approved';
+    order.operation_status='dispatched';
+    order.dispatched_by=role407();
+    order.dispatched_date=today407();
+    order.lot_id=lot.id;
+    order.lot_number=lot.lot_number;
+    order.lot=lot.lot_number;
+    order.lot_expiry=lot.expiry||'';
+
+    try{
+      if(typeof postEntry==='function'){
+        postEntry('sale',saleId,
+          (typeof lang!=='undefined'&&lang==='ar'?'فاتورة بيع ':'Sales invoice ')+(p.name||''),
+          [
+            {account:'1100',debit:paid},
+            {account:'1200',debit:remaining},
+            {account:'4100',credit:total},
+            {account:'5100',debit:cost},
+            {account:'1300',credit:cost}
+          ]
+        );
+      }
+    }catch(e){
+      console.error('V407 journal posting error',e);
+    }
+
+    save407();
+    return true;
+  };
+
+  /* Replace the Operations/Warehouse button route only.
+     Sales-manager approval still just approves; stock moves only here. */
+  window.dispatchSalesOrderV73=function(id){
+    try{if(typeof ensureSalesOrders==='function')ensureSalesOrders()}catch(e){
+      if(!Array.isArray(db.sales_orders))db.sales_orders=[];
+    }
+    var o=A(db.sales_orders).find(function(x){return String(x.id)===String(id)});
+    if(!o||o.status!=='approved'||o.operation_status==='dispatched')return;
+
+    try{
+      var allowed=(typeof can==='function'?(can('operations','edit')||can('operations','add')):true);
+      var role='';
+      try{role=typeof currentRoleV73==='function'?currentRoleV73():''}catch(e){}
+      if(!allowed&&role!=='operations_manager'&&role!=='warehouse_manager'){
+        return typeof permissionAlert==='function'?permissionAlert():alert('No permission');
+      }
+    }catch(e){}
+
+    if(!confirm(typeof lang!=='undefined'&&lang==='ar'
+      ?'تنفيذ خروج المخزن وتحويل الأوردر إلى مبيعات فعلية؟'
+      :'Dispatch from warehouse and convert this order to an actual sale?'))return;
+
+    var ok=window.dispatchOrderFromWarehouseV407(o);
+    if(!ok)return;
+
+    alert(typeof lang!=='undefined'&&lang==='ar'
+      ?'تم خروج الأوردر من المخزن وتسجيل البيع وخصم LOT مرة واحدة.'
+      :'Order dispatched, sale registered, and LOT deducted once.');
+    try{if(typeof render==='function')render()}catch(e){}
+  };
+
+  /* ------------------------------------------------------------------
+     3) LEGACY OPERATIONS: if the old "fulfill sale" route is used,
+        convert it through the same authoritative LOT warehouse logic.
+        No direct p.stock deduction is allowed.
+     ------------------------------------------------------------------ */
+  var sellLegacy407=window.sellOperation || (typeof sellOperation==='function'?sellOperation:null);
+  if(typeof sellLegacy407==='function'){
+    window.sellOperation=function(id){
+      var o=A(db.operations).find(function(x){return String(x.id)===String(id)});
+      if(!o)return;
+      if(o.status==='sold')return;
+
+      var lot=lotBy407(o.product_id,o.lot_id,o.lot_number||o.lot);
+      if(!lot){
+        /* Prefer the earliest-expiring available LOT only for legacy records
+           that pre-date mandatory LOT selection. */
+        var candidates=lotsFor407(o.product_id).filter(function(l){return N(l.qty)>0});
+        candidates.sort(function(a,b){
+          var da=S(a.expiry)||'9999-12-31', dbb=S(b.expiry)||'9999-12-31';
+          return da.localeCompare(dbb);
+        });
+        lot=candidates[0]||null;
+      }
+      if(!lot){
+        return alert(typeof lang!=='undefined'&&lang==='ar'
+          ?'لا يوجد LOT متاح لهذا الطلب القديم.'
+          :'No available LOT for this legacy operation.');
+      }
+
+      var pseudo={
+        id:'OP_'+o.id,
+        customer_id:o.customer_id,
+        customer_name:o.customer_name,
+        rep_id:o.rep_id,
+        rep_name:o.rep_name,
+        product_id:o.product_id,
+        product_name:o.product_name,
+        qty:o.qty,
+        price:o.price,
+        total:o.total,
+        paid:o.paid,
+        remaining:o.remaining,
+        region_id:o.region_id||'',
+        region_name:o.region_name||'',
+        lot_id:lot.id,
+        lot_number:lot.lot_number,
+        lot:lot.lot_number,
+        order_type:o.order_type||'sale',
+        approval_status:'approved',
+        approved_by:role407(),
+        approved_date:today407()
+      };
+      var ok=window.dispatchOrderFromWarehouseV407(pseudo);
+      if(!ok)return;
+      o.status='sold';
+      o.sold_date=today407();
+      o.sale_id=pseudo.sale_id||'';
+      o.lot_id=lot.id;
+      o.lot_number=lot.lot_number;
+      save407();
+      try{if(typeof render==='function')render()}catch(e){}
+    };
+    try{sellOperation=window.sellOperation}catch(e){}
+  }
+
+  /* ------------------------------------------------------------------
+     4) RECONCILIATION SAFETY:
+        Product stock becomes the sum of LOT balances, without changing LOTs.
+        This repairs old display drift but never manufactures/deletes quantity.
+     ------------------------------------------------------------------ */
+  window.reconcileWarehouseStockV407=function(){
+    ensureLots407();
+    A(db.products).forEach(function(p){
+      var ls=lotsFor407(p.id);
+      if(ls.length)syncProduct407(p.id);
+    });
+    save407();
+  };
+
+  /* One safe reconciliation at load: only products that already have LOTs. */
+  setTimeout(function(){
+    try{window.reconcileWarehouseStockV407()}catch(e){console.error('V407 reconcile error',e)}
+  },900);
+})();
+</script>
