@@ -25514,7 +25514,7 @@ html body .summary-box.v303-auto-clickable:after{
 
   function regionName(row){
     try{if(typeof window.regionNameVerifiedV307==='function')return window.regionNameVerifiedV307(row)}catch(e){}
-    return S(row&&(row.region_name||row.region||row.area||row.city||row.customer_area))||'غير محدد';
+    return S(row&&(row.region_code||row.region_name||row.region||row.area||row.city||row.customer_area))||'غير محدد';
   }
 
   function approvedSales(){
@@ -25606,7 +25606,17 @@ html body .summary-box.v303-auto-clickable:after{
   function repRowsV323(repId){
     var rep=(db.reps||[]).find(function(r){return String(r.id)===String(repId)});
     if(!rep)return [];
-    return approvedSales().filter(function(s){return repMatches(s,rep)});
+
+    /* V415 definitive source:
+       this exact block powers "أكثر وأقل المناطق بيعًا".
+       It must read the live percentage allocation, not the invoice's original rep. */
+    try{
+      if(typeof window.salesRowsV189==='function'){
+        return window.salesRowsV189(rep.id)||[];
+      }
+    }catch(e){console.error('V415 rep region focus allocation',e)}
+
+    return [];
   }
 
   window.appendRegionFocusV323=function(repId){
@@ -33265,5 +33275,386 @@ html body .summary-box.v303-auto-clickable:after{
     if(typeof saveDb==='function')saveDb();
     else if(typeof save==='function')save();
   }catch(e){console.error('V414 snapshot refresh',e)}
+})();
+</script>
+
+
+<script id="v415-rep-region-focus-percentage-diagnostic">
+(function(){
+  window.debugRepPercentageV415=function(repRef){
+    var rep=(db.reps||[]).find(function(r){
+      return String(r.id)===String(repRef) ||
+             String(r.name||'').trim().toLowerCase()===String(repRef||'').trim().toLowerCase();
+    });
+    if(!rep)return {error:'rep not found',ref:repRef};
+
+    var rows=[];
+    try{rows=typeof window.salesRowsV189==='function'?(window.salesRowsV189(rep.id)||[]):[]}catch(e){}
+
+    return {
+      rep_id:rep.id,
+      rep_name:rep.name,
+      allocated_rows:rows.length,
+      qty:rows.reduce(function(a,s){return a+Number(s.qty||0)},0),
+      sales:rows.reduce(function(a,s){return a+Number(s.total||0)},0),
+      regions:rows.reduce(function(m,s){
+        var k=String(s.region_code||s.region_name||'غير محدد');
+        if(!m[k])m[k]={qty:0,sales:0,rows:0};
+        m[k].qty+=Number(s.qty||0);
+        m[k].sales+=Number(s.total||0);
+        m[k].rows++;
+        return m;
+      },{})
+    };
+  };
+})();
+</script>
+
+
+<script id="v417-rep-reports-exact-customer-percentages">
+(function(){
+  function A(v){return Array.isArray(v)?v:[]}
+  function S(v){return String(v==null?'':v).trim()}
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function E(v){
+    try{if(typeof esc==='function')return esc(v)}catch(e){}
+    return S(v).replace(/[&<>'"]/g,function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]
+    });
+  }
+  function M(v){
+    try{if(typeof money==='function')return money(v)}catch(e){}
+    return 'EGP '+N(v).toLocaleString();
+  }
+  function norm(v){
+    return S(v).toLowerCase()
+      .replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه')
+      .replace(/\s+/g,' ').trim();
+  }
+  function regionKey(v){
+    var x=norm(v);
+    x=x.replace(/\bwwst\b/g,'west').replace(/\bwst\b/g,'west')
+       .replace(/\bwesst\b/g,'west').replace(/\beest\b/g,'east')
+       .replace(/\beasst\b/g,'east').replace(/\bhelioplis\b/g,'heliopolis')
+       .replace(/\balexandria\b/g,'alex');
+    return x;
+  }
+  function inPeriod(row){
+    try{
+      if(typeof inRangeV189==='function')return !!inRangeV189(row);
+    }catch(e){}
+    return true;
+  }
+  function repByIdOrName(ref){
+    return A(db&&db.reps).find(function(r){
+      return String(r.id)===String(ref) || norm(r.name)===norm(ref);
+    })||null;
+  }
+  function customerForSale(s){
+    var customers=A(db&&db.customers);
+    if(s&&s.customer_id){
+      var byId=customers.find(function(c){return String(c.id)===String(s.customer_id)});
+      if(byId)return byId;
+    }
+    var n=norm(s&&s.customer_name);
+    if(!n)return null;
+    return customers.find(function(c){
+      return [c.customer_name,c.official_name,c.name,c.clinic_name].some(function(v){return norm(v)===n});
+    })||null;
+  }
+  function splitsForCustomer(c){
+    if(!c)return [];
+    var id=String(c.id||'');
+    var official=norm(c.customer_name||c.official_name);
+    var clinic=norm(c.clinic_name||c.name);
+
+    return A(db&&db.customerRepSplits).filter(function(sp){
+      if(N(sp.percentage)<=0)return false;
+      if(id && String(sp.customer_id||'')===id)return true;
+
+      var so=norm(sp.customer_name), sc=norm(sp.clinic_name);
+      if(official && so===official){
+        if(!clinic || !sc || sc===clinic)return true;
+      }
+      return false;
+    });
+  }
+  function repForSplit(sp){
+    var reps=A(db&&db.reps);
+
+    if(sp.rep_id){
+      var byId=reps.find(function(r){return String(r.id)===String(sp.rep_id)});
+      if(byId)return byId;
+    }
+    if(sp.rep_name){
+      var byName=reps.find(function(r){return norm(r.name)===norm(sp.rep_name)});
+      if(byName)return byName;
+    }
+
+    var key=regionKey(sp.region_code||sp.region_name||'');
+
+    var exact=reps.find(function(r){return regionKey(r.region_code)===key});
+    if(exact)return exact;
+
+    var known={
+      'west 1':'مارينا',
+      'west 2':'عماد',
+      'east 1':'سيف',
+      'east 2':'ماهينور',
+      'heliopolis':'نوران',
+      'salma':'سلمى',
+      'delta':'منى',
+      'alex':'يحي فتحي'
+    };
+    var wanted=known[key];
+    if(wanted){
+      var r=reps.find(function(x){return norm(x.name)===norm(wanted)});
+      if(r)return r;
+    }
+
+    return null;
+  }
+
+  /*
+    Exact allocation. IMPORTANT:
+    percentage is used AS ENTERED in customerRepSplits.
+    No normalization to 100, no redistribution, no guessing.
+  */
+  window.exactCustomerAllocationsV417=function(){
+    var rows=[];
+    A(db&&db.sales).forEach(function(s){
+      if(s.approval_status && s.approval_status!=='approved')return;
+      if(!inPeriod(s))return;
+
+      var c=customerForSale(s);
+      var splits=splitsForCustomer(c);
+
+      if(!splits.length){
+        var direct=repByIdOrName(s.rep_id||s.rep_name);
+        rows.push({
+          sale:s,
+          sale_id:s.id||'',
+          customer:c,
+          rep:direct,
+          rep_id:direct&&direct.id||s.rep_id||'',
+          rep_name:direct&&direct.name||s.rep_name||'',
+          region_code:s.region_name||direct&&direct.region_code||'',
+          percentage:100,
+          qty:N(s.qty),
+          total:N(s.total),
+          paid:N(s.paid),
+          remaining:N(s.remaining),
+          fallback:true
+        });
+        return;
+      }
+
+      splits.forEach(function(sp){
+        var pct=N(sp.percentage);
+        var rep=repForSplit(sp);
+        rows.push({
+          sale:s,
+          sale_id:s.id||'',
+          customer:c,
+          split:sp,
+          rep:rep,
+          rep_id:rep&&rep.id||'',
+          rep_name:rep&&rep.name||'',
+          region_code:sp.region_code||'',
+          percentage:pct,
+          qty:N(s.qty)*pct/100,
+          total:N(s.total)*pct/100,
+          paid:N(s.paid)*pct/100,
+          remaining:N(s.remaining)*pct/100,
+          fallback:false
+        });
+      });
+    });
+    return rows;
+  };
+
+  window.customerSplitAuditV417=function(){
+    var result=[];
+    A(db&&db.customers).forEach(function(c){
+      var sp=splitsForCustomer(c);
+      if(!sp.length)return;
+      var total=sp.reduce(function(a,x){return a+N(x.percentage)},0);
+      result.push({
+        customer_id:c.id||'',
+        customer_name:c.customer_name||c.official_name||c.name||'',
+        total_percentage:total,
+        valid:Math.abs(total-100)<0.001
+      });
+    });
+    return result;
+  };
+
+  window.repRowsExactV417=function(repRef){
+    var rep=repByIdOrName(repRef);
+    if(!rep)return [];
+    return window.exactCustomerAllocationsV417()
+      .filter(function(a){
+        return String(a.rep_id||'')===String(rep.id) || norm(a.rep_name)===norm(rep.name);
+      })
+      .map(function(a){
+        var s=a.sale||{};
+        return Object.assign({},s,{
+          id:'v417_'+String(s.id||'')+'_'+String(a.region_code||'')+'_'+String(a.rep_id||''),
+          sale_id:s.id||'',
+          invoice_key:s.invoice_group_id||s.invoice_no||s.invoice_number||s.order_id||s.id,
+          customer_id:s.customer_id||a.customer&&a.customer.id||'',
+          customer_name:s.customer_name||a.customer&&a.customer.customer_name||'',
+          clinic_name:s.clinic_name||a.customer&&a.customer.clinic_name||'',
+          rep_id:rep.id,
+          rep_name:rep.name,
+          region_code:a.region_code||rep.region_code||'',
+          region_name:a.region_code||rep.region_code||'',
+          percentage:a.percentage,
+          qty:a.qty,
+          total:a.total,
+          paid:a.paid,
+          remaining:a.remaining,
+          _exact_percentage_v417:true
+        });
+      });
+  };
+
+  /* Make every old report entry point read the exact rows. */
+  window.salesRowsV189=function(repId){return window.repRowsExactV417(repId)};
+  try{salesRowsV189=window.salesRowsV189}catch(e){}
+
+  window.repSalesRowsDefinitiveV356=function(ref){
+    var id=ref;
+    try{if(typeof window.resolveRepIdV356==='function')id=window.resolveRepIdV356(ref)}catch(e){}
+    return window.repRowsExactV417(id);
+  };
+
+  /*
+    Region target table in the screenshot: exact allocated rows only.
+  */
+  window.repRegionAchievementV321=function(repId){
+    var rep=repByIdOrName(repId);
+    if(!rep)return [];
+    var rows=window.repRowsExactV417(rep.id);
+    var target=N(rep.target_qty!=null?rep.target_qty:(rep.target!=null?rep.target:rep.sales_target));
+    var map=new Map();
+
+    rows.forEach(function(s){
+      var rn=S(s.region_code||s.region_name||'غير محدد');
+      if(!map.has(rn))map.set(rn,{name:rn,qty:0,sales:0,invoices:new Set()});
+      var x=map.get(rn);
+      x.qty+=N(s.qty);
+      x.sales+=N(s.total);
+      x.invoices.add(S(s.invoice_no||s.invoice_group_id||s.order_id||s.sale_id||s.id));
+    });
+
+    return Array.from(map.values()).map(function(x){
+      x.invoiceCount=x.invoices.size;
+      x.achievement=target>0?(x.qty/target*100):0;
+      return x;
+    }).sort(function(a,b){return b.qty-a.qty});
+  };
+
+  /*
+    Restore a dependable real-rep detail view, independent of the many older wrappers.
+    Totals and rows are built from exact percentage allocations.
+  */
+  window.openRepDetailsV417=function(repId){
+    var rep=repByIdOrName(repId);
+    var body=document.getElementById('rep_details_body_v175');
+    if(!rep||!body)return false;
+
+    var rows=window.repRowsExactV417(rep.id);
+    var salesTotal=rows.reduce(function(a,s){return a+N(s.total)},0);
+    var qtyTotal=rows.reduce(function(a,s){return a+N(s.qty)},0);
+    var invoiceSet=new Set(rows.map(function(s){
+      return S(s.invoice_key||s.invoice_no||s.invoice_group_id||s.order_id||s.sale_id||s.id)
+    }));
+    var target=N(rep.target_qty!=null?rep.target_qty:(rep.target!=null?rep.target:rep.sales_target));
+    var targetQty=rows.reduce(function(a,s){
+      var isBonus=norm(s.order_type||s.order_type_label).indexOf('bonus')>=0 ||
+                  norm(s.order_type||s.order_type_label).indexOf('بونص')>=0;
+      return a+(isBonus?0:N(s.qty));
+    },0);
+    var pct=target>0?targetQty/target*100:0;
+
+    var audit=window.customerSplitAuditV417().filter(function(x){return !x.valid});
+    var warning=audit.length
+      ? '<div class="card" style="border:1px solid #f59e0b;background:#fffbeb"><b>تنبيه بيانات:</b> يوجد '+audit.length+' عميل إجمالي نسب توزيعه لا يساوي 100%. النظام لم يغيّر هذه النسب وتم الحساب بالقيم المسجلة كما هي.</div>'
+      : '';
+
+    var byRegion=window.repRegionAchievementV321(rep.id);
+
+    body.innerHTML=
+      '<div class="rep-detail-head-v175"><div><h2>'+E(rep.name||'')+'</h2><p>'+E(rep.phone||'')+'</p></div></div>'+
+      warning+
+      '<div class="grid grid4 rep-summary-v175">'+
+        '<div class="stat"><span>إجمالي المبيعات</span><strong>'+M(salesTotal)+'</strong></div>'+
+        '<div class="stat"><span>كمية البيع الموزعة</span><strong>'+N(qtyTotal).toLocaleString()+'</strong></div>'+
+        '<div class="stat"><span>عدد الفواتير</span><strong>'+invoiceSet.size+'</strong></div>'+
+        '<div class="stat"><span>نسبة تحقيق التارجت</span><strong>'+pct.toFixed(1)+'%</strong></div>'+
+      '</div>'+
+      '<div class="card"><h3>تحقيق التارجت حسب المنطقة</h3>'+
+        (byRegion.length
+          ? '<table><tr><th>المنطقة</th><th>الكمية المباعة</th><th>قيمة المبيعات</th><th>عدد الفواتير</th><th>مساهمة المنطقة</th></tr>'+
+            byRegion.map(function(r){
+              return '<tr><td><b>'+E(r.name)+'</b></td><td>'+N(r.qty).toLocaleString()+'</td><td>'+M(r.sales)+'</td><td>'+r.invoiceCount+'</td><td>'+N(r.achievement).toFixed(1)+'%</td></tr>';
+            }).join('')+'</table>'
+          : '<div class="empty">لا توجد مبيعات موزعة لهذا المندوب في الفترة المحددة.</div>')+
+      '</div>'+
+      '<div class="card"><h3>تفاصيل المبيعات الموزعة حسب نسب العملاء</h3>'+
+        (rows.length
+          ? '<table><tr><th>التاريخ</th><th>العميل</th><th>المنتج</th><th>المنطقة</th><th>نسبة التوزيع</th><th>الكمية</th><th>المبيعات</th></tr>'+
+            rows.map(function(s){
+              return '<tr><td>'+E(s.date||'')+'</td><td>'+E(s.customer_name||'')+'</td><td>'+E(s.product_name||'')+'</td><td>'+E(s.region_code||'')+'</td><td>'+N(s.percentage).toFixed(2)+'%</td><td>'+N(s.qty).toLocaleString()+'</td><td>'+M(s.total)+'</td></tr>';
+            }).join('')+'</table>'
+          : '<div class="empty">لا توجد بيانات لهذا المندوب في الفترة المحددة.</div>')+
+      '</div>';
+
+    document.querySelectorAll('#rep_performance_modal_v175 .rep-card-v175').forEach(function(card){
+      card.classList.toggle('active',card.dataset.repId===rep.id);
+    });
+    return true;
+  };
+
+  /*
+    Final route: real reps use V417. Total/group cards keep their existing hierarchy.
+  */
+  var openBefore417=window.openRepDetailsV175;
+  window.openRepDetailsV175=function(repId){
+    var rep=repByIdOrName(repId);
+    if(rep)return window.openRepDetailsV417(rep.id);
+    if(typeof openBefore417==='function')return openBefore417.apply(this,arguments);
+  };
+  try{openRepDetailsV175=window.openRepDetailsV175}catch(e){}
+
+  /*
+    Card totals in the rep list: exact percentage totals.
+  */
+  window.refreshRepCardsV417=function(){
+    document.querySelectorAll('#rep_performance_modal_v175 .rep-card-v175[data-rep-id]').forEach(function(card){
+      var rep=repByIdOrName(card.dataset.repId);
+      if(!rep)return;
+      var rows=window.repRowsExactV417(rep.id);
+      var total=rows.reduce(function(a,s){return a+N(s.total)},0);
+      var spans=card.querySelectorAll('span');
+      if(spans[0])spans[0].textContent='مبيعات: '+M(total);
+    });
+  };
+
+  var openPerfBefore417=window.openRepPerformanceV175;
+  if(typeof openPerfBefore417==='function'){
+    window.openRepPerformanceV175=function(){
+      var r=openPerfBefore417.apply(this,arguments);
+      setTimeout(window.refreshRepCardsV417,100);
+      setTimeout(function(){
+        var first=document.querySelector('#rep_performance_modal_v175 .rep-card-v175[data-rep-id]');
+        if(first && repByIdOrName(first.dataset.repId)){
+          window.openRepDetailsV175(first.dataset.repId);
+        }
+      },160);
+      return r;
+    };
+  }
 })();
 </script>
