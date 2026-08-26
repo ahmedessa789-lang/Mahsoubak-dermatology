@@ -32326,3 +32326,154 @@ html body .summary-box.v303-auto-clickable:after{
   };
 })();
 </script>
+
+
+<script id="v409-sales-approval-permission-definitive">
+(function(){
+  function A(v){return Array.isArray(v)?v:[]}
+  function S(v){return String(v==null?'':v).trim().toLowerCase()}
+  function today409(){
+    try{if(typeof today==='function')return today()}catch(e){}
+    return new Date().toISOString().slice(0,10);
+  }
+  function user409(){
+    try{if(typeof currentUser==='function')return currentUser()||{}}catch(e){}
+    return {};
+  }
+  function save409(){
+    try{
+      if(typeof saveDb==='function'){saveDb();return}
+      if(typeof save==='function'){save();return}
+    }catch(e){}
+  }
+  function canApprove409(){
+    var u=user409();
+    if(!u)return false;
+    var role=S(u.role);
+
+    /* Explicit management roles. */
+    if(role==='admin'||
+       role==='sales_manager'||
+       role==='operations_manager')return true;
+
+    /* Permission matrix is the source of truth for custom users. */
+    try{
+      if(typeof can==='function' && can('sales','edit'))return true;
+    }catch(e){}
+
+    return false;
+  }
+
+  /*
+    Final approval route:
+    - Approves the whole invoice group.
+    - Does NOT create a sale.
+    - Does NOT deduct product stock or LOT.
+    - Does NOT block a manager simply because they created the order.
+    Warehouse dispatch remains the only inventory movement.
+  */
+  window.approveSalesOrder=function(id){
+    try{
+      if(typeof ensureSalesOrders==='function')ensureSalesOrders();
+    }catch(e){
+      if(!Array.isArray(db.sales_orders))db.sales_orders=[];
+    }
+
+    var first=A(db.sales_orders).find(function(o){
+      return String(o.id)===String(id);
+    });
+    if(!first || first.status!=='pending')return;
+
+    if(!canApprove409()){
+      try{
+        if(typeof permissionAlert==='function')return permissionAlert();
+      }catch(e){}
+      return alert(typeof lang!=='undefined'&&lang==='ar'
+        ?'المستخدم الحالي لا يملك صلاحية الموافقة على الفواتير.'
+        :'Current user cannot approve sales invoices.');
+    }
+
+    var groupId=first.invoice_group_id||first.id;
+    var rows=A(db.sales_orders).filter(function(o){
+      return String(o.invoice_group_id||o.id)===String(groupId) &&
+             o.status==='pending';
+    });
+    if(!rows.length)rows=[first];
+
+    var u=user409();
+    var no='';
+    try{
+      if(typeof ensureGroupInvoiceNoV197==='function'){
+        no=ensureGroupInvoiceNoV197(groupId)||'';
+      }
+    }catch(e){}
+
+    rows.forEach(function(o){
+      o.status='approved';
+      o.approval_status='approved';
+      o.operation_status='pending_dispatch';
+      o.approved_by=u.name||u.email||u.username||u.role||'Manager';
+      o.approved_date=today409();
+      if(no)o.invoice_no=no;
+
+      /* Inventory safety markers. */
+      o.inventory_deducted=false;
+      o.warehouse_dispatched=false;
+    });
+
+    save409();
+
+    alert(typeof lang!=='undefined'&&lang==='ar'
+      ?'تمت الموافقة على الفاتورة. لم يتم خصم أي كمية من المخزون، وتم تحويلها للمخزن للتنفيذ.'
+      :'Invoice approved. No inventory was deducted; it was sent to warehouse dispatch.');
+
+    try{
+      if(typeof render==='function')render();
+    }catch(e){}
+  };
+  try{approveSalesOrder=window.approveSalesOrder}catch(e){}
+
+  /*
+    Rejection uses the same approval authority, without touching inventory.
+  */
+  window.rejectSalesOrder=function(id){
+    try{
+      if(typeof ensureSalesOrders==='function')ensureSalesOrders();
+    }catch(e){
+      if(!Array.isArray(db.sales_orders))db.sales_orders=[];
+    }
+
+    var first=A(db.sales_orders).find(function(o){
+      return String(o.id)===String(id);
+    });
+    if(!first || first.status!=='pending')return;
+
+    if(!canApprove409()){
+      try{
+        if(typeof permissionAlert==='function')return permissionAlert();
+      }catch(e){}
+      return;
+    }
+
+    var groupId=first.invoice_group_id||first.id;
+    var rows=A(db.sales_orders).filter(function(o){
+      return String(o.invoice_group_id||o.id)===String(groupId) &&
+             o.status==='pending';
+    });
+    if(!rows.length)rows=[first];
+
+    var u=user409();
+    rows.forEach(function(o){
+      o.status='rejected';
+      o.approval_status='rejected';
+      o.operation_status='rejected';
+      o.rejected_by=u.name||u.email||u.username||u.role||'Manager';
+      o.rejected_date=today409();
+    });
+
+    save409();
+    try{if(typeof render==='function')render()}catch(e){}
+  };
+  try{rejectSalesOrder=window.rejectSalesOrder}catch(e){}
+})();
+</script>
