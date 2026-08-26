@@ -31658,7 +31658,8 @@ html body .summary-box.v303-auto-clickable:after{
 
     var deep=document.getElementById('ai400-deep-output');
     if(deep){
-      deep.textContent='النسخة الحالية تعمل بدون OpenAI API وبدون أي تكلفة. التحليل الموجود في الصفحة مبني بالكامل على بيانات النظام الداخلية. Market Intelligence الخارجي غير مفعّل حاليًا.';
+      var msg='النسخة الحالية تعمل بدون OpenAI API وبدون أي تكلفة. التحليل الموجود في الصفحة مبني بالكامل على بيانات النظام الداخلية. Market Intelligence الخارجي غير مفعّل حاليًا.';
+      if(deep.textContent!==msg)deep.textContent=msg;
     }
   }
 
@@ -31671,7 +31672,11 @@ html body .summary-box.v303-auto-clickable:after{
     };
   }
 
-  var obs=new MutationObserver(function(){decorate()});
+  var obsTimer=null;
+  var obs=new MutationObserver(function(){
+    clearTimeout(obsTimer);
+    obsTimer=setTimeout(decorate,120);
+  });
   obs.observe(document.body,{childList:true,subtree:true});
   setTimeout(decorate,500);
 })();
@@ -31710,11 +31715,14 @@ html body .summary-box.v303-auto-clickable:after{
       var hero=document.querySelector('#view-aiAdvisor .ai400-hero');
       if(!hero)return;
       var old=hero.querySelector('.ai402-data-warning');
-      if(old)old.remove();
 
       if(!operational){
-        hero.insertAdjacentHTML('beforeend',
-          '<div class="ai402-data-warning">⚠ لا توجد بيانات تشغيل كافية للتحليل حتى الآن. تأكد أن بيانات Supabase تم تحميلها قبل الاعتماد على أي تقرير إداري.</div>');
+        if(!old){
+          hero.insertAdjacentHTML('beforeend',
+            '<div class="ai402-data-warning">⚠ لا توجد بيانات تشغيل كافية للتحليل حتى الآن. تأكد أن بيانات Supabase تم تحميلها قبل الاعتماد على أي تقرير إداري.</div>');
+        }
+      }else if(old){
+        old.remove();
       }
     }catch(e){}
   }
