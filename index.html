@@ -33589,7 +33589,7 @@ html body .summary-box.v303-auto-clickable:after{
       '<div class="rep-detail-head-v175"><div><h2>'+E(rep.name||'')+'</h2><p>'+E(rep.phone||'')+'</p></div></div>'+
       warning+
       '<div class="grid grid4 rep-summary-v175">'+
-        '<div class="stat"><span>إجمالي المبيعات</span><strong>'+M(salesTotal)+'</strong></div>'+
+        '<div class="stat v417-total-sales-click" data-rep-id="'+E(rep.id)+'" onclick="window.openRepTotalSalesV418(this.dataset.repId)" style="cursor:pointer" title="اضغط لعرض تفاصيل المبيعات"><span>إجمالي المبيعات</span><strong>'+M(salesTotal)+'</strong></div>'+
         '<div class="stat"><span>كمية البيع الموزعة</span><strong>'+N(qtyTotal).toLocaleString()+'</strong></div>'+
         '<div class="stat"><span>عدد الفواتير</span><strong>'+invoiceSet.size+'</strong></div>'+
         '<div class="stat"><span>نسبة تحقيق التارجت</span><strong>'+pct.toFixed(1)+'%</strong></div>'+
@@ -33656,5 +33656,94 @@ html body .summary-box.v303-auto-clickable:after{
       return r;
     };
   }
+})();
+</script>
+
+
+<style id="v418-rep-total-sales-click-style">
+#rep_performance_modal_v175 .v417-total-sales-click{
+  cursor:pointer!important;
+  transition:transform .12s ease,box-shadow .12s ease!important;
+}
+#rep_performance_modal_v175 .v417-total-sales-click:hover{
+  transform:translateY(-1px);
+  box-shadow:0 8px 20px rgba(15,23,42,.12)!important;
+}
+</style>
+
+<script id="v418-rep-total-sales-card-click">
+(function(){
+  function A(v){return Array.isArray(v)?v:[]}
+  function S(v){return String(v==null?'':v).trim()}
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function E(v){
+    try{if(typeof esc==='function')return esc(v)}catch(e){}
+    return S(v).replace(/[&<>'"]/g,function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]
+    });
+  }
+  function M(v){
+    try{if(typeof money==='function')return money(v)}catch(e){}
+    return 'EGP '+N(v).toLocaleString();
+  }
+
+  window.openRepTotalSalesV418=function(repId){
+    var rep=A(db&&db.reps).find(function(r){
+      return String(r.id)===String(repId);
+    })||null;
+    if(!rep)return;
+
+    var rows=[];
+    try{
+      if(typeof window.repRowsExactV417==='function'){
+        rows=window.repRowsExactV417(rep.id)||[];
+      }else if(typeof window.salesRowsV189==='function'){
+        rows=window.salesRowsV189(rep.id)||[];
+      }
+    }catch(e){rows=[]}
+
+    var total=rows.reduce(function(a,s){return a+N(s.total)},0);
+    var qty=rows.reduce(function(a,s){return a+N(s.qty)},0);
+    var invoices=new Set(rows.map(function(s){
+      return S(s.invoice_key||s.invoice_no||s.invoice_group_id||s.order_id||s.sale_id||s.id)
+    }));
+
+    var html=
+      '<div class="grid grid3" style="margin-bottom:14px">'+
+        '<div class="stat"><span>إجمالي المبيعات</span><strong>'+M(total)+'</strong></div>'+
+        '<div class="stat"><span>الكمية الموزعة</span><strong>'+N(qty).toLocaleString()+'</strong></div>'+
+        '<div class="stat"><span>عدد الفواتير</span><strong>'+invoices.size+'</strong></div>'+
+      '</div>'+
+      '<div class="card"><h3>تفاصيل مبيعات '+E(rep.name||'')+'</h3>'+
+        (rows.length
+          ? '<table><tr><th>التاريخ</th><th>الفاتورة</th><th>العميل</th><th>المنتج</th><th>المنطقة</th><th>نسبة التوزيع</th><th>الكمية</th><th>قيمة المبيعات</th></tr>'+
+            rows.map(function(s){
+              return '<tr>'+
+                '<td>'+E(s.date||'')+'</td>'+
+                '<td>'+E(s.invoice_no||s.invoice_key||'')+'</td>'+
+                '<td>'+E(s.customer_name||'')+'</td>'+
+                '<td>'+E(s.product_name||'')+'</td>'+
+                '<td>'+E(s.region_code||s.region_name||'')+'</td>'+
+                '<td>'+N(s.percentage!=null?s.percentage:100).toFixed(2)+'%</td>'+
+                '<td>'+N(s.qty).toLocaleString()+'</td>'+
+                '<td>'+M(s.total)+'</td>'+
+              '</tr>';
+            }).join('')+
+            '</table>'
+          : '<div class="empty">لا توجد مبيعات لهذا المندوب في الفترة المحددة.</div>')+
+      '</div>';
+
+    if(typeof window.openCompanyAnalyticsModalV306==='function'){
+      window.openCompanyAnalyticsModalV306(
+        'إجمالي مبيعات '+(rep.name||''),
+        'تفاصيل المبيعات الموزعة حسب نسب العملاء',
+        html
+      );
+      return;
+    }
+
+    var body=document.getElementById('rep_details_body_v175');
+    if(body)body.insertAdjacentHTML('beforeend',html);
+  };
 })();
 </script>
