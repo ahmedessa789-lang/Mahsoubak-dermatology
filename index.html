@@ -31121,3 +31121,612 @@ html body .summary-box.v303-auto-clickable:after{
 .customer-option-v194{display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:2px!important}
 .customer-option-v194 small{font-size:11px;color:#64748b;font-weight:600}
 </style>
+
+
+<style id="v400-ai-business-advisor-style">
+#view-aiAdvisor{padding-bottom:40px}
+.ai400-hero{background:linear-gradient(135deg,#071427,#0f766e);color:#fff;border-radius:22px;padding:22px;margin-bottom:16px;box-shadow:0 18px 45px rgba(15,23,42,.16)}
+.ai400-hero h2{margin:0 0 6px;color:#fff!important;font-size:28px}.ai400-hero p{margin:0;color:#ccfbf1;line-height:1.7}
+.ai400-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.ai400-actions button{border:0;border-radius:10px;padding:10px 14px;font-weight:900;cursor:pointer}
+.ai400-actions .primary{background:#fff;color:#0f766e}.ai400-actions .secondary{background:#134e4a;color:#fff;border:1px solid rgba(255,255,255,.22)}
+.ai400-grid{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:12px;margin:14px 0}
+.ai400-card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:14px;box-shadow:0 8px 24px rgba(15,23,42,.04)}
+.ai400-card span{display:block;font-size:12px;color:#64748b;font-weight:800}.ai400-card strong{display:block;font-size:24px;margin-top:6px;color:#0f172a}
+.ai400-score{font-size:34px!important}
+.ai400-health{display:grid;grid-template-columns:repeat(5,minmax(160px,1fr));gap:12px;margin:14px 0}
+.ai400-health .ai400-card{position:relative;overflow:hidden}.ai400-health .ai400-card:after{content:"";position:absolute;left:0;right:0;bottom:0;height:5px;background:var(--scorebar,#14b8a6)}
+.ai400-section{background:#fff;border:1px solid #e2e8f0;border-radius:18px;padding:18px;margin:14px 0}
+.ai400-section h3{margin:0 0 12px;font-size:21px}.ai400-section h4{margin:16px 0 8px}
+.ai400-table{overflow:auto}.ai400-table table{min-width:900px!important;width:100%;border-collapse:collapse}.ai400-table th,.ai400-table td{padding:9px;border-bottom:1px solid #e5e7eb;text-align:right}
+.ai400-list{display:grid;gap:8px}.ai400-item{border:1px solid #e2e8f0;border-radius:12px;padding:11px;background:#f8fafc;line-height:1.65}
+.ai400-item b{display:block;margin-bottom:3px}.ai400-badge{display:inline-flex;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:900}
+.ai400-good{background:#dcfce7;color:#166534}.ai400-warn{background:#fef3c7;color:#92400e}.ai400-risk{background:#fee2e2;color:#991b1b}.ai400-info{background:#dbeafe;color:#1d4ed8}
+.ai400-plan-grid{display:grid;grid-template-columns:repeat(3,minmax(220px,1fr));gap:12px}
+.ai400-plan{border:1px solid #dbeafe;border-radius:14px;padding:14px;background:#fff}
+.ai400-plan h4{margin:0 0 10px}.ai400-plan .year{padding:8px 0;border-bottom:1px dashed #dbeafe}.ai400-plan .year:last-child{border-bottom:0}
+.ai400-note{background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;border-radius:12px;padding:11px;line-height:1.65}
+.ai400-status{margin-top:10px;font-size:12px;color:#cbd5e1}
+#ai400-deep-output{white-space:pre-wrap;line-height:1.75}
+@media(max-width:1100px){.ai400-grid{grid-template-columns:repeat(2,minmax(160px,1fr))}.ai400-health{grid-template-columns:repeat(2,minmax(160px,1fr))}.ai400-plan-grid{grid-template-columns:1fr}}
+@media(max-width:620px){.ai400-grid,.ai400-health{grid-template-columns:1fr}}
+</style>
+
+<script id="v400-ai-business-advisor">
+(function(){
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S(v){return String(v==null?'':v).trim()}
+  function E(v){return S(v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function M(v){try{return money(v)}catch(e){return 'EGP '+N(v).toLocaleString()}}
+  function pct(v){return (N(v)*100).toFixed(1)+'%'}
+  function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+  function sum(rows,fn){return (rows||[]).reduce(function(a,x){return a+N(fn(x))},0)}
+  function avg(rows,fn){return rows&&rows.length?sum(rows,fn)/rows.length:0}
+  function uniq(rows,fn){return new Set((rows||[]).map(fn).filter(Boolean)).size}
+  function iso(v){return S(v).slice(0,10)}
+  function todayISO(){return new Date().toISOString().slice(0,10)}
+  function daysBetween(a,b){if(!a||!b)return 0;var x=new Date(a+'T00:00:00'),y=new Date(b+'T00:00:00');return Math.max(0,Math.round((y-x)/86400000))}
+
+  function approvedSales(){
+    return (db.sales||[]).filter(function(s){
+      return !s.approval_status||s.approval_status==='approved';
+    });
+  }
+  function saleQty(s){
+    return typeof window.targetSaleQtyV346==='function'?window.targetSaleQtyV346(s):N(s.qty);
+  }
+  function isBonus(s){
+    var raw=S(s.order_type_label||s.order_type||s.sale_type||s.type||s.kind).toLowerCase();
+    return raw.indexOf('bonus')>=0||raw.indexOf('بونص')>=0||N(s.bonus_qty)>0||N(s.free_qty)>0||N(s.qty_bonus)>0;
+  }
+  function bonusQty(s){
+    var q=N(s.bonus_qty||s.free_qty||s.qty_bonus);
+    return q>0?q:N(s.qty||s.quantity||s.total_qty||s.units);
+  }
+  function expenses(){
+    var rows=[];
+    ['general_admin_expenses_v287','marketing_expenses_v287','general_admin_expenses','marketing_expenses'].forEach(function(k){
+      (db[k]||[]).forEach(function(x){rows.push(x)});
+    });
+    return rows;
+  }
+  function inventoryLots(){
+    return (db.inventory_lots||[]).filter(function(l){return N(l.qty)>0});
+  }
+  function stockQty(){
+    var lots=inventoryLots();
+    if(lots.length)return sum(lots,function(l){return l.qty});
+    return sum(db.products||[],function(p){return p.stock});
+  }
+  function stockValue(){
+    var lots=inventoryLots();
+    if(lots.length)return sum(lots,function(l){return N(l.qty)*N(l.cost||l.purchase||l.unit_cost)});
+    return sum(db.products||[],function(p){return N(p.stock)*N(p.purchase)});
+  }
+  function companyQtyTarget(){
+    if(typeof window.companyQtyTargetV346==='function')return N(window.companyQtyTargetV346());
+    return sum(db.reps||[],function(r){return r.target_qty!=null?r.target_qty:(r.target_value!=null?r.target_value:(r.target!=null?r.target:r.sales_target))});
+  }
+  function moneyTarget(){
+    try{return N(db.money_targets_v325&&db.money_targets_v325.company)}catch(e){return 0}
+  }
+  function debt(){
+    return sum(db.customers||[],function(c){return Math.max(0,N(c.balance))});
+  }
+  function supplierPayable(){
+    return sum(db.suppliers||[],function(s){return Math.max(0,N(s.balance))});
+  }
+  function collectionsTotal(){
+    return sum(db.collections||[],function(c){return c.amount});
+  }
+  function salesRemaining(){
+    return sum(approvedSales(),function(s){return Math.max(0,N(s.remaining))});
+  }
+  function agedInventory(){
+    var today=todayISO(),lots=inventoryLots();
+    var slow=0,dead=0;
+    lots.forEach(function(l){
+      var d=iso(l.received_date||l.purchase_date||l.entry_date||l.created_at||l.date);
+      var age=d?daysBetween(d,today):0;
+      if(age>120)slow+=N(l.qty);
+      if(age>210)dead+=N(l.qty);
+    });
+    return {slow:slow,dead:dead,total:stockQty()};
+  }
+  function topBy(rows,keyFn,valueFn,limit){
+    var map=new Map();
+    (rows||[]).forEach(function(r){
+      var k=S(keyFn(r))||'غير محدد';
+      map.set(k,(map.get(k)||0)+N(valueFn(r)));
+    });
+    return Array.from(map.entries()).map(function(x){return {name:x[0],value:x[1]}}).sort(function(a,b){return b.value-a.value}).slice(0,limit||5);
+  }
+
+  window.companySnapshotV400=function(){
+    var sales=approvedSales();
+    var saleOnly=sales.filter(function(s){return !isBonus(s)});
+    var bonus=sales.filter(isBonus);
+    var salesValue=sum(saleOnly,function(s){return s.total});
+    var achievedQty=sum(saleOnly,saleQty);
+    var targetQty=companyQtyTarget();
+    var mt=moneyTarget();
+    var exps=expenses();
+    var expTotal=sum(exps,function(x){return x.egp_value!=null?x.egp_value:x.amount});
+    var grossCost=sum(saleOnly,function(s){return N(s.cost_total||s.cost||0)});
+    var estimatedGrossProfit=salesValue-grossCost;
+    var estimatedNet=estimatedGrossProfit-expTotal;
+    var aging=agedInventory();
+    var receivables=salesRemaining()||debt();
+
+    return {
+      generated_at:new Date().toISOString(),
+      company:{
+        customers:(db.customers||[]).length,
+        active_customers:uniq(saleOnly,function(s){return s.customer_id||s.customer_name}),
+        reps:(db.reps||[]).length,
+        products:(db.products||[]).length,
+        suppliers:(db.suppliers||[]).length
+      },
+      sales:{
+        value:salesValue,
+        quantity:achievedQty,
+        invoices:uniq(saleOnly,function(s){return s.invoice_group_id||s.invoice_no||s.invoice_number||s.order_id||s.id}),
+        qty_target:targetQty,
+        qty_achievement:targetQty>0?achievedQty/targetQty:0,
+        money_target:mt,
+        money_achievement:mt>0?salesValue/mt:0,
+        avg_invoice:uniq(saleOnly,function(s){return s.invoice_group_id||s.invoice_no||s.invoice_number||s.order_id||s.id})>0?salesValue/uniq(saleOnly,function(s){return s.invoice_group_id||s.invoice_no||s.invoice_number||s.order_id||s.id}):0,
+        top_products:topBy(saleOnly,function(s){return s.product_name},function(s){return s.total},5),
+        top_reps:topBy(saleOnly,function(s){return s.rep_name},function(s){return s.total},5),
+        top_regions:topBy(saleOnly,function(s){return s.customer_region||s.region_name||s.region||s.area},function(s){return s.total},5)
+      },
+      bonus:{
+        quantity:sum(bonus,bonusQty),
+        lines:bonus.length,
+        products:uniq(bonus,function(s){return s.product_id||s.product_name}),
+        customers:uniq(bonus,function(s){return s.customer_id||s.customer_name})
+      },
+      finance:{
+        collections:collectionsTotal(),
+        receivables:receivables,
+        supplier_payables:supplierPayable(),
+        expenses:expTotal,
+        estimated_gross_profit:estimatedGrossProfit,
+        estimated_net_profit:estimatedNet,
+        collection_to_sales:salesValue>0?collectionsTotal()/salesValue:0
+      },
+      inventory:{
+        qty:stockQty(),
+        value:stockValue(),
+        active_lots:inventoryLots().length,
+        slow_qty:aging.slow,
+        dead_qty:aging.dead,
+        slow_ratio:aging.total>0?aging.slow/aging.total:0,
+        dead_ratio:aging.total>0?aging.dead/aging.total:0
+      }
+    };
+  };
+
+  function dataSufficiencyV402(s){
+    var signals=0;
+    if(N(s.sales.value)>0)signals++;
+    if(N(s.sales.quantity)>0)signals++;
+    if(N(s.sales.invoices)>0)signals++;
+    if(N(s.inventory.qty)>0||N(s.inventory.value)>0)signals++;
+    if(N(s.finance.collections)>0||N(s.finance.receivables)>0||N(s.finance.expenses)>0)signals++;
+    if(N(s.company.customers)>0||N(s.company.reps)>0||N(s.company.products)>0)signals++;
+
+    var coreOperational =
+      N(s.sales.value)>0 ||
+      N(s.sales.quantity)>0 ||
+      N(s.sales.invoices)>0 ||
+      N(s.inventory.qty)>0 ||
+      N(s.inventory.value)>0 ||
+      N(s.finance.collections)>0 ||
+      N(s.finance.receivables)>0 ||
+      N(s.finance.expenses)>0;
+
+    return {
+      sufficient: coreOperational && signals>=2,
+      signals: signals,
+      reason: coreOperational
+        ? 'بيانات التشغيل الحالية غير كافية لاستخراج تقييم إداري موثوق.'
+        : 'لا توجد بيانات تشغيل فعلية كافية من المبيعات أو المخزون أو المالية.'
+    };
+  }
+
+  function scoreDepartment(s){
+    var suff=dataSufficiencyV402(s);
+    if(!suff.sufficient)return null;
+    var salesScore=clamp(50+(s.sales.qty_achievement-0.7)*70+(s.sales.money_achievement-0.7)*40,0,100);
+    var financeScore=clamp(85-(s.finance.receivables/(s.sales.value||1))*55-(s.finance.expenses/(s.sales.value||1))*30,0,100);
+    var inventoryScore=clamp(95-s.inventory.slow_ratio*70-s.inventory.dead_ratio*120,0,100);
+    var collectionScore=clamp((s.finance.collection_to_sales||0)*100,0,100);
+    var opsScore=clamp(75-(s.inventory.dead_ratio*80)+Math.min(15,s.company.active_customers/10),0,100);
+    return {
+      Sales:salesScore,
+      Finance:financeScore,
+      Inventory:inventoryScore,
+      Collections:collectionScore,
+      Operations:opsScore
+    };
+  }
+
+  function overallScore(scores){
+    if(!scores)return null;
+    var vals=Object.keys(scores).map(function(k){return scores[k]});
+    return vals.length?avg(vals,function(x){return x}):null;
+  }
+
+  function localInsights(s,scores){
+    var suff=dataSufficiencyV402(s);
+    if(!suff.sufficient){
+      return {
+        problems:[{title:'لا توجد بيانات كافية للتحليل',text:suff.reason}],
+        opportunities:[{title:'أكمل بيانات التشغيل أولًا',text:'بعد تحميل بيانات المبيعات والمخزون والتحصيلات والمصروفات سيظهر التحليل الإداري الفعلي.'}],
+        actions:[
+          'تأكد أن Supabase متصل وأن بيانات الشركة تم تحميلها بنجاح.',
+          'راجع وجود مبيعات أو مخزون أو تحصيلات فعلية داخل النظام.',
+          'أعد فتح AI Business Advisor بعد اكتمال تحميل البيانات.'
+        ]
+      };
+    }
+    var problems=[],opps=[],actions=[];
+    if(s.sales.qty_target>0&&s.sales.qty_achievement<0.8){
+      problems.push({title:'تحقيق تارجت الكمية أقل من المطلوب',text:'نسبة تحقيق تارجت الكمية '+pct(s.sales.qty_achievement)+' فقط.'});
+      actions.push('مراجعة تارجت كل مندوب أسبوعيًا وربط خطة الزيارات بالأحياء الأقل نشاطًا.');
+    }
+    if(s.sales.money_target>0&&s.sales.money_achievement<0.8){
+      problems.push({title:'فجوة في التارجت المالي',text:'نسبة تحقيق التارجت المالي '+pct(s.sales.money_achievement)+'.'});
+      actions.push('رفع متوسط قيمة الفاتورة من خلال Cross-sell للمنتجات الأعلى هامشًا.');
+    }
+    var debtRatio=s.finance.receivables/(s.sales.value||1);
+    if(debtRatio>0.35){
+      problems.push({title:'ضغط تحصيلات ومديونيات',text:'المديونيات تمثل '+pct(debtRatio)+' من المبيعات المسجلة.'});
+      actions.push('عمل قائمة تحصيل أسبوعية حسب قيمة الدين وعمره وتجميد البيع الآجل للعملاء مرتفعي المخاطر.');
+    }
+    if(s.inventory.slow_ratio>0.2){
+      problems.push({title:'مخزون بطيء الحركة',text:pct(s.inventory.slow_ratio)+' من الكمية الحالية تجاوزت 120 يومًا.'});
+      actions.push('إطلاق خطة تصريف للمخزون البطيء وربطها بتارجت منتجات محددة لكل مندوب.');
+    }
+    if(s.inventory.dead_ratio>0.08){
+      problems.push({title:'مخزون عالي العمر',text:pct(s.inventory.dead_ratio)+' من الكمية تجاوزت 210 يومًا.'});
+    }
+    if(s.bonus.quantity>0){
+      actions.push('مراجعة البونص شهريًا وربطه بسبب واضح وعميل محدد وقياس أثره على إعادة الطلب.');
+    }
+    if(s.company.active_customers>0&&s.company.active_customers<s.company.customers*0.5){
+      opps.push({title:'إعادة تنشيط العملاء غير النشطين',text:'عدد العملاء النشطين أقل من نصف قاعدة العملاء.'});
+    }
+    if(s.sales.top_products&&s.sales.top_products.length){
+      opps.push({title:'توسيع مبيعات المنتجات القائدة',text:'أعلى منتج حاليًا: '+s.sales.top_products[0].name+' بقيمة '+M(s.sales.top_products[0].value)+'.'});
+    }
+    if(s.sales.top_regions&&s.sales.top_regions.length){
+      opps.push({title:'التوسع الجغرافي الموجّه',text:'أعلى منطقة بيعًا حاليًا: '+s.sales.top_regions[0].name+'. استخدمها كمرجع لنمط العملاء الناجح.'});
+    }
+    if(!problems.length)problems.push({title:'لا توجد إشارة حرجة من البيانات الحالية',text:'استمر في المراقبة الأسبوعية للسيولة والمخزون والتارجت.'});
+    if(!opps.length)opps.push({title:'فرصة تحسين جودة البيانات',text:'زيادة اكتمال بيانات العملاء والمناطق ستجعل التحليل الجغرافي أدق.'});
+    while(actions.length<5)actions.push(['مراجعة أداء المناديب حسب المنطقة والمنتج أسبوعيًا.','تحديد حد أدنى لهامش الربح قبل أي خصم أو بونص.','مراجعة العملاء ذوي الرصيد المستحق قبل قبول طلبات جديدة.'][actions.length%3]);
+    return {problems:problems.slice(0,5),opportunities:opps.slice(0,5),actions:actions.slice(0,5)};
+  }
+
+  function fiveYearPlan(s){
+    if(!dataSufficiencyV402(s).sufficient)return [];
+    var baseSales=Math.max(1,s.sales.value);
+    var baseCustomers=Math.max(1,s.company.active_customers);
+    var baseReps=Math.max(1,s.company.reps);
+    var scenarios=[
+      {name:'Conservative',growth:0.08,margin:0.12,cust:0.06,reps:0.04},
+      {name:'Base',growth:0.15,margin:0.16,cust:0.12,reps:0.08},
+      {name:'Aggressive',growth:0.25,margin:0.20,cust:0.20,reps:0.15}
+    ];
+    return scenarios.map(function(sc){
+      var rows=[];
+      for(var y=1;y<=5;y++){
+        var sales=baseSales*Math.pow(1+sc.growth,y);
+        var customers=Math.round(baseCustomers*Math.pow(1+sc.cust,y));
+        var reps=Math.max(baseReps,Math.round(baseReps*Math.pow(1+sc.reps,y)));
+        rows.push({
+          year:y,
+          sales:sales,
+          customers:customers,
+          reps:reps,
+          target_margin:sc.margin,
+          target_profit:sales*sc.margin
+        });
+      }
+      return {name:sc.name,rows:rows};
+    });
+  }
+
+  function healthClass(v){return v>=75?'ai400-good':v>=55?'ai400-warn':'ai400-risk'}
+  function insightList(items){
+    return '<div class="ai400-list">'+items.map(function(x){
+      return '<div class="ai400-item"><b>'+E(x.title)+'</b>'+E(x.text)+'</div>';
+    }).join('')+'</div>';
+  }
+  function actionList(items){
+    return '<div class="ai400-list">'+items.map(function(x,i){
+      return '<div class="ai400-item"><b>إجراء '+(i+1)+'</b>'+E(x)+'</div>';
+    }).join('')+'</div>';
+  }
+
+  function renderPlan(plans){
+    if(!plans||!plans.length){
+      return '<div class="ai400-note">لا توجد بيانات كافية لبناء خطة خمسية موثوقة. سيتم إنشاء السيناريوهات بعد توفر بيانات تشغيل فعلية.</div>';
+    }
+    return '<div class="ai400-plan-grid">'+plans.map(function(p){
+      return '<div class="ai400-plan"><h4>'+E(p.name)+'</h4>'+p.rows.map(function(r){
+        return '<div class="year"><b>السنة '+r.year+'</b><br>'+
+          'Sales: '+M(r.sales)+'<br>'+
+          'Active Customers: '+r.customers+'<br>'+
+          'Reps: '+r.reps+'<br>'+
+          'Target Net Margin: '+(r.target_margin*100).toFixed(0)+'%<br>'+
+          'Target Profit: '+M(r.target_profit)+'</div>';
+      }).join('')+'</div>';
+    }).join('')+'</div>';
+  }
+
+  function renderAdvisor(){
+    var root=document.getElementById('view-aiAdvisor');
+    if(!root)return;
+    var s=window.companySnapshotV400();
+    var suff=dataSufficiencyV402(s);
+    var scores=scoreDepartment(s),overall=overallScore(scores),ins=localInsights(s,scores),plans=fiveYearPlan(s);
+    window.__ai400Snapshot=s;
+
+    root.innerHTML=
+      '<div class="ai400-hero"><h2>AI Business Advisor</h2>'+
+      '<p>Executive intelligence layer مبني على بيانات الشركة الحالية داخل النظام.</p>'+
+      '<div class="ai400-actions">'+
+        '<button class="primary" onclick="renderAIBusinessAdvisorV400()">تحديث التحليل</button>'+
+        
+        '<button class="secondary" onclick="downloadCompanySnapshotV400()">Export Snapshot</button>'+
+      '</div><div class="ai400-status" id="ai400_status">Internal Intelligent Analysis ready — no external AI connection and no API cost.</div></div>'+
+
+      '<div class="ai400-grid">'+
+        '<div class="ai400-card"><span>Overall Company Score</span><strong class="ai400-score">'+(suff.sufficient?overall.toFixed(0)+'/100':'Insufficient Data')+'</strong></div>'+
+        '<div class="ai400-card"><span>Sales</span><strong>'+M(s.sales.value)+'</strong></div>'+
+        '<div class="ai400-card"><span>Receivables</span><strong>'+M(s.finance.receivables)+'</strong></div>'+
+        '<div class="ai400-card"><span>Inventory Value</span><strong>'+M(s.inventory.value)+'</strong></div>'+
+      '</div>'+
+
+      '<div class="ai400-health">'+(suff.sufficient?Object.keys(scores).map(function(k){
+        var v=scores[k];
+        return '<div class="ai400-card"><span>'+E(k)+' Health</span><strong>'+v.toFixed(0)+'/100</strong>'+
+          '<span class="ai400-badge '+healthClass(v)+'">'+(v>=75?'Good':v>=55?'Needs Attention':'High Risk')+'</span></div>';
+      }).join(''):
+        ['Sales','Finance','Inventory','Collections','Operations'].map(function(k){
+          return '<div class="ai400-card"><span>'+E(k)+' Health</span><strong>Insufficient Data</strong><span class="ai400-badge ai400-info">Waiting for data</span></div>';
+        }).join('')
+      )+'</div>'+
+
+      '<div class="ai400-section"><h3>Executive Summary</h3>'+
+        (suff.sufficient?
+          '<div class="ai400-grid">'+
+            '<div class="ai400-card"><span>Qty Target Achievement</span><strong>'+pct(s.sales.qty_achievement)+'</strong></div>'+
+            '<div class="ai400-card"><span>Money Target Achievement</span><strong>'+pct(s.sales.money_achievement)+'</strong></div>'+
+            '<div class="ai400-card"><span>Collection / Sales</span><strong>'+pct(s.finance.collection_to_sales)+'</strong></div>'+
+            '<div class="ai400-card"><span>Slow Inventory Ratio</span><strong>'+pct(s.inventory.slow_ratio)+'</strong></div>'+
+          '</div>'
+          :
+          '<div class="ai400-note"><b>Insufficient Data:</b> '+E(suff.reason)+' لا يتم عرض أي Health Score أو خطة خمسية رقمية حتى تتوفر بيانات تشغيل فعلية.</div>'
+        )+
+        '<div class="ai400-note">التقييم الحالي يعتمد على البيانات المسجلة داخل النظام فقط. أي Benchmark سوقي خارجي غير مفعّل في النسخة المجانية الحالية.</div>'+
+      '</div>'+
+
+      '<div class="ai400-section"><h3>Department Analysis</h3>'+
+        (suff.sufficient?
+          '<div class="ai400-table"><table>'+
+            '<tr><th>الإدارة</th><th>Score</th><th>الوضع</th><th>مؤشر رئيسي</th></tr>'+
+            '<tr><td>Sales</td><td>'+scores.Sales.toFixed(0)+'</td><td><span class="ai400-badge '+healthClass(scores.Sales)+'">'+(scores.Sales>=75?'جيد':scores.Sales>=55?'يحتاج متابعة':'خطر')+'</span></td><td>Qty Achievement '+pct(s.sales.qty_achievement)+'</td></tr>'+
+            '<tr><td>Finance</td><td>'+scores.Finance.toFixed(0)+'</td><td><span class="ai400-badge '+healthClass(scores.Finance)+'">'+(scores.Finance>=75?'جيد':scores.Finance>=55?'يحتاج متابعة':'خطر')+'</span></td><td>Receivables '+M(s.finance.receivables)+'</td></tr>'+
+            '<tr><td>Inventory</td><td>'+scores.Inventory.toFixed(0)+'</td><td><span class="ai400-badge '+healthClass(scores.Inventory)+'">'+(scores.Inventory>=75?'جيد':scores.Inventory>=55?'يحتاج متابعة':'خطر')+'</span></td><td>Slow '+pct(s.inventory.slow_ratio)+'</td></tr>'+
+            '<tr><td>Collections</td><td>'+scores.Collections.toFixed(0)+'</td><td><span class="ai400-badge '+healthClass(scores.Collections)+'">'+(scores.Collections>=75?'جيد':scores.Collections>=55?'يحتاج متابعة':'خطر')+'</span></td><td>'+M(s.finance.collections)+'</td></tr>'+
+            '<tr><td>Operations</td><td>'+scores.Operations.toFixed(0)+'</td><td><span class="ai400-badge '+healthClass(scores.Operations)+'">'+(scores.Operations>=75?'جيد':scores.Operations>=55?'يحتاج متابعة':'خطر')+'</span></td><td>'+s.inventory.active_lots+' active LOTs</td></tr>'+
+          '</table></div>'
+          :
+          '<div class="ai400-note">لا يتم تقييم الإدارات رقميًا حاليًا لأن البيانات غير كافية. بمجرد تحميل بيانات التشغيل سيظهر Score لكل إدارة.</div>'
+        )+
+      '</div>'+
+
+      '<div class="ai400-section"><h3>Top Problems</h3>'+insightList(ins.problems)+'</div>'+
+      '<div class="ai400-section"><h3>Top Opportunities</h3>'+insightList(ins.opportunities)+'</div>'+
+      '<div class="ai400-section"><h3>Recommended Actions This Month</h3>'+actionList(ins.actions)+'</div>'+
+
+      '<div class="ai400-section"><h3>5-Year Business Plan</h3>'+
+        '<div class="ai400-note">الخطة أدناه Scenario Planning مبني على الوضع الحالي وليست Forecast محاسبي نهائي. عند تفعيل الـAI الخارجي سيعاد بناؤها مع فرضيات مفصلة ومبررات لكل سنة.</div>'+
+        renderPlan(plans)+'</div>'+
+
+      '<div class="ai400-section"><h3>Internal Intelligent Analysis</h3>'+
+        '<div id="ai400-deep-output" class="ai400-note">هذه النسخة تعمل بالكامل من بيانات النظام بدون أي API مدفوع. التحليل الحالي يعتمد على Company Snapshot الداخلي، وقواعد تقييم وإدارة مخاطر وفرص وخطة خمسية داخلية. المقارنة الحقيقية بالسوق والمنافسين غير مفعلة في هذه النسخة.</div></div>';
+  }
+
+  window.renderAIBusinessAdvisorV400=renderAdvisor;
+
+  window.downloadCompanySnapshotV400=function(){
+    var snap=window.companySnapshotV400();
+    var blob=new Blob([JSON.stringify(snap,null,2)],{type:'application/json'});
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='company_snapshot_'+todayISO()+'.json';
+    a.click();
+    setTimeout(function(){URL.revokeObjectURL(a.href)},500);
+  };
+
+  window.runAIDeepAnalysisV400=async function(){
+    var status=document.getElementById('ai400_status');
+    var output=document.getElementById('ai400-deep-output');
+    if(status)status.textContent='Internal-only mode — no external AI API is enabled.';
+    if(output)output.textContent='النسخة الحالية تعمل بدون OpenAI API وبدون أي تكلفة. التحليل الموجود في الصفحة مبني بالكامل على بيانات النظام الداخلية.';
+    return;
+  };
+
+  function ensureView(){
+    var main=document.querySelector('main.main');
+    if(main&&!document.getElementById('view-aiAdvisor')){
+      var s=document.createElement('section');
+      s.id='view-aiAdvisor';s.className='hidden';
+      main.appendChild(s);
+    }
+  }
+
+  function ensureNav(){
+    var nav=document.getElementById('nav');
+    if(!nav)return;
+    if(nav.querySelector('[data-ai400-nav]'))return;
+    var b=document.createElement('button');
+    b.setAttribute('data-ai400-nav','1');
+    b.className=current==='aiAdvisor'?'active':'';
+    b.innerHTML='🤖 '+(typeof lang!=='undefined'&&lang==='ar'?'AI Business Advisor':'AI Business Advisor');
+    b.onclick=function(){show('aiAdvisor')};
+    nav.appendChild(b);
+  }
+
+  var showBase=window.show;
+  if(typeof showBase==='function'){
+    window.show=function(v){
+      ensureView();
+      if(v==='aiAdvisor'){
+        current='aiAdvisor';
+        document.querySelectorAll('main section').forEach(function(s){s.classList.add('hidden')});
+        var view=document.getElementById('view-aiAdvisor');
+        if(view)view.classList.remove('hidden');
+        var title=document.getElementById('title'),sub=document.getElementById('sub');
+        if(title)title.textContent='AI Business Advisor';
+        if(sub)sub.textContent=typeof lang!=='undefined'&&lang==='ar'?'تحليل تنفيذي وتوصيات وخطة نمو خمسية':'Executive analysis, recommendations and five-year growth plan';
+        document.querySelectorAll('#nav button').forEach(function(b){b.classList.toggle('active',b.getAttribute('data-ai400-nav')==='1')});
+        renderAdvisor();
+        return;
+      }
+      return showBase.apply(this,arguments);
+    };
+    try{show=window.show}catch(e){}
+  }
+
+  var renderBase=window.render;
+  if(typeof renderBase==='function'){
+    window.render=function(){
+      ensureView();
+      var r=renderBase.apply(this,arguments);
+      setTimeout(ensureNav,80);
+      if(current==='aiAdvisor')setTimeout(renderAdvisor,120);
+      return r;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  var navObs=new MutationObserver(function(){ensureView();ensureNav()});
+  navObs.observe(document.body,{childList:true,subtree:true});
+  setTimeout(function(){ensureView();ensureNav()},700);
+})();
+</script>
+
+
+<style id="v401-ai-free-mode-style">
+.ai401-free-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  margin-top:10px;
+  padding:5px 9px;
+  border-radius:999px;
+  background:#dcfce7;
+  color:#166534;
+  font-size:11px;
+  font-weight:900;
+}
+.ai401-free-note{
+  margin-top:12px;
+  background:#f0fdf4;
+  border:1px solid #bbf7d0;
+  color:#166534;
+  border-radius:12px;
+  padding:10px 12px;
+  line-height:1.65;
+}
+</style>
+
+<script id="v401-ai-free-mode">
+(function(){
+  function decorate(){
+    var hero=document.querySelector('#view-aiAdvisor .ai400-hero');
+    if(hero && !hero.querySelector('.ai401-free-badge')){
+      hero.insertAdjacentHTML('beforeend',
+        '<div class="ai401-free-badge">✓ Free Internal Mode — No API Cost</div>');
+    }
+
+    var deep=document.getElementById('ai400-deep-output');
+    if(deep){
+      deep.textContent='النسخة الحالية تعمل بدون OpenAI API وبدون أي تكلفة. التحليل الموجود في الصفحة مبني بالكامل على بيانات النظام الداخلية. Market Intelligence الخارجي غير مفعّل حاليًا.';
+    }
+  }
+
+  var base=window.renderAIBusinessAdvisorV400;
+  if(typeof base==='function'){
+    window.renderAIBusinessAdvisorV400=function(){
+      var r=base.apply(this,arguments);
+      setTimeout(decorate,0);
+      return r;
+    };
+  }
+
+  var obs=new MutationObserver(function(){decorate()});
+  obs.observe(document.body,{childList:true,subtree:true});
+  setTimeout(decorate,500);
+})();
+</script>
+
+
+<style id="v402-ai-data-sufficiency-style">
+.ai402-data-warning{
+  margin-top:12px;
+  background:#fff7ed;
+  border:1px solid #fdba74;
+  color:#9a3412;
+  border-radius:12px;
+  padding:10px 12px;
+  line-height:1.65;
+  font-weight:800;
+}
+</style>
+
+<script id="v402-ai-data-sufficiency-ui">
+(function(){
+  function decorate(){
+    try{
+      if(typeof window.companySnapshotV400!=='function')return;
+      var s=window.companySnapshotV400();
+      var operational=
+        Number(s.sales&&s.sales.value||0)>0 ||
+        Number(s.sales&&s.sales.quantity||0)>0 ||
+        Number(s.sales&&s.sales.invoices||0)>0 ||
+        Number(s.inventory&&s.inventory.qty||0)>0 ||
+        Number(s.inventory&&s.inventory.value||0)>0 ||
+        Number(s.finance&&s.finance.collections||0)>0 ||
+        Number(s.finance&&s.finance.receivables||0)>0 ||
+        Number(s.finance&&s.finance.expenses||0)>0;
+
+      var hero=document.querySelector('#view-aiAdvisor .ai400-hero');
+      if(!hero)return;
+      var old=hero.querySelector('.ai402-data-warning');
+      if(old)old.remove();
+
+      if(!operational){
+        hero.insertAdjacentHTML('beforeend',
+          '<div class="ai402-data-warning">⚠ لا توجد بيانات تشغيل كافية للتحليل حتى الآن. تأكد أن بيانات Supabase تم تحميلها قبل الاعتماد على أي تقرير إداري.</div>');
+      }
+    }catch(e){}
+  }
+
+  var base=window.renderAIBusinessAdvisorV400;
+  if(typeof base==='function'){
+    window.renderAIBusinessAdvisorV400=function(){
+      var r=base.apply(this,arguments);
+      setTimeout(decorate,0);
+      return r;
+    };
+  }
+  setTimeout(decorate,600);
+})();
+</script>
