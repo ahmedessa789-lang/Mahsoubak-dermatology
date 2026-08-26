@@ -32515,3 +32515,187 @@ html body .summary-box.v303-auto-clickable:after{
   }
 })();
 </script>
+
+
+<script id="v411-customer-rep-percentage-allocation-definitive">
+(function(){
+  function A(v){return Array.isArray(v)?v:[]}
+  function S(v){return String(v==null?'':v).trim()}
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function norm(v){return S(v).toLowerCase()}
+
+  function customerForSale411(sale){
+    var customers=A(db&&db.customers);
+    if(sale&&sale.customer_id){
+      var byId=customers.find(function(c){return String(c.id)===String(sale.customer_id)});
+      if(byId)return byId;
+    }
+    var sn=norm(sale&&sale.customer_name);
+    if(!sn)return null;
+    return customers.find(function(c){
+      return norm(c.customer_name)===sn ||
+             norm(c.official_name)===sn ||
+             norm(c.name)===sn ||
+             norm(c.clinic_name)===sn;
+    })||null;
+  }
+
+  function splitsForCustomer411(c){
+    if(!c)return [];
+    var id=String(c.id||'');
+    var official=norm(c.customer_name||c.official_name);
+    var clinic=norm(c.clinic_name||c.name);
+
+    var rows=A(db&&db.customerRepSplits).filter(function(s){
+      if(id && String(s.customer_id||'')===id)return true;
+      var so=norm(s.customer_name);
+      var sc=norm(s.clinic_name);
+      if(official && so===official){
+        if(!clinic || !sc || sc===clinic)return true;
+      }
+      if(!official && clinic && sc===clinic)return true;
+      return false;
+    });
+
+    /* Keep only valid positive percentage rows. */
+    return rows.filter(function(s){return N(s.percentage)>0});
+  }
+
+  function repRegions411(rep){
+    var vals=[];
+    function push(v){
+      if(Array.isArray(v)){v.forEach(push);return}
+      S(v).split(/[,،;|]+/).forEach(function(x){
+        x=S(x);if(x)vals.push(norm(x));
+      });
+    }
+    push(rep&&rep.region_code);
+    push(rep&&rep.assigned_regions_v324);
+    push(rep&&rep.regions);
+    push(rep&&rep.sales_regions);
+    return Array.from(new Set(vals));
+  }
+
+  function repForRegion411(region){
+    var key=norm(region);
+    if(!key)return null;
+    var reps=A(db&&db.reps);
+
+    /* Exact main region code first. */
+    var exact=reps.find(function(r){return norm(r.region_code)===key});
+    if(exact)return exact;
+
+    /* Then multi-region assignments. */
+    var assigned=reps.find(function(r){
+      return repRegions411(r).indexOf(key)>=0;
+    });
+    if(assigned)return assigned;
+
+    /* Last compatibility fallback: source key/name/area exact only. */
+    return reps.find(function(r){
+      return [r.source_key,r.name,r.area].some(function(v){return norm(v)===key});
+    })||null;
+  }
+
+  window.salesAllocationRepBySplitV411=function(split){
+    return repForRegion411(split&&split.region_code);
+  };
+
+  window.salesAllocationSplitsForSaleV411=function(sale){
+    var customer=customerForSale411(sale);
+    var splits=splitsForCustomer411(customer);
+
+    if(splits.length){
+      return splits.map(function(sp){
+        var rep=repForRegion411(sp.region_code);
+        return Object.assign({},sp,{_rep:rep||null});
+      });
+    }
+
+    /* Only sales with NO customer distribution use the invoice rep as 100%. */
+    var rep=A(db&&db.reps).find(function(r){
+      return String(r.id||'')===String(sale&&sale.rep_id||'');
+    })||null;
+
+    return [{
+      id:'fallback_'+String(sale&&sale.id||''),
+      customer_id:sale&&sale.customer_id||'',
+      customer_name:sale&&sale.customer_name||'',
+      clinic_name:sale&&sale.clinic_name||sale&&sale.customer_name||'',
+      region_code:sale&&sale.region_name||rep&&rep.region_code||'',
+      percentage:100,
+      _fallback:true,
+      _rep:rep
+    }];
+  };
+
+  window.salesAllocationRowsV52=function(){
+    var sales=[];
+    try{
+      sales=(typeof visibleSalesRows==='function'?visibleSalesRows():A(db&&db.sales))||[];
+    }catch(e){sales=A(db&&db.sales)}
+
+    var rows=[];
+    sales.forEach(function(s){
+      var splits=window.salesAllocationSplitsForSaleV411(s);
+
+      splits.forEach(function(sp){
+        var pct=N(sp.percentage);
+        if(pct<=0)return;
+
+        var rep=sp._rep||window.salesAllocationRepBySplitV411(sp)||null;
+
+        /*
+          IMPORTANT:
+          If a customer has percentage splits, never silently assign an unresolved
+          split to the invoice rep. Keep the region visible and rep blank so bad
+          master-data is detectable rather than misallocating 100% of sales.
+        */
+        var repId=rep&&rep.id||'';
+        var repName=rep&&rep.name||'';
+
+        rows.push({
+          id:String(s.id||'')+'_'+String(sp.id||sp.region_code||Math.random()),
+          sale_id:s.id||'',
+          date:s.date||'',
+          customer_name:s.customer_name||sp.customer_name||'',
+          clinic_name:sp.clinic_name||s.clinic_name||'',
+          product_name:s.product_name||'',
+          region_code:sp.region_code||rep&&rep.region_code||'',
+          rep_id:repId,
+          rep_name:repName,
+          manager_name:rep&&(rep.manager_name||rep.manager||rep.group_name)||sp.manager_name||'',
+          percentage:pct,
+          total_qty:N(s.qty),
+          total_amount:N(s.total),
+          allocated_qty:N(s.qty)*pct/100,
+          allocated_amount:N(s.total)*pct/100,
+          paid:N(s.paid)*pct/100,
+          remaining:N(s.remaining)*pct/100,
+          _percentage_allocation_v411:true
+        });
+      });
+    });
+
+    return rows;
+  };
+
+  try{salesAllocationRowsV52=window.salesAllocationRowsV52}catch(e){}
+  try{salesAllocationRepBySplitV52=window.salesAllocationRepBySplitV411}catch(e){}
+  try{salesAllocationSplitsForSaleV52=window.salesAllocationSplitsForSaleV411}catch(e){}
+
+  /* Stored snapshot used by some later reports. */
+  window.rebuildSalesAllocationsV411=function(){
+    try{
+      db.sales_allocations=window.salesAllocationRowsV52();
+      if(typeof saveDb==='function')saveDb();
+      else if(typeof save==='function')save();
+    }catch(e){console.error('V411 rebuild allocation',e)}
+  };
+
+  /* Rebuild safely after DB load/render settles; reports still calculate live as well. */
+  setTimeout(function(){
+    try{window.rebuildSalesAllocationsV411()}catch(e){}
+  },1200);
+})();
+</script>
