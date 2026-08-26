@@ -32699,3 +32699,196 @@ html body .summary-box.v303-auto-clickable:after{
   },1200);
 })();
 </script>
+
+
+<script id="v412-rep-reports-live-percentage-allocation">
+(function(){
+  function A(v){return Array.isArray(v)?v:[]}
+  function S(v){return String(v==null?'':v).trim()}
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function norm(v){return S(v).toLowerCase()}
+
+  function inRange412(row){
+    try{
+      if(typeof inRangeV189==='function')return !!inRangeV189(row);
+    }catch(e){}
+    var d=S(row&&row.date).slice(0,10),from='',to='';
+    try{
+      from=S(repReportFilterV189&&repReportFilterV189.from);
+      to=S(repReportFilterV189&&repReportFilterV189.to);
+    }catch(e){}
+    if(from&&d<from)return false;
+    if(to&&d>to)return false;
+    return true;
+  }
+
+  function repName412(repId){
+    var r=A(db&&db.reps).find(function(x){return String(x.id)===String(repId)});
+    return r?S(r.name):S(repId);
+  }
+
+  function rowMatches412(row,repId){
+    try{
+      if(typeof rowMatchesRepV189==='function')return !!rowMatchesRepV189(row,repId);
+    }catch(e){}
+
+    var id=S(repId);
+    var name=repName412(id);
+    if(S(row&&row.rep_id)===id)return true;
+    if(norm(row&&row.rep_name)===norm(name))return true;
+    return false;
+  }
+
+  /*
+    LIVE source for rep reports:
+    Always rebuild from the CURRENT percentage allocation engine (V411).
+    No captured/old function references.
+  */
+  window.salesRowsV189=function(repId){
+    var allocations=[];
+    try{
+      allocations=typeof window.salesAllocationRowsV52==='function'
+        ? window.salesAllocationRowsV52()
+        : (typeof salesAllocationRowsV52==='function'?salesAllocationRowsV52():[]);
+    }catch(e){
+      console.error('V412 live allocation read',e);
+      allocations=[];
+    }
+
+    var saleById=new Map(A(db&&db.sales).map(function(s){
+      return [String(s.id||''),s];
+    }));
+    var grouped=new Map();
+
+    allocations.forEach(function(a){
+      if(!rowMatches412(a,repId) || !inRange412(a))return;
+
+      var original=saleById.get(String(a.sale_id||''))||{};
+      if(original.approval_status&&original.approval_status!=='approved')return;
+
+      var invoiceKey=String(
+        original.invoice_group_id||
+        original.invoice_number||
+        original.invoice_no||
+        original.order_id||
+        original.sale_order_id||
+        a.sale_id||
+        a.id||''
+      );
+
+      var key=[
+        invoiceKey,
+        norm(a.product_name||original.product_name),
+        String(a.rep_id||''),
+        norm(a.region_code||'')
+      ].join('|');
+
+      if(!grouped.has(key)){
+        grouped.set(key,{
+          id:'alloc_live_'+key,
+          sale_id:a.sale_id||'',
+          invoice_key:invoiceKey,
+          invoice_group_id:original.invoice_group_id||'',
+          invoice_number:original.invoice_number||original.invoice_no||'',
+          invoice_no:original.invoice_no||original.invoice_number||'',
+          order_id:original.order_id||'',
+          date:a.date||original.date||'',
+          customer_id:original.customer_id||'',
+          customer_name:a.customer_name||original.customer_name||'',
+          clinic_name:a.clinic_name||original.clinic_name||'',
+          rep_id:a.rep_id||'',
+          rep_name:a.rep_name||'',
+          region_code:a.region_code||'',
+          region_name:a.region_code||original.region_name||'',
+          product_id:original.product_id||'',
+          product_name:a.product_name||original.product_name||'',
+          product_expiry:original.product_expiry||'',
+          lot_id:original.lot_id||'',
+          lot_number:original.lot_number||original.lot||'',
+          lot:original.lot||original.lot_number||'',
+          price:N(original.price),
+          qty:0,
+          total:0,
+          paid:0,
+          remaining:0,
+          percentage:N(a.percentage),
+          approval_status:'approved',
+          order_type:original.order_type||'sale',
+          order_type_label:original.order_type_label||'',
+          _allocated:true,
+          _percentage_allocation_v412:true
+        });
+      }
+
+      var r=grouped.get(key);
+      r.qty+=N(a.allocated_qty);
+      r.total+=N(a.allocated_amount);
+      r.paid+=N(a.paid);
+      r.remaining+=N(a.remaining);
+    });
+
+    return Array.from(grouped.values());
+  };
+  try{salesRowsV189=window.salesRowsV189}catch(e){}
+
+  /*
+    V356 used to call a captured OLD salesRowsV189.
+    Force it to read the new live function every time.
+  */
+  window.repSalesRowsDefinitiveV356=function(ref){
+    var id=ref;
+    try{
+      if(typeof window.resolveRepIdV356==='function')id=window.resolveRepIdV356(ref);
+    }catch(e){}
+
+    var rows=[];
+    try{rows=window.salesRowsV189(id)||[]}catch(e){rows=[]}
+    if(rows.length)return rows;
+
+    /*
+      Do NOT fallback to full invoice sales when the customer has percentage
+      splits, because that would destroy the percentage allocation.
+      Fallback is allowed only for sales whose customer has no split rows.
+    */
+    var name=repName412(id);
+    return A(db&&db.sales).filter(function(s){
+      if(s.approval_status&&s.approval_status!=='approved')return false;
+      if(!inRange412(s))return false;
+
+      var c=A(db&&db.customers).find(function(x){
+        return String(x.id)===String(s.customer_id);
+      })||null;
+
+      var hasSplits=false;
+      try{
+        if(c&&typeof window.salesAllocationSplitsForSaleV411==='function'){
+          var sp=window.salesAllocationSplitsForSaleV411(s);
+          hasSplits=A(sp).some(function(x){return !x._fallback});
+        }
+      }catch(e){}
+
+      if(hasSplits)return false;
+
+      return String(s.rep_id||'')===String(id) ||
+             norm(s.rep_name)===norm(name);
+    });
+  };
+
+  /*
+    Refresh stored snapshot too, for any screens still reading db.sales_allocations.
+  */
+  window.refreshRepAllocationV412=function(){
+    try{
+      db.sales_allocations=typeof window.salesAllocationRowsV52==='function'
+        ? window.salesAllocationRowsV52()
+        : [];
+      if(typeof saveDb==='function')saveDb();
+      else if(typeof save==='function')save();
+    }catch(e){console.error('V412 allocation refresh',e)}
+  };
+
+  setTimeout(function(){
+    try{window.refreshRepAllocationV412()}catch(e){}
+  },1300);
+})();
+</script>
