@@ -8150,7 +8150,7 @@ render();
 
     if(customerSearch){
       let customer=(db.customers||[]).find(c=>c.id===invoiceHeaderStateV191.customerId);
-      customerSearch.value=customer?.name||invoiceHeaderStateV191.customerText||'';
+      customerSearch.value=customer?.customer_name||customer?.official_name||customer?.name||invoiceHeaderStateV191.customerText||'';
       if(customer)customerSearch.dataset.customerId=customer.id;
     }
 
@@ -8228,7 +8228,7 @@ render();
     if(!select||!input||!customer)return;
 
     select.value=customer.id;
-    input.value=customer.name||'';
+    input.value=customer.customer_name||customer.official_name||customer.name||'';
     input.dataset.customerId=customer.id;
 
     if(menu){
@@ -8272,8 +8272,8 @@ render();
 
     menu.innerHTML=rows.map(c=>`
       <button type="button" class="customer-option-v194" data-customer-id="${esc(c.id)}">
-        <b>${esc(c.customer_name||c.name||'')}</b>
-        ${c.clinic_name||c.name ? `<small>${esc(c.clinic_name||c.name||'')}</small>` : ''}
+        <b>${esc(c.customer_name||c.official_name||c.name||'')}</b>
+        ${(c.clinic_name||((c.name&&c.name!==(c.customer_name||c.official_name))?c.name:'')) ? `<small>${esc(c.clinic_name||c.name||'')}</small>` : ''}
       </button>
     `).join('');
 
@@ -8316,9 +8316,12 @@ render();
     wrap.appendChild(menu);
     select.insertAdjacentElement('beforebegin',wrap);
 
-    let selected=customerByIdV194(select.value) || (db.customers||[])[0] || null;
+    let selected=customerByIdV194(select.value) || null;
     if(selected){
       selectCustomerV194(selected);
+    }else{
+      input.value='';
+      input.dataset.customerId='';
     }
 
     input.addEventListener('input',function(){
@@ -30805,9 +30808,9 @@ html body .summary-box.v303-auto-clickable:after{
     if(sel)sel.value=c.id;
     if(input){
       input.dataset.customerId=c.id;
-      /* Keep what the user typed if it is an official customer name;
-         otherwise show the display/clinic name used by this search UI. */
-      if(!S(input.value))input.value=c.customer_name||c.name||c.clinic_name||'';
+      /* Customer field is strictly the official customer name.
+         Clinic identity is written only to the dedicated Clinic Name field. */
+      input.value=c.customer_name||c.official_name||c.name||'';
     }
 
     if(clinicEl)clinicEl.value=clinic(c);
@@ -31662,6 +31665,64 @@ html body .summary-box.v303-auto-clickable:after{
       if(v){v.classList.add('v403-open');v.classList.remove('hidden');}
       return r;
     };
+  }
+})();
+</script>
+
+
+<script id="v405-customer-official-name-lock">
+(function(){
+  function S(v){return String(v==null?'':v).trim()}
+  function customerById(id){
+    return (Array.isArray(db&&db.customers)?db.customers:[]).find(function(c){
+      return String(c.id)===String(id);
+    })||null;
+  }
+  function official(c){
+    return S(c&&(c.customer_name||c.official_name||c.name));
+  }
+  function clinic(c){
+    return S(c&&(c.clinic_name||((c.name&&S(c.name)!==official(c))?c.name:'')));
+  }
+
+  window.syncSalesCustomerIdentityV405=function(){
+    var sel=document.getElementById('sa_customer');
+    var input=document.getElementById('sa_customer_search_v173');
+    if(!sel||!input||!sel.value)return;
+    var c=customerById(sel.value);
+    if(!c)return;
+
+    var off=official(c);
+    if(off && S(input.value)!==off)input.value=off;
+    input.dataset.customerId=c.id;
+
+    var clinicEl=document.getElementById('sa_clinic_name_v317');
+    if(clinicEl){
+      var cl=clinic(c);
+      if(cl)clinicEl.value=cl;
+    }
+  };
+
+  document.addEventListener('mousedown',function(e){
+    if(e.target.closest('.customer-option-v194[data-customer-id]')){
+      setTimeout(window.syncSalesCustomerIdentityV405,20);
+    }
+  },true);
+
+  document.addEventListener('change',function(e){
+    if(e.target && e.target.id==='sa_customer'){
+      setTimeout(window.syncSalesCustomerIdentityV405,0);
+    }
+  },true);
+
+  var rs=window.renderSales;
+  if(typeof rs==='function'){
+    window.renderSales=function(){
+      var r=rs.apply(this,arguments);
+      setTimeout(window.syncSalesCustomerIdentityV405,120);
+      return r;
+    };
+    try{renderSales=window.renderSales}catch(e){}
   }
 })();
 </script>
