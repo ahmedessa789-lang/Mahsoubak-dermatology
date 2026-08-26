@@ -31275,7 +31275,7 @@ html body .summary-box.v303-auto-clickable:after{
       '<div class="ai400-actions">'+
         '<button class="primary" onclick="renderAIBusinessAdvisorV400()">تحديث التحليل</button>'+
         
-        '<button class="secondary" onclick="downloadCompanySnapshotV400()">Export Snapshot</button>'+
+        '<button class="secondary" onclick="exportBusinessReportPDFV404()">تصدير PDF</button>'+
       '</div><div class="ai400-status" id="ai400_status">Internal Intelligent Analysis ready — no external AI connection and no API cost.</div></div>'+
 
       '<div class="ai400-grid">'+
@@ -31338,15 +31338,98 @@ html body .summary-box.v303-auto-clickable:after{
 
   window.renderAIBusinessAdvisorV400=renderAdvisor;
 
-  window.downloadCompanySnapshotV400=function(){
-    var snap=window.companySnapshotV400();
-    var blob=new Blob([JSON.stringify(snap,null,2)],{type:'application/json'});
-    var a=document.createElement('a');
-    a.href=URL.createObjectURL(blob);
-    a.download='company_snapshot_'+todayISO()+'.json';
-    a.click();
-    setTimeout(function(){URL.revokeObjectURL(a.href)},500);
+  window.exportBusinessReportPDFV404=function(){
+    var s=window.companySnapshotV400();
+    var suff=dataSufficiencyV402(s);
+    var scores=scoreDepartment(s);
+    var overall=overallScore(scores);
+    var ins=localInsights(s,scores);
+    var plans=fiveYearPlan(s);
+
+    function rows(items){
+      if(!items||!items.length)return '<p>لا توجد بيانات متاحة.</p>';
+      return '<ul>'+items.map(function(x){
+        if(typeof x==='string')return '<li>'+E(x)+'</li>';
+        return '<li><b>'+E(x.title||'')+'</b>'+(x.text?' - '+E(x.text):'')+'</li>';
+      }).join('')+'</ul>';
+    }
+
+    function planHTML(){
+      if(!plans||!plans.length){
+        return '<div class="note">لا توجد بيانات تشغيل كافية لبناء خطة خمسية موثوقة حاليًا.</div>';
+      }
+      return plans.map(function(p){
+        return '<div class="scenario"><h3>'+E(p.name)+'</h3>'+
+          '<table><thead><tr><th>السنة</th><th>المبيعات</th><th>العملاء</th><th>المناديب</th><th>هامش الربح المستهدف</th><th>الربح المستهدف</th></tr></thead><tbody>'+
+          p.rows.map(function(r){
+            return '<tr><td>'+r.year+'</td><td>'+M(r.sales)+'</td><td>'+r.customers+'</td><td>'+r.reps+'</td><td>'+(r.target_margin*100).toFixed(0)+'%</td><td>'+M(r.target_profit)+'</td></tr>';
+          }).join('')+
+          '</tbody></table></div>';
+      }).join('');
+    }
+
+    var healthHTML=suff.sufficient
+      ? '<table><thead><tr><th>الإدارة</th><th>Score</th><th>الحالة</th><th>مؤشر رئيسي</th></tr></thead><tbody>'+
+        '<tr><td>Sales</td><td>'+scores.Sales.toFixed(0)+'/100</td><td>'+(scores.Sales>=75?'جيد':scores.Sales>=55?'يحتاج متابعة':'خطر')+'</td><td>Qty Achievement '+pct(s.sales.qty_achievement)+'</td></tr>'+
+        '<tr><td>Finance</td><td>'+scores.Finance.toFixed(0)+'/100</td><td>'+(scores.Finance>=75?'جيد':scores.Finance>=55?'يحتاج متابعة':'خطر')+'</td><td>Receivables '+M(s.finance.receivables)+'</td></tr>'+
+        '<tr><td>Inventory</td><td>'+scores.Inventory.toFixed(0)+'/100</td><td>'+(scores.Inventory>=75?'جيد':scores.Inventory>=55?'يحتاج متابعة':'خطر')+'</td><td>Slow '+pct(s.inventory.slow_ratio)+'</td></tr>'+
+        '<tr><td>Collections</td><td>'+scores.Collections.toFixed(0)+'/100</td><td>'+(scores.Collections>=75?'جيد':scores.Collections>=55?'يحتاج متابعة':'خطر')+'</td><td>'+M(s.finance.collections)+'</td></tr>'+
+        '<tr><td>Operations</td><td>'+scores.Operations.toFixed(0)+'/100</td><td>'+(scores.Operations>=75?'جيد':scores.Operations>=55?'يحتاج متابعة':'خطر')+'</td><td>'+s.inventory.active_lots+' Active LOTs</td></tr>'+
+        '</tbody></table>'
+      : '<div class="note">لا توجد بيانات تشغيل كافية لإصدار تقييم رقمي موثوق للإدارات.</div>';
+
+    var summaryHTML=suff.sufficient
+      ? '<div class="grid">'+
+          '<div class="box"><span>Overall Company Score</span><b>'+overall.toFixed(0)+'/100</b></div>'+
+          '<div class="box"><span>Sales</span><b>'+M(s.sales.value)+'</b></div>'+
+          '<div class="box"><span>Receivables</span><b>'+M(s.finance.receivables)+'</b></div>'+
+          '<div class="box"><span>Inventory Value</span><b>'+M(s.inventory.value)+'</b></div>'+
+          '<div class="box"><span>Qty Target Achievement</span><b>'+pct(s.sales.qty_achievement)+'</b></div>'+
+          '<div class="box"><span>Money Target Achievement</span><b>'+pct(s.sales.money_achievement)+'</b></div>'+
+          '<div class="box"><span>Collection / Sales</span><b>'+pct(s.finance.collection_to_sales)+'</b></div>'+
+          '<div class="box"><span>Slow Inventory Ratio</span><b>'+pct(s.inventory.slow_ratio)+'</b></div>'+
+        '</div>'
+      : '<div class="note">البيانات الحالية غير كافية لإظهار مؤشرات أداء موثوقة. يرجى استكمال بيانات التشغيل ثم إعادة إصدار التقرير.</div>';
+
+    var html='<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8">'+
+      '<title>Business Intelligence Report</title>'+
+      '<style>'+
+      '@page{size:A4;margin:14mm}*{box-sizing:border-box}body{font-family:Tahoma,Arial,sans-serif;color:#111827;background:#fff;margin:0;line-height:1.65;font-size:12px}'+
+      '.head{border-bottom:3px solid #0f766e;padding-bottom:12px;margin-bottom:18px}.head h1{margin:0;font-size:25px;color:#0f172a}.head p{margin:4px 0;color:#64748b}.date{font-size:11px;color:#64748b}'+
+      'h2{font-size:18px;color:#0f172a;margin:22px 0 10px;border-bottom:1px solid #e5e7eb;padding-bottom:7px}h3{font-size:15px;margin:14px 0 8px}'+
+      '.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}.box{border:1px solid #e5e7eb;border-radius:10px;padding:10px;background:#f8fafc}.box span{display:block;color:#64748b;font-size:10px}.box b{font-size:15px;color:#0f172a}'+
+      'table{width:100%;border-collapse:collapse;margin:8px 0 14px}th,td{border:1px solid #dbe2ea;padding:7px;text-align:right;vertical-align:top}th{background:#f1f5f9;font-weight:900}'+
+      'ul{margin:6px 0 12px;padding-right:20px}.note{border:1px solid #bfdbfe;background:#eff6ff;border-radius:10px;padding:10px;margin:8px 0}.scenario{break-inside:avoid;margin-bottom:16px}'+
+      '.footer{margin-top:24px;padding-top:10px;border-top:1px solid #e5e7eb;color:#64748b;font-size:10px;text-align:center}'+
+      '@media print{body{print-color-adjust:exact;-webkit-print-color-adjust:exact}.no-print{display:none!important}}'+
+      '</style></head><body>'+
+      '<div class="head"><h1>Business Intelligence Report</h1>'+
+      '<p>تحليل إداري شامل مبني على بيانات الشركة الحالية لدعم الإدارة في تقييم الأداء واتخاذ القرارات.</p>'+
+      '<div class="date">تاريخ التقرير: '+E(todayISO())+'</div></div>'+
+      '<h2>Executive Summary</h2>'+summaryHTML+
+      '<h2>Department Analysis</h2>'+healthHTML+
+      '<h2>Top Problems</h2>'+rows(ins.problems)+
+      '<h2>Top Opportunities</h2>'+rows(ins.opportunities)+
+      '<h2>Recommended Actions</h2>'+rows(ins.actions)+
+      '<h2>5-Year Business Plan</h2>'+
+      '<div class="note">تعرض الخطة سيناريوهات نمو مستقبلية مبنية على الأداء الحالي وبيانات الشركة بهدف دعم التخطيط واتخاذ القرارات على المدى المتوسط والطويل.</div>'+
+      planHTML()+
+      '<div class="footer">Mahsoubak Business - Business Intelligence Report</div>'+
+      '<script>window.onload=function(){setTimeout(function(){window.print()},350)}<\/script>'+
+      '</body></html>';
+
+    var w=window.open('','_blank');
+    if(!w){
+      alert('يرجى السماح بفتح النوافذ المنبثقة لتصدير التقرير PDF.');
+      return;
+    }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
   };
+
+  /* Backward-compatible alias for any old button/reference. */
+  window.downloadCompanySnapshotV400=window.exportBusinessReportPDFV404;
 
   window.runAIDeepAnalysisV400=async function(){
     var status=document.getElementById('ai400_status');
