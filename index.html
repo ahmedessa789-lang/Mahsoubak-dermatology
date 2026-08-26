@@ -32147,3 +32147,182 @@ html body .summary-box.v303-auto-clickable:after{
   },900);
 })();
 </script>
+
+
+<script id="v408-approval-no-stock-deduction-definitive">
+(function(){
+  function A(v){return Array.isArray(v)?v:[]}
+  function S(v){return String(v==null?'':v).trim()}
+  function today408(){
+    try{if(typeof today==='function')return today()}catch(e){}
+    return new Date().toISOString().slice(0,10);
+  }
+  function user408(){
+    try{
+      if(typeof currentUser==='function')return currentUser()||{};
+    }catch(e){}
+    return {};
+  }
+  function save408(){
+    try{
+      if(typeof saveDb==='function'){saveDb();return}
+      if(typeof save==='function'){save();return}
+    }catch(e){}
+  }
+  function canApprove408(order){
+    try{
+      if(typeof isSalesManager==='function'&&!isSalesManager())return false;
+    }catch(e){}
+    try{
+      if(typeof canDecideSalesOrder==='function')return !!canDecideSalesOrder(order);
+    }catch(e){}
+    return true;
+  }
+  function invoiceNo408(groupId){
+    try{
+      if(typeof ensureGroupInvoiceNoV197==='function')return ensureGroupInvoiceNoV197(groupId);
+    }catch(e){}
+    return '';
+  }
+
+  /*
+    DEFINITIVE RULE:
+    Sales Manager approval NEVER creates a sale and NEVER changes product/LOT stock.
+    It only moves the order to pending_dispatch.
+    Actual sale + inventory deduction happen only in V407 warehouse dispatch.
+  */
+  window.approveSalesOrder=function(id){
+    try{if(typeof ensureSalesOrders==='function')ensureSalesOrders()}catch(e){
+      if(!Array.isArray(db.sales_orders))db.sales_orders=[];
+    }
+
+    var first=A(db.sales_orders).find(function(o){return String(o.id)===String(id)});
+    if(!first||first.status!=='pending')return;
+
+    if(!canApprove408(first)){
+      try{
+        if(typeof permissionAlert==='function')return permissionAlert();
+      }catch(e){}
+      return alert(typeof lang!=='undefined'&&lang==='ar'?'لا توجد صلاحية للموافقة.':'No approval permission.');
+    }
+
+    var groupId=first.invoice_group_id||first.id;
+    var pending=A(db.sales_orders).filter(function(o){
+      return String(o.invoice_group_id||o.id)===String(groupId) && o.status==='pending';
+    });
+    if(!pending.length)pending=[first];
+
+    var u=user408();
+    var no=invoiceNo408(groupId);
+
+    pending.forEach(function(o){
+      o.status='approved';
+      o.approval_status='approved';
+      o.operation_status='pending_dispatch';
+      o.approved_by=u.name||u.email||u.role||'Sales Manager';
+      o.approved_date=today408();
+      if(no)o.invoice_no=no;
+
+      /* Explicit markers used by warehouse safeguards. */
+      o.inventory_deducted=false;
+      o.warehouse_dispatched=false;
+    });
+
+    save408();
+
+    alert(typeof lang!=='undefined'&&lang==='ar'
+      ?'تمت الموافقة. لم يتم خصم أي كمية من المخزون. الأوردر انتقل إلى المخزن للتنفيذ.'
+      :'Approved. No inventory was deducted. The order moved to warehouse dispatch.');
+
+    try{if(typeof render==='function')render()}catch(e){}
+  };
+  try{approveSalesOrder=window.approveSalesOrder}catch(e){}
+
+  /*
+    Extra guard: if any legacy code directly calls createApprovedSaleFromOrder
+    for an order that is only being approved, block it unless V407 explicitly
+    opens the warehouse dispatch gate.
+  */
+  var legacyCreate408=window.createApprovedSaleFromOrder ||
+                      (typeof createApprovedSaleFromOrder==='function'?createApprovedSaleFromOrder:null);
+
+  if(typeof legacyCreate408==='function'){
+    window.createApprovedSaleFromOrder=function(order){
+      if(order && !window.__warehouseDispatchGateV408){
+        /* Do not create sale / deduct inventory at approval stage. */
+        order.status='approved';
+        order.approval_status='approved';
+        order.operation_status=order.operation_status||'pending_dispatch';
+        save408();
+        return true;
+      }
+      return legacyCreate408.apply(this,arguments);
+    };
+    try{createApprovedSaleFromOrder=window.createApprovedSaleFromOrder}catch(e){}
+  }
+
+  /*
+    Wrap V407 authoritative dispatch with a gate so only the warehouse route
+    can create the actual sale. V407 itself deducts the selected LOT once.
+  */
+  var dispatch408=window.dispatchOrderFromWarehouseV407;
+  if(typeof dispatch408==='function'){
+    window.dispatchOrderFromWarehouseV407=function(order){
+      if(!order)return false;
+
+      /* Idempotency: already dispatched or already linked to an actual sale. */
+      var existing=A(db.sales).find(function(s){
+        return String(s.order_id||'')===String(order.id||'');
+      });
+      if(existing){
+        order.sale_id=existing.id;
+        order.operation_status='dispatched';
+        order.warehouse_dispatched=true;
+        order.inventory_deducted=true;
+        save408();
+        return true;
+      }
+      if(order.warehouse_dispatched===true || order.inventory_deducted===true){
+        return true;
+      }
+
+      window.__warehouseDispatchGateV408=true;
+      try{
+        var ok=dispatch408.apply(this,arguments);
+        if(ok){
+          order.warehouse_dispatched=true;
+          order.inventory_deducted=true;
+          save408();
+        }
+        return ok;
+      }finally{
+        window.__warehouseDispatchGateV408=false;
+      }
+    };
+  }
+
+  /*
+    Final warehouse button override so it always uses the guarded authoritative path.
+  */
+  window.dispatchSalesOrderV73=function(id){
+    try{if(typeof ensureSalesOrders==='function')ensureSalesOrders()}catch(e){
+      if(!Array.isArray(db.sales_orders))db.sales_orders=[];
+    }
+    var o=A(db.sales_orders).find(function(x){return String(x.id)===String(id)});
+    if(!o||o.status!=='approved'||o.operation_status==='dispatched')return;
+
+    if(!confirm(typeof lang!=='undefined'&&lang==='ar'
+      ?'تنفيذ خروج المخزن وخصم الكمية المحددة مرة واحدة؟'
+      :'Dispatch from warehouse and deduct the selected quantity once?'))return;
+
+    var ok=window.dispatchOrderFromWarehouseV407(o);
+    if(!ok)return;
+
+    alert(typeof lang!=='undefined'&&lang==='ar'
+      ?'تم خروج الأوردر من المخزن وخصم الكمية مرة واحدة فقط.'
+      :'Order dispatched and inventory deducted exactly once.');
+
+    try{if(typeof render==='function')render()}catch(e){}
+  };
+})();
+</script>
