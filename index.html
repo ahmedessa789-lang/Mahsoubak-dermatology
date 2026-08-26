@@ -7512,7 +7512,7 @@ render();
     let sales=approvedSalesForRepV188(rep);
     return targetModeV188(rep)==='count'
       ? sales.length
-      : sales.reduce((sum,s)=>sum+n(s.qty),0);
+      : sales.reduce((sum,s)=>sum+(typeof window.targetSaleQtyV346==='function'?window.targetSaleQtyV346(s):n(s.qty)),0);
   }
 
   function achievementPercentV188(rep){
@@ -8001,7 +8001,7 @@ render();
         (target.product_id && s.product_id===target.product_id) ||
         normV190(s.product_name)===normV190(target.product_name)
       )
-      .reduce((sum,s)=>sum+n(s.qty),0);
+      .reduce((sum,s)=>sum+(typeof window.targetSaleQtyV346==='function'?window.targetSaleQtyV346(s):n(s.qty)),0);
   }
 
   function productTargetOptionsV190(){
@@ -18033,6 +18033,7 @@ render();
     return db.sales.filter(function(s){return String(s.rep_id||'')===String(id)}).reduce(function(a,s){
       var q = numV272(s.qty||s.quantity||s.total_qty||s.units||s.count||0);
       if(!q) q = qtyFromItemsV272(s.items);
+      if(typeof window.targetSaleQtyV346==='function')q=window.targetSaleQtyV346(s);
       return a + q;
     },0);
   }
@@ -19836,6 +19837,7 @@ ensureFundAccounts();setTimeout(function(){bind();injectTest()},700);
       if(!q && Array.isArray(s.items)){
         q=s.items.reduce(function(a,it){return a+N(it.qty||it.quantity||it.units||it.count||0)},0);
       }
+      if(typeof window.targetSaleQtyV346==='function')q=window.targetSaleQtyV346(s);
       return t+q;
     },0);
   }
@@ -25187,14 +25189,14 @@ html body .summary-box.v303-auto-clickable:after{
   function groupTarget(g){return groupReps(g).reduce(function(a,r){return a+repTarget(r)},0)}
   function regionalTotalHtml(g){
     var sales=groupSales(g),reps=groupReps(g),target=groupTarget(g);
-    var qty=sales.reduce(function(a,s){return a+N(s.qty)},0);
+    var qty=sales.reduce(function(a,s){return a+(typeof window.targetSaleQtyV346==='function'?window.targetSaleQtyV346(s):N(s.qty))},0);
     var amount=sales.reduce(function(a,s){return a+N(s.total)},0);
     var pct=target>0?qty/target*100:0;
     var repMap=new Map();
     sales.forEach(function(s){
       var rn=S(s.rep_name)||(repForRow(s)||{}).name||'-';
       if(!repMap.has(rn))repMap.set(rn,{name:rn,qty:0,sales:0});
-      var x=repMap.get(rn);x.qty+=N(s.qty);x.sales+=N(s.total);
+      var x=repMap.get(rn);x.qty+=(typeof window.targetSaleQtyV346==='function'?window.targetSaleQtyV346(s):N(s.qty));x.sales+=N(s.total);
     });
     var rows=Array.from(repMap.values()).sort(function(a,b){return b.qty-a.qty});
     return '<div class="rep-detail-head-v175"><div><h2>'+E(g.name)+'</h2><p>'+E(reps.map(function(r){return r.name}).join(' + ')||'Region Total')+'</p></div></div>'+
@@ -25221,7 +25223,7 @@ html body .summary-box.v303-auto-clickable:after{
     list.querySelectorAll('.rep-group-card-v321').forEach(function(x){x.remove()});
     REGION_GROUPS_V321.slice().reverse().forEach(function(g){
       var sales=groupSales(g),target=groupTarget(g);
-      var qty=sales.reduce(function(a,s){return a+N(s.qty)},0);
+      var qty=sales.reduce(function(a,s){return a+(typeof window.targetSaleQtyV346==='function'?window.targetSaleQtyV346(s):N(s.qty))},0);
       var amount=sales.reduce(function(a,s){return a+N(s.total)},0);
       var pct=target>0?qty/target*100:0;
       var b=document.createElement('button');
@@ -25248,7 +25250,7 @@ html body .summary-box.v303-auto-clickable:after{
   window.companyTargetSummaryV321=function(){
     var target=(db.reps||[]).reduce(function(a,r){return a+repTarget(r)},0);
     var sales=approvedSales();
-    var qty=sales.reduce(function(a,s){return a+N(s.qty)},0);
+    var qty=sales.reduce(function(a,s){return a+(typeof window.targetSaleQtyV346==='function'?window.targetSaleQtyV346(s):N(s.qty))},0);
     return {target:target,qty:qty,pct:target>0?qty/target*100:0};
   };
 
@@ -27773,7 +27775,7 @@ html body .summary-box.v303-auto-clickable:after{
         Array.from(map.values()).map(function(x){return '<tr><td>'+E(x.name)+'</td><td>'+M(x.remaining)+'</td></tr>'}).join('')+'</table></div>';
     }else{
       drillTitle='تفاصيل التارجت — '+title;
-      var qty=rows.reduce(function(a,s){return a+N(s.qty)},0);
+      var qty=rows.reduce(function(a,s){return a+(typeof window.targetSaleQtyV346==='function'?window.targetSaleQtyV346(s):N(s.qty))},0);
       var value=rows.reduce(function(a,s){return a+N(s.total)},0);
       html='<div class="grid grid4"><div class="stat"><span>الكمية المحققة</span><strong>'+qty.toLocaleString()+'</strong></div>'+
         '<div class="stat"><span>قيمة المبيعات</span><strong>'+M(value)+'</strong></div></div>'+tableSales(rows);
@@ -33572,9 +33574,7 @@ html body .summary-box.v303-auto-clickable:after{
     }));
     var target=N(rep.target_qty!=null?rep.target_qty:(rep.target!=null?rep.target:rep.sales_target));
     var targetQty=rows.reduce(function(a,s){
-      var isBonus=norm(s.order_type||s.order_type_label).indexOf('bonus')>=0 ||
-                  norm(s.order_type||s.order_type_label).indexOf('بونص')>=0;
-      return a+(isBonus?0:N(s.qty));
+      return a+(typeof window.targetSaleQtyV346==='function'?window.targetSaleQtyV346(s):N(s.qty));
     },0);
     var pct=target>0?targetQty/target*100:0;
 
@@ -33744,6 +33744,89 @@ html body .summary-box.v303-auto-clickable:after{
 
     var body=document.getElementById('rep_details_body_v175');
     if(body)body.insertAdjacentHTML('beforeend',html);
+  };
+})();
+</script>
+
+
+<script id="v419-target-achievement-sale-only-definitive">
+(function(){
+  function A(v){return Array.isArray(v)?v:[]}
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S(v){return String(v==null?'':v).trim()}
+  function norm(v){return S(v).toLowerCase()}
+
+  function isSaleOnly(row){
+    if(typeof window.isTargetSaleRowV346==='function'){
+      return !!window.isTargetSaleRowV346(row);
+    }
+    var raw=norm(row&&(row.order_type_label||row.order_type||row.sale_type||row.type||row.kind||'sale'));
+    if(raw.indexOf('bonus')>=0||raw.indexOf('بونص')>=0)return false;
+    if(raw.indexOf('sample')>=0||raw.indexOf('free')>=0||raw.indexOf('display')>=0||
+       raw.indexOf('عين')>=0||raw.indexOf('عرض')>=0)return false;
+    return true;
+  }
+
+  function targetQty(row){
+    if(!isSaleOnly(row))return 0;
+    if(typeof window.targetSaleQtyV346==='function')return N(window.targetSaleQtyV346(row));
+    return N(row&&(row.qty!=null?row.qty:(row.allocated_qty!=null?row.allocated_qty:row.quantity)));
+  }
+
+  window.repTargetAchievedQtyV419=function(repId,from,to){
+    var rows=[];
+    try{
+      if(typeof window.salesRowsV189==='function')rows=window.salesRowsV189(repId)||[];
+    }catch(e){rows=[]}
+
+    if(!rows.length){
+      rows=A(db&&db.sales).filter(function(s){
+        if(String(s.rep_id||'')!==String(repId))return false;
+        if(s.approval_status&&s.approval_status!=='approved')return false;
+        var d=S(s.date).slice(0,10);
+        return (!from||d>=from)&&(!to||d<=to);
+      });
+    }
+
+    return rows.reduce(function(a,s){return a+targetQty(s)},0);
+  };
+
+  /* Public legacy functions now follow the same Sale-only rule. */
+  window.repAchievement=function(id){
+    return window.repTargetAchievedQtyV419(id);
+  };
+  try{repAchievement=window.repAchievement}catch(e){}
+
+  window.repSalesQtyV283=function(repId,from,to){
+    return window.repTargetAchievedQtyV419(repId,from,to);
+  };
+  try{repSalesQtyV283=window.repSalesQtyV283}catch(e){}
+
+  window.totalRepAchieved=function(){
+    return A(db&&db.reps).reduce(function(a,r){
+      return a+window.repTargetAchievedQtyV419(r.id);
+    },0);
+  };
+
+  window.avgRepPercent=function(){
+    var target=0;
+    try{
+      target=typeof totalRepTarget==='function'?N(totalRepTarget()):0;
+    }catch(e){}
+    return target?Math.round(window.totalRepAchieved()/target*100):0;
+  };
+
+  /* Audit helper: returns any free/bonus rows and confirms their target contribution = 0. */
+  window.auditBonusTargetV419=function(){
+    return A(db&&db.sales).filter(function(s){return !isSaleOnly(s)}).map(function(s){
+      return {
+        id:s.id||'',
+        rep:s.rep_name||'',
+        type:s.order_type_label||s.order_type||s.type||'',
+        qty:N(s.qty),
+        target_qty:targetQty(s)
+      };
+    });
   };
 })();
 </script>
