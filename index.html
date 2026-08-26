@@ -6062,6 +6062,11 @@ render();
 </script><style id="v171-finance-filter-exact-period-style">html body #report_accounts .finance-filter-result-v171{display:block!important}</style><script id="v175-rep-sales-collections-cell">
 (function(){
   function repSalesV175(repId){
+    try{
+      if(typeof window.salesRowsV189==='function'){
+        return window.salesRowsV189(repId)||[];
+      }
+    }catch(e){console.error('V413 repSalesV175 allocation',e)}
     return (db.sales||[]).filter(s=>s.rep_id===repId);
   }
 
@@ -25068,7 +25073,7 @@ html body .summary-box.v303-auto-clickable:after{
 
   function regionName(row){
     try{if(typeof window.regionNameVerifiedV307==='function')return window.regionNameVerifiedV307(row)}catch(e){}
-    return S(row&&(row.region_name||row.region||row.area||row.city||row.customer_area))||'غير محدد';
+    return S(row&&(row.region_code||row.region_name||row.region||row.area||row.city||row.customer_area))||'غير محدد';
   }
   function repForRow(row){
     if(!row)return null;
@@ -25091,9 +25096,15 @@ html body .summary-box.v303-auto-clickable:after{
   window.repRegionAchievementV321=function(repId){
     var rep=(db.reps||[]).find(function(r){return String(r.id)===String(repId)});
     if(!rep)return [];
-    var rows=approvedSales().filter(function(s){
-      return (s.rep_id&&String(s.rep_id)===String(rep.id)) || (!s.rep_id&&norm(s.rep_name)===norm(rep.name));
-    });
+    var rows=[];
+    try{
+      rows=typeof window.salesRowsV189==='function'?window.salesRowsV189(rep.id):[];
+    }catch(e){rows=[]}
+    if(!rows.length){
+      rows=approvedSales().filter(function(s){
+        return (s.rep_id&&String(s.rep_id)===String(rep.id)) || (!s.rep_id&&norm(s.rep_name)===norm(rep.name));
+      });
+    }
     var map=new Map(),target=repTarget(rep);
     rows.forEach(function(s){
       var rn=regionName(s);
@@ -29841,7 +29852,17 @@ html body .summary-box.v303-auto-clickable:after{
     var g=TOTALS[id];if(!g)return null;
     var wanted=g.reps.map(function(x){return norm(x.name)});
     var reps=(db.reps||[]).filter(function(r){return wanted.indexOf(norm(r.name))>=0});
-    var rows=approvedSales().filter(function(s){return wanted.indexOf(norm(repName(s)))>=0});
+    var rows=[];
+    reps.forEach(function(r){
+      var rr=[];
+      try{
+        if(typeof window.salesRowsV189==='function')rr=window.salesRowsV189(r.id)||[];
+      }catch(e){rr=[]}
+      if(!rr.length){
+        rr=approvedSales().filter(function(s){return norm(repName(s))===norm(r.name)});
+      }
+      rows=rows.concat(rr);
+    });
     var target=reps.reduce(function(a,r){return a+repTarget(r)},0);
     var achieved=rows.reduce(function(a,s){return a+saleQty(s)},0);
     var sales=rows.reduce(function(a,s){return a+N(s.total)},0);
@@ -29849,7 +29870,13 @@ html body .summary-box.v303-auto-clickable:after{
   }
   function repSummary(name){
     var r=repObj(name);
-    var rows=approvedSales().filter(function(s){return norm(repName(s))===norm(name)});
+    var rows=[];
+    try{
+      if(r&&typeof window.salesRowsV189==='function')rows=window.salesRowsV189(r.id)||[];
+    }catch(e){rows=[]}
+    if(!rows.length){
+      rows=approvedSales().filter(function(s){return norm(repName(s))===norm(name)});
+    }
     var target=repTarget(r),achieved=rows.reduce(function(a,s){return a+saleQty(s)},0);
     var sales=rows.reduce(function(a,s){return a+N(s.total)},0);
     return {target:target,achieved:achieved,sales:sales,pct:target>0?achieved/target*100:0};
@@ -32890,5 +32917,41 @@ html body .summary-box.v303-auto-clickable:after{
   setTimeout(function(){
     try{window.refreshRepAllocationV412()}catch(e){}
   },1300);
+})();
+</script>
+
+
+<script id="v413-rep-performance-card-live-allocation">
+(function(){
+  function A(v){return Array.isArray(v)?v:[]}
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function M(v){try{return money(v)}catch(e){return 'EGP '+N(v).toLocaleString()}}
+  function rows(repId){
+    try{return typeof window.salesRowsV189==='function'?(window.salesRowsV189(repId)||[]):[]}catch(e){return []}
+  }
+  function refreshCards(){
+    document.querySelectorAll('#rep_performance_modal_v175 .rep-card-v175[data-rep-id]').forEach(function(card){
+      var id=card.dataset.repId||'';
+      if(!id || /_total_/i.test(id))return;
+      var r=rows(id);
+      var sales=r.reduce(function(a,s){return a+N(s.total)},0);
+      var coll=A(db&&db.collections).filter(function(c){return String(c.rep_id||'')===String(id)}).reduce(function(a,c){return a+N(c.amount)},0);
+      var spans=card.querySelectorAll('span');
+      if(spans[0])spans[0].textContent='مبيعات: '+M(sales);
+      if(spans[1])spans[1].textContent='تحصيل: '+M(coll);
+    });
+  }
+
+  var base=window.openRepPerformanceV175;
+  if(typeof base==='function'){
+    window.openRepPerformanceV175=function(){
+      var r=base.apply(this,arguments);
+      setTimeout(refreshCards,80);
+      setTimeout(refreshCards,250);
+      return r;
+    };
+  }
+
+  window.refreshRepPerformanceCardsV413=refreshCards;
 })();
 </script>
