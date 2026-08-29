@@ -26781,10 +26781,23 @@ html body .summary-box.v303-auto-clickable:after{
     var rec=window.recalculateInventoryExpenseV328(date,false);
     var rows=window.inventoryAdjustedCostRowsV328();
     var finalValue=rows.reduce(function(a,r){return a+r.final*r.qty},0);
-    var allocated=rec.expense_per_unit*rec.closing_stock_qty;
+
+    /*
+      V421 display fix:
+      Expense / Unit and Allocated Total Check must show the accumulated expense
+      already loaded into the CURRENT inventory, not only the latest incremental
+      delta. Otherwise both cards become zero after a refresh when no new expense
+      was posted in that exact moment.
+    */
+    var allocated=rows.reduce(function(a,r){
+      return a+(N(r.daily)*N(r.qty));
+    },0);
+    var displayExpensePerUnit=rec.closing_stock_qty>0
+      ? allocated/N(rec.closing_stock_qty)
+      : 0;
     var status='';
     if(rec.total_expense<=0){
-      status='<div class="v328-status v328-warn">لا توجد مصروفات تسويق أو مصروفات إدارية وعمومية مسجلة بتاريخ <b>'+E(date)+'</b>، لذلك تحميل اليوم = 0. أضف مصروفًا بنفس التاريخ أو اختر تاريخ المصروف من الأعلى.</div>';
+      status='<div class="v328-status v328-warn">لا توجد مصروفات تسويق أو مصروفات إدارية وعمومية مسجلة بتاريخ <b>'+E(date)+'</b>. القيم الظاهرة في Expense / Unit و Allocated Total Check تمثل التحميل التراكمي الموجود فعليًا على المخزون.</div>';
     }else if(rec.closing_stock_qty<=0){
       status='<div class="v328-status v328-warn">يوجد مصروفات، لكن كمية المخزون المستخدمة في الحساب = 0. راجع كميات الـLOTs / المخزون.</div>';
     }else{
@@ -26794,6 +26807,7 @@ html body .summary-box.v303-auto-clickable:after{
     return '<div class="v328-controls">'+
       '<label>تاريخ الحساب / Calculation Date<input type="date" id="v328_calc_date" value="'+E(date)+'"></label>'+
       '<button class="btn ok" onclick="recalcAndRefreshV328()">إعادة الحساب / Recalculate</button>'+
+      '<div class="hint">مصدر المخزون: '+E(rec.stock_source==='LOT'?'LOTs الفعلية':'Product Stock (fallback)')+'</div>'+
       '</div>'+
       status+
       '<div class="v328-grid">'+
@@ -26801,7 +26815,7 @@ html body .summary-box.v303-auto-clickable:after{
         '<div class="stat"><span>Marketing Expenses</span><strong>'+M(rec.marketing_expense)+'</strong></div>'+
         '<div class="stat"><span>Total Daily Expenses</span><strong>'+M(rec.total_expense)+'</strong></div>'+
         '<div class="stat"><span>Closing Stock Qty</span><strong>'+N(rec.closing_stock_qty).toLocaleString()+'</strong></div>'+
-        '<div class="stat"><span>Expense / Unit</span><strong>'+M(rec.expense_per_unit)+'</strong></div>'+
+        '<div class="stat"><span>Expense / Unit</span><strong>'+M(displayExpensePerUnit)+'</strong></div>'+
         '<div class="stat"><span>Allocated Total Check</span><strong>'+M(allocated)+'</strong></div>'+
       '</div>'+
       '<div class="v328-table"><table><tr>'+
@@ -26815,7 +26829,8 @@ html body .summary-box.v303-auto-clickable:after{
           '<td><b>'+M(r.final)+'</b></td><td><b>'+M(r.final*r.qty)+'</b></td>'+
         '</tr>';
       }).join('')+'</table></div>'+
-      '';
+      '<div class="v328-status" style="margin-top:10px">قيمة المخزون الحالية بعد التحميل: <b>'+M(finalValue)+'</b><br>'+
+      'Final Adjusted Cost = Previous Adjusted Cost + New G&A/Marketing Allocation (+ Slow Moving adjustment). كل مصروف جديد يضيف فقط نصيبه الجديد على آخر تكلفة متراكمة ولا يعيد تحميل المصروفات القديمة.</div>';
   }
 
   window.installInventoryCostAllocationV328=function(date){
@@ -26824,7 +26839,8 @@ html body .summary-box.v303-auto-clickable:after{
     if(old)old.remove();
     var card=document.createElement('div');
     card.className='card';card.id='inventory_cost_allocation_v328';
-    card.innerHTML='<div class="section-title"><div><h3>Inventory Cost Allocation</h3></div></div>'+report(date||day());
+    card.innerHTML='<div class="section-title"><div><h3>Inventory Cost Allocation — الحساب الفعلي</h3>'+
+      '<div class="hint">تحميل مصروفات التسويق + الإداري والعمومي على المخزون يوميًا</div></div></div>'+report(date||day());
     view.appendChild(card);
   };
 
@@ -26882,7 +26898,9 @@ html body .summary-box.v303-auto-clickable:after{
   },1000);
 })();
 </script>
-
+<style id="v329-expense-backfill-style">
+.v329-backfill-note{margin-top:10px;padding:10px 12px;border-radius:10px;background:#ecfdf5;color:#166534;border:1px solid #bbf7d0;font-size:12px;line-height:1.7}
+</style>
 <script id="v329-expense-backfill">
 (function(){
   function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
@@ -26969,9 +26987,20 @@ html body .summary-box.v303-auto-clickable:after{
   };
 
   function installNote(){
-    /* Client UI: no technical/backfill guidance is rendered. */
+    var card=document.getElementById('inventory_cost_allocation_v328');
+    if(!card)return;
     var old=document.getElementById('v329_backfill_note');
     if(old)old.remove();
+
+    var stats=window.backfillMissingExpenseAllocationsV329();
+    var note=document.createElement('div');
+    note.id='v329_backfill_note';
+    note.className='v329-backfill-note';
+    note.innerHTML='تمت مراجعة أيام المصروفات تلقائيًا. '+
+      'أيام تم تحميلها الآن: <b>'+stats.created+'</b>، '+
+      'أيام تم استعادتها من السجل القديم: <b>'+stats.migrated+'</b>، '+
+      'أيام كانت محسوبة بالفعل: <b>'+stats.skipped+'</b>.';
+    card.appendChild(note);
   }
 
   var productsBaseV329=window.renderProducts;
@@ -27033,7 +27062,9 @@ html body .summary-box.v303-auto-clickable:after{
   },1200);
 })();
 </script>
-
+<style id="v330-all-expense-sources-style">
+.v330-source-note{margin-top:10px;padding:10px 12px;border-radius:10px;background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;font-size:12px;line-height:1.7}
+</style>
 <script id="v330-all-expense-sources">
 (function(){
   function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
@@ -27174,9 +27205,20 @@ html body .summary-box.v303-auto-clickable:after{
   };
 
   function addSourceNote(){
-    /* Client UI: no expense-source diagnostics are rendered. */
-    var old=document.getElementById('v330_source_note');
-    if(old)old.remove();
+    var card=document.getElementById('inventory_cost_allocation_v328');
+    if(!card)return;
+    var old=document.getElementById('v330_source_note');if(old)old.remove();
+
+    var rows=window.expenseRowsForInventoryCostV330();
+    var dates=new Set(rows.map(function(r){return r.date}));
+    var g=rows.filter(function(r){return r.kind==='general'}).length;
+    var m=rows.filter(function(r){return r.kind==='marketing'}).length;
+
+    var note=document.createElement('div');
+    note.id='v330_source_note';note.className='v330-source-note';
+    note.innerHTML='مصادر المصروفات المقروءة فعليًا: <b>'+g+'</b> حركة G&A و <b>'+m+
+      '</b> حركة Marketing عبر <b>'+dates.size+'</b> يوم. يتم منع تكرار نفس إيصال/قيد المصروف تلقائيًا.';
+    card.appendChild(note);
   }
 
   var recalcBase=window.recalcAndRefreshV328;
