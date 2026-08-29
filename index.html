@@ -9484,10 +9484,10 @@ render();
   function numV213(v){try{return typeof n==='function'?n(v):(Number(v)||0)}catch(e){return Number(v)||0}}
   function escV213(v){try{return typeof esc==='function'?esc(v):String(v??'').replace(/[&<>\"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c]})}catch(e){return String(v??'')}}
   function moneyV213(v){try{return typeof money==='function'?money(v):('EGP '+numV213(v).toLocaleString())}catch(e){return 'EGP '+numV213(v)}}
-  function customerNameV213(c){return String((c&&(c.name||c.customer_name||c.clinic_name))||'').trim()}
+  function customerNameV213(c){return String((c&&(c.customer_name||c.official_name||c.name||c.clinic_name))||'').trim()}
   function dateValueV213(v){var s=String(v||'').slice(0,10);var t=Date.parse(s+'T00:00:00');return Number.isFinite(t)?t:0}
   function invoiceKeyV213(r){var no=String((r&&r.invoice_no)||'').trim();if(no)return 'NO|'+no.toLowerCase();var gid=String((r&&r.invoice_group_id)||'').trim();if(gid)return 'GROUP|'+gid;return 'ROW|'+String((r&&r.id)||'')}
-  function customerMatchV213(row,c){if(!row||!c)return false;if(row.customer_id&&c.id)return String(row.customer_id)===String(c.id);var rn=String(row.customer_name||'').trim().toLowerCase();return rn&&rn===customerNameV213(c).toLowerCase()}
+  function customerMatchV213(row,c){if(!row||!c)return false;if(row.customer_id&&c.id)return String(row.customer_id)===String(c.id);var rn=String(row.customer_name||'').trim().toLowerCase();var official=String((c.customer_name||c.official_name||'')).trim().toLowerCase();return rn&&official&&rn===official}
   function groupedInvoicesV213(c){
     var map=new Map();
     (Array.isArray(db.sales)?db.sales:[]).filter(function(r){return customerMatchV213(r,c)}).forEach(function(r){
@@ -9561,7 +9561,7 @@ render();
     var period=(from||to)?('الفترة من '+(from||'—')+' إلى '+(to||'—')):'جميع الحركات';
     document.getElementById('statement_title_v213').textContent='كشف حساب عميل';
     document.getElementById('statement_subtitle_v213').textContent=period;
-    document.getElementById('customer_statement_body_v213').innerHTML='<div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:22px"><h1 style="margin:0 0 8px;text-align:center;font-size:25px">كشف حساب عيادات د / '+escV213(customerNameV213(c))+'</h1><div style="text-align:center;color:#64748b;margin-bottom:18px">'+escV213(period)+'</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px"><div class="stat"><span>اسم العميل</span><strong style="font-size:17px">'+escV213(customerNameV213(c))+'</strong></div><div class="stat"><span>الهاتف</span><strong style="font-size:17px">'+escV213(c.phone||'—')+'</strong></div><div class="stat"><span>المنطقة / العنوان</span><strong style="font-size:17px">'+escV213(((c.area||'')+(c.address?' — '+c.address:''))||'—')+'</strong></div></div><div class="customer-statement-table-v213"><table><thead><tr><th>التاريخ</th><th>رقم الفاتورة</th><th>البيان</th><th>عينات مجانية</th><th>الكمية المباعة</th><th>سعر بيع الوحدة</th><th>المبيعات</th><th>المسدد</th><th>الرصيد</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
+    document.getElementById('customer_statement_body_v213').innerHTML='<div style="background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:22px"><h1 style="margin:0 0 8px;text-align:center;font-size:25px">كشف حساب العميل / '+escV213(customerNameV213(c))+'</h1><div style="text-align:center;color:#64748b;margin-bottom:18px">'+escV213(period)+'</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px"><div class="stat"><span>اسم العميل</span><strong style="font-size:17px">'+escV213(customerNameV213(c))+'</strong></div><div class="stat"><span>الهاتف</span><strong style="font-size:17px">'+escV213(c.phone||'—')+'</strong></div><div class="stat"><span>المنطقة / العنوان</span><strong style="font-size:17px">'+escV213(((c.area||'')+(c.address?' — '+c.address:''))||'—')+'</strong></div></div><div class="customer-statement-table-v213"><table><thead><tr><th>التاريخ</th><th>رقم الفاتورة</th><th>البيان</th><th>عينات مجانية</th><th>الكمية المباعة</th><th>سعر بيع الوحدة</th><th>المبيعات</th><th>المسدد</th><th>الرصيد</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>';
   }
   window.openCustomerStatementV213=function(customerId){
     var sel=document.getElementById('statement_customer_v213'),id=customerId||((sel||{}).value||'');
@@ -26614,32 +26614,96 @@ html body .summary-box.v303-auto-clickable:after{
   window.recalculateInventoryExpenseV328=function(date,persist){
     ensure();
     date=date||day();
+
+    /*
+      V420 cumulative costing:
+      Never redistribute an expense that has already been loaded onto inventory.
+      Only the NEW expense delta is added to the CURRENT inventory, so every new
+      G&A or Marketing expense increases the last adjusted cost instead of
+      rebuilding the cost from the purchase price.
+    */
     var exp=window.dailyExpenseTotalsV328(date);
     var stock=stockSnapshot();
-    var perUnit=stock.qty>0?exp.total/stock.qty:0;
+    var idx=db.daily_inventory_expense_allocations_v328.findIndex(function(x){return x.date===date});
+    var old=idx>=0?db.daily_inventory_expense_allocations_v328[idx]:null;
 
-    var rec={
+    /*
+      Historical V328/V330 records were already fully allocated before V420.
+      Treat their saved total_expense as the opening allocated amount the first
+      time this version sees them, so nothing old is charged twice.
+    */
+    var previouslyAllocated=old
+      ? N(old.allocated_expense_total_v420!=null?old.allocated_expense_total_v420:old.total_expense)
+      : 0;
+
+    var currentTotal=N(exp.total);
+    var delta=currentTotal-previouslyAllocated;
+
+    /*
+      Additions are cumulative. If an older record is temporarily smaller because
+      of a data refresh, do not reverse previously loaded inventory cost silently.
+    */
+    if(delta<0)delta=0;
+
+    var incrementPerUnit=stock.qty>0?delta/stock.qty:0;
+    var rec=old||{
       id:'v328_'+date,
       date:date,
-      general_admin_expense:exp.general,
-      marketing_expense:exp.marketing,
-      total_expense:exp.total,
-      closing_stock_qty:stock.qty,
+      general_admin_expense:0,
+      marketing_expense:0,
+      total_expense:0,
+      closing_stock_qty:0,
       stock_source:stock.source,
-      expense_per_unit:perUnit,
+      expense_per_unit:0,
       calculated_at:new Date().toISOString(),
-      lines:stock.lines.map(function(x){
-        return {
-          lot_id:x.lot_id,product_id:x.product_id,
-          product_name:x.product_name,lot_number:x.lot_number,
-          closing_qty:x.qty,
-          expense_per_unit:perUnit,
-          allocated_amount:x.qty*perUnit
-        };
-      })
+      lines:[]
     };
 
-    var idx=db.daily_inventory_expense_allocations_v328.findIndex(function(x){return x.date===date});
+    if(!Array.isArray(rec.lines))rec.lines=[];
+
+    if(delta>0 && stock.qty>0){
+      stock.lines.forEach(function(x){
+        var line=rec.lines.find(function(y){
+          if(x.lot_id&&S(y.lot_id)===S(x.lot_id))return true;
+          return S(y.product_id)===S(x.product_id) &&
+                 S(y.lot_number).toLowerCase()===S(x.lot_number).toLowerCase();
+        });
+
+        if(!line){
+          line={
+            lot_id:x.lot_id,product_id:x.product_id,
+            product_name:x.product_name,lot_number:x.lot_number,
+            closing_qty:x.qty,
+            expense_per_unit:0,
+            allocated_amount:0
+          };
+          rec.lines.push(line);
+        }
+
+        line.closing_qty=x.qty;
+        line.expense_per_unit=N(line.expense_per_unit)+incrementPerUnit;
+        line.allocated_amount=N(line.allocated_amount)+(N(x.qty)*incrementPerUnit);
+        line.last_increment_per_unit_v420=incrementPerUnit;
+        line.last_increment_amount_v420=N(x.qty)*incrementPerUnit;
+      });
+    }
+
+    rec.general_admin_expense=N(exp.general);
+    rec.marketing_expense=N(exp.marketing);
+    rec.total_expense=currentTotal;
+    rec.closing_stock_qty=stock.qty;
+    rec.stock_source=stock.source;
+
+    /*
+      expense_per_unit now means the latest incremental load for this expense
+      event. Exact cumulative value is held per LOT in lines[].expense_per_unit.
+    */
+    rec.expense_per_unit=incrementPerUnit;
+    rec.last_expense_delta_v420=delta;
+    rec.allocated_expense_total_v420=previouslyAllocated+delta;
+    rec.calculated_at=new Date().toISOString();
+    rec.cumulative_costing_v420=true;
+
     if(idx>=0)db.daily_inventory_expense_allocations_v328[idx]=rec;
     else db.daily_inventory_expense_allocations_v328.push(rec);
 
@@ -26753,7 +26817,7 @@ html body .summary-box.v303-auto-clickable:after{
         '</tr>';
       }).join('')+'</table></div>'+
       '<div class="v328-status" style="margin-top:10px">قيمة المخزون الحالية بعد التحميل: <b>'+M(finalValue)+'</b><br>'+
-      'Final Adjusted Cost = Original Cost + Accumulated Daily Expense Allocation + Slow Moving Cost.</div>';
+      'Final Adjusted Cost = Previous Adjusted Cost + New G&A/Marketing Allocation (+ Slow Moving adjustment). كل مصروف جديد يضيف فقط نصيبه الجديد على آخر تكلفة متراكمة ولا يعيد تحميل المصروفات القديمة.</div>';
   }
 
   window.installInventoryCostAllocationV328=function(date){
@@ -26997,6 +27061,7 @@ html body .summary-box.v303-auto-clickable:after{
     if(!Array.isArray(db.general_admin_expenses_v287))db.general_admin_expenses_v287=[];
     if(!Array.isArray(db.marketing_expenses_v287))db.marketing_expenses_v287=[];
     if(!Array.isArray(db.general_admin_expenses))db.general_admin_expenses=[];
+    if(!Array.isArray(db.marketing_expenses))db.marketing_expenses=[];
     if(!Array.isArray(db.cash_receipts_out))db.cash_receipts_out=[];
     if(!Array.isArray(db.daily_inventory_expense_allocations_v328))db.daily_inventory_expense_allocations_v328=[];
   }
@@ -27040,18 +27105,25 @@ html body .summary-box.v303-auto-clickable:after{
     db.general_admin_expenses_v287.forEach(function(r){add('general',r,'general_admin_expenses_v287')});
     db.marketing_expenses_v287.forEach(function(r){add('marketing',r,'marketing_expenses_v287')});
 
-    /* Legacy G&A register created from cash-out receipts. */
+    /* Legacy G&A / Marketing registers created by older finance paths. */
     db.general_admin_expenses.forEach(function(r){add('general',r,'general_admin_expenses')});
+    db.marketing_expenses.forEach(function(r){add('marketing',r,'marketing_expenses')});
 
-    /* Some older receipts may have the allocation flag but no mirrored register row. */
+    /* Older receipts may carry only the allocation/category flag. */
     db.cash_receipts_out.forEach(function(r){
-      var alloc=S(r.expense_allocation||r.expense_category||r.expense_account_name).toLowerCase();
+      var alloc=S(r.expense_allocation||r.expense_category||r.expense_account_name||r.purpose||r.description).toLowerCase();
       var isGeneral =
         alloc==='general_admin' ||
         alloc.indexOf('عمومية')>=0 ||
         alloc.indexOf('ادارية')>=0 ||
         alloc.indexOf('إدارية')>=0;
+      var isMarketing =
+        alloc==='marketing' ||
+        alloc.indexOf('marketing')>=0 ||
+        alloc.indexOf('تسويق')>=0 ||
+        alloc.indexOf('دعاية')>=0;
       if(isGeneral)add('general',r,'cash_receipts_out');
+      else if(isMarketing)add('marketing',r,'cash_receipts_out');
     });
 
     return rows;
@@ -27072,20 +27144,18 @@ html body .summary-box.v303-auto-clickable:after{
 
   function updateExistingAllocation(date){
     ensure();
-    var totals=window.dailyExpenseTotalsV328(date);
     var rec=db.daily_inventory_expense_allocations_v328.find(function(r){return r.date===date});
     if(!rec)return false;
 
-    rec.general_admin_expense=totals.general;
-    rec.marketing_expense=totals.marketing;
-    rec.total_expense=totals.total;
+    /*
+      V420: do not overwrite a LOT's accumulated expense/unit.
+      Re-run the cumulative engine, which adds only the newly posted expense delta.
+    */
+    if(typeof window.recalculateInventoryExpenseV328==='function'){
+      rec=window.recalculateInventoryExpenseV328(date,false)||rec;
+    }
 
-    var qty=N(rec.closing_stock_qty);
-    rec.expense_per_unit=qty>0?totals.total/qty:0;
-    (rec.lines||[]).forEach(function(line){
-      line.expense_per_unit=rec.expense_per_unit;
-      line.allocated_amount=N(line.closing_qty)*rec.expense_per_unit;
-    });
+    var totals=window.dailyExpenseTotalsV328(date);
     rec.recalculated_v330=true;
     rec.recalculated_at_v330=new Date().toISOString();
     rec.expense_source_count_v330=totals.rows.length;
