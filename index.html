@@ -20270,7 +20270,7 @@ setTimeout(patch,700);setTimeout(patch,1400);
     db.journal.push({id:U(),date:date,source:isMarketing?'marketing_expense_v287':'general_admin_expense_v287',sourceId:id,description:title,account:account,debit:egp,credit:0});
     db.journal.push({id:U(),date:date,source:isMarketing?'marketing_expense_v287':'general_admin_expense_v287',sourceId:id,description:title,account:fundAcc,debit:0,credit:egp});
 
-    var row={id:id,date:date,account_code:account,amount:amount,currency:currency,rate:currency==='EGP'?1:rate,egp_value:egp,fund_id:fund.id,fund_name:fund.name||'',fund_type:fund.type||'cash',description:desc,beneficiary:beneficiary,reference:ref,notes:notes,created_at:new Date().toISOString()};
+    var row={id:id,date:date,account_code:account,amount:amount,currency:currency,rate:currency==='EGP'?1:rate,egp_value:egp,fund_id:fund.id,fund_name:fund.name||'',fund_type:fund.type||'cash',description:desc,beneficiary:beneficiary,beneficiary_name:beneficiary,customer_name_manual:beneficiary,reference:ref,notes:notes,created_at:new Date().toISOString()};
     if(isMarketing)db.marketing_expenses_v287.unshift(row); else db.general_admin_expenses_v287.unshift(row);
 
     try{if(typeof save==='function')save()}catch(e){}
@@ -20301,9 +20301,10 @@ setTimeout(patch,700);setTimeout(patch,1400);
   function history(kind){
     var arr=kind==='marketing'?(db.marketing_expenses_v287||[]): (db.general_admin_expenses_v287||[]);
     if(!arr.length)return '<div class="empty">لا توجد مصروفات مسجلة</div>';
-    return '<table><tr><th>التاريخ</th><th>نوع المصروف</th><th>البيان</th><th>الخزنة / البنك</th><th>العملة</th><th>القيمة EGP</th><th>المرجع</th><th></th></tr>'+
+    return '<table><tr><th>التاريخ</th><th>نوع المصروف</th><th>اسم العميل / المستفيد</th><th>البيان</th><th>الخزنة / البنك</th><th>العملة</th><th>القيمة EGP</th><th>المرجع</th><th></th></tr>'+
       arr.slice(0,100).map(function(r){
-        return '<tr><td>'+E(r.date)+'</td><td>'+E(accountName(r.account_code))+'</td><td><b>'+E(r.description)+'</b>'+(r.beneficiary?'<div class="hint">'+E(r.beneficiary)+'</div>':'')+'</td><td>'+E(r.fund_name||'-')+'</td><td>'+E(r.currency||'EGP')+' '+N(r.amount).toLocaleString('en-EG')+'</td><td><b>'+Money(r.egp_value)+'</b></td><td>'+E(r.reference||'-')+'</td><td><button class="btn small danger" onclick="deleteExpenseV287(\''+kind+'\',\''+E(r.id)+'\')">حذف</button></td></tr>';
+        var customerName=E(r.customer_name_manual||r.beneficiary_name||r.beneficiary||'-');
+        return '<tr><td>'+E(r.date)+'</td><td>'+E(accountName(r.account_code))+'</td><td><b>'+customerName+'</b></td><td>'+E(r.description||'-')+'</td><td>'+E(r.fund_name||'-')+'</td><td>'+E(r.currency||'EGP')+' '+N(r.amount).toLocaleString('en-EG')+'</td><td><b>'+Money(r.egp_value)+'</b></td><td>'+E(r.reference||'-')+'</td><td><button class="btn small danger" onclick="deleteExpenseV287(\''+kind+'\',\''+E(r.id)+'\')">حذف</button></td></tr>';
       }).join('')+'</table>';
   }
 
@@ -20324,7 +20325,7 @@ setTimeout(patch,700);setTimeout(patch,1400);
         '<div><label>الخزنة / البنك</label><select id="v287_'+kind+'_fund" onchange="syncExpenseRateV287(\''+kind+'\')">'+fundOptions('')+'</select></div>'+
         '<div><label>المبلغ</label><input id="v287_'+kind+'_amount" type="number" min="0" step="0.01"></div>'+
         '<div><label id="v287_'+kind+'_rate_label">سعر العملة بالجنيه</label><input id="v287_'+kind+'_rate" type="number" min="0" step="0.0001" value="1" disabled></div>'+
-        '<div><label>المستفيد / الجهة</label><input id="v287_'+kind+'_beneficiary"></div>'+
+        '<div><label>اسم العميل / المستفيد</label><input id="v287_'+kind+'_beneficiary" placeholder="اكتب الاسم يدويًا حتى لو غير مسجل بالنظام"></div>'+
         '<div><label>المرجع</label><input id="v287_'+kind+'_ref" placeholder="رقم فاتورة / تحويل / مستند"></div>'+
         '<div><label>البيان</label><input id="v287_'+kind+'_desc" placeholder="وصف المصروف"></div>'+
         '<div style="grid-column:span 2"><label>ملاحظات</label><input id="v287_'+kind+'_notes"></div>'+
@@ -33827,6 +33828,267 @@ html body .summary-box.v303-auto-clickable:after{
 
     var body=document.getElementById('rep_details_body_v175');
     if(body)body.insertAdjacentHTML('beforeend',html);
+  };
+})();
+</script>
+
+
+<script id="v422-inventory-direct-ga-marketing-sources">
+(function(){
+  function A(v){return Array.isArray(v)?v:[]}
+  function S(v){return String(v==null?'':v).trim()}
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function D(v){return S(v).slice(0,10)}
+
+  function amount(row){
+    if(!row)return 0;
+    if(row.egp_value!=null)return N(row.egp_value);
+    if(row.amount_egp!=null)return N(row.amount_egp);
+    if(row.egp_amount!=null)return N(row.egp_amount);
+    return N(row.amount);
+  }
+
+  function kindFromAccount(code){
+    code=S(code);
+    if(/^62\d\d$/.test(code)||code==='6100')return 'general';
+    if(/^63\d\d$/.test(code)||code==='5200')return 'marketing';
+    return '';
+  }
+
+  function ensure422(){
+    if(!Array.isArray(db.general_admin_expenses_v287))db.general_admin_expenses_v287=[];
+    if(!Array.isArray(db.marketing_expenses_v287))db.marketing_expenses_v287=[];
+    if(!Array.isArray(db.general_admin_expenses))db.general_admin_expenses=[];
+    if(!Array.isArray(db.marketing_expenses))db.marketing_expenses=[];
+    if(!Array.isArray(db.cash_receipts_out))db.cash_receipts_out=[];
+    if(!Array.isArray(db.journal))db.journal=[];
+  }
+
+  /*
+    Definitive inventory-cost expense stream.
+    Priority:
+      1) Direct G&A register
+      2) Direct Marketing register
+      3) Legacy expense registers
+      4) Journal debit expense lines only when their source is not already represented
+      5) Cash-out receipt only when not already mirrored into an expense register/journal
+  */
+  window.expenseRowsForInventoryCostV422=function(){
+    ensure422();
+
+    var rows=[];
+    var seenSource=new Set();
+    var seenJournalSource=new Set();
+
+    function sourceIdentity(row){
+      return S(
+        row.source_receipt_id||row.receipt_id||
+        row.source_entry_id||row.source_id_v291||
+        row.sourceId||row.source_id
+      );
+    }
+
+    function addRegister(kind,row,source){
+      if(!row)return;
+      var date=D(row.date||row.created_at);
+      var value=amount(row);
+      if(!date||value<=0)return;
+
+      var sid=sourceIdentity(row);
+      var ownId=S(row.id);
+
+      /*
+        Manual rows from the actual G&A / Marketing modules have no source id.
+        They are kept by their own register/id.
+      */
+      var key=sid ? kind+'|SRC|'+sid : kind+'|REG|'+source+'|'+ownId;
+      if(seenSource.has(key))return;
+      seenSource.add(key);
+
+      if(sid)seenJournalSource.add(kind+'|'+sid);
+      if(ownId)seenJournalSource.add(kind+'|'+ownId);
+
+      rows.push({
+        kind:kind,date:date,amount:value,
+        source:source,id:ownId,source_id:sid,
+        account_code:S(row.account_code||row.account),
+        description:S(row.description||row.purpose),
+        direct_register:true
+      });
+    }
+
+    /* Direct, authoritative registers FIRST. */
+    A(db.general_admin_expenses_v287).forEach(function(r){
+      addRegister('general',r,'general_admin_expenses_v287');
+    });
+    A(db.marketing_expenses_v287).forEach(function(r){
+      addRegister('marketing',r,'marketing_expenses_v287');
+    });
+
+    /* Legacy registers, if present. */
+    A(db.general_admin_expenses).forEach(function(r){
+      addRegister('general',r,'general_admin_expenses');
+    });
+    A(db.marketing_expenses).forEach(function(r){
+      addRegister('marketing',r,'marketing_expenses');
+    });
+
+    /*
+      Journal fallback.
+      Direct V287 expenses always create debit journal lines with sourceId equal to
+      the register-row id. Only add a journal expense when the register version is
+      genuinely absent.
+    */
+    A(db.journal).forEach(function(j){
+      var kind=kindFromAccount(j.account||j.account_code);
+      if(!kind||N(j.debit)<=0)return;
+
+      var sid=S(j.sourceId||j.source_id||j.entry_id);
+      var source=S(j.source);
+      var directSource =
+        source==='general_admin_expense_v287' ||
+        source==='marketing_expense_v287';
+
+      if(sid && seenJournalSource.has(kind+'|'+sid))return;
+
+      var key=kind+'|JRN|'+(sid||S(j.id));
+      if(seenSource.has(key))return;
+      seenSource.add(key);
+      if(sid)seenJournalSource.add(kind+'|'+sid);
+
+      rows.push({
+        kind:kind,
+        date:D(j.date||j.created_at),
+        amount:N(j.debit),
+        source:'journal',
+        id:S(j.id),
+        source_id:sid,
+        account_code:S(j.account||j.account_code),
+        description:S(j.description),
+        journal_fallback:true,
+        direct_source:directSource
+      });
+    });
+
+    /*
+      Receipt fallback.
+      If V292 mirrored the receipt into G&A/Marketing, its source id has already
+      been seen above and this receipt is skipped.
+    */
+    A(db.cash_receipts_out).forEach(function(r){
+      var sid=S(r.id);
+      var account=S(r.counterpart_account_v275||r.counterpart_account||r.expense_account);
+      var kind=kindFromAccount(account);
+
+      if(!kind){
+        var txt=S(r.expense_allocation||r.expense_category||r.expense_account_name||r.purpose||r.description).toLowerCase();
+        if(txt.indexOf('تسويق')>=0||txt.indexOf('دعاية')>=0||txt.indexOf('marketing')>=0)kind='marketing';
+        else if(txt.indexOf('عمومية')>=0||txt.indexOf('ادارية')>=0||txt.indexOf('إدارية')>=0||txt.indexOf('general')>=0)kind='general';
+      }
+      if(!kind)return;
+
+      if(sid && seenJournalSource.has(kind+'|'+sid))return;
+
+      var date=D(r.date||r.created_at);
+      var value=amount(r);
+      if(!date||value<=0)return;
+
+      var key=kind+'|RCPT|'+sid;
+      if(seenSource.has(key))return;
+      seenSource.add(key);
+
+      rows.push({
+        kind:kind,date:date,amount:value,
+        source:'cash_receipts_out',id:sid,source_id:sid,
+        account_code:account,
+        description:S(r.purpose||r.description),
+        receipt_fallback:true
+      });
+    });
+
+    return rows;
+  };
+
+  /* Replace the old collector used by inventory costing. */
+  window.expenseRowsForInventoryCostV330=function(){
+    return window.expenseRowsForInventoryCostV422();
+  };
+
+  window.dailyExpenseTotalsV328=function(date){
+    var rows=window.expenseRowsForInventoryCostV422().filter(function(r){
+      return r.date===date;
+    });
+    var general=rows.filter(function(r){return r.kind==='general'}).reduce(function(a,r){return a+N(r.amount)},0);
+    var marketing=rows.filter(function(r){return r.kind==='marketing'}).reduce(function(a,r){return a+N(r.amount)},0);
+    return {
+      general:general,
+      marketing:marketing,
+      total:general+marketing,
+      rows:rows
+    };
+  };
+
+  function allocateExpenseDate(date){
+    date=D(date);
+    if(!date)return;
+    try{
+      if(typeof window.recalculateInventoryExpenseV328==='function'){
+        window.recalculateInventoryExpenseV328(date,true);
+      }
+    }catch(e){console.error('V422 inventory expense allocation',e)}
+  }
+
+  /*
+    Direct hook around the expense form itself.
+    Capture the newly-created direct register row and allocate THAT row's date.
+  */
+  var postBase422=window.postExpenseV287;
+  if(typeof postBase422==='function'){
+    window.postExpenseV287=function(kind){
+      ensure422();
+
+      var arr=kind==='marketing'
+        ? db.marketing_expenses_v287
+        : db.general_admin_expenses_v287;
+
+      var before=new Set(A(arr).map(function(r){return String(r.id)}));
+      var result=postBase422.apply(this,arguments);
+
+      setTimeout(function(){
+        var target=kind==='marketing'
+          ? A(db.marketing_expenses_v287)
+          : A(db.general_admin_expenses_v287);
+
+        var added=target.find(function(r){return !before.has(String(r.id))});
+        if(added){
+          allocateExpenseDate(added.date||added.created_at);
+        }
+
+        try{
+          var v=document.getElementById('view-products');
+          if(v&&!v.classList.contains('hidden')&&typeof window.installInventoryCostAllocationV328==='function'){
+            window.installInventoryCostAllocationV328();
+          }
+        }catch(e){}
+      },180);
+
+      return result;
+    };
+    try{postExpenseV287=window.postExpenseV287}catch(e){}
+  }
+
+  /* Diagnostic helper: verifies exactly what inventory costing can see. */
+  window.auditInventoryExpenseSourcesV422=function(date){
+    var rows=window.expenseRowsForInventoryCostV422();
+    if(date)rows=rows.filter(function(r){return r.date===D(date)});
+    return {
+      rows:rows,
+      general:rows.filter(function(r){return r.kind==='general'}).reduce(function(a,r){return a+N(r.amount)},0),
+      marketing:rows.filter(function(r){return r.kind==='marketing'}).reduce(function(a,r){return a+N(r.amount)},0),
+      direct_general:rows.filter(function(r){return r.source==='general_admin_expenses_v287'}).length,
+      direct_marketing:rows.filter(function(r){return r.source==='marketing_expenses_v287'}).length,
+      receipts:rows.filter(function(r){return r.source==='cash_receipts_out'}).length
+    };
   };
 })();
 </script>
