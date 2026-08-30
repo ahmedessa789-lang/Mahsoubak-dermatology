@@ -20293,7 +20293,7 @@ setTimeout(patch,700);setTimeout(patch,1400);
     return '<table><tr><th>التاريخ</th><th>نوع المصروف</th><th>اسم العميل / المستفيد</th><th>البيان</th><th>الخزنة / البنك</th><th>العملة</th><th>القيمة EGP</th><th>المرجع</th><th></th></tr>'+
       arr.slice(0,100).map(function(r){
         var customerName=E(r.customer_name_manual||r.beneficiary_name||r.beneficiary||'-');
-        return '<tr><td>'+E(r.date)+'</td><td>'+E(accountName(r.account_code))+'</td><td><b>'+customerName+'</b></td><td>'+E(r.description||'-')+'</td><td>'+E(r.fund_name||'-')+'</td><td>'+E(r.currency||'EGP')+' '+N(r.amount).toLocaleString('en-EG')+'</td><td><b>'+Money(r.egp_value)+'</b></td><td>'+E(r.reference||'-')+'</td><td><button class="btn small danger" onclick="deleteExpenseV287(\''+kind+'\',\''+E(r.id)+'\')">حذف</button></td></tr>';
+        return '<tr><td>'+E(r.date)+'</td><td>'+E(accountName(r.account_code))+'</td><td><b>'+customerName+'</b></td><td>'+E(r.description||'-')+'</td><td>'+E(r.fund_name||'-')+'</td><td>'+E(r.currency||'EGP')+' '+N(r.amount).toLocaleString('en-EG')+'</td><td><b>'+Money(r.egp_value)+'</b></td><td>'+E(r.reference||'-')+'</td><td><div class="actions"><button class="btn small blue" onclick="printSingleExpenseV428(\''+kind+'\',\''+E(r.id)+'\')">طباعة</button><button class="btn small danger" onclick="deleteExpenseV287(\''+kind+'\',\''+E(r.id)+'\')">حذف</button></div></td></tr>';
       }).join('')+'</table>';
   }
 
@@ -34439,3 +34439,76 @@ html body .summary-box.v303-auto-clickable:after{
 </script>
 
 
+
+
+<script id="v428-print-single-expense">
+(function(){
+  function S(v){return String(v==null?'':v).trim()}
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function E(v){
+    try{if(typeof esc==='function')return esc(v)}catch(e){}
+    return S(v).replace(/[&<>'"]/g,function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]
+    });
+  }
+  function M(v){
+    try{if(typeof money==='function')return money(v)}catch(e){}
+    return 'EGP '+N(v).toLocaleString();
+  }
+  function accountName(code){
+    try{
+      var a=(db.accounts||[]).find(function(x){return String(x.code)===String(code)});
+      return a?a.name:code;
+    }catch(e){}
+    return code||'-';
+  }
+
+  window.printSingleExpenseV428=function(kind,id){
+    var arr=kind==='marketing'
+      ? (db.marketing_expenses_v287||[])
+      : (db.general_admin_expenses_v287||[]);
+    var r=arr.find(function(x){return String(x.id)===String(id)});
+    if(!r)return alert('تعذر العثور على المصروف.');
+
+    var title=kind==='marketing'?'إيصال مصروف تسويقي':'إيصال مصروف عمومي وإداري';
+    var customer=S(r.customer_name_manual||r.beneficiary_name||r.beneficiary||'-');
+    var egp=N(r.egp_value!=null?r.egp_value:r.amount);
+
+    var w=window.open('','_blank','width=850,height=700');
+    if(!w)return alert('المتصفح منع نافذة الطباعة. اسمح بالنوافذ المنبثقة ثم حاول مرة أخرى.');
+
+    var html='<!doctype html><html dir="rtl"><head><meta charset="utf-8">'+
+      '<title>'+E(title)+'</title>'+
+      '<style>'+
+      'body{font-family:Arial,Tahoma,sans-serif;padding:28px;color:#111}'+
+      'h1{text-align:center;margin:0 0 24px}'+
+      '.box{border:1px solid #aaa;border-radius:12px;padding:18px}'+
+      '.row{display:grid;grid-template-columns:180px 1fr;border-bottom:1px solid #ddd;padding:10px 0}'+
+      '.row:last-child{border-bottom:0}'+
+      '.label{font-weight:700}'+
+      '.value{font-size:15px}'+
+      '.total{font-size:20px;font-weight:700}'+
+      '@media print{body{padding:10px}}'+
+      '</style></head><body>'+
+      '<h1>'+E(title)+'</h1>'+
+      '<div class="box">'+
+      '<div class="row"><div class="label">التاريخ</div><div class="value">'+E(r.date||'-')+'</div></div>'+
+      '<div class="row"><div class="label">نوع المصروف</div><div class="value">'+E(accountName(r.account_code))+'</div></div>'+
+      '<div class="row"><div class="label">اسم العميل / المستفيد</div><div class="value">'+E(customer)+'</div></div>'+
+      '<div class="row"><div class="label">البيان</div><div class="value">'+E(r.description||'-')+'</div></div>'+
+      '<div class="row"><div class="label">الخزنة / البنك</div><div class="value">'+E(r.fund_name||'-')+'</div></div>'+
+      '<div class="row"><div class="label">العملة</div><div class="value">'+E(r.currency||'EGP')+'</div></div>'+
+      '<div class="row"><div class="label">المبلغ الأصلي</div><div class="value">'+E(N(r.amount).toLocaleString('en-EG'))+'</div></div>'+
+      '<div class="row"><div class="label">القيمة بالجنيه</div><div class="value total">'+E(M(egp))+'</div></div>'+
+      '<div class="row"><div class="label">المرجع</div><div class="value">'+E(r.reference||'-')+'</div></div>'+
+      '<div class="row"><div class="label">ملاحظات</div><div class="value">'+E(r.notes||'-')+'</div></div>'+
+      '</div>'+
+      '<script>window.onload=function(){setTimeout(function(){window.print()},120)}<\/script>'+
+      '</body></html>';
+
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+  };
+})();
+</script>
