@@ -6562,6 +6562,8 @@ render();
 
     c.balance=n(c.balance)-n(req.amount);
 
+    try{if(typeof window.reconcileCustomerCollectionsV431==='function')window.reconcileCustomerCollectionsV431(c.id,false)}catch(e){console.error('V431 approved collection allocation',e)}
+
     if(typeof postEntry==='function'){
       postEntry(
         'collection',
@@ -9162,7 +9164,7 @@ render();
 })();
 </script><style id="v207-collection-customer-natural-style">html body #co_customer_text_v203{display:block!important;width:100%!important;min-height:44px!important;padding:10px 12px!important;background:#ffffff!important;color:#111827!important;border:1px solid #cbd5e1!important;border-radius:6px!important;box-shadow:none!important;font-weight:700!important}html body #co_customer_text_v203::placeholder{color:#64748b!important}html body #co_customer_text_v203:focus{outline:none!important;border-color:#00a09d!important;box-shadow:0 0 0 3px rgba(0,160,157,.14)!important}html body .co-customer-arrow-v206{display:none!important}.co-customer-input-wrap-v206{display:block!important}</style><style id="v208b-direct-collection-style">html body .collection-approval-card-v178{display:none!important}</style><script id="v208b-direct-collection-save">
 (function(){
-  function cname208(c){return String((c&&(c.name||c.customer_name||c.clinic_name||c.company_name))||'').trim();}
+  function cname208(c){return String((c&&(c.customer_name||c.official_name||c.name||c.clinic_name||c.company_name))||'').trim();}
   function currentName208(){try{var u=typeof currentUser==='function'?(currentUser()||{}):{};return String(u.name||u.email||'').trim();}catch(e){return '';}}
   window.addCollection=function(){
     var customerEl=document.getElementById('co_customer');
@@ -9179,12 +9181,27 @@ render();
     if(!c)return alert(ar?'اختر العميل':'Select customer');
     if(!r)return alert(ar?'اختر المندوب':'Select representative');
     if(amount<=0)return alert(ar?'اكتب قيمة صحيحة للتحصيل':'Enter a valid collection amount');
+
+    /* V431: reconcile first, then prevent collecting more than the actual invoice debt. */
+    try{if(typeof window.reconcileCustomerCollectionsV431==='function')window.reconcileCustomerCollectionsV431(c.id,false)}catch(e){}
+    var outstandingV431=0;
+    try{if(typeof window.customerOutstandingV431==='function')outstandingV431=window.customerOutstandingV431(c.id)}catch(e){}
+    if(outstandingV431>0 && amount>outstandingV431+0.0001){
+      return alert(ar
+        ?'قيمة التحصيل أكبر من المديونية الحالية للعميل ('+(typeof money==='function'?money(outstandingV431):outstandingV431)+').'
+        :'Collection amount exceeds current customer debt.');
+    }
+
     if(!Array.isArray(db.collections))db.collections=[];
     var collectionId=typeof uid==='function'?uid():('col_'+Date.now());
     var customerName=cname208(c);
     var userName=currentName208();
     db.collections.unshift({id:collectionId,date:typeof today==='function'?today():new Date().toISOString().slice(0,10),customer_id:c.id,customer_name:customerName,rep_id:r.id,rep_name:r.name||'',amount:amount,method:methodEl?methodEl.value:'Cash',notes:notesEl?notesEl.value:'',status:'approved',approval_status:'approved',created_by:userName,approved_by:userName,approved_date:typeof today==='function'?today():new Date().toISOString().slice(0,10)});
     c.balance=(typeof n==='function'?n(c.balance):Number(c.balance)||0)-amount;
+
+    /* Apply the approved collection to invoice debt immediately. */
+    try{if(typeof window.reconcileCustomerCollectionsV431==='function')window.reconcileCustomerCollectionsV431(c.id,false)}catch(e){console.error('V431 collection allocation',e)}
+
     if(typeof postEntry==='function')postEntry('collection',collectionId,(ar?'تحصيل من ':'Collection from ')+customerName,[{account:'1100',debit:amount},{account:'1200',credit:amount}]);
     if(typeof save==='function')save();
     alert(ar?'تم تسجيل التحصيل بنجاح':'Collection saved successfully');
@@ -9500,6 +9517,24 @@ render();
       var sameRem=rem.length&&rem.every(function(v){return v===rem[0]});
       g.paid=samePaid?paid[0]:paid.reduce(function(a,b){return a+b},0);
       g.remaining=sameRem?rem[0]:rem.reduce(function(a,b){return a+b},0);
+
+      /*
+        V431 statement rule:
+        - invoice debit = receivable created at invoice time, before later collections.
+        - collection remains a separate credit movement.
+        This prevents collections being deducted twice after sale.remaining is updated.
+      */
+      var originalReceivables=g.rows.map(function(r){
+        if(r.receivable_at_sale_v431!=null)return numV213(r.receivable_at_sale_v431);
+        var total=numV213(r.total_including_vat||r.total);
+        var initPaid=(r.initial_paid_v431!=null)?numV213(r.initial_paid_v431):numV213(r.paid);
+        return Math.max(0,total-initPaid);
+      });
+      var sameOriginal=originalReceivables.length&&originalReceivables.every(function(v){return v===originalReceivables[0]});
+      g.original_receivable=sameOriginal?originalReceivables[0]:originalReceivables.reduce(function(a,b){return a+b},0);
+      var initPaidRows=g.rows.map(function(r){return r.initial_paid_v431!=null?numV213(r.initial_paid_v431):numV213(r.paid)});
+      var sameInitPaid=initPaidRows.length&&initPaidRows.every(function(v){return v===initPaidRows[0]});
+      g.initial_paid=sameInitPaid?initPaidRows[0]:initPaidRows.reduce(function(a,b){return a+b},0);
       var withNo=g.rows.find(function(r){return String(r.invoice_no||'').trim()});
       g.invoice_no=withNo?String(withNo.invoice_no):'';
       g.date=String(g.first.date||'').slice(0,10);
@@ -9512,13 +9547,13 @@ render();
     var c=(db.customers||[]).find(function(x){return String(x.id)===String(customerId)});if(!c)return null;
     var invoices=groupedInvoicesV213(c), cols=collectionsV213(c);
     var fromT=from?dateValueV213(from):-Infinity,toT=to?dateValueV213(to):Infinity;
-    var allDebit=invoices.reduce(function(a,g){return a+numV213(g.remaining)},0),allCredit=cols.reduce(function(a,r){return a+numV213(r.amount)},0);
+    var allDebit=invoices.reduce(function(a,g){return a+numV213(g.original_receivable)},0),allCredit=cols.reduce(function(a,r){return a+numV213(r.amount)},0);
     var base=numV213(c.balance)-allDebit+allCredit;
     var opening=base;
-    invoices.forEach(function(g){if(dateValueV213(g.date)<fromT)opening+=numV213(g.remaining)});
+    invoices.forEach(function(g){if(dateValueV213(g.date)<fromT)opening+=numV213(g.original_receivable)});
     cols.forEach(function(r){if(dateValueV213(r.date)<fromT)opening-=numV213(r.amount)});
     var moves=[];
-    invoices.forEach(function(g){var t=dateValueV213(g.date);if(t>=fromT&&t<=toT)moves.push({date:g.date,type:'invoice',doc:g.invoice_no||String(g.first.id||'').slice(-8).toUpperCase(),debit:numV213(g.remaining),credit:0,total:g.total,paid:g.paid,details:g.products,rows:g.rows,sort:1})});
+    invoices.forEach(function(g){var t=dateValueV213(g.date);if(t>=fromT&&t<=toT)moves.push({date:g.date,type:'invoice',doc:g.invoice_no||String(g.first.id||'').slice(-8).toUpperCase(),debit:numV213(g.original_receivable),credit:0,total:g.total,paid:g.initial_paid,details:g.products,rows:g.rows,sort:1})});
     cols.forEach(function(r){var t=dateValueV213(r.date);if(t>=fromT&&t<=toT)moves.push({date:r.date,type:'collection',doc:'COL-'+String(r.id||'').slice(-6).toUpperCase(),debit:0,credit:r.amount,method:r.method,rep:r.rep,details:r.notes,sort:2})});
     moves.sort(function(a,b){return dateValueV213(a.date)-dateValueV213(b.date)||a.sort-b.sort||String(a.doc).localeCompare(String(b.doc))});
     var balance=opening;moves.forEach(function(m){balance+=m.debit-m.credit;m.balance=balance});
@@ -34574,5 +34609,210 @@ html body .summary-box.v303-auto-clickable:after{
   }
 
   setTimeout(cleanV430,700);
+})();
+</script>
+
+
+<script id="v431-customer-collections-debt-cycle">
+(function(){
+  function A(v){return Array.isArray(v)?v:[]}
+  function S(v){return String(v==null?'':v).trim()}
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function D(v){return S(v).slice(0,10)}
+
+  function invoiceKey(row){
+    if(!row)return '';
+    if(S(row.invoice_no))return 'NO|'+S(row.invoice_no).toLowerCase();
+    if(S(row.invoice_group_id))return 'GROUP|'+S(row.invoice_group_id);
+    return 'ROW|'+S(row.id);
+  }
+
+  function sameCustomer(row,customerId,customerName){
+    if(!row)return false;
+    if(customerId&&row.customer_id)return String(row.customer_id)===String(customerId);
+    return customerName&&S(row.customer_name).toLowerCase()===S(customerName).toLowerCase();
+  }
+
+  function customerName(c){
+    return S(c&&(c.customer_name||c.official_name||c.name||c.clinic_name));
+  }
+
+  function saleTotal(row){
+    return N(row&&(row.total_including_vat!=null?row.total_including_vat:row.total));
+  }
+
+  function isRealSale(row){
+    var t=S(row&&(row.order_type||row.order_type_label||'sale')).toLowerCase();
+    if(t.indexOf('bonus')>=0||t.indexOf('بونص')>=0||t.indexOf('sample')>=0||
+       t.indexOf('free')>=0||t.indexOf('display')>=0||t.indexOf('عين')>=0||t.indexOf('عرض')>=0)return false;
+    return true;
+  }
+
+  function groupsForCustomer(c){
+    var map=new Map();
+    A(db.sales).filter(function(s){
+      return isRealSale(s)&&sameCustomer(s,c.id,customerName(c));
+    }).forEach(function(s){
+      var key=invoiceKey(s);
+      if(!map.has(key)){
+        map.set(key,{key:key,rows:[],date:D(s.date||s.created_at),total:0,initialPaid:null,receivable:0,allocated:0});
+      }
+      var g=map.get(key);
+      g.rows.push(s);
+      g.total+=saleTotal(s);
+      var d=D(s.date||s.created_at);
+      if(d&&(!g.date||d<g.date))g.date=d;
+    });
+
+    var groups=Array.from(map.values());
+    groups.forEach(function(g){
+      var savedInit=g.rows.map(function(r){
+        return r.initial_paid_v431!=null?N(r.initial_paid_v431):null;
+      }).filter(function(v){return v!=null});
+
+      if(savedInit.length){
+        var sameSaved=savedInit.every(function(v){return v===savedInit[0]});
+        g.initialPaid=sameSaved?savedInit[0]:savedInit.reduce(function(a,b){return a+b},0);
+      }else{
+        var currentPaid=g.rows.map(function(r){return N(r.paid)});
+        var samePaid=currentPaid.length&&currentPaid.every(function(v){return v===currentPaid[0]});
+        g.initialPaid=samePaid?currentPaid[0]:currentPaid.reduce(function(a,b){return a+b},0);
+      }
+
+      g.initialPaid=Math.max(0,Math.min(g.total,g.initialPaid||0));
+      g.receivable=Math.max(0,g.total-g.initialPaid);
+
+      g.rows.forEach(function(r){
+        r.initial_paid_v431=g.initialPaid;
+        r.receivable_at_sale_v431=g.receivable;
+      });
+    });
+
+    groups.sort(function(a,b){
+      return String(a.date||'').localeCompare(String(b.date||''))||String(a.key).localeCompare(String(b.key));
+    });
+    return groups;
+  }
+
+  function approvedCollections(c){
+    return A(db.collections).filter(function(col){
+      var approved=String(col.approval_status||col.status||'approved').toLowerCase();
+      if(approved==='pending'||approved==='rejected'||approved==='cancelled'||approved==='canceled')return false;
+      return sameCustomer(col,c.id,customerName(c));
+    }).sort(function(a,b){
+      return String(D(a.date||a.created_at)).localeCompare(String(D(b.date||b.created_at)))||
+             String(a.id||'').localeCompare(String(b.id||''));
+    });
+  }
+
+  window.reconcileCustomerCollectionsV431=function(customerId,persist){
+    if(!db||!Array.isArray(db.customers))return null;
+    var c=db.customers.find(function(x){return String(x.id)===String(customerId)});
+    if(!c)return null;
+
+    var groups=groupsForCustomer(c);
+    var cols=approvedCollections(c);
+
+    groups.forEach(function(g){g.allocated=0});
+    cols.forEach(function(col){col.allocations_v431=[];col.applied_amount_v431=0;col.unapplied_amount_v431=0});
+
+    var gi=0;
+    cols.forEach(function(col){
+      var left=Math.max(0,N(col.amount));
+      while(left>0.000001 && gi<groups.length){
+        var g=groups[gi];
+        var open=Math.max(0,g.receivable-g.allocated);
+        if(open<=0.000001){gi++;continue}
+
+        var take=Math.min(left,open);
+        g.allocated+=take;
+        left-=take;
+
+        col.allocations_v431.push({invoice_key:g.key,sale_ids:g.rows.map(function(r){return r.id}),amount:take});
+        col.applied_amount_v431+=take;
+
+        if(g.receivable-g.allocated<=0.000001)gi++;
+      }
+      col.unapplied_amount_v431=Math.max(0,left);
+      col.debt_applied_v431=true;
+    });
+
+    groups.forEach(function(g){
+      var currentPaid=Math.min(g.total,g.initialPaid+g.allocated);
+      var currentRemaining=Math.max(0,g.total-currentPaid);
+
+      g.rows.forEach(function(r){
+        r.collection_applied_v431=g.allocated;
+        r.paid=currentPaid;
+        r.remaining=currentRemaining;
+        r.collection_reconciled_v431=true;
+      });
+    });
+
+    c.invoice_outstanding_v431=groups.reduce(function(a,g){
+      return a+Math.max(0,g.receivable-g.allocated);
+    },0);
+    c.collections_applied_v431=cols.reduce(function(a,x){return a+N(x.applied_amount_v431)},0);
+    c.collections_unapplied_v431=cols.reduce(function(a,x){return a+N(x.unapplied_amount_v431)},0);
+    c.collection_reconciled_at_v431=new Date().toISOString();
+
+    if(persist!==false){
+      try{if(typeof save==='function')save()}catch(e){}
+    }
+
+    return {
+      customer_id:c.id,
+      outstanding:c.invoice_outstanding_v431,
+      applied:c.collections_applied_v431,
+      unapplied:c.collections_unapplied_v431,
+      invoices:groups.length,
+      collections:cols.length
+    };
+  };
+
+  window.customerOutstandingV431=function(customerId){
+    var c=A(db.customers).find(function(x){return String(x.id)===String(customerId)});
+    if(!c)return 0;
+    var result=window.reconcileCustomerCollectionsV431(customerId,false);
+    return result?N(result.outstanding):0;
+  };
+
+  window.reconcileAllCustomerCollectionsV431=function(persist){
+    var results=A(db.customers).map(function(c){
+      return window.reconcileCustomerCollectionsV431(c.id,false);
+    }).filter(Boolean);
+    if(persist!==false){
+      try{if(typeof save==='function')save()}catch(e){}
+    }
+    return results;
+  };
+
+  /*
+    Audit helper: every customer's invoice outstanding should now reflect
+    approved collections. Customer.balance is left untouched during backfill
+    because historical opening balances may exist there.
+  */
+  window.auditCustomerDebtCycleV431=function(){
+    return A(db.customers).map(function(c){
+      var r=window.reconcileCustomerCollectionsV431(c.id,false)||{};
+      return {
+        customer_id:c.id,
+        customer_name:customerName(c),
+        customer_balance:N(c.balance),
+        invoice_outstanding:N(r.outstanding),
+        collections_applied:N(r.applied),
+        collections_unapplied:N(r.unapplied),
+        difference:N(c.balance)-N(r.outstanding)
+      };
+    });
+  };
+
+  /* Backfill historical approved collections once on load. */
+  setTimeout(function(){
+    try{
+      window.reconcileAllCustomerCollectionsV431(true);
+      if(typeof render==='function')render();
+    }catch(e){console.error('V431 debt reconciliation',e)}
+  },900);
 })();
 </script>
