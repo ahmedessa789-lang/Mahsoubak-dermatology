@@ -22951,7 +22951,7 @@ html body .summary-box.v303-auto-clickable:after{
   function S(v){return String(v==null?'':v).trim()}
   function E(v){return String(v==null?'':v).replace(/[&<>'\"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','\"':'&quot;'}[c]})}
   function customers(){return Array.isArray(db.customers)?db.customers:[]}
-  function customerName(c){return S(c&&(c.name||c.customer_name||c.full_name))}
+  function customerName(c){return S(c&&(c.customer_name||c.official_name||c.name||c.full_name))}
   function opts(selected,allowOther){
     var h='<option value="">اختر العميل</option>';
     h+=customers().slice().sort(function(a,b){return customerName(a).localeCompare(customerName(b),'ar')}).map(function(c){
@@ -22994,21 +22994,72 @@ html body .summary-box.v303-auto-clickable:after{
     }
     return sel;
   }
-  function installReceiptCustomers(){
-    replaceWithCustomerSelect(find(['cr_in_from_v159','cr_in_party_v159','cr_in_party','cr_in_customer']),false,'العميل / استلمنا من');
-    replaceWithCustomerSelect(find(['cr_out_to_v159','cr_out_party_v159','cr_out_party','cr_out_customer']),true,'العميل المستفيد / المدفوع له');
+  function makeFreeTextCustomerField(field,labelText){
+    if(!field)return null;
+    var value=S(field.value);
+    var currentId=S(field.dataset&&field.dataset.customerId);
+
+    if(field.tagName==='SELECT'){
+      var selected=customers().find(function(c){return String(c.id)===String(field.value||currentId)});
+      var input=document.createElement('input');
+      Array.from(field.attributes).forEach(function(a){
+        if(a.name!=='list'&&a.name!=='type')input.setAttribute(a.name,a.value);
+      });
+      input.id=field.id;
+      input.value=selected?customerName(selected):(field.value==='__OTHER__'?'':value);
+      input.placeholder='اكتب اسم العميل يدويًا حتى لو غير مسجل بالنظام';
+      field.replaceWith(input);
+      field=input;
+    }else{
+      field.placeholder='اكتب اسم العميل يدويًا حتى لو غير مسجل بالنظام';
+    }
+
+    field.classList.remove('v309-customer-link');
+    var wrap=field.closest('div');
+    if(wrap){
+      wrap.style.display='';
+      var lab=wrap.querySelector('label');
+      if(lab&&labelText)lab.textContent=labelText;
+      var note=wrap.querySelector('.v309-customer-note');
+      if(note)note.textContent='يمكن كتابة أي اسم يدويًا، ولو الاسم مسجل سيتم ربطه تلقائيًا';
+    }
+    return field;
   }
+
+  function installReceiptCustomers(){
+    makeFreeTextCustomerField(find(['cr_in_from_v159','cr_in_party_v159','cr_in_party','cr_in_customer']),'اسم العميل / استلمنا من');
+    makeFreeTextCustomerField(find(['cr_out_to_v159','cr_out_party_v159','cr_out_party','cr_out_customer']),'اسم العميل / المدفوع له');
+
+    /* Remove the older V233 customer dropdown so the manual field stays visible. */
+    var linked=document.getElementById('cr_in_customer_id_v233');
+    if(linked){
+      var w=linked.closest('.receipt-linked-field-v233')||linked.parentElement;
+      if(w)w.remove();
+    }
+    var party=find(['cr_in_from_v159','cr_in_party_v159','cr_in_party','cr_in_customer']);
+    if(party&&party.closest('div'))party.closest('div').style.display='';
+  }
+
   function installExpenseCustomers(){
     ['general','marketing'].forEach(function(kind){
-      var old=document.getElementById('v287_'+kind+'_beneficiary');
-      if(!old)return;
-      var sel=replaceWithCustomerSelect(old,true,'العميل المستفيد / الجهة');
-      if(sel)sel.id='v287_'+kind+'_beneficiary';
+      var field=document.getElementById('v287_'+kind+'_beneficiary');
+      if(!field)return;
+      makeFreeTextCustomerField(field,'اسم العميل / المستفيد');
     });
   }
+
   function selectedFrom(sel){
-    if(!sel||sel.value==='__OTHER__'||!sel.value)return null;
-    return customers().find(function(c){return String(c.id)===String(sel.value)})||null;
+    if(!sel||!S(sel.value))return null;
+
+    if(sel.tagName==='SELECT'){
+      if(sel.value==='__OTHER__')return null;
+      return customers().find(function(c){return String(c.id)===String(sel.value)})||null;
+    }
+
+    var typed=S(sel.value).toLowerCase();
+    return customers().find(function(c){
+      return customerName(c).toLowerCase()===typed;
+    })||null;
   }
 
   var saveReceiptBase=window.saveCashReceiptV159;
@@ -23036,9 +23087,11 @@ html body .summary-box.v303-auto-clickable:after{
       var arr=type==='in'?(db.cash_receipts_in||[]): (db.cash_receipts_out||[]);
       var row=arr.find(function(r){return !before.has(String(r.id))});
       if(row){
+        var manualName=S(sel&&sel.value);
         row.customer_id=c?c.id:'';
-        row.customer_name=c?customerName(c):'';
-        if(c)row.party=customerName(c);
+        row.customer_name=c?customerName(c):manualName;
+        row.customer_name_manual=c?'':manualName;
+        row.party=row.customer_name||S(row.party);
         row.party_type=c?'customer':'other';
         try{if(typeof save==='function')save()}catch(e){}
       }
@@ -23069,9 +23122,12 @@ html body .summary-box.v303-auto-clickable:after{
       var rows=kind==='marketing'?(db.marketing_expenses_v287||[]): (db.general_admin_expenses_v287||[]);
       var row=rows.find(function(r){return !before.has(String(r.id))});
       if(row){
+        var manualName=S(sel&&sel.value);
         row.customer_id=c?c.id:'';
-        row.customer_name=c?customerName(c):'';
-        row.beneficiary=c?customerName(c):S(row.beneficiary);
+        row.customer_name=c?customerName(c):manualName;
+        row.customer_name_manual=c?'':manualName;
+        row.beneficiary=c?customerName(c):(manualName||S(row.beneficiary));
+        row.beneficiary_name=row.beneficiary;
         row.party_type=c?'customer':'other';
         try{if(typeof save==='function')save()}catch(e){}
       }
@@ -34090,5 +34146,356 @@ html body .summary-box.v303-auto-clickable:after{
       receipts:rows.filter(function(r){return r.source==='cash_receipts_out'}).length
     };
   };
+})();
+</script>
+
+
+<style id="v424-expense-print-style">
+.v424-print-btn{margin-inline-start:8px!important}
+@media print{
+  body.v424-printing-expenses *{visibility:hidden!important}
+  body.v424-printing-expenses .v424-print-area,
+  body.v424-printing-expenses .v424-print-area *{visibility:visible!important}
+  body.v424-printing-expenses .v424-print-area{
+    position:absolute!important;
+    inset:0!important;
+    width:100%!important;
+    background:#fff!important;
+    color:#000!important;
+    padding:20px!important;
+  }
+  body.v424-printing-expenses .v424-no-print{display:none!important}
+  body.v424-printing-expenses table{width:100%!important;border-collapse:collapse!important}
+  body.v424-printing-expenses th,
+  body.v424-printing-expenses td{border:1px solid #999!important;padding:7px!important}
+}
+</style>
+
+<script id="v424-expenses-print">
+(function(){
+  function S(v){return String(v==null?'':v).trim()}
+  function E(v){
+    try{if(typeof esc==='function')return esc(v)}catch(e){}
+    return S(v).replace(/[&<>'"]/g,function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]
+    });
+  }
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function M(v){
+    try{if(typeof money==='function')return money(v)}catch(e){}
+    return 'EGP '+N(v).toLocaleString();
+  }
+
+  function rows(kind){
+    return kind==='marketing'
+      ? (db.marketing_expenses_v287||[])
+      : (db.general_admin_expenses_v287||[]);
+  }
+
+  function accountName(code){
+    try{
+      var a=(db.accounts||[]).find(function(x){return String(x.code)===String(code)});
+      return a?a.name:code;
+    }catch(e){}
+    return code||'';
+  }
+
+  window.printExpenseRegisterV424=function(kind){
+    var marketing=kind==='marketing';
+    var title=marketing?'المصروفات التسويقية':'المصروفات العمومية والإدارية';
+    var arr=rows(kind).slice().sort(function(a,b){
+      return String(a.date||'').localeCompare(String(b.date||''));
+    });
+
+    var total=arr.reduce(function(a,r){
+      return a+N(r.egp_value!=null?r.egp_value:r.amount);
+    },0);
+
+    var w=window.open('','_blank','width=1200,height=800');
+    if(!w)return alert('المتصفح منع نافذة الطباعة. اسمح بالنوافذ المنبثقة ثم حاول مرة أخرى.');
+
+    var html='<!doctype html><html dir="rtl"><head><meta charset="utf-8">'+
+      '<title>'+E(title)+'</title>'+
+      '<style>'+
+      'body{font-family:Arial,Tahoma,sans-serif;padding:24px;color:#111}'+
+      'h1{margin:0 0 6px;text-align:center}'+
+      '.sub{text-align:center;margin-bottom:18px;color:#555}'+
+      '.total{margin:16px 0;font-size:18px;font-weight:700}'+
+      'table{width:100%;border-collapse:collapse;font-size:12px}'+
+      'th,td{border:1px solid #999;padding:7px;text-align:right;vertical-align:top}'+
+      'th{background:#f3f4f6}'+
+      '@media print{button{display:none}}'+
+      '</style></head><body>'+
+      '<h1>'+E(title)+'</h1>'+
+      '<div class="sub">Mahsoubak Business</div>'+
+      '<div class="total">الإجمالي: '+E(M(total))+'</div>'+
+      '<table><thead><tr>'+
+      '<th>التاريخ</th><th>نوع المصروف</th><th>اسم العميل / المستفيد</th><th>البيان</th>'+
+      '<th>الخزنة / البنك</th><th>العملة</th><th>القيمة EGP</th><th>المرجع</th><th>ملاحظات</th>'+
+      '</tr></thead><tbody>'+
+      arr.map(function(r){
+        var customer=S(r.customer_name_manual||r.beneficiary_name||r.beneficiary||'-');
+        var egp=N(r.egp_value!=null?r.egp_value:r.amount);
+        return '<tr>'+
+          '<td>'+E(r.date||'')+'</td>'+
+          '<td>'+E(accountName(r.account_code)||'-')+'</td>'+
+          '<td>'+E(customer)+'</td>'+
+          '<td>'+E(r.description||'-')+'</td>'+
+          '<td>'+E(r.fund_name||'-')+'</td>'+
+          '<td>'+E((r.currency||'EGP')+' '+N(r.amount).toLocaleString('en-EG'))+'</td>'+
+          '<td>'+E(M(egp))+'</td>'+
+          '<td>'+E(r.reference||'-')+'</td>'+
+          '<td>'+E(r.notes||'-')+'</td>'+
+        '</tr>';
+      }).join('')+
+      '</tbody></table>'+
+      '<script>window.onload=function(){setTimeout(function(){window.print()},150)}<\/script>'+
+      '</body></html>';
+
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+  };
+
+  function inject(){
+    ['general','marketing'].forEach(function(kind){
+      var module=document.getElementById('v287_'+kind+'_module');
+      if(!module)return;
+      if(module.querySelector('.v424-print-btn'))return;
+
+      var head=module.querySelector('.v287-module-head');
+      if(!head)return;
+
+      var btn=document.createElement('button');
+      btn.type='button';
+      btn.className='btn blue v424-print-btn';
+      btn.textContent='طباعة';
+      btn.onclick=function(){window.printExpenseRegisterV424(kind)};
+      head.appendChild(btn);
+    });
+  }
+
+  var base=window.renderAccounts;
+  if(typeof base==='function'){
+    window.renderAccounts=function(){
+      var r=base.apply(this,arguments);
+      setTimeout(inject,80);
+      return r;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  setTimeout(inject,500);
+})();
+</script>
+
+
+<script id="v425-print-visible-expense-section-only">
+(function(){
+  function S(v){return String(v==null?'':v).trim()}
+
+  window.printVisibleExpenseSectionV425=function(kind){
+    var module=document.getElementById('v287_'+kind+'_module');
+    if(!module)return alert('القسم المطلوب غير ظاهر حاليًا.');
+
+    var clone=module.cloneNode(true);
+
+    /* Remove controls/forms/buttons; keep exactly the visible report/history content. */
+    clone.querySelectorAll('button,.v287-exp-grid,.v287-note').forEach(function(el){el.remove()});
+
+    /* Remove any hidden elements from the cloned visible section. */
+    clone.querySelectorAll('*').forEach(function(el){
+      try{
+        var cs=window.getComputedStyle(el);
+        if(cs.display==='none'||cs.visibility==='hidden')el.remove();
+      }catch(e){}
+    });
+
+    var title=kind==='marketing'?'المصروفات التسويقية':'المصروفات العمومية والإدارية';
+
+    var w=window.open('','_blank','width=1200,height=800');
+    if(!w)return alert('المتصفح منع نافذة الطباعة. اسمح بالنوافذ المنبثقة ثم حاول مرة أخرى.');
+
+    var css=
+      'body{font-family:Arial,Tahoma,sans-serif;direction:rtl;padding:24px;color:#111;background:#fff}'+
+      '.card{box-shadow:none!important;border:0!important;background:#fff!important}'+
+      '.v287-module-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}'+
+      '.v287-total{font-size:22px;font-weight:700}'+
+      'table{width:100%;border-collapse:collapse;font-size:12px}'+
+      'th,td{border:1px solid #999;padding:7px;text-align:right;vertical-align:top}'+
+      'th{background:#f3f4f6}'+
+      '.hint{font-size:11px;color:#555}'+
+      'button,input,select,textarea{display:none!important}'+
+      '@media print{body{padding:10px}}';
+
+    w.document.open();
+    w.document.write(
+      '<!doctype html><html dir="rtl"><head><meta charset="utf-8">'+
+      '<title>'+title+'</title><style>'+css+'</style></head><body>'+
+      clone.outerHTML+
+      '<script>window.onload=function(){setTimeout(function(){window.print()},120)}<\/script>'+
+      '</body></html>'
+    );
+    w.document.close();
+  };
+
+  function replaceButtons(){
+    ['general','marketing'].forEach(function(kind){
+      var module=document.getElementById('v287_'+kind+'_module');
+      if(!module)return;
+
+      var old=module.querySelector('.v424-print-btn');
+      if(old){
+        old.textContent='طباعة الجزء الظاهر';
+        old.onclick=function(){
+          window.printVisibleExpenseSectionV425(kind);
+        };
+      }
+    });
+  }
+
+  var base=window.renderAccounts;
+  if(typeof base==='function'){
+    window.renderAccounts=function(){
+      var r=base.apply(this,arguments);
+      setTimeout(replaceButtons,120);
+      return r;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  setTimeout(replaceButtons,600);
+})();
+</script>
+
+
+<script id="v426-receipts-free-text-ui-guard">
+(function(){
+  function S(v){return String(v==null?'':v).trim()}
+  function find(ids){
+    for(var i=0;i<ids.length;i++){
+      var e=document.getElementById(ids[i]);
+      if(e)return e;
+    }
+    return null;
+  }
+  function makeInput(field,label){
+    if(!field)return null;
+
+    if(field.tagName==='SELECT'){
+      var val=S(field.dataset&&field.dataset.customerName);
+      if(!val){
+        var op=field.options&&field.selectedIndex>=0?field.options[field.selectedIndex]:null;
+        if(op&&field.value&&field.value!=='__OTHER__')val=S(op.textContent);
+      }
+      var input=document.createElement('input');
+      Array.from(field.attributes).forEach(function(a){
+        if(a.name!=='type'&&a.name!=='list')input.setAttribute(a.name,a.value);
+      });
+      input.id=field.id;
+      input.value=val;
+      field.replaceWith(input);
+      field=input;
+    }
+
+    field.placeholder='اكتب اسم العميل يدويًا حتى لو غير مسجل بالنظام';
+    var wrap=field.closest('div');
+    if(wrap){
+      wrap.style.display='';
+      var lab=wrap.querySelector('label');
+      if(lab)lab.textContent=label;
+    }
+    return field;
+  }
+
+  window.ensureReceiptFreeTextV426=function(){
+    var linked=document.getElementById('cr_in_customer_id_v233');
+    if(linked){
+      var lw=linked.closest('.receipt-linked-field-v233')||linked.parentElement;
+      if(lw)lw.remove();
+    }
+
+    makeInput(
+      find(['cr_in_from_v159','cr_in_party_v159','cr_in_party','cr_in_customer']),
+      'اسم العميل / استلمنا من'
+    );
+    makeInput(
+      find(['cr_out_to_v159','cr_out_party_v159','cr_out_party','cr_out_customer']),
+      'اسم العميل / المدفوع له'
+    );
+
+    ['general','marketing'].forEach(function(kind){
+      makeInput(document.getElementById('v287_'+kind+'_beneficiary'),'اسم العميل / المستفيد');
+    });
+  };
+
+  var accountsBaseV426=window.renderAccounts;
+  if(typeof accountsBaseV426==='function'){
+    window.renderAccounts=function(){
+      var r=accountsBaseV426.apply(this,arguments);
+      setTimeout(window.ensureReceiptFreeTextV426,180);
+      setTimeout(window.ensureReceiptFreeTextV426,400);
+      return r;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  var renderBaseV426=window.render;
+  if(typeof renderBaseV426==='function'){
+    window.render=function(){
+      var r=renderBaseV426.apply(this,arguments);
+      setTimeout(window.ensureReceiptFreeTextV426,220);
+      return r;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  setTimeout(window.ensureReceiptFreeTextV426,700);
+})();
+</script>
+
+<script id="v427-remove-manual-journal-from-finance">
+(function(){
+  function removeManualJournalV427(){
+    var card=document.getElementById('v281_manual_journal_card');
+    if(card)card.remove();
+
+    document.querySelectorAll('[data-section="manual_journal"],[data-route="manual_journal"],.manual-journal-card').forEach(function(el){
+      el.remove();
+    });
+
+    /* Remove matching navigation/button labels inside finance only. */
+    document.querySelectorAll('#view-accounts button,#view-accounts a,#view-accounts .tab,#view-accounts .menu-item').forEach(function(el){
+      var t=String(el.textContent||'').trim().toLowerCase();
+      if(t==='قيد يومية يدوي' || t==='قيد يوميه يدوي' || t==='manual journal' || t==='manual journal entry'){
+        el.remove();
+      }
+    });
+  }
+
+  window.removeManualJournalV427=removeManualJournalV427;
+
+  var accountsBaseV427=window.renderAccounts;
+  if(typeof accountsBaseV427==='function'){
+    window.renderAccounts=function(){
+      var r=accountsBaseV427.apply(this,arguments);
+      setTimeout(removeManualJournalV427,60);
+      setTimeout(removeManualJournalV427,180);
+      return r;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  var renderBaseV427=window.render;
+  if(typeof renderBaseV427==='function'){
+    window.render=function(){
+      var r=renderBaseV427.apply(this,arguments);
+      setTimeout(removeManualJournalV427,120);
+      return r;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  setTimeout(removeManualJournalV427,500);
 })();
 </script>
