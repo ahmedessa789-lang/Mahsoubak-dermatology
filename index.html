@@ -19673,25 +19673,14 @@ ensureFundAccounts();setTimeout(function(){bind();injectTest()},700);
   }
 
   function injectV281(){
-    ensureV281();
-    var view=document.getElementById('view-accounts');
-    if(!view)return;
+    /*
+      Manual Journal UI intentionally removed.
+      Keep historical data/functions untouched for accounting compatibility,
+      but never build or insert the manual-journal card in Finance.
+    */
     var old=document.getElementById('v281_manual_journal_card');
     if(old)old.remove();
-
-    var holder=document.createElement('div');
-    holder.innerHTML=manualJournalCardV281();
-    var card=holder.firstElementChild;
-
-    var financialHolder=document.getElementById('v277_finance_statements_holder');
-    if(financialHolder && financialHolder.nextSibling){
-      view.insertBefore(card,financialHolder.nextSibling);
-    }else if(financialHolder){
-      view.appendChild(card);
-    }else{
-      view.insertBefore(card,view.firstChild);
-    }
-    setTimeout(syncManualFormV281,30);
+    return;
   }
 
   var renderAccountsBaseV281=window.renderAccounts;
@@ -20343,8 +20332,7 @@ setTimeout(patch,700);setTimeout(patch,1400);
 
     var g=document.createElement('div');g.innerHTML=moduleHTML('general');
     var m=document.createElement('div');m.innerHTML=moduleHTML('marketing');
-    var manual=document.getElementById('v281_manual_journal_card');
-    var anchor=manual||document.getElementById('v277_finance_statements_holder');
+    var anchor=document.getElementById('v277_finance_statements_holder');
 
     if(anchor){
       anchor.insertAdjacentElement('beforebegin',g.firstElementChild);
@@ -21294,14 +21282,10 @@ setTimeout(refresh,1500);
     holder.innerHTML=generalJournalCardV298();
     var card=holder.firstElementChild;
 
-    var oldManual=document.getElementById('v281_manual_journal_card');
-    if(oldManual)view.insertBefore(card,oldManual);
-    else{
-      var financialHolder=document.getElementById('v277_finance_statements_holder');
-      if(financialHolder&&financialHolder.nextSibling)view.insertBefore(card,financialHolder.nextSibling);
-      else if(financialHolder)view.appendChild(card);
-      else view.insertBefore(card,view.firstChild);
-    }
+    var financialHolder=document.getElementById('v277_finance_statements_holder');
+    if(financialHolder&&financialHolder.nextSibling)view.insertBefore(card,financialHolder.nextSibling);
+    else if(financialHolder)view.appendChild(card);
+    else view.insertBefore(card,view.firstChild);
     setTimeout(recalcGeneralJournalV298,30);
   }
 
@@ -34454,48 +34438,4 @@ html body .summary-box.v303-auto-clickable:after{
 })();
 </script>
 
-<script id="v427-remove-manual-journal-from-finance">
-(function(){
-  function removeManualJournalV427(){
-    var card=document.getElementById('v281_manual_journal_card');
-    if(card)card.remove();
 
-    document.querySelectorAll('[data-section="manual_journal"],[data-route="manual_journal"],.manual-journal-card').forEach(function(el){
-      el.remove();
-    });
-
-    /* Remove matching navigation/button labels inside finance only. */
-    document.querySelectorAll('#view-accounts button,#view-accounts a,#view-accounts .tab,#view-accounts .menu-item').forEach(function(el){
-      var t=String(el.textContent||'').trim().toLowerCase();
-      if(t==='قيد يومية يدوي' || t==='قيد يوميه يدوي' || t==='manual journal' || t==='manual journal entry'){
-        el.remove();
-      }
-    });
-  }
-
-  window.removeManualJournalV427=removeManualJournalV427;
-
-  var accountsBaseV427=window.renderAccounts;
-  if(typeof accountsBaseV427==='function'){
-    window.renderAccounts=function(){
-      var r=accountsBaseV427.apply(this,arguments);
-      setTimeout(removeManualJournalV427,60);
-      setTimeout(removeManualJournalV427,180);
-      return r;
-    };
-    try{renderAccounts=window.renderAccounts}catch(e){}
-  }
-
-  var renderBaseV427=window.render;
-  if(typeof renderBaseV427==='function'){
-    window.render=function(){
-      var r=renderBaseV427.apply(this,arguments);
-      setTimeout(removeManualJournalV427,120);
-      return r;
-    };
-    try{render=window.render}catch(e){}
-  }
-
-  setTimeout(removeManualJournalV427,500);
-})();
-</script>
