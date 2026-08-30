@@ -34512,3 +34512,88 @@ html body .summary-box.v303-auto-clickable:after{
   };
 })();
 </script>
+
+
+<script id="v429-force-expense-row-print-button">
+(function(){
+  function addButtonsV429(){
+    ['general','marketing'].forEach(function(kind){
+      var module=document.getElementById('v287_'+kind+'_module');
+      if(!module)return;
+
+      var history=module.querySelector('.v287-history');
+      if(!history)return;
+
+      history.querySelectorAll('button[onclick*="deleteExpenseV287"]').forEach(function(delBtn){
+        var cell=delBtn.closest('td');
+        if(!cell)return;
+        if(cell.querySelector('.v429-row-print'))return;
+
+        var onclick=String(delBtn.getAttribute('onclick')||'');
+        var m=onclick.match(/deleteExpenseV287\(\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]\s*\)/);
+        var k=m?m[1]:kind;
+        var id=m?m[2]:'';
+        if(!id)return;
+
+        var wrap=delBtn.closest('.actions');
+        if(!wrap){
+          wrap=document.createElement('div');
+          wrap.className='actions';
+          delBtn.parentNode.insertBefore(wrap,delBtn);
+          wrap.appendChild(delBtn);
+        }
+
+        var btn=document.createElement('button');
+        btn.type='button';
+        btn.className='btn small blue v429-row-print';
+        btn.textContent='طباعة';
+        btn.onclick=function(){
+          if(typeof window.printSingleExpenseV428==='function'){
+            window.printSingleExpenseV428(k,id);
+          }else{
+            alert('وظيفة الطباعة غير متاحة.');
+          }
+        };
+        wrap.insertBefore(btn,delBtn);
+      });
+    });
+  }
+
+  window.ensureExpenseRowPrintButtonsV429=addButtonsV429;
+
+  var accountsBaseV429=window.renderAccounts;
+  if(typeof accountsBaseV429==='function'){
+    window.renderAccounts=function(){
+      var r=accountsBaseV429.apply(this,arguments);
+      setTimeout(addButtonsV429,80);
+      setTimeout(addButtonsV429,220);
+      setTimeout(addButtonsV429,500);
+      return r;
+    };
+    try{renderAccounts=window.renderAccounts}catch(e){}
+  }
+
+  var renderBaseV429=window.render;
+  if(typeof renderBaseV429==='function'){
+    window.render=function(){
+      var r=renderBaseV429.apply(this,arguments);
+      setTimeout(addButtonsV429,180);
+      setTimeout(addButtonsV429,450);
+      return r;
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  /* Catch late DOM rebuilds inside the finance page without a render() call. */
+  var target=document.getElementById('view-accounts');
+  if(target && typeof MutationObserver!=='undefined'){
+    var timer=null;
+    new MutationObserver(function(){
+      clearTimeout(timer);
+      timer=setTimeout(addButtonsV429,60);
+    }).observe(target,{childList:true,subtree:true});
+  }
+
+  setTimeout(addButtonsV429,700);
+})();
+</script>
