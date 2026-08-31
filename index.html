@@ -14896,11 +14896,47 @@ render();
   function s(v){return String(v==null?'':v).trim()}
   function e(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
   function money2(v){return 'EGP '+n(v).toLocaleString('en-EG',{minimumFractionDigits:2,maximumFractionDigits:2})}
-  function dateOnly(v){return s(v).slice(0,10)}
-  function today(){return new Date().toISOString().slice(0,10)}
+  function dateOnly(v){
+    if(v==null||v==='')return '';
+    var raw=s(v).trim();
+    if(!raw)return '';
+
+    /* ISO / timestamp: 2026-08-31 or 2026-08-31T... */
+    var m=raw.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
+    if(m)return m[1]+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[3]).padStart(2,'0');
+
+    /* Egyptian / Excel display: 31/08/2026 or 31-08-2026 */
+    m=raw.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/);
+    if(m)return m[3]+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[1]).padStart(2,'0');
+
+    /* Excel numeric serial date */
+    if(/^\d+(\.\d+)?$/.test(raw)){
+      var serial=Number(raw);
+      if(serial>20000&&serial<100000){
+        var ms=Math.round((serial-25569)*86400000);
+        var d=new Date(ms);
+        if(!isNaN(d.getTime())){
+          return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');
+        }
+      }
+    }
+
+    var d2=new Date(raw);
+    if(!isNaN(d2.getTime())){
+      return d2.getFullYear()+'-'+String(d2.getMonth()+1).padStart(2,'0')+'-'+String(d2.getDate()).padStart(2,'0');
+    }
+    return '';
+  }
+  function today(){
+    var d=new Date();
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
   function daysBetween(a,b){
+    a=dateOnly(a);b=dateOnly(b);
     if(!a||!b)return 0;
-    return Math.max(0,Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000));
+    var da=new Date(a+'T00:00:00'),dbb=new Date(b+'T00:00:00');
+    if(isNaN(da.getTime())||isNaN(dbb.getTime()))return 0;
+    return Math.max(0,Math.floor((dbb-da)/86400000));
   }
   function inRange(d,f,t){if(f&&d<f)return false;if(t&&d>t)return false;return true}
   function ensure(){
@@ -14927,9 +14963,11 @@ render();
   function customerDebtMap(){
     var map={};
     salesRows().forEach(function(x){
+      var debt=saleRemain(x);
+      if(debt<=0)return;
       var k=x.customer_id||customerName(x);
       if(!map[k])map[k]={id:x.customer_id||'',name:customerName(x),debt:0,oldest:'',rep:repName(x),count:0};
-      map[k].debt+=saleRemain(x);map[k].count++;
+      map[k].debt+=debt;map[k].count++;
       var d=saleDate(x);if(d&&(!map[k].oldest||d<map[k].oldest))map[k].oldest=d;
     });
     return Object.keys(map).map(function(k){return map[k]}).filter(function(x){return x.debt>0});
@@ -15008,7 +15046,10 @@ render();
 
   function collectionsDashboardHTML(){
     var debt=customerDebtMap(),totalDebt=debt.reduce(function(a,x){return a+x.debt},0);
-    var todayCol=collectionRows().filter(function(x){return dateOnly(x.date)===today()}).reduce(function(a,x){return a+n(x.amount)},0);
+    var todayCol=collectionRows().filter(function(x){
+      var d=dateOnly(x.date||x.approved_date||x.created_at);
+      return d===today();
+    }).reduce(function(a,x){return a+n(x.amount)},0);
     var overdue=debt.filter(function(x){return x.oldest&&daysBetween(x.oldest,today())>30}).reduce(function(a,x){return a+x.debt},0);
     var avg=avgCollectionDays();
     var target=totalDebt*.30;
@@ -34956,5 +34997,58 @@ html body .summary-box.v303-auto-clickable:after{
       if(typeof render==='function')render();
     }catch(e){console.error('V433 debt sync',e)}
   },1200);
+})();
+</script>
+
+
+<script id="v434-collections-date-audit">
+(function(){
+  function S(v){return String(v==null?'':v).trim()}
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function normDate434(v){
+    if(v==null||v==='')return '';
+    var raw=S(v),m=raw.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
+    if(m)return m[1]+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[3]).padStart(2,'0');
+    m=raw.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/);
+    if(m)return m[3]+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[1]).padStart(2,'0');
+    if(/^\d+(\.\d+)?$/.test(raw)){
+      var serial=Number(raw);
+      if(serial>20000&&serial<100000){
+        var d=new Date(Math.round((serial-25569)*86400000));
+        if(!isNaN(d.getTime()))return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');
+      }
+    }
+    var d2=new Date(raw);
+    if(!isNaN(d2.getTime()))return d2.getFullYear()+'-'+String(d2.getMonth()+1).padStart(2,'0')+'-'+String(d2.getDate()).padStart(2,'0');
+    return '';
+  }
+  function localToday434(){
+    var d=new Date();
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  function age434(v){
+    var d=normDate434(v),t=localToday434();
+    if(!d)return null;
+    return Math.max(0,Math.floor((new Date(t+'T00:00:00')-new Date(d+'T00:00:00'))/86400000));
+  }
+  window.auditCollectionsDatesV434=function(){
+    var cols=(Array.isArray(db.collections)?db.collections:[]).map(function(x){
+      var raw=x.date||x.approved_date||x.created_at||'';
+      return {id:x.id,raw_date:raw,normalized_date:normDate434(raw),is_today:normDate434(raw)===localToday434(),amount:N(x.amount)};
+    });
+    var sales=(Array.isArray(db.sales)?db.sales:[]).filter(function(x){return N(x.remaining)>0}).map(function(x){
+      var raw=x.date||x.created_at||'';
+      return {id:x.id,raw_date:raw,normalized_date:normDate434(raw),age_days:age434(raw),remaining:N(x.remaining)};
+    });
+    return {
+      today:localToday434(),
+      today_collections:cols.filter(function(x){return x.is_today}).reduce(function(a,x){return a+x.amount},0),
+      overdue_over_30:sales.filter(function(x){return x.age_days!=null&&x.age_days>30}).reduce(function(a,x){return a+x.remaining},0),
+      invalid_collection_dates:cols.filter(function(x){return !x.normalized_date}),
+      invalid_sale_dates:sales.filter(function(x){return !x.normalized_date}),
+      collections:cols,
+      debts:sales
+    };
+  };
 })();
 </script>
