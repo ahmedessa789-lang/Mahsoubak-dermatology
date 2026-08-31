@@ -15103,9 +15103,146 @@ render();
     };
   }
 
+
+  function invoiceKeyV437(x){
+    if(s(x.invoice_no))return 'NO|'+s(x.invoice_no).toLowerCase();
+    if(s(x.invoice_group_id))return 'GROUP|'+s(x.invoice_group_id);
+    return 'ROW|'+s(x.id);
+  }
+
+  function isDebtSaleV437(x){
+    var t=s(x.order_type||x.order_type_label||'sale').toLowerCase();
+    if(t.indexOf('bonus')>=0||t.indexOf('بونص')>=0||
+       t.indexOf('sample')>=0||t.indexOf('free')>=0||
+       t.indexOf('display')>=0||t.indexOf('عين')>=0||
+       t.indexOf('عرض')>=0)return false;
+    return true;
+  }
+
+  function customerIdentityV437(row){
+    return s(row.customer_id||row.customer_name||row.customer||'');
+  }
+
+  function invoiceLedgerV437(){
+    ensure();
+    var map=new Map();
+
+    salesRows().filter(isDebtSaleV437).forEach(function(x){
+      var key=invoiceKeyV437(x);
+      if(!map.has(key)){
+        map.set(key,{
+          key:key,
+          customer_id:x.customer_id||'',
+          customer_name:customerName(x),
+          rep:repName(x),
+          date:saleDate(x),
+          rows:[],
+          total:0,
+          initial_paid:0,
+          debt_created:0,
+          collected:0,
+          remaining:0
+        });
+      }
+      var g=map.get(key);
+      g.rows.push(x);
+      g.total+=saleTotal(x);
+
+      var d=saleDate(x);
+      if(d&&(!g.date||d<g.date))g.date=d;
+      if(!g.customer_id&&x.customer_id)g.customer_id=x.customer_id;
+      if((!g.customer_name||g.customer_name==='-')&&customerName(x))g.customer_name=customerName(x);
+      if((!g.rep||g.rep==='بدون بياع')&&repName(x))g.rep=repName(x);
+    });
+
+    var invoices=Array.from(map.values());
+    invoices.forEach(function(g){
+      /*
+        Initial payment must represent payment at invoice creation only.
+        V431 preserves it in initial_paid_v431. If absent, use the earliest
+        trustworthy paid snapshot, without using later collection-inflated paid.
+      */
+      var vals=g.rows.map(function(r){
+        return r.initial_paid_v431!=null?n(r.initial_paid_v431):null;
+      }).filter(function(v){return v!=null});
+
+      if(vals.length){
+        var same=vals.every(function(v){return v===vals[0]});
+        g.initial_paid=same?vals[0]:vals.reduce(function(a,b){return a+b},0);
+      }else{
+        var paidRows=g.rows.map(function(r){return n(r.paid)});
+        var samePaid=paidRows.length&&paidRows.every(function(v){return v===paidRows[0]});
+        g.initial_paid=samePaid?paidRows[0]:paidRows.reduce(function(a,b){return a+b},0);
+      }
+
+      g.initial_paid=Math.max(0,Math.min(g.total,g.initial_paid));
+      g.debt_created=Math.max(0,g.total-g.initial_paid);
+      g.remaining=g.debt_created;
+    });
+
+    invoices.sort(function(a,b){
+      return String(a.date||'').localeCompare(String(b.date||''))||
+             String(a.key).localeCompare(String(b.key));
+    });
+
+    var byCustomer={};
+    invoices.forEach(function(g){
+      var k=g.customer_id||s(g.customer_name).toLowerCase();
+      if(!byCustomer[k])byCustomer[k]=[];
+      byCustomer[k].push(g);
+    });
+
+    var cols=collectionRows().slice().sort(function(a,b){
+      return String(dateOnly(a.date||a.approved_date||a.created_at)).localeCompare(
+        String(dateOnly(b.date||b.approved_date||b.created_at))
+      ) || String(a.id||'').localeCompare(String(b.id||''));
+    });
+
+    cols.forEach(function(c){
+      var ck=c.customer_id||s(c.customer_name).toLowerCase();
+      var list=byCustomer[ck]||[];
+      var left=Math.max(0,n(c.amount));
+
+      for(var i=0;i<list.length && left>0.000001;i++){
+        var inv=list[i];
+        if(inv.remaining<=0.000001)continue;
+        var take=Math.min(left,inv.remaining);
+        inv.collected+=take;
+        inv.remaining-=take;
+        left-=take;
+      }
+    });
+
+    return {invoices:invoices,collections:cols};
+  }
+
+  function debtCustomersFromLedgerV437(ledger){
+    var map={};
+    ledger.invoices.forEach(function(inv){
+      if(inv.remaining<=0.000001)return;
+      var k=inv.customer_id||s(inv.customer_name).toLowerCase();
+      if(!map[k]){
+        map[k]={
+          id:inv.customer_id||'',
+          name:inv.customer_name||'-',
+          debt:0,oldest:'',rep:inv.rep||'بدون بياع',
+          count:0,rows:[]
+        };
+      }
+      map[k].debt+=inv.remaining;
+      map[k].count++;
+      var age=inv.date?daysBetween(inv.date,today()):0;
+      map[k].rows.push({sale:inv.rows[0]||{},date:inv.date,age:age,debt:inv.remaining,invoice:inv});
+      if(inv.date&&(!map[k].oldest||inv.date<map[k].oldest))map[k].oldest=inv.date;
+    });
+    return Object.keys(map).map(function(k){return map[k]}).filter(function(x){return x.debt>0});
+  }
+
   function collectionsDashboardHTML(){
-    var debt=customerDebtMap(),totalDebt=debt.reduce(function(a,x){return a+x.debt},0);
-    var allCollections=collectionRows();
+    var ledger=invoiceLedgerV437();
+    var debt=debtCustomersFromLedgerV437(ledger);
+    var totalDebt=debt.reduce(function(a,x){return a+x.debt},0);
+    var allCollections=ledger.collections;
     var todayRows=allCollections.filter(function(x){
       return dateOnly(x.date||x.approved_date||x.created_at)===today();
     });
@@ -15117,7 +15254,7 @@ render();
         if(r.debt>0 && r.date && r.age>30){
           overdueRows.push({
             customer_id:c.id,customer_name:c.name,rep:c.rep,
-            sale:r.sale,date:r.date,age:r.age,debt:r.debt
+            sale:r.sale,invoice:r.invoice||null,date:r.date,age:r.age,debt:r.debt
           });
         }
       });
@@ -35470,6 +35607,29 @@ html body .summary-box.v303-auto-clickable:after{
     document.getElementById('v436_title').textContent=title;
     document.getElementById('v436_body').innerHTML=html;
     m.classList.add('show');
+  };
+})();
+</script>
+
+
+<script id="v437-collections-authoritative-ledger-audit">
+(function(){
+  window.auditCollectionsLedgerV437=function(){
+    var el=document.getElementById('view-collections');
+    var d=window.__collectionsDetailV436||{};
+    function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+    function A(v){return Array.isArray(v)?v:[]}
+    return {
+      visible:!!el,
+      debt_total:A(d.debt).reduce(function(a,x){return a+N(x.debt)},0),
+      today_total:A(d.today).reduce(function(a,x){return a+N(x.amount)},0),
+      overdue_total:A(d.overdue).reduce(function(a,x){return a+N(x.debt)},0),
+      debt_customers:A(d.debt).length,
+      today_rows:A(d.today).length,
+      overdue_rows:A(d.overdue).length,
+      target:N(d.target&&d.target.target),
+      collected_total:N(d.achievement&&d.achievement.collected)
+    };
   };
 })();
 </script>
