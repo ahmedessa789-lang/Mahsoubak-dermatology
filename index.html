@@ -14951,7 +14951,22 @@ render();
     var r=n(x.remaining),p=n(x.paid),t=saleTotal(x);
     return r>0?r:Math.max(0,t-p);
   }
-  function saleDate(x){return dateOnly(x.date||x.created_at)}
+  function saleDate(x){
+    if(!x)return '';
+    var direct=dateOnly(x.invoice_date||x.original_date||x.order_date||x.date||x.created_at);
+    var order=null;
+    if(x.order_id){
+      order=(db.sales_orders||[]).find(function(o){return String(o.id)===String(x.order_id)});
+    }
+    if(!order && x.invoice_group_id){
+      order=(db.sales_orders||[]).find(function(o){
+        return String(o.invoice_group_id||o.id)===String(x.invoice_group_id);
+      });
+    }
+    var od=order?dateOnly(order.date||order.invoice_date||order.created_date||order.created_at):'';
+    if(od && (!direct || od<direct))return od;
+    return direct;
+  }
   function customerName(x){return s(x.customer_name||x.customer||'-')}
   function repName(x){
     if(s(x.rep_name))return s(x.rep_name);
@@ -14959,16 +14974,60 @@ render();
     return r?s(r.name):'بدون بياع';
   }
   function salesRows(){ensure();return db.sales.filter(function(x){return (x.order_type||'sale')==='sale'})}
-  function collectionRows(){ensure();return db.collections}
+  function collectionRows(){
+    ensure();
+    var rows=(db.collections||[]).slice();
+    var seenReceipt=new Set(rows.map(function(c){return String(c.source_receipt_id_v435||'')}).filter(Boolean));
+
+    (db.cash_receipts_in||[]).forEach(function(r){
+      if(!r||!r.id||seenReceipt.has(String(r.id)))return;
+
+      var hasCustomer=!!r.customer_id;
+      if(!hasCustomer){
+        var rn=s(r.customer_name||r.party).toLowerCase();
+        if(rn){
+          hasCustomer=(db.customers||[]).some(function(c){
+            var cn=s(c.customer_name||c.official_name||c.name||c.clinic_name).toLowerCase();
+            return cn && cn===rn;
+          });
+        }
+      }
+      if(!hasCustomer)return;
+
+      rows.push({
+        id:'RECEIPT|'+r.id,
+        date:r.date||r.created_at||'',
+        customer_id:r.customer_id||'',
+        customer_name:r.customer_name||r.party||'',
+        rep_id:r.rep_id||'',
+        rep_name:r.rep_name||'',
+        amount:n(r.amount),
+        method:r.method||'Cash',
+        notes:r.purpose||r.notes||'',
+        status:'approved',
+        approval_status:'approved',
+        source_type_v435:'cash_receipt_in_report_fallback',
+        source_receipt_id_v435:r.id
+      });
+    });
+
+    return rows.filter(function(c){
+      var st=s(c.approval_status||c.status||'approved').toLowerCase();
+      return !['pending','rejected','cancelled','canceled','void'].includes(st);
+    });
+  }
   function customerDebtMap(){
     var map={};
     salesRows().forEach(function(x){
       var debt=saleRemain(x);
       if(debt<=0)return;
       var k=x.customer_id||customerName(x);
-      if(!map[k])map[k]={id:x.customer_id||'',name:customerName(x),debt:0,oldest:'',rep:repName(x),count:0};
-      map[k].debt+=debt;map[k].count++;
-      var d=saleDate(x);if(d&&(!map[k].oldest||d<map[k].oldest))map[k].oldest=d;
+      if(!map[k])map[k]={id:x.customer_id||'',name:customerName(x),debt:0,oldest:'',rep:repName(x),count:0,rows:[]};
+      map[k].debt+=debt;
+      map[k].count++;
+      var d=saleDate(x);
+      map[k].rows.push({sale:x,date:d,debt:debt,age:d?daysBetween(d,today()):0});
+      if(d&&(!map[k].oldest||d<map[k].oldest))map[k].oldest=d;
     });
     return Object.keys(map).map(function(k){return map[k]}).filter(function(x){return x.debt>0});
   }
@@ -15046,28 +15105,53 @@ render();
 
   function collectionsDashboardHTML(){
     var debt=customerDebtMap(),totalDebt=debt.reduce(function(a,x){return a+x.debt},0);
-    var todayCol=collectionRows().filter(function(x){
-      var d=dateOnly(x.date||x.approved_date||x.created_at);
-      return d===today();
-    }).reduce(function(a,x){return a+n(x.amount)},0);
-    var overdue=debt.filter(function(x){return x.oldest&&daysBetween(x.oldest,today())>30}).reduce(function(a,x){return a+x.debt},0);
+    var allCollections=collectionRows();
+    var todayRows=allCollections.filter(function(x){
+      return dateOnly(x.date||x.approved_date||x.created_at)===today();
+    });
+    var todayCol=todayRows.reduce(function(a,x){return a+n(x.amount)},0);
+
+    var overdueRows=[];
+    debt.forEach(function(c){
+      (c.rows||[]).forEach(function(r){
+        if(r.debt>0 && r.date && r.age>30){
+          overdueRows.push({
+            customer_id:c.id,customer_name:c.name,rep:c.rep,
+            sale:r.sale,date:r.date,age:r.age,debt:r.debt
+          });
+        }
+      });
+    });
+    var overdue=overdueRows.reduce(function(a,x){return a+x.debt},0);
+
     var avg=avgCollectionDays();
     var target=totalDebt*.30;
-    var collected=collectionRows().reduce(function(a,x){return a+n(x.amount)},0);
+    var collected=allCollections.reduce(function(a,x){return a+n(x.amount)},0);
     var achievement=target?Math.min(100,collected/target*100):0;
     var top=debt.slice().sort(function(a,b){return b.debt-a.debt}).slice(0,10);
     var risky=debt.filter(function(x){return riskFor(x).score>=2}).length;
-    var priority=debt.filter(priorityFor).length;
+    var priorityRows=debt.filter(priorityFor);
+    var priority=priorityRows.length;
     var months=monthlyCollections(),max=Math.max.apply(null,months.map(function(x){return x.value}).concat([1]));
-    return '<div class="v248-grid">'+
-      '<div class="v248-card"><span>إجمالي المديونيات</span><strong>'+money2(totalDebt)+'</strong></div>'+
-      '<div class="v248-card"><span>تحصيل اليوم</span><strong>'+money2(todayCol)+'</strong></div>'+
-      '<div class="v248-card"><span>المتأخرات أكثر من 30 يوم</span><strong>'+money2(overdue)+'</strong></div>'+
-      '<div class="v248-card"><span>متوسط مدة التحصيل</span><strong>'+avg.toFixed(1)+' يوم</strong></div>'+
-      '<div class="v248-card"><span>مستهدف التحصيل 30%</span><strong>'+money2(target)+'</strong></div>'+
-      '<div class="v248-card"><span>نسبة إنجاز المستهدف</span><strong>'+achievement.toFixed(1)+'%</strong></div>'+
 
-      '<div class="v248-card"><span>العملاء ذوو الأولوية</span><strong>'+priority+'</strong></div>'+
+    window.__collectionsDetailV436={
+      debt:debt,
+      today:todayRows,
+      overdue:overdueRows,
+      target:{debt:debt,target:target},
+      achievement:{collections:allCollections,target:target,collected:collected,achievement:achievement},
+      priority:priorityRows,
+      average:{days:avg}
+    };
+
+    return '<div class="v248-grid">'+
+      '<div class="v248-card v436-click" onclick="openCollectionsKpiV436(\'debt\')"><span>إجمالي المديونيات</span><strong>'+money2(totalDebt)+'</strong><small>اضغط للتفاصيل</small></div>'+
+      '<div class="v248-card v436-click" onclick="openCollectionsKpiV436(\'today\')"><span>تحصيل اليوم</span><strong>'+money2(todayCol)+'</strong><small>'+todayRows.length+' حركة</small></div>'+
+      '<div class="v248-card v436-click" onclick="openCollectionsKpiV436(\'overdue\')"><span>المتأخرات أكثر من 30 يوم</span><strong>'+money2(overdue)+'</strong><small>'+overdueRows.length+' فاتورة/سطر مديون</small></div>'+
+      '<div class="v248-card v436-click" onclick="openCollectionsKpiV436(\'average\')"><span>متوسط مدة التحصيل</span><strong>'+avg.toFixed(1)+' يوم</strong><small>اضغط للتفاصيل</small></div>'+
+      '<div class="v248-card v436-click" onclick="openCollectionsKpiV436(\'target\')"><span>مستهدف التحصيل 30%</span><strong>'+money2(target)+'</strong><small>30% من المديونية الحالية</small></div>'+
+      '<div class="v248-card v436-click" onclick="openCollectionsKpiV436(\'achievement\')"><span>نسبة إنجاز المستهدف</span><strong>'+achievement.toFixed(1)+'%</strong><small>'+money2(collected)+' محصل</small></div>'+
+      '<div class="v248-card v436-click" onclick="openCollectionsKpiV436(\'priority\')"><span>العملاء ذوو الأولوية</span><strong>'+priority+'</strong><small>اضغط للتفاصيل</small></div>'+
     '</div>'+
     '<div class="grid grid2"><div class="card"><h3>أكبر 10 عملاء مديونية</h3>'+
       (top.length?'<table><tr><th>العميل</th><th>المديونية</th><th>عمر المديونية</th><th>المخاطرة</th></tr>'+
@@ -35287,5 +35371,105 @@ html body .summary-box.v303-auto-clickable:after{
       if(typeof render==='function')render();
     }catch(e){console.error('V435 startup sync',e)}
   },1500);
+})();
+</script>
+
+
+<style id="v436-collections-kpi-interactive-style">
+.v436-click{cursor:pointer!important;transition:.15s ease;position:relative}
+.v436-click:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(15,23,42,.12)!important}
+.v436-click small{display:block;margin-top:6px;font-size:11px;color:#64748b}
+.v436-modal{position:fixed;inset:0;background:rgba(15,23,42,.65);z-index:999999;display:none;padding:24px;overflow:auto}
+.v436-modal.show{display:block}
+.v436-panel{max-width:1150px;margin:0 auto;background:#fff;border-radius:18px;padding:20px;min-height:260px}
+.v436-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:15px}
+.v436-head h2{margin:0}
+.v436-panel table{width:100%;border-collapse:collapse}
+.v436-panel th,.v436-panel td{padding:8px;border:1px solid #e2e8f0;text-align:right}
+.v436-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+@media(max-width:800px){.v436-summary{grid-template-columns:1fr}}
+</style>
+<script id="v436-collections-kpi-interactive">
+(function(){
+  function A(v){return Array.isArray(v)?v:[]}
+  function S(v){return String(v==null?'':v).trim()}
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function E(v){
+    try{if(typeof esc==='function')return esc(v)}catch(e){}
+    return S(v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]});
+  }
+  function M(v){try{return typeof money==='function'?money(v):('EGP '+N(v).toLocaleString())}catch(e){return 'EGP '+N(v)}}
+  function modal(){
+    var m=document.getElementById('v436_collections_modal');
+    if(m)return m;
+    document.body.insertAdjacentHTML('beforeend',
+      '<div id="v436_collections_modal" class="v436-modal" onclick="if(event.target===this)closeCollectionsKpiV436()">'+
+      '<div class="v436-panel"><div class="v436-head"><h2 id="v436_title"></h2>'+
+      '<button class="btn danger" onclick="closeCollectionsKpiV436()">إغلاق</button></div>'+
+      '<div id="v436_body"></div></div></div>');
+    return document.getElementById('v436_collections_modal');
+  }
+  function table(headers,rows){
+    if(!rows.length)return '<div class="empty">لا توجد بيانات لهذه الخانة.</div>';
+    return '<table><tr>'+headers.map(function(h){return '<th>'+E(h)+'</th>'}).join('')+'</tr>'+
+      rows.map(function(r){return '<tr>'+r.map(function(c){return '<td>'+c+'</td>'}).join('')+'</tr>'}).join('')+
+      '</table>';
+  }
+
+  window.closeCollectionsKpiV436=function(){
+    var m=document.getElementById('v436_collections_modal');
+    if(m)m.classList.remove('show');
+  };
+
+  window.openCollectionsKpiV436=function(type){
+    var data=window.__collectionsDetailV436||{};
+    var title='',html='';
+
+    if(type==='debt'){
+      title='تفاصيل إجمالي المديونيات';
+      var rows=A(data.debt).slice().sort(function(a,b){return N(b.debt)-N(a.debt)});
+      html=table(['العميل','المندوب','المديونية','أقدم مديونية'],
+        rows.map(function(x){return ['<b>'+E(x.name)+'</b>',E(x.rep||'-'),M(x.debt),E(x.oldest||'-')]}));
+    }else if(type==='today'){
+      title='تفاصيل تحصيل اليوم';
+      var rows=A(data.today);
+      html='<div class="v436-summary"><div class="stat"><span>عدد الحركات</span><strong>'+rows.length+'</strong></div>'+
+        '<div class="stat"><span>الإجمالي</span><strong>'+M(rows.reduce(function(a,x){return a+N(x.amount)},0))+'</strong></div></div>'+
+        table(['التاريخ','العميل','المبلغ','الطريقة','المصدر'],
+          rows.map(function(x){return [E(x.date||x.approved_date||''),E(x.customer_name||'-'),M(x.amount),E(x.method||'-'),E(x.source_type_v435||'تحصيل مباشر')]}));
+    }else if(type==='overdue'){
+      title='تفاصيل المتأخرات أكثر من 30 يوم';
+      var rows=A(data.overdue).slice().sort(function(a,b){return b.age-a.age});
+      html='<div class="v436-summary"><div class="stat"><span>عدد البنود</span><strong>'+rows.length+'</strong></div>'+
+        '<div class="stat"><span>إجمالي المتأخر</span><strong>'+M(rows.reduce(function(a,x){return a+N(x.debt)},0))+'</strong></div></div>'+
+        table(['العميل','تاريخ الفاتورة','العمر','المتبقي','الفاتورة'],
+          rows.map(function(x){var s=x.sale||{};return [E(x.customer_name),E(x.date||'-'),E(x.age+' يوم'),M(x.debt),E(s.invoice_no||s.invoice_group_id||s.id||'-')]}));
+    }else if(type==='target'){
+      title='تفاصيل مستهدف التحصيل 30%';
+      html='<div class="v436-summary"><div class="stat"><span>المديونية الحالية</span><strong>'+M(A(data.target&&data.target.debt).reduce(function(a,x){return a+N(x.debt)},0))+'</strong></div>'+
+        '<div class="stat"><span>المستهدف</span><strong>'+M(data.target&&data.target.target)+'</strong></div></div>';
+    }else if(type==='achievement'){
+      title='تفاصيل نسبة إنجاز المستهدف';
+      var x=data.achievement||{};
+      html='<div class="v436-summary"><div class="stat"><span>المستهدف</span><strong>'+M(x.target)+'</strong></div>'+
+        '<div class="stat"><span>إجمالي التحصيل</span><strong>'+M(x.collected)+'</strong></div>'+
+        '<div class="stat"><span>النسبة</span><strong>'+N(x.achievement).toFixed(1)+'%</strong></div></div>'+
+        table(['التاريخ','العميل','المبلغ','الطريقة'],
+          A(x.collections).map(function(c){return [E(c.date||''),E(c.customer_name||'-'),M(c.amount),E(c.method||'-')]}));
+    }else if(type==='priority'){
+      title='العملاء ذوو الأولوية';
+      html=table(['العميل','المديونية','أقدم مديونية','المندوب'],
+        A(data.priority).map(function(x){return ['<b>'+E(x.name)+'</b>',M(x.debt),E(x.oldest||'-'),E(x.rep||'-')]}));
+    }else{
+      title='متوسط مدة التحصيل';
+      html='<div class="v436-summary"><div class="stat"><span>المتوسط الحالي</span><strong>'+N(data.average&&data.average.days).toFixed(1)+' يوم</strong></div></div>'+
+           '<div class="hint">يُحسب من الفواتير المسددة بالكامل التي لها تاريخ فاتورة وتاريخ سداد صالحان.</div>';
+    }
+
+    var m=modal();
+    document.getElementById('v436_title').textContent=title;
+    document.getElementById('v436_body').innerHTML=html;
+    m.classList.add('show');
+  };
 })();
 </script>
