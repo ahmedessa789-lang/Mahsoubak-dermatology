@@ -15581,15 +15581,30 @@ render();
 
   function summaryHTML(){
     var k=kpis(),months=monthly(),max=Math.max.apply(null,months.map(function(x){return x.v}).concat([1]));
-    return '<div class="v249-kpis">'+
-      '<div class="v249-kpi"><span>إجمالي المديونيات</span><strong>'+moneyV(k.debt)+'</strong></div>'+
-      '<div class="v249-kpi"><span>تحصيل اليوم</span><strong>'+moneyV(k.today)+'</strong></div>'+
-      '<div class="v249-kpi"><span>المتأخرات أكثر من 30 يوم</span><strong>'+moneyV(k.overdue)+'</strong></div>'+
-      '<div class="v249-kpi"><span>متوسط مدة التحصيل</span><strong>'+k.avg.toFixed(1)+' يوم</strong></div>'+
-      '<div class="v249-kpi"><span>مستهدف التحصيل 30%</span><strong>'+moneyV(k.target)+'</strong></div>'+
-      '<div class="v249-kpi"><span>نسبة إنجاز المستهدف</span><strong>'+k.ach.toFixed(1)+'%</strong></div>'+
+    var debtDetail=debtRows().slice().sort(function(a,b){return b.debt-a.debt});
+    var allCols=cols().slice();
+    var todayRows=allCols.filter(function(x){return d(x.date||x.approved_date||x.created_at)===todayV()});
+    var overdueRows=debtDetail.filter(function(x){return x.oldest&&days(x.oldest,todayV())>30});
+    var priorityRows=debtDetail.filter(function(x){return x.oldest&&days(x.oldest,todayV())>90});
 
-      '<div class="v249-kpi"><span>العملاء ذوو الأولوية</span><strong>'+k.priority+'</strong></div>'+
+    window.__v249KpiDetailV438={
+      debt:debtDetail,
+      today:todayRows,
+      overdue:overdueRows,
+      average:{days:k.avg,collections:allCols},
+      target:{target:k.target,debt:debtDetail},
+      achievement:{rate:k.ach,collections:allCols,target:k.target},
+      priority:priorityRows
+    };
+
+    return '<div class="v249-kpis">'+
+      '<div class="v249-kpi v438-kpi-click" role="button" tabindex="0" onclick="openV249KpiV438(\'debt\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){openV249KpiV438(\'debt\')}"><span>إجمالي المديونيات</span><strong>'+moneyV(k.debt)+'</strong><small>عرض التفاصيل</small></div>'+
+      '<div class="v249-kpi v438-kpi-click" role="button" tabindex="0" onclick="openV249KpiV438(\'today\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){openV249KpiV438(\'today\')}"><span>تحصيل اليوم</span><strong>'+moneyV(k.today)+'</strong><small>عرض التحصيلات</small></div>'+
+      '<div class="v249-kpi v438-kpi-click" role="button" tabindex="0" onclick="openV249KpiV438(\'overdue\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){openV249KpiV438(\'overdue\')}"><span>المتأخرات أكثر من 30 يوم</span><strong>'+moneyV(k.overdue)+'</strong><small>عرض العملاء المتأخرين</small></div>'+
+      '<div class="v249-kpi v438-kpi-click" role="button" tabindex="0" onclick="openV249KpiV438(\'average\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){openV249KpiV438(\'average\')}"><span>متوسط مدة التحصيل</span><strong>'+k.avg.toFixed(1)+' يوم</strong><small>عرض حركة التحصيل</small></div>'+
+      '<div class="v249-kpi v438-kpi-click" role="button" tabindex="0" onclick="openV249KpiV438(\'target\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){openV249KpiV438(\'target\')}"><span>مستهدف التحصيل 30%</span><strong>'+moneyV(k.target)+'</strong><small>عرض أساس المستهدف</small></div>'+
+      '<div class="v249-kpi v438-kpi-click" role="button" tabindex="0" onclick="openV249KpiV438(\'achievement\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){openV249KpiV438(\'achievement\')}"><span>نسبة إنجاز المستهدف</span><strong>'+k.ach.toFixed(1)+'%</strong><small>عرض التحصيلات المحتسبة</small></div>'+
+      '<div class="v249-kpi v438-kpi-click" role="button" tabindex="0" onclick="openV249KpiV438(\'priority\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){openV249KpiV438(\'priority\')}"><span>العملاء ذوو الأولوية</span><strong>'+k.priority+'</strong><small>عرض العملاء</small></div>'+
     '</div><div class="card"><h3>حركة التحصيل الشهرية</h3><div class="v249-bars">'+months.map(function(x){return '<div class="v249-bar"><i style="height:'+Math.max(4,Math.round(x.v/max*160))+'px"></i><small>'+e(x.k)+'</small></div>'}).join('')+'</div></div>';
   }
   function agingHTML(){
@@ -35630,6 +35645,140 @@ html body .summary-box.v303-auto-clickable:after{
       target:N(d.target&&d.target.target),
       collected_total:N(d.achievement&&d.achievement.collected)
     };
+  };
+})();
+</script>
+
+
+<style id="v438-v249-kpi-interactive-style">
+.v438-kpi-click{cursor:pointer!important;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;position:relative}
+.v438-kpi-click:hover,.v438-kpi-click:focus{transform:translateY(-2px);box-shadow:0 12px 28px rgba(15,23,42,.14)!important;outline:2px solid rgba(37,99,235,.22);outline-offset:2px}
+.v438-kpi-click small{display:block;margin-top:6px;font-size:11px;color:#64748b;font-weight:700}
+.v438-modal{position:fixed;inset:0;background:rgba(15,23,42,.68);z-index:1000000;display:none;padding:22px;overflow:auto}
+.v438-modal.show{display:block}
+.v438-panel{max-width:1180px;margin:0 auto;background:#fff;border-radius:18px;padding:22px;min-height:240px;box-shadow:0 24px 80px rgba(0,0,0,.28)}
+.v438-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+.v438-head h2{margin:0}
+.v438-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.v438-panel table{width:100%;border-collapse:collapse}
+.v438-panel th,.v438-panel td{border:1px solid #e2e8f0;padding:8px;text-align:right}
+.v438-panel th{background:#f8fafc}
+@media(max-width:800px){.v438-summary{grid-template-columns:1fr}}
+</style>
+<script id="v438-v249-kpi-interactive">
+(function(){
+  function A(v){return Array.isArray(v)?v:[]}
+  function S(v){return String(v==null?'':v).trim()}
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function E(v){
+    try{if(typeof esc==='function')return esc(v)}catch(e){}
+    return S(v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]});
+  }
+  function M(v){
+    try{if(typeof money==='function')return money(v)}catch(e){}
+    return 'EGP '+N(v).toLocaleString('en-EG',{minimumFractionDigits:2,maximumFractionDigits:2});
+  }
+  function ageDays(date){
+    if(!date)return 0;
+    var s=String(date).slice(0,10);
+    var a=new Date(s+'T00:00:00'),b=new Date();
+    b.setHours(0,0,0,0);
+    if(isNaN(a.getTime()))return 0;
+    return Math.max(0,Math.floor((b-a)/86400000));
+  }
+  function modal(){
+    var m=document.getElementById('v438_kpi_modal');
+    if(m)return m;
+    document.body.insertAdjacentHTML('beforeend',
+      '<div id="v438_kpi_modal" class="v438-modal" onclick="if(event.target===this)closeV249KpiV438()">'+
+        '<div class="v438-panel">'+
+          '<div class="v438-head"><h2 id="v438_title"></h2><button class="btn danger" onclick="closeV249KpiV438()">إغلاق</button></div>'+
+          '<div id="v438_body"></div>'+
+        '</div>'+
+      '</div>');
+    return document.getElementById('v438_kpi_modal');
+  }
+  function table(headers,rows){
+    if(!rows.length)return '<div class="empty">لا توجد بيانات مرتبطة بهذه الخانة.</div>';
+    return '<div style="overflow:auto"><table><tr>'+headers.map(function(h){return '<th>'+E(h)+'</th>'}).join('')+'</tr>'+
+      rows.map(function(r){return '<tr>'+r.map(function(c){return '<td>'+c+'</td>'}).join('')+'</tr>'}).join('')+
+      '</table></div>';
+  }
+
+  window.closeV249KpiV438=function(){
+    var m=document.getElementById('v438_kpi_modal');
+    if(m)m.classList.remove('show');
+  };
+
+  window.openV249KpiV438=function(type){
+    var data=window.__v249KpiDetailV438||{};
+    var title='',html='';
+
+    if(type==='debt'){
+      var rows=A(data.debt);
+      title='تفاصيل إجمالي المديونيات';
+      html='<div class="v438-summary"><div class="stat"><span>عدد العملاء</span><strong>'+rows.length+'</strong></div>'+
+        '<div class="stat"><span>إجمالي المديونية</span><strong>'+M(rows.reduce(function(a,x){return a+N(x.debt)},0))+'</strong></div></div>'+
+        table(['العميل','البياع','المديونية','أقدم مديونية','العمر'],
+          rows.map(function(x){return ['<b>'+E(x.name||'-')+'</b>',E(x.rep||'-'),M(x.debt),E(x.oldest||'-'),E(ageDays(x.oldest)+' يوم')]}));
+
+    }else if(type==='today'){
+      var rows=A(data.today);
+      title='تفاصيل تحصيل اليوم';
+      html='<div class="v438-summary"><div class="stat"><span>عدد التحصيلات</span><strong>'+rows.length+'</strong></div>'+
+        '<div class="stat"><span>إجمالي تحصيل اليوم</span><strong>'+M(rows.reduce(function(a,x){return a+N(x.amount)},0))+'</strong></div></div>'+
+        table(['التاريخ','العميل','المندوب / المحصل','المبلغ','الطريقة','ملاحظات'],
+          rows.map(function(x){return [E(x.date||x.approved_date||''),E(x.customer_name||'-'),E(x.collector_name||x.rep_name||'-'),M(x.amount),E(x.method||'-'),E(x.notes||'-')]}));
+
+    }else if(type==='overdue'){
+      var rows=A(data.overdue);
+      title='تفاصيل المتأخرات أكثر من 30 يوم';
+      html='<div class="v438-summary"><div class="stat"><span>عدد العملاء</span><strong>'+rows.length+'</strong></div>'+
+        '<div class="stat"><span>إجمالي المتأخرات</span><strong>'+M(rows.reduce(function(a,x){return a+N(x.debt)},0))+'</strong></div></div>'+
+        table(['العميل','البياع','المديونية','أقدم مديونية','العمر'],
+          rows.map(function(x){return ['<b>'+E(x.name||'-')+'</b>',E(x.rep||'-'),M(x.debt),E(x.oldest||'-'),E(ageDays(x.oldest)+' يوم')]}));
+
+    }else if(type==='average'){
+      var x=data.average||{}, rows=A(x.collections);
+      title='تفاصيل متوسط مدة التحصيل';
+      html='<div class="v438-summary"><div class="stat"><span>متوسط المدة</span><strong>'+N(x.days).toFixed(1)+' يوم</strong></div>'+
+        '<div class="stat"><span>حركات التحصيل المسجلة</span><strong>'+rows.length+'</strong></div></div>'+
+        table(['التاريخ','العميل','المبلغ','الطريقة'],
+          rows.map(function(c){return [E(c.date||''),E(c.customer_name||'-'),M(c.amount),E(c.method||'-')]}));
+
+    }else if(type==='target'){
+      var x=data.target||{}, rows=A(x.debt);
+      title='تفاصيل مستهدف التحصيل 30%';
+      html='<div class="v438-summary"><div class="stat"><span>إجمالي المديونية</span><strong>'+M(rows.reduce(function(a,r){return a+N(r.debt)},0))+'</strong></div>'+
+        '<div class="stat"><span>المستهدف 30%</span><strong>'+M(x.target)+'</strong></div></div>'+
+        table(['العميل','المديونية','30% من مديونية العميل'],
+          rows.map(function(r){return ['<b>'+E(r.name||'-')+'</b>',M(r.debt),M(N(r.debt)*0.30)]}));
+
+    }else if(type==='achievement'){
+      var x=data.achievement||{}, rows=A(x.collections);
+      title='تفاصيل نسبة إنجاز المستهدف';
+      var total=rows.reduce(function(a,r){return a+N(r.amount)},0);
+      html='<div class="v438-summary"><div class="stat"><span>المستهدف</span><strong>'+M(x.target)+'</strong></div>'+
+        '<div class="stat"><span>إجمالي التحصيل</span><strong>'+M(total)+'</strong></div>'+
+        '<div class="stat"><span>نسبة الإنجاز</span><strong>'+N(x.rate).toFixed(1)+'%</strong></div></div>'+
+        table(['التاريخ','العميل','المندوب / المحصل','المبلغ','الطريقة'],
+          rows.map(function(c){return [E(c.date||''),E(c.customer_name||'-'),E(c.collector_name||c.rep_name||'-'),M(c.amount),E(c.method||'-')]}));
+
+    }else if(type==='priority'){
+      var rows=A(data.priority);
+      title='العملاء ذوو الأولوية';
+      html='<div class="v438-summary"><div class="stat"><span>عدد العملاء</span><strong>'+rows.length+'</strong></div>'+
+        '<div class="stat"><span>إجمالي مديونيتهم</span><strong>'+M(rows.reduce(function(a,x){return a+N(x.debt)},0))+'</strong></div></div>'+
+        table(['العميل','البياع','المديونية','أقدم مديونية','العمر'],
+          rows.map(function(x){return ['<b>'+E(x.name||'-')+'</b>',E(x.rep||'-'),M(x.debt),E(x.oldest||'-'),E(ageDays(x.oldest)+' يوم')]}));
+    }else{
+      return;
+    }
+
+    var m=modal();
+    document.getElementById('v438_title').textContent=title;
+    document.getElementById('v438_body').innerHTML=html;
+    m.classList.add('show');
   };
 })();
 </script>
