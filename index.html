@@ -15471,20 +15471,112 @@ render();
   function days(a,b){if(!a||!b)return 0;return Math.max(0,Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000))}
   function sales(){return Array.isArray(db.sales)?db.sales:[]}
   function cols(){return Array.isArray(db.collections)?db.collections:[]}
+
+  function invoiceDateV439(x){
+    if(!x)return '';
+
+    function normDate(v){
+      v=s(v);
+      if(!v)return '';
+      var m=v.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
+      if(m)return m[1]+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[3]).padStart(2,'0');
+      m=v.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/);
+      if(m)return m[3]+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[1]).padStart(2,'0');
+      var dt=new Date(v);
+      if(!isNaN(dt.getTime())){
+        return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+      }
+      return '';
+    }
+
+    var candidates=[
+      x.invoice_date,
+      x.original_date,
+      x.order_date,
+      x.sale_date,
+      x.date,
+      x.created_at
+    ].map(normDate).filter(Boolean);
+
+    var order=null;
+    if(x.order_id){
+      order=(db.sales_orders||[]).find(function(o){
+        return String(o.id||'')===String(x.order_id||'');
+      })||null;
+    }
+    if(!order && x.invoice_group_id){
+      order=(db.sales_orders||[]).find(function(o){
+        return String(o.invoice_group_id||o.id||'')===String(x.invoice_group_id||'');
+      })||null;
+    }
+
+    if(order){
+      [
+        order.invoice_date,
+        order.order_date,
+        order.date,
+        order.created_date,
+        order.created_at
+      ].map(normDate).filter(Boolean).forEach(function(v){candidates.push(v)});
+    }
+
+    /*
+      The receivable starts on the earliest known business date.
+      Dispatch / approval dates are intentionally NOT used as debt age.
+    */
+    candidates=candidates.filter(Boolean).sort();
+    return candidates.length?candidates[0]:'';
+  }
+
+  function saleRemainingV439(x){
+    var total=n(x.total_including_vat||x.total);
+    var rem=n(x.remaining);
+    var paid=n(x.paid);
+
+    if(x.invoice_remaining_v432!=null){
+      rem=n(x.invoice_remaining_v432);
+    }
+
+    if(rem>0)return rem;
+    return Math.max(0,total-paid);
+  }
+
   function debtRows(){
     var map={};
     sales().forEach(function(x){
-      var total=n(x.total_including_vat||x.total),remain=n(x.remaining);
-      if(remain<=0)remain=Math.max(0,total-n(x.paid));
+      var remain=saleRemainingV439(x);
       if(remain<=0)return;
+
       var k=x.customer_id||x.customer_name||'unknown';
-      if(!map[k])map[k]={name:x.customer_name||'-',debt:0,oldest:'',rep:x.rep_name||'-'};
+      if(!map[k]){
+        map[k]={
+          id:x.customer_id||'',
+          name:x.customer_name||'-',
+          debt:0,
+          oldest:'',
+          rep:x.rep_name||'-',
+          invoices:[]
+        };
+      }
+
+      var dt=invoiceDateV439(x);
       map[k].debt+=remain;
-      var dt=d(x.date||x.created_at);
+      map[k].invoices.push({
+        id:x.id||'',
+        invoice_no:x.invoice_no||x.invoice_group_id||x.id||'-',
+        date:dt,
+        remaining:remain,
+        total:n(x.total_including_vat||x.total),
+        paid:n(x.paid),
+        sale:x
+      });
+
       if(dt&&(!map[k].oldest||dt<map[k].oldest))map[k].oldest=dt;
     });
+
     return Object.keys(map).map(function(k){return map[k]});
   }
+
   function risk(x){
     var age=x.oldest?days(x.oldest,todayV()):0;
     if(x.debt>=100000||age>90)return {t:'مرتفع',c:'v249-high'};
@@ -15570,12 +15662,24 @@ render();
   }
   function kpis(){
     var debt=debtRows(),total=debt.reduce(function(a,x){return a+x.debt},0);
-    var todayCol=cols().filter(function(x){return d(x.date)===todayV()}).reduce(function(a,x){return a+n(x.amount)},0);
-    var overdue=debt.filter(function(x){return x.oldest&&days(x.oldest,todayV())>30}).reduce(function(a,x){return a+x.debt},0);
+    var todayCol=cols().filter(function(x){return d(x.date||x.approved_date||x.created_at)===todayV()}).reduce(function(a,x){return a+n(x.amount)},0);
+
+    var overdue=0;
+    debt.forEach(function(c){
+      (c.invoices||[]).forEach(function(inv){
+        if(inv.remaining>0&&inv.date&&days(inv.date,todayV())>30){
+          overdue+=inv.remaining;
+        }
+      });
+    });
+
     var target=total*.30,collected=cols().reduce(function(a,x){return a+n(x.amount)},0);
     var priority=debt.filter(function(x){
-      return x.oldest&&days(x.oldest,todayV())>90;
+      return (x.invoices||[]).some(function(inv){
+        return inv.remaining>0&&inv.date&&days(inv.date,todayV())>90;
+      });
     }).length;
+
     return {debt:total,today:todayCol,overdue:overdue,target:target,ach:target?collected/target*100:0,priority:priority,avg:avgDays()};
   }
 
@@ -15584,8 +15688,24 @@ render();
     var debtDetail=debtRows().slice().sort(function(a,b){return b.debt-a.debt});
     var allCols=cols().slice();
     var todayRows=allCols.filter(function(x){return d(x.date||x.approved_date||x.created_at)===todayV()});
-    var overdueRows=debtDetail.filter(function(x){return x.oldest&&days(x.oldest,todayV())>30});
-    var priorityRows=debtDetail.filter(function(x){return x.oldest&&days(x.oldest,todayV())>90});
+    var overdueRows=[];
+    debtDetail.forEach(function(c){
+      (c.invoices||[]).forEach(function(inv){
+        if(inv.remaining>0&&inv.date&&days(inv.date,todayV())>30){
+          overdueRows.push({
+            id:c.id,name:c.name,rep:c.rep,
+            debt:inv.remaining,oldest:inv.date,
+            invoice_no:inv.invoice_no,
+            age:days(inv.date,todayV())
+          });
+        }
+      });
+    });
+    var priorityRows=debtDetail.filter(function(c){
+      return (c.invoices||[]).some(function(inv){
+        return inv.remaining>0&&inv.date&&days(inv.date,todayV())>90;
+      });
+    });
 
     window.__v249KpiDetailV438={
       debt:debtDetail,
@@ -35735,8 +35855,8 @@ html body .summary-box.v303-auto-clickable:after{
       title='تفاصيل المتأخرات أكثر من 30 يوم';
       html='<div class="v438-summary"><div class="stat"><span>عدد العملاء</span><strong>'+rows.length+'</strong></div>'+
         '<div class="stat"><span>إجمالي المتأخرات</span><strong>'+M(rows.reduce(function(a,x){return a+N(x.debt)},0))+'</strong></div></div>'+
-        table(['العميل','البياع','المديونية','أقدم مديونية','العمر'],
-          rows.map(function(x){return ['<b>'+E(x.name||'-')+'</b>',E(x.rep||'-'),M(x.debt),E(x.oldest||'-'),E(ageDays(x.oldest)+' يوم')]}));
+        table(['العميل','البياع','رقم الفاتورة','المتبقي','تاريخ الفاتورة','العمر'],
+          rows.map(function(x){return ['<b>'+E(x.name||'-')+'</b>',E(x.rep||'-'),E(x.invoice_no||'-'),M(x.debt),E(x.oldest||'-'),E((x.age!=null?x.age:ageDays(x.oldest))+' يوم')]}));
 
     }else if(type==='average'){
       var x=data.average||{}, rows=A(x.collections);
@@ -35779,6 +35899,31 @@ html body .summary-box.v303-auto-clickable:after{
     document.getElementById('v438_title').textContent=title;
     document.getElementById('v438_body').innerHTML=html;
     m.classList.add('show');
+  };
+})();
+</script>
+
+
+<script id="v439-v249-overdue-audit">
+(function(){
+  window.auditV249OverdueV439=function(){
+    var detail=window.__v249KpiDetailV438||{};
+    function A(v){return Array.isArray(v)?v:[]}
+    function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+    return {
+      debt_total:A(detail.debt).reduce(function(a,x){return a+N(x.debt)},0),
+      overdue_total:A(detail.overdue).reduce(function(a,x){return a+N(x.debt)},0),
+      overdue_rows:A(detail.overdue).length,
+      overdue_details:A(detail.overdue).map(function(x){
+        return {
+          customer:x.name,
+          invoice:x.invoice_no,
+          date:x.oldest,
+          age:x.age,
+          remaining:N(x.debt)
+        };
+      })
+    };
   };
 })();
 </script>
