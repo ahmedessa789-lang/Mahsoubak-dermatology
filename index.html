@@ -15470,7 +15470,49 @@ render();
   function todayV(){return new Date().toISOString().slice(0,10)}
   function days(a,b){if(!a||!b)return 0;return Math.max(0,Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000))}
   function sales(){return Array.isArray(db.sales)?db.sales:[]}
-  function cols(){return Array.isArray(db.collections)?db.collections:[]}
+  function cols(){
+    var rows=Array.isArray(db.collections)?db.collections.slice():[];
+    var seenReceipt=new Set(rows.map(function(c){
+      return String(c.source_receipt_id_v435||'');
+    }).filter(Boolean));
+
+    (Array.isArray(db.cash_receipts_in)?db.cash_receipts_in:[]).forEach(function(r){
+      if(!r||!r.id||seenReceipt.has(String(r.id)))return;
+
+      var customerId=s(r.customer_id||'');
+      var customerName=s(r.customer_name||r.party||'');
+      if(!customerId && customerName){
+        var match=(db.customers||[]).find(function(c){
+          var n1=s(c.customer_name||c.official_name||c.name||c.clinic_name).toLowerCase();
+          return n1 && n1===customerName.toLowerCase();
+        });
+        if(match)customerId=match.id;
+      }
+      if(!customerId)return;
+
+      rows.push({
+        id:'RCPT|'+r.id,
+        date:r.date||r.created_at||'',
+        customer_id:customerId,
+        customer_name:customerName,
+        rep_id:r.rep_id||'',
+        rep_name:r.rep_name||'',
+        amount:n(r.amount),
+        method:r.method||'Cash',
+        notes:r.purpose||r.notes||'',
+        status:'approved',
+        approval_status:'approved',
+        source_receipt_id_v435:r.id,
+        source_type_v435:'cash_receipt_in_v440'
+      });
+      seenReceipt.add(String(r.id));
+    });
+
+    return rows.filter(function(c){
+      var st=s(c.approval_status||c.status||'approved').toLowerCase();
+      return !['pending','rejected','cancelled','canceled','void'].includes(st);
+    });
+  }
 
   function invoiceDateV439(x){
     if(!x)return '';
@@ -15541,37 +15583,141 @@ render();
     return Math.max(0,total-paid);
   }
 
+  function invoiceKeyV440(x){
+    if(s(x.invoice_no))return 'NO|'+s(x.invoice_no).toLowerCase();
+    if(s(x.invoice_group_id))return 'GROUP|'+s(x.invoice_group_id);
+    if(s(x.order_id))return 'ORDER|'+s(x.order_id);
+    return 'ROW|'+s(x.id);
+  }
+
+  function invoiceLedgerV440(){
+    var grouped=new Map();
+
+    sales().forEach(function(x){
+      var type=s(x.order_type||x.order_type_label||'sale').toLowerCase();
+      if(type.indexOf('bonus')>=0||type.indexOf('بونص')>=0||
+         type.indexOf('sample')>=0||type.indexOf('free')>=0||
+         type.indexOf('display')>=0||type.indexOf('عين')>=0||
+         type.indexOf('عرض')>=0)return;
+
+      var key=invoiceKeyV440(x);
+      if(!grouped.has(key)){
+        grouped.set(key,{
+          key:key,
+          customer_id:x.customer_id||'',
+          customer_name:x.customer_name||'-',
+          rep:x.rep_name||'-',
+          invoice_no:x.invoice_no||x.invoice_group_id||x.order_id||x.id||'-',
+          date:invoiceDateV439(x),
+          rows:[],
+          total:0,
+          initial_paid:0,
+          debt_created:0,
+          collected:0,
+          remaining:0
+        });
+      }
+
+      var g=grouped.get(key);
+      g.rows.push(x);
+      g.total+=n(x.total_including_vat||x.total);
+
+      var dt=invoiceDateV439(x);
+      if(dt&&(!g.date||dt<g.date))g.date=dt;
+      if(!g.customer_id&&x.customer_id)g.customer_id=x.customer_id;
+      if((!g.customer_name||g.customer_name==='-')&&x.customer_name)g.customer_name=x.customer_name;
+      if((!g.rep||g.rep==='-')&&x.rep_name)g.rep=x.rep_name;
+    });
+
+    var invoices=Array.from(grouped.values());
+
+    invoices.forEach(function(g){
+      var preserved=g.rows.map(function(r){
+        return r.initial_paid_v431!=null?n(r.initial_paid_v431):null;
+      }).filter(function(v){return v!=null});
+
+      if(preserved.length){
+        var same=preserved.every(function(v){return v===preserved[0]});
+        g.initial_paid=same?preserved[0]:preserved.reduce(function(a,b){return a+b},0);
+      }else{
+        /*
+          Old invoices may repeat the same paid value on every product row.
+          If all rows carry the same paid value, count it once.
+        */
+        var vals=g.rows.map(function(r){return n(r.paid)});
+        var samePaid=vals.length&&vals.every(function(v){return v===vals[0]});
+        g.initial_paid=samePaid?vals[0]:vals.reduce(function(a,b){return a+b},0);
+      }
+
+      g.initial_paid=Math.max(0,Math.min(g.total,g.initial_paid));
+      g.debt_created=Math.max(0,g.total-g.initial_paid);
+      g.remaining=g.debt_created;
+    });
+
+    invoices.sort(function(a,b){
+      return String(a.date||'').localeCompare(String(b.date||''))||
+             String(a.key).localeCompare(String(b.key));
+    });
+
+    var byCustomer={};
+    invoices.forEach(function(g){
+      var ck=s(g.customer_id||g.customer_name).toLowerCase();
+      if(!byCustomer[ck])byCustomer[ck]=[];
+      byCustomer[ck].push(g);
+    });
+
+    cols().slice().sort(function(a,b){
+      return d(a.date||a.approved_date||a.created_at).localeCompare(
+        d(b.date||b.approved_date||b.created_at)
+      );
+    }).forEach(function(c){
+      var ck=s(c.customer_id||c.customer_name).toLowerCase();
+      var list=byCustomer[ck]||[];
+      var left=Math.max(0,n(c.amount));
+
+      for(var i=0;i<list.length&&left>0.000001;i++){
+        var inv=list[i];
+        if(inv.remaining<=0.000001)continue;
+        var take=Math.min(left,inv.remaining);
+        inv.collected+=take;
+        inv.remaining-=take;
+        left-=take;
+      }
+    });
+
+    return invoices;
+  }
+
   function debtRows(){
     var map={};
-    sales().forEach(function(x){
-      var remain=saleRemainingV439(x);
-      if(remain<=0)return;
 
-      var k=x.customer_id||x.customer_name||'unknown';
+    invoiceLedgerV440().forEach(function(inv){
+      if(inv.remaining<=0.000001)return;
+
+      var k=s(inv.customer_id||inv.customer_name).toLowerCase()||'unknown';
       if(!map[k]){
         map[k]={
-          id:x.customer_id||'',
-          name:x.customer_name||'-',
+          id:inv.customer_id||'',
+          name:inv.customer_name||'-',
           debt:0,
           oldest:'',
-          rep:x.rep_name||'-',
+          rep:inv.rep||'-',
           invoices:[]
         };
       }
 
-      var dt=invoiceDateV439(x);
-      map[k].debt+=remain;
+      map[k].debt+=inv.remaining;
       map[k].invoices.push({
-        id:x.id||'',
-        invoice_no:x.invoice_no||x.invoice_group_id||x.id||'-',
-        date:dt,
-        remaining:remain,
-        total:n(x.total_including_vat||x.total),
-        paid:n(x.paid),
-        sale:x
+        id:inv.key,
+        invoice_no:inv.invoice_no,
+        date:inv.date,
+        remaining:inv.remaining,
+        total:inv.total,
+        paid:inv.initial_paid+inv.collected,
+        collected:inv.collected
       });
 
-      if(dt&&(!map[k].oldest||dt<map[k].oldest))map[k].oldest=dt;
+      if(inv.date&&(!map[k].oldest||inv.date<map[k].oldest))map[k].oldest=inv.date;
     });
 
     return Object.keys(map).map(function(k){return map[k]});
@@ -15586,54 +15732,44 @@ render();
   function aging(age){return age<=30?'0 - 30 يوم':age<=60?'31 - 60 يوم':age<=90?'61 - 90 يوم':'أكثر من 90 يوم'}
   function cls(age){return age<=7?'عاجل':age<=30?'متوسط':'طويل'}
   function avgDays(){
+    var invoices=invoiceLedgerV440();
     var completed=[];
-    var saleRows=sales();
 
-    cols().forEach(function(c){
-      var collectionDate=d(c.date||c.created_at);
-      if(!collectionDate)return;
+    invoices.forEach(function(inv){
+      if(inv.debt_created<=0)return;
+      if(inv.remaining>0.000001)return;
 
-      var customerId=s(c.customer_id||'');
-      var customerName=s(c.customer_name||c.customer||c.party||'').toLowerCase();
-
-      var related=saleRows.filter(function(inv){
-        var sameId=customerId&&String(inv.customer_id||'')===customerId;
-        var invoiceName=s(inv.customer_name||inv.customer||inv.party||'').toLowerCase();
-        var sameName=customerName&&invoiceName===customerName;
-        var invDate=d(inv.date||inv.created_at);
-        return (sameId||sameName)&&invDate&&invDate<=collectionDate;
+      var related=cols().filter(function(c){
+        var sameId=inv.customer_id&&String(c.customer_id||'')===String(inv.customer_id);
+        var sameName=s(c.customer_name||'').toLowerCase()===s(inv.customer_name||'').toLowerCase();
+        var cd=d(c.date||c.approved_date||c.created_at);
+        return (sameId||sameName)&&cd&&inv.date&&cd>=inv.date;
       }).sort(function(a,b){
-        return d(a.date||a.created_at).localeCompare(d(b.date||b.created_at));
+        return d(a.date||a.approved_date||a.created_at).localeCompare(
+          d(b.date||b.approved_date||b.created_at)
+        );
       });
 
       if(related.length){
-        var invoiceDate=d(related[0].date||related[0].created_at);
-        completed.push(days(invoiceDate,collectionDate));
+        var last=related[related.length-1];
+        var paidDate=d(last.date||last.approved_date||last.created_at);
+        if(paidDate)completed.push(days(inv.date,paidDate));
       }
     });
 
-    var positiveCompleted=completed.filter(function(x){return x>0});
-    if(positiveCompleted.length){
-      return positiveCompleted.reduce(function(a,b){return a+b},0)/positiveCompleted.length;
+    if(completed.length){
+      return completed.reduce(function(a,b){return a+b},0)/completed.length;
     }
 
-    /* If there is no completed historical cycle, show the average age
-       of current outstanding invoices instead of a misleading zero. */
-    var outstandingAges=[];
-    saleRows.forEach(function(inv){
-      var total=n(inv.total_including_vat||inv.total);
-      var remaining=n(inv.remaining);
-      if(remaining<=0)remaining=Math.max(0,total-n(inv.paid));
-      var invoiceDate=d(inv.date||inv.created_at);
-      if(remaining>0&&invoiceDate){
-        outstandingAges.push(days(invoiceDate,todayV()));
-      }
-    });
+    var openAges=invoices.filter(function(inv){
+      return inv.remaining>0.000001&&inv.date;
+    }).map(function(inv){return days(inv.date,todayV())});
 
-    return outstandingAges.length
-      ? outstandingAges.reduce(function(a,b){return a+b},0)/outstandingAges.length
-      : 0;
+    return openAges.length
+      ?openAges.reduce(function(a,b){return a+b},0)/openAges.length
+      :0;
   }
+
   function monthly(){
     var m={};
     cols().forEach(function(x){var k=d(x.date).slice(0,7);if(k)m[k]=(m[k]||0)+n(x.amount)});
@@ -35923,6 +36059,26 @@ html body .summary-box.v303-auto-clickable:after{
           remaining:N(x.debt)
         };
       })
+    };
+  };
+})();
+</script>
+
+
+<script id="v440-v249-visible-ledger-audit">
+(function(){
+  window.auditVisibleCollectionsV440=function(){
+    var d=window.__v249KpiDetailV438||{};
+    function A(v){return Array.isArray(v)?v:[]}
+    function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+    return {
+      debt_total:A(d.debt).reduce(function(a,x){return a+N(x.debt)},0),
+      today_total:A(d.today).reduce(function(a,x){return a+N(x.amount)},0),
+      overdue_total:A(d.overdue).reduce(function(a,x){return a+N(x.debt)},0),
+      debt_customers:A(d.debt).length,
+      overdue_items:A(d.overdue).length,
+      target:N(d.target&&d.target.target),
+      achievement:N(d.achievement&&d.achievement.rate)
     };
   };
 })();
