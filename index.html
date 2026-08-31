@@ -32186,7 +32186,7 @@ html body .summary-box.v303-auto-clickable:after{
 
     var sale={
       id:saleId,
-      date:today407(),
+      date:order.date||order.invoice_date||order.created_date||today407(),
       order_id:order.id,
       invoice_group_id:order.invoice_group_id||order.id,
       invoice_no:order.invoice_no||'',
@@ -32226,6 +32226,7 @@ html body .summary-box.v303-auto-clickable:after{
       approval_status:'approved',
       approved_by:order.approved_by||role407(),
       approved_date:order.approved_date||today407(),
+      dispatched_date:today407(),
       created_by_id:order.created_by_id||'',
       created_by_email:order.created_by_email||''
     };
@@ -35050,5 +35051,241 @@ html body .summary-box.v303-auto-clickable:after{
       debts:sales
     };
   };
+})();
+</script>
+
+
+<script id="v435-receipts-collections-aging-unified">
+(function(){
+  function A(v){return Array.isArray(v)?v:[]}
+  function S(v){return String(v==null?'':v).trim()}
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function D(v){return S(v).slice(0,10)}
+  function U(){
+    try{if(typeof uid==='function')return uid()}catch(e){}
+    return 'COLR-'+Date.now()+'-'+Math.random().toString(36).slice(2);
+  }
+  function save435(){
+    try{if(typeof save==='function')save()}catch(e){}
+  }
+  function customerName(c){
+    return S(c&&(c.customer_name||c.official_name||c.name||c.clinic_name));
+  }
+  function findCustomerForReceipt(r){
+    if(!r)return null;
+    if(r.customer_id){
+      var byId=A(db.customers).find(function(c){return String(c.id)===String(r.customer_id)});
+      if(byId)return byId;
+    }
+    var name=S(r.customer_name||r.party);
+    if(!name)return null;
+    var key=name.toLowerCase();
+    return A(db.customers).find(function(c){
+      return customerName(c).toLowerCase()===key;
+    })||null;
+  }
+
+  function receiptAlreadyMirrored(r){
+    return A(db.collections).some(function(c){
+      return String(c.source_receipt_id_v435||'')===String(r.id||'');
+    });
+  }
+
+  function mirrorReceipt(r){
+    if(!r||!r.id||N(r.amount)<=0)return null;
+    var c=findCustomerForReceipt(r);
+    if(!c)return null; // free-text non-customer receipts never affect customer debt
+    if(receiptAlreadyMirrored(r)){
+      return A(db.collections).find(function(x){
+        return String(x.source_receipt_id_v435||'')===String(r.id);
+      })||null;
+    }
+
+    if(!Array.isArray(db.collections))db.collections=[];
+
+    var row={
+      id:U(),
+      date:D(r.date||r.created_at)||D(new Date().toISOString()),
+      customer_id:c.id,
+      customer_name:customerName(c),
+      rep_id:r.rep_id||'',
+      rep_name:r.rep_name||'',
+      amount:N(r.amount),
+      method:r.method||'Cash',
+      notes:S(r.purpose||r.notes||'') || 'تحصيل من إيصال استلام',
+      status:'approved',
+      approval_status:'approved',
+      approved_date:D(r.date||r.created_at)||D(new Date().toISOString()),
+      source_type_v435:'cash_receipt_in',
+      source_receipt_id_v435:r.id,
+      source_receipt_serial_v435:r.serial||'',
+      created_at:r.created_at||new Date().toISOString()
+    };
+    db.collections.unshift(row);
+
+    r.customer_id=c.id;
+    r.customer_name=customerName(c);
+    r.collection_id_v435=row.id;
+    r.applied_to_customer_debt_v435=true;
+
+    try{
+      if(typeof window.reconcileCustomerCollectionsV431==='function'){
+        window.reconcileCustomerCollectionsV431(c.id,false);
+      }
+    }catch(e){console.error('V435 receipt debt reconciliation',e)}
+
+    return row;
+  }
+
+  window.syncCustomerReceiptsToCollectionsV435=function(persist){
+    var added=0;
+    A(db.cash_receipts_in).forEach(function(r){
+      if(mirrorReceipt(r)) {
+        if(r.collection_id_v435 && !r._counted_v435){
+          r._counted_v435=true;
+          added++;
+        }
+      }
+    });
+
+    /*
+      Backfill original invoice date from linked sales order.
+      This repairs historic rows whose date was overwritten by warehouse dispatch day.
+    */
+    var dateFixed=0;
+    A(db.sales).forEach(function(sale){
+      if(!sale||!sale.order_id)return;
+      var order=A(db.sales_orders).find(function(o){return String(o.id)===String(sale.order_id)});
+      if(!order)return;
+      var sourceDate=D(order.date||order.invoice_date||order.created_date);
+      if(!sourceDate)return;
+
+      var current=D(sale.date);
+      var dispatch=D(sale.dispatched_date||sale.approved_date);
+      /*
+        If sale date equals dispatch/approval date, or is missing, it is safe to
+        restore the earlier source order date. Never move a valid earlier date forward.
+      */
+      if(!current || current===dispatch || sourceDate<current){
+        sale.dispatched_date=sale.dispatched_date||current||dispatch;
+        sale.date=sourceDate;
+        sale.invoice_date_source_v435='sales_order';
+        dateFixed++;
+      }
+    });
+
+    if(persist!==false)save435();
+
+    try{
+      if(typeof window.reconcileAllCustomerCollectionsV431==='function'){
+        window.reconcileAllCustomerCollectionsV431(false);
+      }
+      if(typeof window.syncCustomerDebtSingleSourceV433==='function'){
+        window.syncCustomerDebtSingleSourceV433(false);
+      }
+    }catch(e){}
+
+    return {receipt_collections_added:added,invoice_dates_fixed:dateFixed};
+  };
+
+  /*
+    New incoming cash receipt:
+    after all existing receipt wrappers save it and attach customer_id/name,
+    mirror it once into approved collections and reduce the customer's debt.
+  */
+  var saveReceiptBase435=window.saveCashReceiptV159;
+  if(typeof saveReceiptBase435==='function'){
+    window.saveCashReceiptV159=function(type){
+      var before=new Set(A(db.cash_receipts_in).map(function(r){return String(r.id)}));
+      var result=saveReceiptBase435.apply(this,arguments);
+
+      if(type==='in'){
+        setTimeout(function(){
+          var row=A(db.cash_receipts_in).find(function(r){return !before.has(String(r.id))});
+          if(row){
+            mirrorReceipt(row);
+            save435();
+            try{
+              if(typeof renderCollections==='function')renderCollections();
+              if(typeof renderDashboard==='function')renderDashboard();
+            }catch(e){}
+          }
+        },260);
+      }
+      return result;
+    };
+    try{saveCashReceiptV159=window.saveCashReceiptV159}catch(e){}
+  }
+
+  /*
+    Deleting a customer receipt also removes only its auto-mirrored collection
+    and then re-runs the customer's debt allocation.
+  */
+  var deleteReceiptBase435=window.deleteCashReceiptV159;
+  if(typeof deleteReceiptBase435==='function'){
+    window.deleteCashReceiptV159=function(type,id){
+      var receipt=type==='in'?A(db.cash_receipts_in).find(function(r){return String(r.id)===String(id)}):null;
+      var customerId=receipt&&receipt.customer_id;
+      var result=deleteReceiptBase435.apply(this,arguments);
+
+      if(type==='in'){
+        db.collections=A(db.collections).filter(function(c){
+          return String(c.source_receipt_id_v435||'')!==String(id);
+        });
+        if(customerId){
+          try{
+            if(typeof window.reconcileCustomerCollectionsV431==='function'){
+              window.reconcileCustomerCollectionsV431(customerId,false);
+            }
+          }catch(e){}
+        }
+        save435();
+      }
+      return result;
+    };
+    try{deleteCashReceiptV159=window.deleteCashReceiptV159}catch(e){}
+  }
+
+  window.auditCollectionsUnifiedV435=function(){
+    var today=(function(){
+      var d=new Date();
+      return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    })();
+
+    var cols=A(db.collections);
+    var receiptCols=cols.filter(function(c){return c.source_type_v435==='cash_receipt_in'});
+    var todayTotal=cols.filter(function(c){return D(c.date||c.approved_date||c.created_at)===today})
+      .reduce(function(a,c){return a+N(c.amount)},0);
+
+    var overdue=0;
+    A(db.sales).forEach(function(s){
+      var rem=N(s.remaining);
+      if(rem<=0)return;
+      var d=D(s.date||s.created_at);
+      if(!d)return;
+      var age=Math.floor((new Date(today+'T00:00:00')-new Date(d+'T00:00:00'))/86400000);
+      if(age>30)overdue+=rem;
+    });
+
+    return {
+      today:today,
+      today_collections:todayTotal,
+      overdue_over_30:overdue,
+      auto_receipt_collections:receiptCols.length,
+      customer_receipts:A(db.cash_receipts_in).filter(function(r){return !!findCustomerForReceipt(r)}).length,
+      unmirrored_customer_receipts:A(db.cash_receipts_in).filter(function(r){
+        return !!findCustomerForReceipt(r) && !receiptAlreadyMirrored(r);
+      })
+    };
+  };
+
+  /* One-time repair for existing data. */
+  setTimeout(function(){
+    try{
+      var r=window.syncCustomerReceiptsToCollectionsV435(true);
+      console.log('V435 unified receipts/collections/aging',r);
+      if(typeof render==='function')render();
+    }catch(e){console.error('V435 startup sync',e)}
+  },1500);
 })();
 </script>
