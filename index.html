@@ -15776,14 +15776,51 @@ render();
     return Object.keys(m).sort().slice(-12).map(function(k){return {k:k,v:m[k]}})
   }
   function collectorRows(){
-    var m={};
+    var map={};
+    var debts=debtRows();
+
+    function ensureCollector(name){
+      name=s(name)||'غير محدد';
+      if(!map[name]){
+        map[name]={
+          name:name,
+          customers:{},
+          collected:0,
+          target:0,
+          debt:0
+        };
+      }
+      return map[name];
+    }
+
     cols().forEach(function(x){
-      var name=x.collector_name||x.rep_name||'غير محدد';
-      if(!m[name])m[name]={name:name,customers:{},collected:0,target:0};
-      m[name].collected+=n(x.amount);m[name].target+=n(x.target_amount);
-      if(x.customer_id||x.customer_name)m[name].customers[x.customer_id||x.customer_name]=1;
+      var name=s(x.collector_name||x.rep_name||'غير محدد');
+      var row=ensureCollector(name);
+      row.collected+=n(x.amount);
+
+      var customerKey=s(x.customer_id||x.customer_name);
+      if(customerKey)row.customers[customerKey]=1;
     });
-    return Object.keys(m).map(function(k){var x=m[k];x.count=Object.keys(x.customers).length;x.rate=x.target?x.collected/x.target*100:0;return x});
+
+    debts.forEach(function(c){
+      var name=s(c.rep||'غير محدد');
+      var row=ensureCollector(name);
+
+      row.debt+=n(c.debt);
+      row.target+=n(c.debt);
+
+      var customerKey=s(c.id||c.name);
+      if(customerKey)row.customers[customerKey]=1;
+    });
+
+    return Object.keys(map).map(function(k){
+      var x=map[k];
+      x.count=Object.keys(x.customers).length;
+      x.rate=x.target>0 ? (x.collected/x.target*100) : 0;
+      return x;
+    }).sort(function(a,b){
+      return b.target-a.target || b.collected-a.collected;
+    });
   }
   function forecast(){
     var arr=Array.isArray(db.finance_receivable_papers)?db.finance_receivable_papers:[];
@@ -36079,6 +36116,17 @@ html body .summary-box.v303-auto-clickable:after{
       overdue_items:A(d.overdue).length,
       target:N(d.target&&d.target.target),
       achievement:N(d.achievement&&d.achievement.rate)
+    };
+  };
+})();
+</script>
+
+
+<script id="v441-collector-required-amount-audit">
+(function(){
+  window.auditCollectorRequiredAmountV441=function(){
+    return {
+      note:'المبلغ المطلوب = المديونية الحالية للعملاء التابعين للمحصل/المندوب، والمبلغ المحصل = التحصيلات المعتمدة المسجلة باسمه.'
     };
   };
 })();
