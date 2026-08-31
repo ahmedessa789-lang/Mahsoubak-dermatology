@@ -34741,11 +34741,38 @@ html body .summary-box.v303-auto-clickable:after{
       var currentPaid=Math.min(g.total,g.initialPaid+g.allocated);
       var currentRemaining=Math.max(0,g.total-currentPaid);
 
-      g.rows.forEach(function(r){
+      /*
+        V432 critical fix for multi-line invoices:
+        Never copy the FULL invoice paid/remaining value to every product row.
+        Distribute the invoice totals across its sale rows by line value so any
+        report that sums db.sales rows gets the exact invoice debt once only.
+      */
+      var allocatedPaid=0,allocatedRemaining=0;
+      g.rows.forEach(function(r,idx){
+        var lineTotal=saleTotal(r);
+        var linePaid,lineRemaining;
+        if(idx===g.rows.length-1){
+          linePaid=Math.max(0,currentPaid-allocatedPaid);
+          lineRemaining=Math.max(0,currentRemaining-allocatedRemaining);
+        }else{
+          var ratio=g.total>0?lineTotal/g.total:0;
+          linePaid=Math.max(0,currentPaid*ratio);
+          lineRemaining=Math.max(0,currentRemaining*ratio);
+          allocatedPaid+=linePaid;
+          allocatedRemaining+=lineRemaining;
+        }
+
+        /* Never allow a row to carry more paid/debt than its own line total. */
+        if(linePaid>lineTotal)linePaid=lineTotal;
+        if(lineRemaining>lineTotal-linePaid)lineRemaining=Math.max(0,lineTotal-linePaid);
+
         r.collection_applied_v431=g.allocated;
-        r.paid=currentPaid;
-        r.remaining=currentRemaining;
+        r.invoice_paid_v432=currentPaid;
+        r.invoice_remaining_v432=currentRemaining;
+        r.paid=linePaid;
+        r.remaining=lineRemaining;
         r.collection_reconciled_v431=true;
+        r.debt_row_normalized_v432=true;
       });
     });
 
@@ -34754,6 +34781,16 @@ html body .summary-box.v303-auto-clickable:after{
     },0);
     c.collections_applied_v431=cols.reduce(function(a,x){return a+N(x.applied_amount_v431)},0);
     c.collections_unapplied_v431=cols.reduce(function(a,x){return a+N(x.unapplied_amount_v431)},0);
+
+    /*
+      V433 SINGLE SOURCE OF TRUTH:
+      Customer debt shown everywhere = actual outstanding invoices after approved
+      collections. Do not infer a hidden historical opening balance from an old
+      mismatch, because that makes customer cards disagree with collections reports.
+    */
+    c.opening_balance_v432=0;
+    c.balance=N(c.invoice_outstanding_v431);
+    c.balance_source_v432='invoice_outstanding_only_v433';
     c.collection_reconciled_at_v431=new Date().toISOString();
 
     if(persist!==false){
@@ -34763,6 +34800,8 @@ html body .summary-box.v303-auto-clickable:after{
     return {
       customer_id:c.id,
       outstanding:c.invoice_outstanding_v431,
+      balance:N(c.balance),
+      opening_balance:N(c.opening_balance_v432),
       applied:c.collections_applied_v431,
       unapplied:c.collections_unapplied_v431,
       invoices:groups.length,
@@ -34807,6 +34846,27 @@ html body .summary-box.v303-auto-clickable:after{
     });
   };
 
+  window.auditCustomerDebtConsistencyV432=function(){
+    return A(db.customers).map(function(c){
+      var r=window.reconcileCustomerCollectionsV431(c.id,false)||{};
+      var salesRemaining=A(db.sales).filter(function(s){
+        return isRealSale(s)&&sameCustomer(s,c.id,customerName(c));
+      }).reduce(function(a,s){return a+N(s.remaining)},0);
+      var approvedTotal=approvedCollections(c).reduce(function(a,x){return a+N(x.amount)},0);
+      return {
+        customer_id:c.id,
+        customer_name:customerName(c),
+        customer_balance:N(c.balance),
+        invoice_outstanding:N(r.outstanding),
+        sales_rows_remaining:salesRemaining,
+        approved_collections:approvedTotal,
+        unapplied_collections:N(r.unapplied),
+        balanced:Math.abs(N(c.balance)-N(r.outstanding))<0.01 &&
+                 Math.abs(salesRemaining-N(r.outstanding))<0.01
+      };
+    });
+  };
+
   /* Backfill historical approved collections once on load. */
   setTimeout(function(){
     try{
@@ -34814,5 +34874,87 @@ html body .summary-box.v303-auto-clickable:after{
       if(typeof render==='function')render();
     }catch(e){console.error('V431 debt reconciliation',e)}
   },900);
+})();
+</script>
+
+
+<script id="v433-customer-debt-single-source">
+(function(){
+  function A(v){return Array.isArray(v)?v:[]}
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+
+  window.customerDebtAuthoritativeV433=function(){
+    try{
+      if(typeof window.reconcileAllCustomerCollectionsV431==='function'){
+        window.reconcileAllCustomerCollectionsV431(false);
+      }
+    }catch(e){}
+
+    return A(db.customers).reduce(function(sum,c){
+      return sum+Math.max(0,N(c.invoice_outstanding_v431!=null?c.invoice_outstanding_v431:c.balance));
+    },0);
+  };
+
+  window.syncCustomerDebtSingleSourceV433=function(persist){
+    var changed=0;
+    try{
+      if(typeof window.reconcileAllCustomerCollectionsV431==='function'){
+        window.reconcileAllCustomerCollectionsV431(false);
+      }
+    }catch(e){}
+
+    A(db.customers).forEach(function(c){
+      var debt=Math.max(0,N(c.invoice_outstanding_v431));
+      if(Math.abs(N(c.balance)-debt)>0.001)changed++;
+      c.opening_balance_v432=0;
+      c.balance=debt;
+      c.balance_source_v432='invoice_outstanding_only_v433';
+    });
+
+    if(persist!==false){
+      try{if(typeof save==='function')save()}catch(e){}
+    }
+    return {changed:changed,total:window.customerDebtAuthoritativeV433()};
+  };
+
+  /*
+    Legacy dashboard helpers often sum c.balance. Keep c.balance synchronized
+    before every main render so all old cards automatically show the same debt.
+  */
+  var renderBaseV433=window.render;
+  if(typeof renderBaseV433==='function'){
+    window.render=function(){
+      try{window.syncCustomerDebtSingleSourceV433(false)}catch(e){}
+      return renderBaseV433.apply(this,arguments);
+    };
+    try{render=window.render}catch(e){}
+  }
+
+  var dashboardBaseV433=window.renderDashboard;
+  if(typeof dashboardBaseV433==='function'){
+    window.renderDashboard=function(){
+      try{window.syncCustomerDebtSingleSourceV433(false)}catch(e){}
+      return dashboardBaseV433.apply(this,arguments);
+    };
+    try{renderDashboard=window.renderDashboard}catch(e){}
+  }
+
+  var collectionsBaseV433=window.renderCollections;
+  if(typeof collectionsBaseV433==='function'){
+    window.renderCollections=function(){
+      try{window.syncCustomerDebtSingleSourceV433(false)}catch(e){}
+      return collectionsBaseV433.apply(this,arguments);
+    };
+    try{renderCollections=window.renderCollections}catch(e){}
+  }
+
+  /* Persist the correction once after loading existing Supabase/local data. */
+  setTimeout(function(){
+    try{
+      var r=window.syncCustomerDebtSingleSourceV433(true);
+      console.log('V433 customer debt synchronized',r);
+      if(typeof render==='function')render();
+    }catch(e){console.error('V433 debt sync',e)}
+  },1200);
 })();
 </script>
