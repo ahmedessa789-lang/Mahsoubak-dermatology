@@ -12569,7 +12569,24 @@ render();
     return x<0?'<span class="negative-v232">('+Math.abs(x).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+')</span>':
       x.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
   }
-  function isoDateV232(d){return d.toISOString().slice(0,10)}
+  function isoDateV232(d){
+    if(!(d instanceof Date)||isNaN(d.getTime()))return '';
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  function normDateV442(v){
+    if(v==null||v==='')return '';
+    var raw=String(v).trim(),m;
+    m=raw.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
+    if(m)return m[1]+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[3]).padStart(2,'0');
+    m=raw.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/);
+    if(m)return m[3]+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[1]).padStart(2,'0');
+    var d=new Date(raw);
+    if(!isNaN(d.getTime()))return isoDateV232(d);
+    return '';
+  }
+  function todayLocalV442(){
+    return isoDateV232(new Date());
+  }
   function dateListV232(from,to){
     var arr=[],a=new Date(from+'T00:00:00'),b=new Date(to+'T00:00:00');
     if(isNaN(a)||isNaN(b))return arr;
@@ -12596,7 +12613,9 @@ render();
     if(desc.includes('abk'))return 'ABK';
     if(desc.includes('cib'))return 'CIB';
     if(desc.includes('wallet')||desc.includes('محفظ'))return lang==='ar'?'المحفظة':'Wallet';
-    if(String(j.account)==='1110'||desc.includes('bank')||desc.includes('بنك'))return lang==='ar'?'بنوك أخرى':'Other Banks';
+    var acc=(db.accounts||[]).find(function(a){return String(a.code)===String(j.account)})||null;
+    var parent=String(acc&&acc.parent||'');
+    if(String(j.account)==='1110'||parent==='1110'||desc.includes('bank')||desc.includes('بنك'))return lang==='ar'?'بنوك أخرى':'Other Banks';
     return 'cash';
   }
   function expenseLabelV232(j){
@@ -12610,19 +12629,110 @@ render();
     if(d.includes('marketing')||d.includes('دعاية'))return lang==='ar'?'دعاية وتسويق':'Marketing';
     return lang==='ar'?'مصروفات أخرى':'Other Expenses';
   }
+  function moneyAccountCodesV442(){
+    try{if(typeof ensureAccounting==='function')ensureAccounting()}catch(e){}
+    var codes=new Set(['1100','1110']);
+
+    (db.financeFunds||[]).forEach(function(f){
+      if(f&&f.gl_account_code_v274)codes.add(String(f.gl_account_code_v274));
+    });
+
+    (db.accounts||[]).forEach(function(a){
+      var code=String(a.code||'');
+      var parent=String(a.parent||'');
+      if(parent==='1100'||parent==='1110'||code.indexOf('FUND-')===0){
+        codes.add(code);
+      }
+    });
+
+    return codes;
+  }
+
   function allMoneyLinesV232(){
     try{if(typeof ensureAccounting==='function')ensureAccounting()}catch(e){}
-    return (db.journal||[]).filter(function(j){
-      return String(j.account)==='1100'||String(j.account)==='1110';
+    var codes=moneyAccountCodesV442();
+
+    var journalRows=(db.journal||[]).filter(function(j){
+      return codes.has(String(j.account||''));
+    }).map(function(j){
+      var x=Object.assign({},j);
+      x.date=normDateV442(j.date||j.created_at);
+      return x;
+    }).filter(function(j){return !!j.date});
+
+    /*
+      A finance-fund movement should normally have a matching journal line.
+      Use the movement only as a fallback when no journal line is linked to it,
+      so a valid cash/bank movement cannot disappear from Cash Flow.
+    */
+    var journalSourceIds=new Set();
+    journalRows.forEach(function(j){
+      var sid=String(j.sourceId||j.source_id||'');
+      if(sid)journalSourceIds.add(sid);
     });
+
+    var movementFallback=[];
+    (db.financeFundMovements||[]).forEach(function(m){
+      if(!m)return;
+
+      var sid=String(m.source_id||m.sourceId||'');
+      var mid=String(m.id||'');
+      if((sid&&journalSourceIds.has(sid))||(mid&&journalSourceIds.has(mid)))return;
+
+      var f=(db.financeFunds||[]).find(function(x){
+        return String(x.id||'')===String(m.fund_id||'');
+      })||null;
+
+      var account=(f&&f.gl_account_code_v274)
+        ?String(f.gl_account_code_v274)
+        :(f&&f.type==='bank'?'1110':'1100');
+
+      var cur=String(m.currency||(f&&f.currency)||'EGP').toUpperCase();
+      var amount=nn(
+        m.egp_value!=null?m.egp_value:
+        (m.amount_egp!=null?m.amount_egp:
+         (cur==='EGP'?m.amount:(nn(m.amount)*nn(m.rate||m.exchange_rate))))
+      );
+
+      if(!(amount>0))return;
+      var direction=String(m.direction||'').toLowerCase();
+      var signed=nn(m.signed_amount);
+      var isIn=direction==='in'||(!direction&&signed>0);
+      var isOut=direction==='out'||(!direction&&signed<0);
+      if(!isIn&&!isOut)return;
+
+      movementFallback.push({
+        id:'CFMOVE|'+mid,
+        date:normDateV442(m.date||m.created_at),
+        account:account,
+        debit:isIn?amount:0,
+        credit:isOut?amount:0,
+        description:m.description||m.fund_name||'Finance Fund Movement',
+        source:m.source||'financeFundMovements',
+        sourceId:sid||mid,
+        bank:m.fund_name||'',
+        cashflow_fallback_v442:true
+      });
+    });
+
+    return journalRows.concat(movementFallback).filter(function(j){return !!j.date});
   }
   function dailyDataV232(dates){
     var lines=allMoneyLinesV232();
     var from=isoDateV232(dates[0]),to=isoDateV232(dates[dates.length-1]);
-    var openingCash=nn((typeof accountByCode==='function'&&accountByCode('1100')||{}).opening);
-    var openingBank=nn((typeof accountByCode==='function'&&accountByCode('1110')||{}).opening);
-    var prior=lines.filter(function(j){return j.date<from}).reduce(function(s,j){return s+nn(j.debit)-nn(j.credit)},0);
-    var opening=openingCash+openingBank+prior;
+
+    var codes=moneyAccountCodesV442();
+    var opening=0;
+    codes.forEach(function(code){
+      var a=(db.accounts||[]).find(function(x){return String(x.code)===String(code)});
+      if(a)opening+=nn(a.opening);
+    });
+
+    var prior=lines.filter(function(j){
+      var jd=normDateV442(j.date);
+      return jd&&jd<from;
+    }).reduce(function(s,j){return s+nn(j.debit)-nn(j.credit)},0);
+    opening+=prior;
     var inBuckets=['cash','QNB','CIB','FAB','ABK',lang==='ar'?'بنوك أخرى':'Other Banks',lang==='ar'?'المحفظة':'Wallet'];
     var expenseBuckets=[
       lang==='ar'?'مشتريات':'Purchases',
@@ -12640,8 +12750,12 @@ render();
       inBuckets.forEach(function(b){data[key].income[b]=0});
       expenseBuckets.forEach(function(b){data[key].expense[b]=0});
     });
-    lines.filter(function(j){return j.date>=from&&j.date<=to}).forEach(function(j){
-      var day=data[j.date];if(!day)return;
+    lines.filter(function(j){
+      var jd=normDateV442(j.date);
+      return jd&&jd>=from&&jd<=to;
+    }).forEach(function(j){
+      var jd=normDateV442(j.date);
+      var day=data[jd];if(!day)return;
       if(nn(j.debit)>0){
         var b=sourceBucketV232(j);if(day.income[b]==null)day.income[b]=0;
         day.income[b]+=nn(j.debit);
@@ -12668,8 +12782,18 @@ render();
     }).join('')+'</tr>';
   }
   function cashBalancesV232(toDate){
-    var lines=allMoneyLinesV232().filter(function(j){return !toDate||j.date<=toDate});
-    var map={cash:nn((typeof accountByCode==='function'&&accountByCode('1100')||{}).opening)};
+    var lines=allMoneyLinesV232().filter(function(j){
+      var jd=normDateV442(j.date);
+      return !toDate||(jd&&jd<=toDate);
+    });
+    var map={};
+    moneyAccountCodesV442().forEach(function(code){
+      var a=(db.accounts||[]).find(function(x){return String(x.code)===String(code)});
+      if(!a)return;
+      var pseudo={account:code,description:a.name||a.name_ar||a.name_en||''};
+      var b=sourceBucketV232(pseudo);
+      map[b]=(map[b]||0)+nn(a.opening);
+    });
     lines.forEach(function(j){
       var b=sourceBucketV232(j);
       map[b]=(map[b]||0)+nn(j.debit)-nn(j.credit);
@@ -12689,8 +12813,9 @@ render();
       el.innerHTML='<div class="card locked-screen"><h3>'+(lang==='ar'?'لا توجد صلاحية':'No permission')+'</h3></div>';return;
     }
     var r=typeof cashFlowRange==='function'?cashFlowRange():{from:'',to:''};
-    var from=r.from||new Date().toISOString().slice(0,8)+'01';
-    var to=r.to||new Date().toISOString().slice(0,10);
+    var localTodayV442=todayLocalV442();
+    var from=r.from||localTodayV442.slice(0,8)+'01';
+    var to=r.to||localTodayV442;
     var dates=dateListV232(from,to);
     if(!dates.length){
       el.innerHTML='<div class="card">اختر فترة صحيحة</div>';return;
@@ -12735,6 +12860,23 @@ render();
   setTimeout(function(){
     try{if(typeof current!=='undefined'&&current==='cashflow')renderCashFlow()}catch(e){}
   },150);
+
+  window.auditCashFlowV442=function(date){
+    date=normDateV442(date||todayLocalV442());
+    var rows=allMoneyLinesV232().filter(function(j){
+      return normDateV442(j.date)===date;
+    });
+    return {
+      date:date,
+      money_accounts:Array.from(moneyAccountCodesV442()),
+      rows:rows,
+      inflow:rows.reduce(function(a,j){return a+nn(j.debit)},0),
+      outflow:rows.reduce(function(a,j){return a+nn(j.credit)},0),
+      journal_rows:rows.filter(function(j){return !j.cashflow_fallback_v442}).length,
+      fallback_fund_movements:rows.filter(function(j){return !!j.cashflow_fallback_v442}).length
+    };
+  };
+
 })();
 </script><style id="v233-receipt-link-style">.receipt-linked-field-v233{min-width:190px}.receipt-linked-hint-v233{font-size:12px;opacity:.75;margin-top:4px}</style><script id="v233-cash-receipt-customer-bank-link">
 (function(){
@@ -15467,7 +15609,10 @@ render();
   function e(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
   function moneyV(v){return 'EGP '+n(v).toLocaleString('en-EG',{minimumFractionDigits:2,maximumFractionDigits:2})}
   function d(v){return s(v).slice(0,10)}
-  function todayV(){return new Date().toISOString().slice(0,10)}
+  function todayV(){
+    var d=new Date();
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
   function days(a,b){if(!a||!b)return 0;return Math.max(0,Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000))}
   function sales(){return Array.isArray(db.sales)?db.sales:[]}
   function cols(){
@@ -36129,5 +36274,34 @@ html body .summary-box.v303-auto-clickable:after{
       note:'المبلغ المطلوب = المديونية الحالية للعملاء التابعين للمحصل/المندوب، والمبلغ المحصل = التحصيلات المعتمدة المسجلة باسمه.'
     };
   };
+})();
+</script>
+
+
+<script id="v442-cashflow-refresh-hooks">
+(function(){
+  function refreshCashFlowV442(){
+    try{
+      if(typeof window.renderCashFlow==='function'){
+        var view=document.getElementById('view-cashflow');
+        if(view)window.renderCashFlow();
+      }
+    }catch(e){console.error('V442 Cash Flow refresh',e)}
+  }
+
+  ['postExpenseV287','deleteExpenseV287','postGeneralJournalV298','deleteGeneralJournalV298'].forEach(function(name){
+    var base=window[name];
+    if(typeof base!=='function'||base.__cashflow_v442)return;
+    var wrapped=function(){
+      var r=base.apply(this,arguments);
+      setTimeout(refreshCashFlowV442,120);
+      return r;
+    };
+    wrapped.__cashflow_v442=true;
+    window[name]=wrapped;
+    try{eval(name+'=window[name]')}catch(e){}
+  });
+
+  setTimeout(refreshCashFlowV442,500);
 })();
 </script>
