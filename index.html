@@ -12715,7 +12715,79 @@ render();
       });
     });
 
-    return journalRows.concat(movementFallback).filter(function(j){return !!j.date});
+    /*
+      V443: direct finance cash/currency movements are another authoritative
+      source used by the Finance screen. Some of them have a GL journal entry,
+      while others (especially legacy/direct V135 rows) may not.
+      Add only movements whose source/id is NOT already represented in journal,
+      so the Cash Flow closing balance always follows the visible cash movement.
+    */
+    var cashCurrencyFallback=[];
+    (db.finance_cash_currency_movements||[]).forEach(function(m){
+      if(!m)return;
+
+      var sid=String(m.sourceId||m.source_id||'');
+      var mid=String(m.id||'');
+      var receiptId=String(m.receipt_id||'');
+
+      var possibleJournalIds=[
+        sid,
+        mid,
+        receiptId ? 'cash_receipt_'+receiptId : '',
+        receiptId ? 'cash_receipt_v161_'+receiptId : '',
+        mid ? 'cash_movement_'+mid : ''
+      ].filter(Boolean);
+
+      if(possibleJournalIds.some(function(id){return journalSourceIds.has(id)}))return;
+
+      var amount=nn(
+        m.egp_value!=null?m.egp_value:
+        (String(m.currency||'EGP').toUpperCase()==='EGP'
+          ?m.amount
+          :(nn(m.amount)*nn(m.rate||1)))
+      );
+      if(!(amount>0))return;
+
+      var type=String(m.type||m.direction||'in').toLowerCase();
+      var isOut=type==='out'||type==='withdrawal'||type==='expense';
+      var account='1100';
+
+      /* If this movement is tied to a known finance fund, use its actual GL. */
+      var fundId=m.fund_id||m.finance_fund_id||m.treasury_id||m.bank_fund_id||'';
+      if(fundId){
+        var f=(db.financeFunds||[]).find(function(x){
+          return String(x.id||'')===String(fundId);
+        });
+        if(f){
+          account=String(f.gl_account_code_v274||(f.type==='bank'?'1110':'1100'));
+        }
+      }else if(
+        String(m.method||'').toLowerCase()==='bank' ||
+        String(m.bank||'').trim() ||
+        String(m.description||'').toLowerCase().indexOf('bank')>=0 ||
+        String(m.description||'').indexOf('بنك')>=0
+      ){
+        account='1110';
+      }
+
+      cashCurrencyFallback.push({
+        id:'CFCUR|'+mid,
+        date:normDateV442(m.date||m.created_at),
+        account:account,
+        debit:isOut?0:amount,
+        credit:isOut?amount:0,
+        description:m.description||'Finance Cash Movement',
+        source:m.source||'finance_cash_currency_movements',
+        sourceId:sid||mid,
+        bank:m.bank||m.bank_name||'',
+        cashflow_currency_fallback_v443:true
+      });
+    });
+
+    return journalRows
+      .concat(movementFallback)
+      .concat(cashCurrencyFallback)
+      .filter(function(j){return !!j.date});
   }
   function dailyDataV232(dates){
     var lines=allMoneyLinesV232();
@@ -12873,7 +12945,9 @@ render();
       inflow:rows.reduce(function(a,j){return a+nn(j.debit)},0),
       outflow:rows.reduce(function(a,j){return a+nn(j.credit)},0),
       journal_rows:rows.filter(function(j){return !j.cashflow_fallback_v442}).length,
-      fallback_fund_movements:rows.filter(function(j){return !!j.cashflow_fallback_v442}).length
+      fallback_fund_movements:rows.filter(function(j){return !!j.cashflow_fallback_v442}).length,
+      fallback_cash_currency:rows.filter(function(j){return !!j.cashflow_currency_fallback_v443}).length,
+      closing_effect:rows.reduce(function(a,j){return a+nn(j.debit)-nn(j.credit)},0)
     };
   };
 
@@ -36303,5 +36377,31 @@ html body .summary-box.v303-auto-clickable:after{
   });
 
   setTimeout(refreshCashFlowV442,500);
+})();
+</script>
+
+
+<script id="v443-cash-currency-refresh-cashflow">
+(function(){
+  function refreshV443(){
+    try{
+      if(typeof window.renderCashFlow==='function' && document.getElementById('view-cashflow')){
+        window.renderCashFlow();
+      }
+    }catch(e){console.error('V443 Cash Flow refresh',e)}
+  }
+
+  ['addFinanceCashMovementV135','deleteFinanceCashMovementV135'].forEach(function(name){
+    var base=window[name];
+    if(typeof base!=='function'||base.__v443)return;
+    var wrapped=function(){
+      var r=base.apply(this,arguments);
+      setTimeout(refreshV443,100);
+      return r;
+    };
+    wrapped.__v443=true;
+    window[name]=wrapped;
+    try{eval(name+'=window[name]')}catch(e){}
+  });
 })();
 </script>
