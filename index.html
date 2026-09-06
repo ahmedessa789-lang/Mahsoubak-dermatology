@@ -26,7 +26,7 @@ function reportPeriodLabel(){return (reportRange.from||'...')+' → '+(reportRan
 function repAchievementFiltered(id){return filteredSales().filter(s=>s.rep_id===id).reduce((a,s)=>a+n(s.total),0)}
 function totalRepAchievedFiltered(){return db.reps.reduce((a,r)=>a+repAchievementFiltered(r.id),0)}
 function avgRepPercentFiltered(){let t=totalRepTarget();return t?Math.round(totalRepAchievedFiltered()/t*100):0}
-function filteredSummary(){let fs=filteredSales(),fp=filteredPurchases(),fc=filteredCollections(),fo=filteredOperations();return {sales:fs.reduce((a,s)=>a+n(s.total),0),purchases:fp.reduce((a,s)=>a+n(s.total),0),collections:fc.reduce((a,c)=>a+n(c.amount),0),operations:fo.length,soldOps:fo.filter(o=>o.status==='sold').length,pendingOps:fo.filter(o=>o.status==='requested').length,invoiceCount:fs.length,purchaseCount:fp.length,collectionCount:fc.length}}
+function filteredSummary(){let fs=filteredSales(),fp=filteredPurchases(),fc=filteredCollections(),fo=filteredOperations();return {sales:fs.reduce((a,s)=>a+n(s.total),0),purchases:fp.reduce((a,s)=>a+n(s.total),0),collections:fc.reduce((a,c)=>a+n(c.amount),0),operations:fo.length,soldOps:fo.filter(o=>o.status==='sold').length,pendingOps:fo.filter(o=>o.status==='requested').length,invoiceCount:dashboardInvoiceGroupsV446(fs).length,purchaseCount:dashboardPurchaseGroupsV446(fp).length,collectionCount:fc.length}}
 function dashboardRangeControls(){let s=filteredSummary();return `<div class="report-filter no-print"><div class="section-title"><div><h3>${lang==='ar'?'تقارير الشاشة الرئيسية حسب المدة':'Dashboard reports by period'}</h3><div class="range-note">${lang==='ar'?'اختر من تاريخ إلى تاريخ ثم اطبع أو صدّر التقرير':'Choose a date range, then print or export the report'}</div></div><span class="report-pill">${reportPeriodLabel()}</span></div><div class="date-row"><div><label>${lang==='ar'?'من تاريخ':'From date'}</label><input id="rep_from" type="date" value="${esc(reportRange.from||'')}"></div><div><label>${lang==='ar'?'إلى تاريخ':'To date'}</label><input id="rep_to" type="date" value="${esc(reportRange.to||'')}"></div><button class="btn ok" onclick="setDashboardRange()">${lang==='ar'?'تطبيق المدة':'Apply range'}</button><button class="btn secondary" onclick="resetDashboardRange()">${lang==='ar'?'الشهر الحالي':'This month'}</button><button class="btn blue" onclick="printRangeReport()">${lang==='ar'?'طباعة تقرير المدة':'Print period report'}</button><button class="btn secondary" onclick="exportRangeCSV()">${lang==='ar'?'تصدير CSV للمدة':'Export period CSV'}</button></div></div><div class="range-report"><div class="stat"><span>${T('salesTotal')}</span><strong>${money(s.sales)}</strong></div><div class="stat"><span>${T('purchasesTotal')}</span><strong>${money(s.purchases)}</strong></div><div class="stat"><span>${T('collections')}</span><strong>${money(s.collections)}</strong></div><div class="stat"><span>${T('operations')}</span><strong>${s.operations}</strong></div></div>`}
 function rangeSalesTable(){let arr=filteredSales();if(!arr.length)return `<div class="empty">${T('empty')}</div>`;return `<table><tr><th>${T('date')}</th><th>${T('customer')}</th><th>${T('rep')}</th><th>${T('product')}</th><th>${T('qty')}</th><th>${T('total')}</th><th>${T('paid')}</th><th>${T('remaining')}</th></tr>${arr.map(s=>`<tr><td>${esc(s.date)}</td><td>${esc(s.customer_name)}</td><td>${esc(s.rep_name||'')}</td><td>${esc(s.product_name)}</td><td>${n(s.qty)}</td><td>${money(s.total)}</td><td>${money(s.paid)}</td><td>${money(s.remaining)}</td></tr>`).join('')}</table>`}
 function rangeCollectionsTable(){let arr=filteredCollections();if(!arr.length)return `<div class="empty">${T('empty')}</div>`;return `<table><tr><th>${T('date')}</th><th>${T('customer')}</th><th>${T('collector')}</th><th>${T('amount')}</th><th>${T('method')}</th></tr>${arr.map(c=>`<tr><td>${esc(c.date)}</td><td>${esc(c.customer_name)}</td><td>${esc(c.rep_name||'')}</td><td>${money(c.amount)}</td><td>${esc(c.method||'')}</td></tr>`).join('')}</table>`}
@@ -261,55 +261,9 @@ function editCell(table,id,field,val,num){let r=db[table].find(x=>x.id===id); if
 function del(table,id){if(!confirm(T('delete')+'?'))return;db[table]=db[table].filter(x=>x.id!==id);render()}
 
 function totalSales(){return db.sales.reduce((a,s)=>a+n(s.total),0)} function totalPurchases(){return db.purchases.reduce((a,s)=>a+n(s.total),0)} function customerDebt(){return db.customers.reduce((a,c)=>a+n(c.balance),0)} function supplierDue(){return db.suppliers.reduce((a,s)=>a+n(s.balance),0)} function inventoryValue(){return db.products.reduce((a,p)=>a+n(p.purchase)*n(p.stock),0)} function repAchievement(id){return db.sales.filter(s=>s.rep_id===id).reduce((a,s)=>a+n(s.total),0)}
-
-function dashboardApprovedCollectionsV448(){
-  return (db.collections||[]).filter(function(c){
-    var st=String(c.approval_status||c.status||'approved').trim().toLowerCase();
-    return !['pending','rejected','cancelled','canceled','void'].includes(st);
-  });
-}
-function dashboardInvoiceKeyV448(s){
-  if(!s)return '';
-  if(String(s.invoice_no||'').trim())return 'NO|'+String(s.invoice_no).trim().toLowerCase();
-  if(String(s.invoice_group_id||'').trim())return 'GROUP|'+String(s.invoice_group_id).trim();
-  if(String(s.order_id||'').trim())return 'ORDER|'+String(s.order_id).trim();
-  return 'ROW|'+String(s.id||'');
-}
-function dashboardInvoiceGroupsV448(rows){
-  var map=new Map();
-  (rows||[]).forEach(function(s){
-    var k=dashboardInvoiceKeyV448(s);
-    if(!k)return;
-    if(!map.has(k))map.set(k,{key:k,total:0,rows:0});
-    var g=map.get(k);
-    g.total+=n(s.total);
-    g.rows++;
-  });
-  return Array.from(map.values());
-}
-function dashboardPurchaseKeyV448(p){
-  if(!p)return '';
-  if(String(p.invoice_no||'').trim())return 'NO|'+String(p.invoice_no).trim().toLowerCase();
-  if(String(p.invoice_group_id||'').trim())return 'GROUP|'+String(p.invoice_group_id).trim();
-  if(String(p.purchase_group_id||'').trim())return 'PGROUP|'+String(p.purchase_group_id).trim();
-  return 'ROW|'+String(p.id||'');
-}
-function dashboardPurchaseGroupsV448(rows){
-  var map=new Map();
-  (rows||[]).forEach(function(p){
-    var k=dashboardPurchaseKeyV448(p);
-    if(!k)return;
-    if(!map.has(k))map.set(k,{key:k,total:0,rows:0});
-    var g=map.get(k);
-    g.total+=n(p.total);
-    g.rows++;
-  });
-  return Array.from(map.values());
-}
-
-function renderDashboard(){let fs=(db.sales||[]), fp=(db.purchases||[]), fc=dashboardApprovedCollectionsV448(), fo=(db.operations||[]), pending=fo.filter(o=>o.status==='requested').length, prepared=fo.filter(o=>o.status==='prepared').length, soldOps=fo.filter(o=>o.status==='sold').length, low=db.products.filter(p=>n(p.stock)<=n(p.min)).length, collections=fc.reduce((a,c)=>a+n(c.amount),0), exp=expiryCount(), sales=fs.reduce((a,s)=>a+n(s.total),0), purchases=fp.reduce((a,s)=>a+n(s.total),0), debt=customerDebt(), due=supplierDue(), inv=inventoryValue();document.getElementById('view-dashboard').innerHTML=`
-<div class="executive-strip"><div class="exec-stat"><span>${T('salesTotal')}</span><strong>${money(sales)}</strong><em>${dashboardInvoiceGroupsV448(fs).length} ${lang==='ar'?'فاتورة':'invoices'}</em></div><div class="exec-stat"><span>${T('inventoryValue')}</span><strong>${money(inv)}</strong><em>${db.products.length} ${lang==='ar'?'صنف':'items'}</em></div><div class="exec-stat"><span>${T('customerDebt')}</span><strong>${money(debt)}</strong><em>${db.customers.filter(c=>n(c.balance)>0).length} ${lang==='ar'?'عميل مديون':'debt customers'}</em></div><div class="exec-stat"><span>${T('expiryAlert')}</span><strong>${exp.warn+exp.low}</strong><em>${low} ${lang==='ar'?'أصناف ناقصة':'low stock'}</em></div></div><div class="compact-dashboard-grid">
-${compactDashboardBox('sales',lang==='ar'?'المبيعات':'Sales',money(sales),[(lang==='ar'?'تحصيل':'Collections')+': '+money(collections),(lang==='ar'?'فواتير':'Invoices')+': '+dashboardInvoiceGroupsV448(fs).length])}
+function renderDashboard(){let fs=(db.sales||[]), fp=(db.purchases||[]), fc=dashboardCollectionsAllV446(), fo=(db.operations||[]), pending=fo.filter(o=>o.status==='requested').length, prepared=fo.filter(o=>o.status==='prepared').length, soldOps=fo.filter(o=>o.status==='sold').length, low=db.products.filter(p=>n(p.stock)<=n(p.min)).length, collections=fc.reduce((a,c)=>a+n(c.amount),0), exp=expiryCount(), sales=fs.reduce((a,s)=>a+n(s.total),0), purchases=fp.reduce((a,s)=>a+n(s.total),0), debt=customerDebt(), due=supplierDue(), inv=inventoryValue();document.getElementById('view-dashboard').innerHTML=`
+<div class="executive-strip"><div class="exec-stat"><span>${T('salesTotal')}</span><strong>${money(sales)}</strong><em>${dashboardInvoiceGroupsV446(fs).length} ${lang==='ar'?'فاتورة':'invoices'}</em></div><div class="exec-stat"><span>${T('inventoryValue')}</span><strong>${money(inv)}</strong><em>${db.products.length} ${lang==='ar'?'صنف':'items'}</em></div><div class="exec-stat"><span>${T('customerDebt')}</span><strong>${money(debt)}</strong><em>${db.customers.filter(c=>n(c.balance)>0).length} ${lang==='ar'?'عميل مديون':'debt customers'}</em></div><div class="exec-stat"><span>${T('expiryAlert')}</span><strong>${exp.warn+exp.low}</strong><em>${low} ${lang==='ar'?'أصناف ناقصة':'low stock'}</em></div></div><div class="compact-dashboard-grid">
+${compactDashboardBox('sales',lang==='ar'?'المبيعات':'Sales',money(sales),[(lang==='ar'?'تحصيل':'Collections')+': '+money(collections),(lang==='ar'?'فواتير':'Invoices')+': '+dashboardInvoiceGroupsV446(fs).length])}
 ${compactDashboardBox('stock',lang==='ar'?'المخزون':'Inventory',money(inv),[(lang==='ar'?'متاح للبياعين':'Available items')+': '+db.products.length,(lang==='ar'?'ناقص':'Low stock')+': '+low])}
 ${compactDashboardBox('operations',lang==='ar'?'العمليات':'Operations',pending,[(lang==='ar'?'جاهز للتجهيز':'Prepared')+': '+prepared,(lang==='ar'?'تم البيع':'Sold')+': '+soldOps])}
 ${compactDashboardBox('purchases',lang==='ar'?'المشتريات':'Purchasing',money(purchases),[(lang==='ar'?'مستحقات موردين':'Supplier due')+': '+money(due),(lang==='ar'?'فواتير':'Invoices')+': '+fp.length])}
@@ -645,19 +599,44 @@ function gridDashboardHeader(){
 }
 function shortDateLabel(d){if(!d)return '-'; let x=new Date(d); if(String(x)==='Invalid Date') return String(d).slice(5); return String(x.getDate()).padStart(2,'0')+'/'+String(x.getMonth()+1).padStart(2,'0')}
 function simpleBarsFromTotals(items, fallbackLabel){if(!items.length)return [{l:fallbackLabel||'-',v:0,max:1}]; let max=Math.max(...items.map(i=>n(i.v)),1); return items.map(i=>({l:i.l,v:n(i.v),max}));}
-function salesCardBars(){
-  let arr=(db.sales||[])
-    .slice(0,4)
-    .reverse()
-    .map(s=>({
-      l:shortDateLabel(s.date),
-      v:n(s.total)
-    }));
-
-  return simpleBarsFromTotals(
-    arr,
-    lang==='ar'?'بيع':'Sale'
-  );
+function dashboardCollectionsAllV446(){
+  return (db.collections||[]).filter(function(c){
+    let st=String(c.approval_status||c.status||'approved').trim().toLowerCase();
+    return !['pending','rejected','cancelled','canceled','void'].includes(st);
+  });
+}
+function dashboardInvoiceKeyV446(s){
+  if(!s)return '';
+  if(String(s.invoice_no||'').trim())return 'NO|'+String(s.invoice_no).trim().toLowerCase();
+  if(String(s.invoice_group_id||'').trim())return 'GROUP|'+String(s.invoice_group_id).trim();
+  if(String(s.order_id||'').trim())return 'ORDER|'+String(s.order_id).trim();
+  return 'ROW|'+String(s.id||Math.random());
+}
+function dashboardInvoiceGroupsV446(rows){
+  let map=new Map();
+  (rows||[]).forEach(function(s){
+    let k=dashboardInvoiceKeyV446(s);
+    if(!map.has(k))map.set(k,{key:k,total:0,rows:0});
+    let g=map.get(k); g.total+=n(s.total); g.rows++;
+  });
+  return Array.from(map.values());
+}
+function salesCardBars(){let arr=(db.sales||[]).slice(0,4).reverse().map(s=>({l:shortDateLabel(s.date),v:n(s.total)})); return simpleBarsFromTotals(arr,lang==='ar'?'بيع':'Sale')}
+function dashboardPurchaseKeyV446(p){
+  if(!p)return '';
+  if(String(p.invoice_no||'').trim())return 'NO|'+String(p.invoice_no).trim().toLowerCase();
+  if(String(p.invoice_group_id||'').trim())return 'GROUP|'+String(p.invoice_group_id).trim();
+  if(String(p.purchase_group_id||'').trim())return 'PGROUP|'+String(p.purchase_group_id).trim();
+  return 'ROW|'+String(p.id||Math.random());
+}
+function dashboardPurchaseGroupsV446(rows){
+  let map=new Map();
+  (rows||[]).forEach(function(p){
+    let k=dashboardPurchaseKeyV446(p);
+    if(!map.has(k))map.set(k,{key:k,total:0,rows:0});
+    let g=map.get(k); g.total+=n(p.total); g.rows++;
+  });
+  return Array.from(map.values());
 }
 function purchaseCardBars(){let arr=(db.purchases||[]).slice(0,4).reverse().map(p=>({l:shortDateLabel(p.date),v:n(p.total)})); return simpleBarsFromTotals(arr,lang==='ar'?'شراء':'Buy')}
 function stockCardBars(){let arr=[...db.products].sort((a,b)=>n(b.stock)-n(a.stock)).slice(0,4).map(p=>({l:(p.name||'').split(' ')[0]||T('product'),v:n(p.stock)})); return simpleBarsFromTotals(arr,lang==='ar'?'صنف':'Item')}
@@ -669,14 +648,15 @@ function soldOpsCount(){return (db.operations||[]).filter(o=>o.status==='sold').
 function cancelledOpsCount(){return (db.operations||[]).filter(o=>o.status==='cancelled').length}
 function operationsCardBars(){let arr=[{l:T('requested'),v:pendingOpsCount()},{l:T('prepared'),v:preparedOpsCount()},{l:T('sold'),v:soldOpsCount()},{l:T('cancelled'),v:cancelledOpsCount()}]; return simpleBarsFromTotals(arr,lang==='ar'?'حالة':'Status')}
 
-function renderDashboard(){let fs=(db.sales||[]), fp=(db.purchases||[]), fc=dashboardApprovedCollectionsV448(), fo=(db.operations||[]);
+function renderDashboard(){
+  let fs=(db.sales||[]), fp=(db.purchases||[]), fc=dashboardCollectionsAllV446(), fo=(db.operations||[]);
   let pending=fo.filter(o=>o.status==='requested').length, prepared=fo.filter(o=>o.status==='prepared').length, soldOps=fo.filter(o=>o.status==='sold').length;
   let low=db.products.filter(p=>n(p.stock)<=n(p.min)).length, collections=fc.reduce((a,c)=>a+n(c.amount),0), exp=expiryCount();
   let sales=fs.reduce((a,s)=>a+n(s.total),0), purchases=fp.reduce((a,s)=>a+n(s.total),0), debt=customerDebt(), due=supplierDue(), inv=inventoryValue();
   document.getElementById('view-dashboard').innerHTML = gridDashboardHeader() + `
   <div class="dashboard-grid market-dashboard-grid">
-    ${dashboardBox('sales',lang==='ar'?'المبيعات':'Sales',lang==='ar'?'أداء البيع والتحصيل خلال الفترة':'Sales and collections during selected period',money(sales),salesCardBars(),[[lang==='ar'?'التحصيل':'Collections',money(collections)],[lang==='ar'?'الفواتير':'Invoices',dashboardInvoiceGroupsV448(fs).length],[lang==='ar'?'متوسط الفاتورة':'Avg invoice',money(dashboardInvoiceGroupsV448(fs).length?Math.round(sales/dashboardInvoiceGroupsV448(fs).length):0)]])}
-    ${dashboardBox('purchases',lang==='ar'?'المشتريات':'Purchases',lang==='ar'?'قيمة الشراء ومستحقات الموردين':'Purchasing volume and supplier dues',money(purchases),purchaseCardBars(),[[lang==='ar'?'مستحقات الموردين':'Supplier due',money(due)],[lang==='ar'?'فواتير الشراء':'Purchase invoices',dashboardPurchaseGroupsV448(fp).length],[lang==='ar'?'متوسط الشراء':'Avg purchase',money(dashboardPurchaseGroupsV448(fp).length?Math.round(purchases/dashboardPurchaseGroupsV448(fp).length):0)]])}
+    ${dashboardBox('sales',lang==='ar'?'المبيعات':'Sales',lang==='ar'?'إجمالي المبيعات المسجلة':'Total recorded sales',money(sales),salesCardBars(),[[lang==='ar'?'التحصيل':'Collections',money(collections)],[lang==='ar'?'الفواتير':'Invoices',dashboardInvoiceGroupsV446(fs).length],[lang==='ar'?'متوسط الفاتورة':'Avg invoice',money(dashboardInvoiceGroupsV446(fs).length?Math.round(sales/dashboardInvoiceGroupsV446(fs).length):0)]])}
+    ${dashboardBox('purchases',lang==='ar'?'المشتريات':'Purchases',lang==='ar'?'قيمة الشراء ومستحقات الموردين':'Purchasing volume and supplier dues',money(purchases),purchaseCardBars(),[[lang==='ar'?'مستحقات الموردين':'Supplier due',money(due)],[lang==='ar'?'فواتير الشراء':'Purchase invoices',dashboardPurchaseGroupsV446(fp).length],[lang==='ar'?'متوسط الشراء':'Avg purchase',money(dashboardPurchaseGroupsV446(fp).length?Math.round(purchases/dashboardPurchaseGroupsV446(fp).length):0)]])}
     ${dashboardBox('stock',lang==='ar'?'المخزون':'Inventory',lang==='ar'?'الكميات المتاحة والتنبيهات':'Available stock and alerts',money(inv),stockCardBars(),[[lang==='ar'?'أصناف متاحة':'Available items',db.products.length],[lang==='ar'?'أصناف ناقصة':'Low stock',low],[lang==='ar'?'تنبيهات الصلاحية':'Expiry alerts',exp.warn+exp.low]])}
     ${dashboardBox('operations',lang==='ar'?'العمليات':'Operations',lang==='ar'?'طلبات المخزن وحالة التنفيذ':'Warehouse requests and fulfillment status',fo.length,operationsCardBars(),[[lang==='ar'?'مطلوب':'Requested',pending],[lang==='ar'?'تم التجهيز':'Prepared',prepared],[lang==='ar'?'تم البيع':'Sold',soldOps]])}
     ${dashboardBox('reps',lang==='ar'?'البياعين':'Sales reps',lang==='ar'?'التارجت وتحقيق الفترة':'Target versus achieved sales',avgRepPercentFiltered()+'%',repsCardBars(),[[lang==='ar'?'إجمالي التارجت':'Total target',money(totalRepTarget())],[lang==='ar'?'المحقق بالفترة':'Achieved in period',money(totalRepAchievedFiltered())],[lang==='ar'?'عدد البياعين':'Rep count',db.reps.length]])}
@@ -720,19 +700,20 @@ function tickerTape(sales, inv, debt, pending, achieved, purchases){
   ];
   return `<div class="market-ticker">${cells.map(c=>`<span class="ticker-item ${c[2]}"><b>${c[0]}</b> ${c[1]} <em>${c[2]==='up'?'▲':c[2]==='down'?'▼':'●'}</em></span>`).join('')}</div>`;
 }
-function renderDashboard(){let fs=(db.sales||[]), fp=(db.purchases||[]), fc=dashboardApprovedCollectionsV448(), fo=(db.operations||[]);
+function renderDashboard(){
+  let fs=(db.sales||[]), fp=(db.purchases||[]), fc=dashboardCollectionsAllV446(), fo=(db.operations||[]);
   let pending=fo.filter(o=>o.status==='requested').length, prepared=fo.filter(o=>o.status==='prepared').length, soldOps=fo.filter(o=>o.status==='sold').length;
   let low=db.products.filter(p=>n(p.stock)<=n(p.min)).length, collections=fc.reduce((a,c)=>a+n(c.amount),0), exp=expiryCount();
   let sales=fs.reduce((a,s)=>a+n(s.total),0), purchases=fp.reduce((a,s)=>a+n(s.total),0), debt=customerDebt(), due=supplierDue(), inv=inventoryValue();
   document.getElementById('view-dashboard').innerHTML =
   tickerTape(sales,inv,debt,pending,avgRepPercentFiltered(),purchases) + gridDashboardHeader() + `
   <div class="dashboard-grid market-dashboard-grid">
-    ${dashboardBox('sales',lang==='ar'?'المبيعات':'Sales',lang==='ar'?'حركة البيع مثل مؤشر السوق':'Sales movement like a market index',money(sales),salesCardBars(),[[lang==='ar'?'التحصيل':'Collections',money(collections)],[lang==='ar'?'الفواتير':'Invoices',dashboardInvoiceGroupsV448(fs).length],[lang==='ar'?'متوسط الفاتورة':'Avg invoice',money(dashboardInvoiceGroupsV448(fs).length?Math.round(sales/dashboardInvoiceGroupsV448(fs).length):0)]])}
+    ${dashboardBox('sales',lang==='ar'?'المبيعات':'Sales',lang==='ar'?'إجمالي حركة البيع المسجلة':'Total recorded sales movement',money(sales),salesCardBars(),[[lang==='ar'?'التحصيل':'Collections',money(collections)],[lang==='ar'?'الفواتير':'Invoices',dashboardInvoiceGroupsV446(fs).length],[lang==='ar'?'متوسط الفاتورة':'Avg invoice',money(dashboardInvoiceGroupsV446(fs).length?Math.round(sales/dashboardInvoiceGroupsV446(fs).length):0)]])}
     ${dashboardBox('stock',lang==='ar'?'المخزون':'Inventory',lang==='ar'?'مؤشر قيمة وكميات المخزون':'Inventory value and quantities index',money(inv),stockCardBars(),[[lang==='ar'?'أصناف متاحة':'Available items',db.products.length],[lang==='ar'?'أصناف ناقصة':'Low stock',low],[lang==='ar'?'تنبيهات الصلاحية':'Expiry alerts',exp.warn+exp.low]])}
     ${dashboardBox('customers',lang==='ar'?'مديونيات العملاء':'Customer debt',lang==='ar'?'مؤشر المخاطر والتحصيل':'Risk and collection index',money(debt),customersCardBars(),[[lang==='ar'?'التحصيلات':'Collections',money(collections)],[lang==='ar'?'عملاء مديونون':'Debtors',db.customers.filter(c=>n(c.balance)>0).length],[lang==='ar'?'إجمالي العملاء':'Total customers',db.customers.length]])}
     ${dashboardBox('operations',lang==='ar'?'العمليات':'Operations',lang==='ar'?'حركة الطلبات والتنفيذ':'Request and fulfillment movement',fo.length,operationsCardBars(),[[lang==='ar'?'مطلوب':'Requested',pending],[lang==='ar'?'تم التجهيز':'Prepared',prepared],[lang==='ar'?'تم البيع':'Sold',soldOps]])}
     ${dashboardBox('reps',lang==='ar'?'البياعين':'Sales reps',lang==='ar'?'مؤشر تحقيق التارجت':'Target achievement index',avgRepPercentFiltered()+'%',repsCardBars(),[[lang==='ar'?'إجمالي التارجت':'Total target',money(totalRepTarget())],[lang==='ar'?'المحقق بالفترة':'Achieved in period',money(totalRepAchievedFiltered())],[lang==='ar'?'عدد البياعين':'Rep count',db.reps.length]])}
-    ${dashboardBox('purchases',lang==='ar'?'المشتريات':'Purchases',lang==='ar'?'مؤشر تكلفة التوريد':'Supply cost index',money(purchases),purchaseCardBars(),[[lang==='ar'?'مستحقات الموردين':'Supplier due',money(due)],[lang==='ar'?'فواتير الشراء':'Purchase invoices',dashboardPurchaseGroupsV448(fp).length],[lang==='ar'?'متوسط الشراء':'Avg purchase',money(dashboardPurchaseGroupsV448(fp).length?Math.round(purchases/dashboardPurchaseGroupsV448(fp).length):0)]])}
+    ${dashboardBox('purchases',lang==='ar'?'المشتريات':'Purchases',lang==='ar'?'مؤشر تكلفة التوريد':'Supply cost index',money(purchases),purchaseCardBars(),[[lang==='ar'?'مستحقات الموردين':'Supplier due',money(due)],[lang==='ar'?'فواتير الشراء':'Purchase invoices',dashboardPurchaseGroupsV446(fp).length],[lang==='ar'?'متوسط الشراء':'Avg purchase',money(dashboardPurchaseGroupsV446(fp).length?Math.round(purchases/dashboardPurchaseGroupsV446(fp).length):0)]])}
   </div><div class="clean-dashboard-sections no-print"><details class="erp-details" open><summary>${lang==='ar'?'تقارير الفترة والطباعة':'Period reports and export'}</summary><div class="details-body">${dashboardRangeControls()}</div></details><details class="erp-details"><summary>${lang==='ar'?'تفاصيل تشغيلية: البياعين / المخزون / المديونيات / الصلاحية':'Operational details: reps / stock / debts / expiry'}</summary><div class="details-body insight-grid clean-insights"><div class="insight-card insight-reps"><div class="section-title"><h3>${T('reps')}</h3><button class="btn small secondary" onclick="show('reps')">${T('reps')}</button></div>${repTargetTable()}</div><div class="insight-card insight-stock"><div class="section-title"><h3>${T('stockAvailability')}</h3><button class="btn small secondary" onclick="show('products')">${T('products')}</button></div>${stockAvailabilityTable()}</div><div class="insight-card insight-debt"><div class="section-title"><h3>${T('customerDebt')}</h3><button class="btn small secondary" onclick="show('customers')">${T('customers')}</button></div>${customerDebtTable()}</div><div class="insight-card insight-expiry"><div class="section-title"><h3>${T('expiryAlert')}</h3><button class="btn small secondary" onclick="show('products')">${T('products')}</button></div>${expiryTable()}</div></div></details></div>`;
 }
 render();
@@ -1789,374 +1770,59 @@ const SUPABASE_PUBLISHABLE_KEY='sb_publishable_gq0JyUXR5M57OZAaOd6eEg_6WyzVx9D';
 const SUPABASE_TABLE='mahsoubak_db';
 const SUPABASE_ROW_ID='main';
 let remoteDbReady=false,remoteDbBooted=false,remoteDbSaving=false,remoteDbTimer=null,remoteDbPulling=false;
-
-/* ===== V451 Optimistic concurrency protection =====
-   Uses the existing updated_at column as a compare-and-swap token.
-   A stale browser can never silently overwrite a newer server snapshot. */
-let remoteDbVersionV451='';
-let remoteDbLastSyncedJSONV451='';
-let remoteDbConflictV451=false;
-let remoteDbLastConflictV451=null;
-function onlineBackendEnabled(){
-  return location.protocol==='http:'||location.protocol==='https:'||location.protocol==='file:';
-}
+function onlineBackendEnabled(){return location.protocol==='http:'||location.protocol==='https:'}
 function syncStatus(text){let el=document.getElementById('status');if(el)el.textContent=text}
 function supabaseHeaders(extra={}){return Object.assign({'apikey':SUPABASE_PUBLISHABLE_KEY,'Authorization':'Bearer '+SUPABASE_PUBLISHABLE_KEY,'Content-Type':'application/json'},extra)}
 function supabaseEndpoint(){return SUPABASE_URL.replace(/\/$/,'')+'/rest/v1/'+SUPABASE_TABLE}
-function dbLooksUsable(x){
-  return x&&typeof x==='object'&&
-    Array.isArray(x.products)&&
-    Array.isArray(x.customers)&&
-    Array.isArray(x.sales);
-}
-
-function concurrencyStatusV451(){
-  let dirty=false;
-  try{dirty=JSON.stringify(db)!==remoteDbLastSyncedJSONV451}catch(e){}
-  return {
-    ready:remoteDbReady,
-    saving:remoteDbSaving,
-    pulling:remoteDbPulling,
-    conflict:remoteDbConflictV451,
-    version:remoteDbVersionV451,
-    dirty:dirty,
-    last_conflict:remoteDbLastConflictV451
-  };
-}
-window.auditConcurrencyV451=concurrencyStatusV451;
-
-function removeConcurrencyConflictV451(){
-  let el=document.getElementById('v451ConcurrencyConflict');
-  if(el)el.remove();
-}
-
-function showConcurrencyConflictV451(info){
-  remoteDbConflictV451=true;
-  remoteDbLastConflictV451=info||{};
-  clearTimeout(remoteDbTimer);
-
-  syncStatus(lang==='ar'
-    ?'تعارض بيانات: تم إيقاف الحفظ لحماية تغييرات مستخدم آخر'
-    :'Data conflict: saving stopped to protect another user’s changes');
-
-  let old=document.getElementById('v451ConcurrencyConflict');
-  if(old)old.remove();
-
-  let serverTime=String((info&&info.server_updated_at)||'');
-  let html=`
-  <div id="v451ConcurrencyConflict" style="position:fixed;inset:0;z-index:999999;background:rgba(15,23,42,.72);display:flex;align-items:center;justify-content:center;padding:20px">
-    <div style="width:min(720px,96vw);background:#fff;border-radius:22px;padding:24px;box-shadow:0 30px 90px rgba(0,0,0,.3);direction:${lang==='ar'?'rtl':'ltr'}">
-      <h2 style="margin:0 0 10px;color:#991b1b">${lang==='ar'?'تم منع تعارض في البيانات':'A data conflict was prevented'}</h2>
-      <p style="line-height:1.8;color:#334155;font-weight:700">
-        ${lang==='ar'
-          ?'قام مستخدم آخر بحفظ بيانات أحدث على السيرفر بعد فتح هذه الصفحة. لم يتم حذف تغييراتك المحلية، وتم إيقاف الرفع تلقائيًا حتى لا يتم الكتابة فوق بيانات المستخدم الآخر.'
-          :'Another user saved newer server data after this page was opened. Your local changes were not deleted, and upload was stopped automatically so the newer server data is not overwritten.'}
-      </p>
-      ${serverTime?`<p style="font-size:12px;color:#64748b">${lang==='ar'?'آخر تحديث على السيرفر':'Server updated at'}: <b>${serverTime}</b></p>`:''}
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px">
-        <button class="btn blue" onclick="downloadLocalConflictBackupV451()">${lang==='ar'?'تنزيل نسخة احتياطية من تغييرات هذا الجهاز':'Download this device backup'}</button>
-        <button class="btn ok" onclick="reloadLatestRemoteV451()">${lang==='ar'?'تحميل أحدث نسخة من السيرفر':'Load latest server version'}</button>
-        <button class="btn secondary" onclick="removeConcurrencyConflictV451()">${lang==='ar'?'إغلاق التنبيه فقط':'Close warning only'}</button>
-      </div>
-      <p style="margin:16px 0 0;font-size:12px;color:#92400e;font-weight:800">
-        ${lang==='ar'
-          ?'مهم: تحميل أحدث نسخة من السيرفر سيستبدل النسخة المحلية الحالية. نزّل النسخة الاحتياطية أولًا إذا كانت لديك تغييرات تريد الاحتفاظ بها.'
-          :'Important: loading the latest server version replaces the current local copy. Download the backup first if you need to preserve local changes.'}
-      </p>
-    </div>
-  </div>`;
-  document.body.insertAdjacentHTML('beforeend',html);
-}
-
-window.removeConcurrencyConflictV451=removeConcurrencyConflictV451;
-window.showConcurrencyConflictV451=showConcurrencyConflictV451;
-
-window.downloadLocalConflictBackupV451=function(){
-  try{
-    let payload={
-      exported_at:new Date().toISOString(),
-      reason:'mahsoubak_concurrency_conflict_v451',
-      server_version_when_opened:remoteDbVersionV451,
-      conflict:remoteDbLastConflictV451,
-      data:db
-    };
-    let blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json;charset=utf-8'});
-    let a=document.createElement('a');
-    a.href=URL.createObjectURL(blob);
-    a.download='mahsoubak_local_conflict_backup_'+new Date().toISOString().replace(/[:.]/g,'-')+'.json';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},400);
-  }catch(e){
-    console.error('V451 backup',e);
-    alert(lang==='ar'?'تعذر إنشاء النسخة الاحتياطية':'Could not create backup');
-  }
-};
-
-window.reloadLatestRemoteV451=async function(){
-  if(remoteDbPulling||remoteDbSaving)return;
-  if(!confirm(lang==='ar'
-    ?'سيتم استبدال النسخة المحلية بأحدث نسخة من السيرفر. هل أنت متأكد؟'
-    :'The local copy will be replaced by the latest server version. Continue?'))return;
-
-  remoteDbPulling=true;
-  try{
-    let res=await fetch(
-      supabaseEndpoint()+'?id=eq.'+encodeURIComponent(SUPABASE_ROW_ID)+'&select=data,updated_at',
-      {method:'GET',headers:supabaseHeaders(),cache:'no-store'}
-    );
-    if(!res.ok)throw new Error('Supabase reload failed: '+res.status);
-    let rows=await res.json();
-    let row=rows&&rows[0];
-    if(!row||!dbLooksUsable(row.data))throw new Error('Remote database is not usable');
-
-    db=row.data;
-    remoteDbVersionV451=String(row.updated_at||'');
-    remoteDbLastSyncedJSONV451=JSON.stringify(db);
-    remoteDbConflictV451=false;
-    remoteDbLastConflictV451=null;
-    localStorage.setItem(KEY,remoteDbLastSyncedJSONV451);
-    removeConcurrencyConflictV451();
-
-    syncStatus(lang==='ar'
-      ?'Online: تم تحميل أحدث نسخة من السيرفر'
-      :'Online: latest server version loaded');
-
-    if(typeof render==='function')render();
-  }catch(e){
-    console.error('V451 reload',e);
-    alert(lang==='ar'
-      ?'تعذر تحميل أحدث نسخة من السيرفر. لم يتم تغيير البيانات المحلية.'
-      :'Could not load the latest server version. Local data was not changed.');
-  }finally{
-    remoteDbPulling=false;
-  }
-};
-
-function scheduleRemoteSave(){
-  if(!remoteDbReady||remoteDbPulling||remoteDbConflictV451||!onlineBackendEnabled())return;
-
-  let currentJSON='';
-  try{currentJSON=JSON.stringify(db)}catch(e){return}
-
-  /* Many legacy render wrappers call save() even without a data mutation.
-     Never touch updated_at unless the database content really changed. */
-  if(currentJSON===remoteDbLastSyncedJSONV451)return;
-
-  clearTimeout(remoteDbTimer);
-  remoteDbTimer=setTimeout(pushRemoteDb,650);
-}
-
+function dbLooksUsable(x){return x&&typeof x==='object'&&Array.isArray(x.products)&&Array.isArray(x.customers)&&Array.isArray(x.sales)&&Array.isArray(x.users)}
+function scheduleRemoteSave(){if(!remoteDbReady||remoteDbPulling||!onlineBackendEnabled())return;clearTimeout(remoteDbTimer);remoteDbTimer=setTimeout(pushRemoteDb,650)}
 async function pushRemoteDb(){
-  if(remoteDbPulling||!remoteDbReady||remoteDbConflictV451||!onlineBackendEnabled())return;
-
-  /* If another save is already running, that save's finally block will
-     detect any newer local state and schedule the next write. */
-  if(remoteDbSaving)return;
-
-  let payloadJSON='';
-  try{payloadJSON=JSON.stringify(db)}catch(e){
-    console.error('V451 stringify',e);
-    return;
-  }
-
-  if(payloadJSON===remoteDbLastSyncedJSONV451)return;
-
-  if(!remoteDbVersionV451){
-    /* No compare token means we cannot safely overwrite production data. */
-    showConcurrencyConflictV451({
-      reason:'missing_version_token',
-      server_updated_at:''
-    });
-    return;
-  }
-
+  if(remoteDbSaving||remoteDbPulling||!remoteDbReady||!onlineBackendEnabled())return;
   remoteDbSaving=true;
   try{
-    let newVersion=new Date().toISOString();
-    let endpoint=
-      supabaseEndpoint()+
-      '?id=eq.'+encodeURIComponent(SUPABASE_ROW_ID)+
-      '&updated_at=eq.'+encodeURIComponent(remoteDbVersionV451);
-
-    let res=await fetch(endpoint,{
-      method:'PATCH',
-      headers:supabaseHeaders({'Prefer':'return=representation'}),
-      body:JSON.stringify({
-        data:JSON.parse(payloadJSON),
-        updated_at:newVersion
-      })
-    });
-
-    if(!res.ok)throw new Error('Supabase save failed: '+res.status);
-
-    let rows=await res.json();
-
-    /* PostgREST returns [] when the updated_at filter did not match.
-       That is an optimistic-lock conflict, not a save failure. */
-    if(!Array.isArray(rows)||rows.length!==1){
-      let serverUpdated='';
-      try{
-        let vr=await fetch(
-          supabaseEndpoint()+
-          '?id=eq.'+encodeURIComponent(SUPABASE_ROW_ID)+
-          '&select=updated_at',
-          {method:'GET',headers:supabaseHeaders(),cache:'no-store'}
-        );
-        if(vr.ok){
-          let vrows=await vr.json();
-          serverUpdated=String(vrows&&vrows[0]&&vrows[0].updated_at||'');
-        }
-      }catch(e){}
-
-      showConcurrencyConflictV451({
-        reason:'stale_snapshot',
-        expected_updated_at:remoteDbVersionV451,
-        server_updated_at:serverUpdated
-      });
-      return;
+    let res=await fetch(supabaseEndpoint()+'?id=eq.'+encodeURIComponent(SUPABASE_ROW_ID),{method:'PATCH',headers:supabaseHeaders({'Prefer':'return=minimal'}),body:JSON.stringify({data:db,updated_at:new Date().toISOString()})});
+    if(!res.ok){
+      res=await fetch(supabaseEndpoint(),{method:'POST',headers:supabaseHeaders({'Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify({id:SUPABASE_ROW_ID,data:db,updated_at:new Date().toISOString()})});
     }
-
-    let savedRow=rows[0]||{};
-    remoteDbVersionV451=String(savedRow.updated_at||newVersion);
-    remoteDbLastSyncedJSONV451=payloadJSON;
-    remoteDbConflictV451=false;
-    remoteDbLastConflictV451=null;
-
-    syncStatus(lang==='ar'
-      ?'Online: تم حفظ البيانات بأمان'
-      :'Online: data saved safely');
-
+    if(!res.ok)throw new Error('Supabase save failed');
+    syncStatus(lang==='ar'?'Online: تم حفظ البيانات على Supabase':'Online: saved to Supabase');
   }catch(e){
-    console.error('V451 safe save',e);
-    syncStatus(lang==='ar'
-      ?'Online: تعذر الحفظ على Supabase - التغييرات محفوظة محليًا ولم يتم استبدال بيانات السيرفر'
-      :'Online: Supabase save failed - changes remain local and server data was not overwritten');
-  }finally{
-    remoteDbSaving=false;
-
-    /* If local data changed while the network request was running,
-       queue one more safe compare-and-swap write. */
-    if(!remoteDbConflictV451&&remoteDbReady&&!remoteDbPulling){
-      let latest='';
-      try{latest=JSON.stringify(db)}catch(e){}
-      if(latest&&latest!==remoteDbLastSyncedJSONV451){
-        clearTimeout(remoteDbTimer);
-        remoteDbTimer=setTimeout(pushRemoteDb,650);
-      }
-    }
-  }
+    console.error(e);
+    syncStatus(lang==='ar'?'Online: تعذر الحفظ على Supabase - تم الحفظ محليًا':'Online: Supabase save failed - saved locally');
+  }finally{remoteDbSaving=false}
 }
 async function pullRemoteDb(){
   if(remoteDbBooted||!onlineBackendEnabled())return;
-  remoteDbBooted=true;
-  remoteDbPulling=true;
-
+  remoteDbBooted=true;remoteDbPulling=true;
   try{
-    syncStatus(lang==='ar'?'Online: جاري تحميل قاعدة البيانات...':'Online: loading shared database...');
-
-    let res=await fetch(
-      supabaseEndpoint()+'?id=eq.'+encodeURIComponent(SUPABASE_ROW_ID)+'&select=data,updated_at',
-      {method:'GET',headers:supabaseHeaders(),cache:'no-store'}
-    );
-
-    if(!res.ok)throw new Error('Supabase load failed: '+res.status);
-
+    let res=await fetch(supabaseEndpoint()+'?id=eq.'+encodeURIComponent(SUPABASE_ROW_ID)+'&select=data',{method:'GET',headers:supabaseHeaders(),cache:'no-store'});
+    if(!res.ok)throw new Error('Supabase load failed');
     let rows=await res.json();
-    let remoteRow=rows&&rows[0];
-    let remoteData=remoteRow&&remoteRow.data;
-
-    if(!dbLooksUsable(remoteData)){
-      /*
-        Safety rule:
-        NEVER upload the current local/demo database automatically when the
-        production row cannot be read. This prevents a local preview from
-        overwriting the client's real database.
-      */
-      remoteDbReady=false;
-      syncStatus(lang==='ar'
-        ?'تنبيه: لم يتم تحميل قاعدة Supabase. لم يتم رفع أو استبدال أي بيانات.'
-        :'Warning: Supabase data was not loaded. No data was uploaded or replaced.');
-      return;
-    }
-
-    db=remoteData;
+    let remoteData=rows&&rows[0]&&rows[0].data;
     remoteDbReady=true;
-    remoteDbVersionV451=String(remoteRow.updated_at||'');
-    remoteDbLastSyncedJSONV451=JSON.stringify(db);
-    remoteDbConflictV451=false;
-    remoteDbLastConflictV451=null;
-    localStorage.setItem(KEY,remoteDbLastSyncedJSONV451);
-
-    syncStatus(lang==='ar'
-      ?'Online: تم تحميل بيانات العميل من Supabase'
-      :'Online: client data loaded from Supabase');
-
+    if(dbLooksUsable(remoteData)){
+      db=remoteData;
+      localStorage.setItem(KEY,JSON.stringify(db));
+      syncStatus(lang==='ar'?'Online: تم تحميل البيانات المشتركة من Supabase':'Online: shared data loaded from Supabase');
+    }else{
+      syncStatus(lang==='ar'?'Online: قاعدة Supabase فارغة - جاري رفع النسخة الحالية':'Online: Supabase is empty - uploading current data');
+      remoteDbPulling=false;
+      await pushRemoteDb();
+      remoteDbPulling=true;
+    }
     render();
-
-    try{
-      window.dispatchEvent(new CustomEvent('mahsoubak-remote-db-loaded-v448'));
-    }catch(e){}
-
   }catch(e){
-    console.error('V448 Supabase boot',e);
+    console.error(e);
     remoteDbReady=false;
-    syncStatus(lang==='ar'
-      ?'Offline: تعذر تحميل Supabase. لم يتم تغيير قاعدة البيانات.'
-      :'Offline: Supabase could not be loaded. Database was not changed.');
-  }finally{
-    remoteDbPulling=false;
-  }
+    syncStatus(lang==='ar'?'Offline: تعذر الاتصال بـ Supabase والبيانات محلية':'Offline: Supabase unavailable, local data only');
+  }finally{remoteDbPulling=false}
 }
 const saveBeforeSupabaseSyncV27=save;
 save=function(){
-  let localJSON='';
-  try{localJSON=JSON.stringify(db)}catch(e){
-    console.error('V451 local save stringify',e);
-    return;
-  }
-
-  localStorage.setItem(KEY,localJSON);
-
-  if(remoteDbConflictV451){
-    syncStatus(lang==='ar'
-      ?'تعارض بيانات: التغييرات محفوظة على هذا الجهاز فقط حتى حل التعارض'
-      :'Data conflict: changes are stored on this device only until the conflict is resolved');
-    return;
-  }
-
-  if(remoteDbReady){
-    if(localJSON===remoteDbLastSyncedJSONV451){
-      syncStatus(lang==='ar'
-        ?'Online: البيانات متزامنة'
-        :'Online: data is synchronized');
-      return;
-    }
-
-    syncStatus(lang==='ar'
-      ?'Online: جاري حفظ البيانات بأمان'
-      :'Online: saving data safely');
-    scheduleRemoteSave();
-  }else{
-    syncStatus(lang==='ar'
-      ?'Offline: محفوظ محليًا'
-      :'Offline: saved locally');
-  }
+  localStorage.setItem(KEY,JSON.stringify(db));
+  syncStatus(remoteDbReady?(lang==='ar'?'Online: جاري حفظ البيانات على Supabase':'Online: saving to Supabase'):(lang==='ar'?'Offline: محفوظ محليًا':'Offline: saved locally'));
+  scheduleRemoteSave();
 }
-
-/* V448: explicit shared-database startup, including local file:// preview. */
-(function bootSharedDbV448(){
-  function start(){
-    setTimeout(function(){
-      try{pullRemoteDb()}catch(e){console.error('V448 startup pull',e)}
-    },80);
-  }
-  if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded',start,{once:true});
-  }else{
-    start();
-  }
-})();
 
 
 /* ===== v32 Manual users + explicit permission save - no auto users/no auto reset ===== */
@@ -13156,9 +12822,8 @@ render();
       });
     });
 
-    function receiptIdentityV448(row){
+    function receiptIdentityV444(row){
       if(!row)return '';
-
       var direct=String(row.source_receipt_id||row.receipt_id||'').trim();
       if(direct)return direct;
 
@@ -13182,12 +12847,14 @@ render();
       return '';
     }
 
-    function receiptPriorityV448(row){
+    function receiptPriorityV444(row){
       var src=String(row.source||'');
+      var acc=String(row.account||'');
       if(src==='receipt_accounting_v274')return 100;
-      if(!row.cashflow_fallback_v442&&!row.cashflow_currency_fallback_v443)return 90;
-      if(row.cashflow_fallback_v442)return 60;
-      if(row.cashflow_currency_fallback_v443)return 40;
+      if(acc.indexOf('FUND-')===0 && !row.cashflow_fallback_v442 && !row.cashflow_currency_fallback_v443)return 95;
+      if(!row.cashflow_fallback_v442 && !row.cashflow_currency_fallback_v443)return 90; // journal
+      if(row.cashflow_fallback_v442)return 60;   // financeFundMovements
+      if(row.cashflow_currency_fallback_v443)return 40; // cash currency register
       return 10;
     }
 
@@ -13197,21 +12864,26 @@ render();
       .filter(function(j){return !!j.date});
 
     /*
-      The same receipt can exist in Journal + financeFundMovements +
-      finance_cash_currency_movements. Cash Flow must count it once.
+      V444: A receipt may exist simultaneously as:
+        cash_receipt_v161_<id> journal,
+        cash_receipt_<id> journal,
+        receipt_balance_v264_<id> fund movement,
+        finance_cash_currency_movements row.
+      They are four representations of ONE cash event.
+      Collapse them by the underlying receipt id and keep the most authoritative row.
     */
     var receiptBest=new Map();
     var nonReceipt=[];
 
     combined.forEach(function(row){
-      var rid=receiptIdentityV448(row);
+      var rid=receiptIdentityV444(row);
       if(!rid){
         nonReceipt.push(row);
         return;
       }
 
-      var old=receiptBest.get(rid);
-      if(!old||receiptPriorityV448(row)>receiptPriorityV448(old)){
+      var existing=receiptBest.get(rid);
+      if(!existing || receiptPriorityV444(row)>receiptPriorityV444(existing)){
         receiptBest.set(rid,row);
       }
     });
@@ -13376,22 +13048,42 @@ render();
       journal_rows:rows.filter(function(j){return !j.cashflow_fallback_v442}).length,
       fallback_fund_movements:rows.filter(function(j){return !!j.cashflow_fallback_v442}).length,
       fallback_cash_currency:rows.filter(function(j){return !!j.cashflow_currency_fallback_v443}).length,
-      closing_effect:rows.reduce(function(a,j){return a+nn(j.debit)-nn(j.credit)},0)
+      closing_effect:rows.reduce(function(a,j){return a+nn(j.debit)-nn(j.credit)},0),
+      receipt_ids:rows.map(function(j){return receiptIdentityV444(j)}).filter(Boolean)
     };
   };
 
-
-  window.auditCashFlowReceiptV448=function(receiptId){
+  window.auditCashFlowReceiptV444=function(receiptId){
     receiptId=String(receiptId||'').trim();
-    var rows=allMoneyLinesV232().filter(function(r){
-      return receiptIdentityV448(r)===receiptId;
+    var codes=moneyAccountCodesV442();
+
+    var journal=(db.journal||[]).filter(function(j){
+      if(!codes.has(String(j.account||'')))return false;
+      return receiptIdentityV444(j)===receiptId;
     });
+
+    var funds=(db.financeFundMovements||[]).filter(function(m){
+      return receiptIdentityV444(m)===receiptId;
+    });
+
+    var currency=(db.finance_cash_currency_movements||[]).filter(function(m){
+      return receiptIdentityV444(m)===receiptId;
+    });
+
+    var effective=allMoneyLinesV232().filter(function(r){
+      return receiptIdentityV444(r)===receiptId;
+    });
+
     return {
       receipt_id:receiptId,
-      effective_rows:rows.length,
-      effective_inflow:rows.reduce(function(a,r){return a+nn(r.debit)},0),
-      effective_outflow:rows.reduce(function(a,r){return a+nn(r.credit)},0),
-      rows:rows
+      raw_journal_money_rows:journal.length,
+      raw_fund_movements:funds.length,
+      raw_cash_currency_rows:currency.length,
+      effective_cashflow_rows:effective.length,
+      effective_amount:effective.reduce(function(a,r){
+        return a+Math.abs(nn(r.debit)-nn(r.credit));
+      },0),
+      effective_rows:effective
     };
   };
 
@@ -19746,8 +19438,9 @@ render();
     var desc=(isIn?'إيصال استلام ':'إيصال صرف ')+(row.serial||'')+' - '+(row.party||'')+' - '+(row.purpose||'')+
       ' | '+fund.name+' | '+S(row.currency||fund.currency||'EGP');
 
-    /* V448: one receipt = one accounting footprint.
-       Remove both the old V161 identity and the current canonical identity. */
+    /* V444: one receipt = one accounting footprint.
+       Older wrappers used cash_receipt_v161_<id>, while V274 uses cash_receipt_<id>.
+       Remove both identities before creating the canonical entry. */
     var legacySourceId='cash_receipt_v161_'+row.id;
     db.journal=db.journal.filter(function(j){
       var sid=String(j.sourceId||j.source_id||'');
@@ -25476,7 +25169,7 @@ html body .summary-box.v303-auto-clickable:after{
   #view-customers .wide-customer-table table{min-width:1350px!important}
 }
 </style>
-<script id="v316-customer-table-clean-layout-script">
+<script id="v316-customer-table-clean-layout">
 (function(){
   var baseRowV316=window.customerEditRowV46;
   if(typeof baseRowV316!=='function')return;
@@ -36864,493 +36557,141 @@ html body .summary-box.v303-auto-clickable:after{
 </script>
 
 
-<script id="v448-recovery-audit">
+<script id="v444-receipt-accounting-dedup-cleanup">
 (function(){
-  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
-  window.auditRecoveryV448=function(){
-    return {
-      protocol:location.protocol,
-      online_backend_enabled:(typeof onlineBackendEnabled==='function'?onlineBackendEnabled():null),
-      remote_ready:(typeof remoteDbReady!=='undefined'?remoteDbReady:null),
-      remote_booted:(typeof remoteDbBooted!=='undefined'?remoteDbBooted:null),
-      products:(db.products||[]).length,
-      customers:(db.customers||[]).length,
-      sales_rows:(db.sales||[]).length,
-      sales_total:(db.sales||[]).reduce(function(a,x){return a+N(x.total)},0),
-      purchases:(db.purchases||[]).length,
-      collections:(db.collections||[]).length,
-      journal:(db.journal||[]).length,
-      finance_funds:(db.financeFunds||[]).length
-    };
-  };
-})();
-</script>
-
-
-<style id="v450-permissions-safe-style">
-.v450-admin-full-note{
-  margin:10px 0 14px;padding:10px 12px;border-radius:12px;
-  background:#ecfdf5;border:1px solid #a7f3d0;color:#166534;
-  font-size:12px;font-weight:900;line-height:1.7
-}
-#manualPermMatrix[data-v450-admin="1"] input.perm-check{
-  opacity:.62;cursor:not-allowed
-}
-</style>
-
-<script id="v450-permissions-safe-final">
-(function(){
-  function A(v){return Array.isArray(v)?v:[]}
   function S(v){return String(v==null?'':v).trim()}
 
-  function userV450(){
-    try{
-      var u=typeof currentUser==='function'?currentUser():null;
-      return u&&u.active!==false?u:null;
-    }catch(e){return null}
+  function receiptIdFromSourceV444(v){
+    v=S(v);
+    var m=v.match(/^cash_receipt_v161_(.+)$/);
+    if(m&&m[1])return m[1];
+    m=v.match(/^cash_receipt_(.+)$/);
+    if(m&&m[1])return m[1];
+    return '';
   }
 
-  function permissionModulesV450(){
-    try{
-      return typeof permissionModules==='function'
-        ? permissionModules().filter(Boolean)
-        : [];
-    }catch(e){return []}
-  }
+  function cleanupReceiptJournalDuplicatesV444(){
+    if(!Array.isArray(db.journal))return {removed:0};
 
-  function controlledModuleV450(module){
-    if(module==='users')return true;
-    return permissionModulesV450().indexOf(module)>=0;
-  }
-
-  /* ==========================================================
-     AUTHORITATIVE PERMISSION CHECK
-     ========================================================== */
-  window.can=function(module,action){
-    action=action||'view';
-    var u=userV450();
-    if(!u)return false;
-
-    /* Operations Manager is the system super-admin. */
-    if(u.role==='operations_manager')return true;
-
-    /* Users & Permissions is manager-only. */
-    if(module==='users')return false;
-
-    if(['view','add','edit','delete'].indexOf(action)<0)return false;
-
-    var p=u.permissions&&u.permissions[module];
-    if(!p||p.view!==true)return false;
-
-    if(action==='view')return true;
-    return p[action]===true;
-  };
-  try{can=window.can}catch(e){}
-
-  window.isAdmin=function(){
-    var u=userV450();
-    return !!u&&u.role==='operations_manager';
-  };
-  try{isAdmin=window.isAdmin}catch(e){}
-
-  /* ==========================================================
-     PRESERVE THE EXISTING show() CHAIN.
-     This keeps Customer Cost, AI Advisor, notification wrappers,
-     and any other later navigation hooks intact.
-     ========================================================== */
-  var showBaseV450=window.show || (typeof show==='function'?show:null);
-  if(typeof showBaseV450==='function'){
-    window.show=function(v){
-      if(controlledModuleV450(v)&&!window.can(v,'view')){
-        var first='';
-        try{
-          first=typeof firstAllowedModule==='function'?firstAllowedModule():'';
-        }catch(e){}
-
-        if(typeof permissionAlert==='function')permissionAlert();
-
-        if(!first||!window.can(first,'view'))return false;
-        v=first;
+    var canonical=new Set();
+    db.journal.forEach(function(j){
+      if(S(j.source)==='receipt_accounting_v274'){
+        var rid=receiptIdFromSourceV444(j.sourceId||j.source_id);
+        if(rid)canonical.add(rid);
       }
-      return showBaseV450.call(this,v);
-    };
-    window.show.__permissionsV450=true;
-    try{show=window.show}catch(e){}
-  }
+    });
 
-  /* ==========================================================
-     EXPLICIT PERMISSION SAVE
-     - no automatic permission reset
-     - write permissions imply View
-     - View off clears Add/Edit/Delete
-     ========================================================== */
-  window.saveUserPermissionsV32=function(id){
-    if(!window.isAdmin()){
-      return typeof permissionAlert==='function'?permissionAlert():false;
-    }
+    if(!canonical.size)return {removed:0};
 
-    var u=A(db.users).find(function(x){return String(x.id)===String(id)});
-    if(!u)return false;
+    var removed=0;
+    db.journal=db.journal.filter(function(j){
+      var sid=S(j.sourceId||j.source_id);
+      var rid=receiptIdFromSourceV444(sid);
+      if(!rid||!canonical.has(rid))return true;
 
-    var mods=permissionModulesV450();
+      var legacy=sid.indexOf('cash_receipt_v161_')===0 &&
+        /cash_receipt/.test(S(j.source));
 
-    if(u.role==='operations_manager'){
-      u.permissions=u.permissions&&typeof u.permissions==='object'?u.permissions:{};
-      mods.forEach(function(m){
-        u.permissions[m]={view:true,add:true,edit:true,delete:true};
-      });
-      try{if(typeof save==='function')save()}catch(e){}
-      alert(typeof lang!=='undefined'&&lang==='ar'
-        ?'مدير التشغيل لديه صلاحية كاملة تلقائيًا.'
-        :'Operations Manager always has full access.');
-      try{if(typeof renderUsers==='function')renderUsers()}catch(e){}
+      if(legacy){
+        removed++;
+        return false;
+      }
       return true;
+    });
+
+    if(removed){
+      try{if(typeof save==='function')save()}catch(e){}
     }
+    return {removed:removed};
+  }
 
-    var perms={};
-    mods.forEach(function(m){
-      perms[m]={view:false,add:false,edit:false,delete:false};
-    });
+  window.cleanupReceiptJournalDuplicatesV444=cleanupReceiptJournalDuplicatesV444;
 
-    document.querySelectorAll('#manualPermMatrix input.perm-check').forEach(function(ch){
-      var m=ch.dataset.module,a=ch.dataset.action;
-      if(perms[m]&&Object.prototype.hasOwnProperty.call(perms[m],a)){
-        perms[m][a]=!!ch.checked;
-      }
-    });
-
-    Object.keys(perms).forEach(function(m){
-      var p=perms[m];
-      if(p.add||p.edit||p.delete)p.view=true;
-      if(!p.view){
-        p.add=false;p.edit=false;p.delete=false;
-      }
-    });
-
-    u.permissions=perms;
-    try{if(typeof save==='function')save()}catch(e){}
-
-    alert(typeof lang!=='undefined'&&lang==='ar'
-      ?'تم تسجيل الصلاحيات'
-      :'Permissions saved');
-
-    try{if(typeof renderUsers==='function')renderUsers()}catch(e){}
-    try{if(typeof renderPermissionNav==='function')renderPermissionNav()}catch(e){}
-    return true;
-  };
-  try{saveUserPermissionsV32=window.saveUserPermissionsV32}catch(e){}
-
-  /* ==========================================================
-     PERMISSION MATRIX UI ONLY.
-     We wrap renderUsers(), not global render().
-     ========================================================== */
-  function decoratePermissionMatrixV450(){
-    var matrix=document.getElementById('manualPermMatrix');
-    if(!matrix)return;
-
-    var selected='';
+  setTimeout(function(){
     try{
-      selected=typeof selectedPermissionUserId!=='undefined'
-        ?String(selectedPermissionUserId||'')
-        :'';
-    }catch(e){}
-
-    var u=A(db.users).find(function(x){
-      return String(x.id)===selected;
-    })||null;
-
-    var oldNote=matrix.parentElement&&matrix.parentElement.querySelector('.v450-admin-full-note');
-    if(oldNote)oldNote.remove();
-
-    if(u&&u.role==='operations_manager'){
-      matrix.dataset.v450Admin='1';
-      matrix.querySelectorAll('input.perm-check').forEach(function(ch){
-        ch.checked=true;
-        ch.disabled=true;
-      });
-      matrix.insertAdjacentHTML(
-        'beforebegin',
-        '<div class="v450-admin-full-note">'+
-        (typeof lang!=='undefined'&&lang==='ar'
-          ?'مدير التشغيل هو Super Admin وجميع الصلاحيات مفعلة له تلقائيًا.'
-          :'Operations Manager is Super Admin and always has full permissions.')+
-        '</div>'
-      );
-    }else{
-      matrix.dataset.v450Admin='0';
-      matrix.querySelectorAll('input.perm-check').forEach(function(ch){
-        ch.disabled=false;
-      });
-    }
-  }
-
-  var renderUsersBaseV450=window.renderUsers || (typeof renderUsers==='function'?renderUsers:null);
-  if(typeof renderUsersBaseV450==='function'){
-    window.renderUsers=function(){
-      var r=renderUsersBaseV450.apply(this,arguments);
-      setTimeout(decoratePermissionMatrixV450,0);
-      return r;
-    };
-    window.renderUsers.__permissionsV450=true;
-    try{renderUsers=window.renderUsers}catch(e){}
-  }
-
-  document.addEventListener('change',function(e){
-    var ch=e.target;
-    if(!ch||!ch.matches('#manualPermMatrix input.perm-check'))return;
-
-    var matrix=document.getElementById('manualPermMatrix');
-    if(!matrix||matrix.dataset.v450Admin==='1')return;
-
-    var mod=ch.dataset.module;
-    var act=ch.dataset.action;
-
-    function findBox(a){
-      return Array.from(matrix.querySelectorAll('input.perm-check')).find(function(x){
-        return x.dataset.module===mod&&x.dataset.action===a;
-      })||null;
-    }
-
-    if(act==='view'&&!ch.checked){
-      ['add','edit','delete'].forEach(function(a){
-        var x=findBox(a);if(x)x.checked=false;
-      });
-    }else if(act!=='view'&&ch.checked){
-      var v=findBox('view');if(v)v.checked=true;
-    }
-  },true);
-
-  /* ==========================================================
-     FINAL WRITE GUARDS.
-     These wrap the final function currently present in the app,
-     so later historical wrappers cannot bypass the permission matrix.
-     ========================================================== */
-  function denyV450(){
-    if(typeof permissionAlert==='function')permissionAlert();
-    else alert(typeof lang!=='undefined'&&lang==='ar'?'لا توجد صلاحية':'No permission');
-    return false;
-  }
-
-  function installGuardV450(name,resolver){
-    var base=window[name];
-    if(typeof base!=='function'||base.__permissionsV450)return false;
-
-    var wrapped=function(){
-      var req=resolver?resolver.apply(this,arguments):null;
-      if(req){
-        var allowed=false;
-
-        if(Array.isArray(req.any)){
-          allowed=req.any.some(function(x){
-            return x&&window.can(x.module,x.action);
-          });
-        }else{
-          allowed=window.can(req.module,req.action);
-        }
-
-        if(!allowed)return denyV450();
+      cleanupReceiptJournalDuplicatesV444();
+      if(typeof window.renderCashFlow==='function' &&
+         document.getElementById('view-cashflow')){
+        window.renderCashFlow();
       }
-
-      return base.apply(this,arguments);
-    };
-
-    wrapped.__permissionsV450=true;
-    wrapped.__permissionBaseV450=base;
-    window[name]=wrapped;
-
-    try{
-      /* Keep legacy inline onclick/global binding aligned. */
-      eval(name+'=window["'+name+'"]');
-    }catch(e){}
-
-    return true;
-  }
-
-  function req(module,action){
-    return function(){return {module:module,action:action}};
-  }
-
-  function tableReq(action){
-    return function(table){
-      var module='';
-      try{
-        module=typeof moduleFromTable==='function'
-          ?moduleFromTable(table)
-          :String(table||'');
-      }catch(e){module=String(table||'')}
-      return {module:module,action:action};
-    };
-  }
-
-  [
-    /* Generic CRUD */
-    ['editCell',tableReq('edit')],
-    ['del',tableReq('delete')],
-    ['addSimple',tableReq('add')],
-    ['addRegionEntity',tableReq('add')],
-    ['setModuleEntityRegion',tableReq('edit')],
-
-    /* Products / Inventory */
-    ['addProduct',req('products','add')],
-    ['addInventoryLotV215',req('products','add')],
-    ['editInventoryLotV215',req('products','edit')],
-    ['deleteInventoryLotV215',req('products','delete')],
-
-    /* Customers */
-    ['deleteCustomerV66',req('customers','delete')],
-    ['addCustomerRepSplitV45',req('customers','edit')],
-    ['editCustomerRepSplitV45',req('customers','edit')],
-    ['deleteCustomerRepSplitV45',req('customers','edit')],
-    ['editCustomerClinicNameV46',req('customers','edit')],
-    ['updateCustomerRegionV327',req('customers','edit')],
-    ['updateCustomerClinicCityV359',req('customers','edit')],
-
-    /* Representatives / Regions */
-    ['addRepV185',req('reps','add')],
-    ['deleteRepV185',req('reps','delete')],
-    ['saveRepTargetV188',req('reps','edit')],
-    ['addRepProductTargetV190',req('reps','edit')],
-    ['deleteRepProductTargetV190',req('reps','edit')],
-    ['saveRepRegionsV324',req('reps','edit')],
-    ['setRepMoneyTargetV325',req('reps','edit')],
-    ['setGroupMoneyTargetV325',req('reps','edit')],
-    ['setCompanyMoneyTargetV325',req('reps','edit')],
-    ['addVisit',req('regions','add')],
-    ['deleteVisit',req('regions','delete')],
-
-    /* Operations / Sales */
-    ['addOperation',req('operations','add')],
-    ['delOperation',req('operations','delete')],
-    ['addSale',req('sales','add')],
-    ['saveMultiInvoiceV150',req('sales','add')],
-    ['sellOperation',req('sales','add')],
-    ['approveSalesOrder',req('sales','edit')],
-    ['rejectSalesOrder',req('sales','edit')],
-
-    /* Purchasing */
-    ['addPurchase',req('purchases','add')],
-
-    /* Collections */
-    ['addCollection',req('collections','add')],
-
-    /* Finance */
-    ['addAccount',req('accounts','add')],
-    ['deleteAccount',req('accounts','delete')],
-    ['resetAccountsDefault',req('accounts','edit')],
-    ['createChartAccountV300',req('accounts','add')],
-
-    ['addFinanceFundV65',req('accounts','add')],
-    ['addFinanceFundV244',req('accounts','add')],
-    ['addFundV65',req('accounts','add')],
-    ['editFinanceFundV65',req('accounts','edit')],
-    ['editFinanceFundV244',req('accounts','edit')],
-    ['deleteFinanceFundV65',req('accounts','delete')],
-
-    ['addFinanceCashMovementV135',req('accounts','add')],
-    ['deleteFinanceCashMovementV135',req('accounts','delete')],
-    ['saveCashReceiptV159',req('accounts','add')],
-    ['deleteCashReceiptV159',req('accounts','delete')],
-
-    ['addReceivablePaperV227',req('accounts','add')],
-    ['setPaperStatusV227',req('accounts','edit')],
-    ['deletePaperV227',req('accounts','delete')],
-
-    ['postExpenseV287',req('accounts','add')],
-    ['deleteExpenseV287',req('accounts','delete')],
-    ['addExpenseCategoryV293',req('accounts','edit')],
-    ['postGeneralJournalV298',req('accounts','add')],
-    ['deleteGeneralJournalV298',req('accounts','delete')],
-
-    /* Customer Cost Center */
-    ['addCustomerCostV228',req('customerCost','add')],
-    ['deleteCustomerCostV228',req('customerCost','delete')]
-  ].forEach(function(x){
-    installGuardV450(x[0],x[1]);
-  });
-
-  /* Warehouse dispatch accepts Operations Add OR Edit. */
-  function warehouseReqV450(){
-    return {any:[
-      {module:'operations',action:'add'},
-      {module:'operations',action:'edit'}
-    ]};
-  }
-  installGuardV450('dispatchSalesOrderV73',warehouseReqV450);
-  installGuardV450('dispatchOrderFromWarehouseV407',warehouseReqV450);
-
-  /* Preparation historically accepts Product edit OR Operations edit. */
-  installGuardV450('prepareOperation',function(){
-    return {any:[
-      {module:'products',action:'edit'},
-      {module:'operations',action:'edit'}
-    ]};
-  });
-
-  /* ==========================================================
-     NON-DESTRUCTIVE SELF AUDIT
-     ========================================================== */
-  window.auditPermissionsV450=function(){
-    var users=A(db.users);
-    var mods=permissionModulesV450();
-    var issues=[];
-
-    users.forEach(function(u){
-      if(!S(u.id))issues.push({user:u.name||u.email,issue:'missing_id'});
-      if(!S(u.email))issues.push({user:u.name||'',issue:'missing_email'});
-      if(!S(u.role))issues.push({user:u.name||u.email,issue:'missing_role'});
-
-      if(u.role!=='operations_manager'){
-        mods.forEach(function(m){
-          var p=u.permissions&&u.permissions[m];
-          if(!p){
-            issues.push({user:u.name||u.email,module:m,issue:'missing_permissions'});
-          }else if(p.view!==true&&(p.add===true||p.edit===true||p.delete===true)){
-            issues.push({user:u.name||u.email,module:m,issue:'write_without_view'});
-          }
-        });
-      }
-    });
-
-    var emailCount={};
-    users.forEach(function(u){
-      var e=S(u.email).toLowerCase();
-      if(e)emailCount[e]=(emailCount[e]||0)+1;
-    });
-    Object.keys(emailCount).forEach(function(e){
-      if(emailCount[e]>1)issues.push({email:e,issue:'duplicate_email'});
-    });
-
-    var guardNames=[
-      'addProduct','addPurchase','addSale','saveMultiInvoiceV150',
-      'addCollection','addOperation','prepareOperation','sellOperation',
-      'dispatchSalesOrderV73','dispatchOrderFromWarehouseV407',
-      'saveCashReceiptV159','postExpenseV287','postGeneralJournalV298',
-      'addInventoryLotV215','deleteCustomerV66','addCustomerCostV228'
-    ];
-
-    return {
-      ok:issues.length===0,
-      users:users.length,
-      active_users:users.filter(function(u){return u.active!==false}).length,
-      modules:mods.length,
-      issues:issues,
-      guarded:guardNames.filter(function(n){
-        return typeof window[n]==='function'&&window[n].__permissionsV450;
-      })
-    };
-  };
-
-  setTimeout(decoratePermissionMatrixV450,350);
+    }catch(e){console.error('V444 receipt dedupe cleanup',e)}
+  },650);
 })();
 </script>
 
 
-<script id="v451-concurrency-audit">
+<script id="v445-dashboard-sales-all-time-audit">
 (function(){
-  window.concurrencyDiagnosticV451=function(){
-    let x=typeof auditConcurrencyV451==='function'?auditConcurrencyV451():{};
-    console.table([x]);
-    return x;
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  window.auditDashboardSalesV445=function(){
+    var all=(Array.isArray(db.sales)?db.sales:[]);
+    var filtered=[];
+    try{filtered=(typeof filteredSales==='function'?filteredSales():[])}catch(e){}
+    return {
+      all_sales_rows:all.length,
+      all_sales_total:all.reduce(function(a,s){return a+N(s.total)},0),
+      period_sales_rows:filtered.length,
+      period_sales_total:filtered.reduce(function(a,s){return a+N(s.total)},0),
+      note:'Main SALES card uses all_sales_total. Period reports continue to use period_sales_total.'
+    };
+  };
+})();
+</script>
+
+
+<script id="v446-dashboard-consistency-audit">
+(function(){
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  window.auditDashboardConsistencyV446=function(){
+    var sales=Array.isArray(db.sales)?db.sales:[];
+    var purchases=Array.isArray(db.purchases)?db.purchases:[];
+    var collections=(typeof dashboardCollectionsAllV446==='function')
+      ?dashboardCollectionsAllV446()
+      :(Array.isArray(db.collections)?db.collections:[]);
+    var ops=Array.isArray(db.operations)?db.operations:[];
+    var saleGroups=(typeof dashboardInvoiceGroupsV446==='function')?dashboardInvoiceGroupsV446(sales):[];
+    var purGroups=(typeof dashboardPurchaseGroupsV446==='function')?dashboardPurchaseGroupsV446(purchases):[];
+    return {
+      sales_total:sales.reduce(function(a,x){return a+N(x.total)},0),
+      sales_rows:sales.length,
+      sales_invoices:saleGroups.length,
+      sales_avg_invoice:saleGroups.length?sales.reduce(function(a,x){return a+N(x.total)},0)/saleGroups.length:0,
+      purchases_total:purchases.reduce(function(a,x){return a+N(x.total)},0),
+      purchase_rows:purchases.length,
+      purchase_invoices:purGroups.length,
+      collections_total:collections.reduce(function(a,x){return a+N(x.amount)},0),
+      collection_rows:collections.length,
+      operations_total:ops.length,
+      report_range:(typeof reportRange!=='undefined'?reportRange:null),
+      note:'Main dashboard uses all recorded operational data; period reports below remain date-filtered.'
+    };
+  };
+})();
+</script>
+
+
+<script id="v447-dashboard-period-separation-audit">
+(function(){
+  window.auditDashboardPeriodSeparationV447=function(){
+    var allSales=(db.sales||[]);
+    var periodSales=(typeof filteredSales==='function'?filteredSales():[]);
+    var allPurchases=(db.purchases||[]);
+    var periodPurchases=(typeof filteredPurchases==='function'?filteredPurchases():[]);
+    return {
+      main_dashboard:{
+        sales_total:allSales.reduce(function(a,x){return a+(Number(x.total)||0)},0),
+        sales_invoices:(typeof dashboardInvoiceGroupsV446==='function'?dashboardInvoiceGroupsV446(allSales).length:allSales.length),
+        purchases_total:allPurchases.reduce(function(a,x){return a+(Number(x.total)||0)},0),
+        purchase_invoices:(typeof dashboardPurchaseGroupsV446==='function'?dashboardPurchaseGroupsV446(allPurchases).length:allPurchases.length)
+      },
+      period_report:{
+        range:(typeof reportRange!=='undefined'?reportRange:null),
+        sales_total:periodSales.reduce(function(a,x){return a+(Number(x.total)||0)},0),
+        sales_invoices:(typeof dashboardInvoiceGroupsV446==='function'?dashboardInvoiceGroupsV446(periodSales).length:periodSales.length),
+        purchases_total:periodPurchases.reduce(function(a,x){return a+(Number(x.total)||0)},0),
+        purchase_invoices:(typeof dashboardPurchaseGroupsV446==='function'?dashboardPurchaseGroupsV446(periodPurchases).length:periodPurchases.length)
+      }
+    };
   };
 })();
 </script>
