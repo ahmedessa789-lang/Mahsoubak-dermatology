@@ -255,7 +255,7 @@ function seed(){let d=emptyDb();d.products=[{id:uid(),code:'DRM-001',name:'Derma
 function load(){try{return JSON.parse(localStorage.getItem(KEY))||seed()}catch(e){return seed()}} function save(){localStorage.setItem(KEY,JSON.stringify(db));document.getElementById('status').textContent=lang==='ar'?'Offline: محفوظ محليًا':'Offline: saved locally'} function setLang(l){lang=l;localStorage.setItem('mb_lang',l);render()}
 function show(v){current=v;document.querySelectorAll('main section').forEach(s=>s.classList.add('hidden'));document.getElementById('view-'+v).classList.remove('hidden');render()}
 function render(){document.documentElement.lang=lang;document.documentElement.dir=lang==='ar'?'rtl':'ltr';document.getElementById('brandLine').textContent=lang==='ar'?'مخازن • عمليات • مبيعات • تحصيلات • Dashboard':'Stock • Operations • Sales • Collections • Dashboard';document.getElementById('saveBtn').textContent=T('save');document.getElementById('printBtn').textContent=T('print');document.getElementById('title').textContent=T(current);document.getElementById('sub').textContent=T(titleMap[current]);document.getElementById('nav').innerHTML=Object.keys(titleMap).map(k=>`<button class="${current===k?'active':''}" onclick="show('${k}')">${icons[k]} ${T(k)}</button>`).join('');renderDashboard();renderProducts();renderCustomers();renderSuppliers();renderReps();renderOperations();renderPurchases();renderSales();ensureAccounting();renderCollections();renderReports();renderAccounts();renderTrialBalance();renderSettings();save()}
-function options(arr){return arr.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}
+function options(arr){if(arr===db.reps)arr=arr.filter(x=>x&&x.inactive_v452!==true&&x.active!==false);return arr.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}
 function inp(id,label,type='text'){return `<div><label>${T(label)}</label><input id="${id}" type="${type}"></div>`}
 function editCell(table,id,field,val,num){let r=db[table].find(x=>x.id===id); if(!r)return; r[field]=num?n(val):val; save(); renderDashboard()}
 function del(table,id){if(!confirm(T('delete')+'?'))return;db[table]=db[table].filter(x=>x.id!==id);render()}
@@ -6994,6 +6994,278 @@ render();
     if(!Array.isArray(db.reps))db.reps=[];
   }
 
+  function cloneV452(v){
+    try{return JSON.parse(JSON.stringify(v))}catch(e){return v}
+  }
+
+  function dateV452(v){
+    var s=String(v||'').trim();
+    if(!s)return '';
+    var m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m?m[1]+'-'+m[2]+'-'+m[3]:s.slice(0,10);
+  }
+
+  function normRegionV452(v){
+    return String(v||'').trim().toLowerCase()
+      .replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه')
+      .replace(/[\s_\-]+/g,' ').replace(/\s+/g,' ').trim()
+      .replace(/\bwwst\b/g,'west').replace(/\bwst\b/g,'west').replace(/\bwesst\b/g,'west')
+      .replace(/\beest\b/g,'east').replace(/\beasst\b/g,'east')
+      .replace(/\bhelioplis\b/g,'heliopolis').replace(/\balexandria\b/g,'alex')
+      .replace(/\bdelta total\b/g,'delta').replace(/\balex total\b/g,'alex');
+  }
+
+  function repRegionsV452(rep){
+    var out=[];
+    function push(v){
+      if(Array.isArray(v)){v.forEach(push);return}
+      String(v||'').split(/[,،;|]+/).forEach(function(x){x=String(x||'').trim();if(x)out.push(x)});
+    }
+    push(rep&&rep.region_code);
+    push(rep&&rep.assigned_regions_v324);
+    push(rep&&rep.regions);
+    push(rep&&rep.sales_regions);
+    push(rep&&rep.area);
+    return Array.from(new Set(out));
+  }
+
+  function currentRegionsForRepV452(rep){
+    var out=repRegionsV452(rep).slice();
+    try{
+      (db.customerRepSplits||[]).forEach(function(sp){
+        var mapped=null;
+        if(typeof window.repForSplitRegionV414==='function')mapped=window.repForSplitRegionV414(sp);
+        else if(typeof window.salesAllocationRepBySplitV411==='function')mapped=window.salesAllocationRepBySplitV411(sp);
+        if(mapped&&String(mapped.id)===String(rep.id)&&sp.region_code)out.push(String(sp.region_code).trim());
+      });
+    }catch(e){}
+    return Array.from(new Set(out.filter(Boolean)));
+  }
+
+  function ensureRepReplacementLogV452(){
+    if(!Array.isArray(db.rep_replacements_v452))db.rep_replacements_v452=[];
+    return db.rep_replacements_v452;
+  }
+
+  function repByIdV452(id){
+    return (db.reps||[]).find(function(r){return String(r.id)===String(id)})||null;
+  }
+
+  /* Date-aware territory owner. Old closed history remains with the old rep,
+     while sales on/after the effective date belong to the replacement rep. */
+  window.repReplacementForSaleV452=function(split,sale){
+    var log=ensureRepReplacementLogV452();
+    if(!log.length)return null;
+
+    var region=normRegionV452(split&&(split.region_code||split.region_name||''));
+    var explicitId=String(split&&split.rep_id||'');
+    var explicitName=normV185(split&&split.rep_name||'');
+    var saleDate=dateV452(sale&&(sale.date||sale.invoice_date||sale.created_date||sale.approved_date)) || dateV452(new Date().toISOString());
+
+    var events=log.filter(function(ev){
+      var regs=(ev.regions||[]).map(normRegionV452);
+      var regionMatch=region&&regs.indexOf(region)>=0;
+      var identityMatch=(explicitId&&(String(ev.old_rep_id)===explicitId||String(ev.new_rep_id)===explicitId)) ||
+        (explicitName&&(normV185(ev.old_rep_name)===explicitName||normV185(ev.new_rep_name)===explicitName));
+      return regionMatch||identityMatch;
+    }).sort(function(a,b){return String(a.effective_date||'').localeCompare(String(b.effective_date||''))});
+
+    if(!events.length)return null;
+
+    var chosen='';
+    for(var i=0;i<events.length;i++){
+      var ev=events[i],eff=dateV452(ev.effective_date);
+      if(!eff||saleDate>=eff){chosen=ev.new_rep_id||chosen;continue}
+      if(!chosen)chosen=ev.old_rep_id||'';
+      break;
+    }
+    if(!chosen)chosen=events[0].old_rep_id||events[0].new_rep_id||'';
+    return repByIdV452(chosen);
+  };
+
+  function repReplacementCardV452(){
+    var active=(db.reps||[]).filter(function(r){return r&&r.inactive_v452!==true&&r.active!==false});
+    var options=active.map(function(r){return '<option value="'+esc(r.id)+'">'+esc(r.name||'')+'</option>'}).join('');
+    var todayValue=(typeof today==='function'?today():new Date().toISOString().slice(0,10));
+    return '<div class="card rep-replace-card-v452">'+
+      '<div class="rep-management-title-v185"><div><h3>استبدال مندوب</h3><p>ينقل العملاء والمناطق والتارجت والطلبات المفتوحة للمندوب الجديد، مع الاحتفاظ بالمبيعات والتحصيلات التاريخية باسم المندوب القديم.</p></div></div>'+
+      '<div class="rep-replace-grid-v452">'+
+        '<label><span>المندوب القديم</span><select id="replace_old_rep_v452"><option value="">اختر المندوب</option>'+options+'</select></label>'+
+        '<label><span>اسم المندوب الجديد</span><input id="replace_new_name_v452" type="text" placeholder="اكتب اسم المندوب الجديد"></label>'+
+        '<label><span>رقم الهاتف الجديد</span><input id="replace_new_phone_v452" type="text" placeholder="اختياري"></label>'+
+        '<label><span>تاريخ بداية المندوب الجديد</span><input id="replace_effective_date_v452" type="date" value="'+esc(todayValue)+'"></label>'+
+        '<button type="button" class="btn blue" onclick="replaceRepV452()">تنفيذ الاستبدال</button>'+
+      '</div><div class="rep-replace-note-v452">لن يتم تغيير الفواتير أو المبيعات أو التحصيلات المغلقة السابقة لتاريخ الاستبدال. الطلبات المفتوحة فقط تنتقل للمندوب الجديد.</div>'+
+    '</div>';
+  }
+
+  function matchRepV452(row,rep){
+    if(!row||!rep)return false;
+    if(row.rep_id&&String(row.rep_id)===String(rep.id))return true;
+    if(row.sales_rep_id&&String(row.sales_rep_id)===String(rep.id))return true;
+    if(row.assigned_rep_id&&String(row.assigned_rep_id)===String(rep.id))return true;
+    return normV185(row.rep_name||row.sales_rep_name||row.assigned_rep_name)===normV185(rep.name);
+  }
+
+  function transferCustomerCurrentRepV452(c,oldRep,newRep){
+    var pairs=[
+      ['rep_id','rep_name'],['sales_rep_id','sales_rep_name'],['assigned_rep_id','assigned_rep_name'],
+      ['representative_id','representative_name'],['collector_id','collector_name']
+    ];
+    var changed=false;
+    pairs.forEach(function(pair){
+      var idKey=pair[0],nameKey=pair[1];
+      var idMatch=c[idKey]&&String(c[idKey])===String(oldRep.id);
+      var nameMatch=c[nameKey]&&normV185(c[nameKey])===normV185(oldRep.name);
+      if(idMatch||nameMatch){c[idKey]=newRep.id;c[nameKey]=newRep.name;changed=true}
+    });
+    return changed;
+  }
+
+  function isOpenOrderV452(o){
+    var s=normV185(o&&o.status), op=normV185(o&&o.operation_status), ap=normV185(o&&o.approval_status);
+    if(['sold','cancelled','canceled','rejected','closed','completed'].indexOf(s)>=0)return false;
+    if(['dispatched','sold','cancelled','canceled','rejected','closed','completed'].indexOf(op)>=0)return false;
+    if(ap==='rejected'||o&&o.warehouse_dispatched===true||o&&o.inventory_deducted===true)return false;
+    if((db.sales||[]).some(function(x){return o&&o.id&&String(x.order_id||'')===String(o.id)}))return false;
+    return true;
+  }
+
+  function isOpenOperationV452(o){
+    var s=normV185(o&&o.status);
+    return ['sold','cancelled','canceled','rejected','closed','completed'].indexOf(s)<0;
+  }
+
+  window.replaceRepV452=function(){
+    if(typeof can==='function'&&!can('reps','edit')&&!can('reps','add')){
+      if(typeof permissionAlert==='function')return permissionAlert();
+      return alert('لا توجد صلاحية لتعديل المندوبين');
+    }
+    ensureRepsV185();
+    var oldId=String(document.getElementById('replace_old_rep_v452')?.value||'');
+    var newName=String(document.getElementById('replace_new_name_v452')?.value||'').trim();
+    var newPhone=String(document.getElementById('replace_new_phone_v452')?.value||'').trim();
+    var effective=dateV452(document.getElementById('replace_effective_date_v452')?.value)||dateV452(new Date().toISOString());
+    var oldRep=repByIdV452(oldId);
+
+    if(!oldRep)return alert('اختر المندوب القديم');
+    if(oldRep.inactive_v452===true||oldRep.active===false)return alert('هذا المندوب مؤرشف بالفعل');
+    if(!newName)return alert('اكتب اسم المندوب الجديد');
+    if((db.reps||[]).some(function(r){return r.inactive_v452!==true&&normV185(r.name)===normV185(newName)}))return alert('اسم المندوب الجديد موجود بالفعل');
+
+    var msg='سيتم استبدال "'+oldRep.name+'" بالمندوب "'+newName+'" اعتبارًا من '+effective+'.\n\n'+
+      'سيتم نقل المناطق والتارجت والطلبات المفتوحة فقط، مع الاحتفاظ بالتاريخ القديم باسم المندوب السابق.\n\nهل تريد المتابعة؟';
+    if(!confirm(msg))return;
+
+    var regions=currentRegionsForRepV452(oldRep);
+    var oldSnapshot=cloneV452(oldRep);
+    var newRep=cloneV452(oldRep)||{};
+    newRep.id=(typeof uid==='function'?uid():'rep_'+Date.now());
+    newRep.name=newName;
+    newRep.phone=newPhone||oldRep.phone||'';
+    newRep.active=true;
+    newRep.inactive_v452=false;
+    newRep.created_at=new Date().toISOString();
+    newRep.replaced_from_rep_id_v452=oldRep.id;
+    newRep.replaced_from_rep_name_v452=oldRep.name;
+    newRep.replacement_effective_date_v452=effective;
+    delete newRep.replaced_by_rep_id_v452;
+    delete newRep.replaced_by_rep_name_v452;
+    delete newRep.archived_at_v452;
+
+    /* Current assignments move to the new rep. */
+    newRep.assigned_regions_v324=cloneV452(oldRep.assigned_regions_v324||oldRep.regions||[]);
+    newRep.regions=cloneV452(oldRep.regions||oldRep.assigned_regions_v324||[]);
+    newRep.sales_regions=cloneV452(oldRep.sales_regions||[]);
+    if(!newRep.region_code&&regions.length)newRep.region_code=regions[0];
+
+    db.reps.push(newRep);
+
+    /* Archive the old rep as history, but remove current assignment/targets so
+       company totals and new transaction dropdowns do not count him twice. */
+    oldRep.inactive_v452=true;
+    oldRep.active=false;
+    oldRep.replaced_by_rep_id_v452=newRep.id;
+    oldRep.replaced_by_rep_name_v452=newRep.name;
+    oldRep.replacement_effective_date_v452=effective;
+    oldRep.archived_at_v452=new Date().toISOString();
+    oldRep.archived_assignment_v452={
+      area:oldSnapshot.area||'',region:oldSnapshot.region||'',region_code:oldSnapshot.region_code||'',source_key:oldSnapshot.source_key||'',
+      assigned_regions_v324:cloneV452(oldSnapshot.assigned_regions_v324||[]),regions:cloneV452(oldSnapshot.regions||[]),sales_regions:cloneV452(oldSnapshot.sales_regions||[])
+    };
+    oldRep.archived_targets_v452={
+      target:oldSnapshot.target,target_qty:oldSnapshot.target_qty,target_value:oldSnapshot.target_value,sales_target:oldSnapshot.sales_target,
+      target_mode:oldSnapshot.target_mode,target_type:oldSnapshot.target_type,money_target_v325:oldSnapshot.money_target_v325,
+      product_targets:cloneV452(oldSnapshot.product_targets||[])
+    };
+    oldRep.area='';oldRep.region='';oldRep.region_code='';oldRep.source_key='';
+    oldRep.assigned_regions_v324=[];oldRep.regions=[];oldRep.sales_regions=[];
+    oldRep.target=0;
+    if('target_qty' in oldRep)oldRep.target_qty=0;
+    if('target_value' in oldRep)oldRep.target_value=0;
+    if('sales_target' in oldRep)oldRep.sales_target=0;
+    if('money_target_v325' in oldRep)oldRep.money_target_v325=0;
+    if(Array.isArray(oldRep.product_targets))oldRep.product_targets=[];
+
+    var counts={customers:0,splits:0,orders:0,operations:0,collection_requests:0};
+
+    (db.customers||[]).forEach(function(c){if(transferCustomerCurrentRepV452(c,oldRep,newRep))counts.customers++});
+
+    (db.customerRepSplits||[]).forEach(function(sp){
+      var idMatch=sp.rep_id&&String(sp.rep_id)===String(oldRep.id);
+      var nameMatch=sp.rep_name&&normV185(sp.rep_name)===normV185(oldRep.name);
+      if(idMatch||nameMatch){
+        sp.previous_rep_id_v452=sp.rep_id||oldRep.id;
+        sp.previous_rep_name_v452=sp.rep_name||oldRep.name;
+        sp.rep_id=newRep.id;sp.rep_name=newRep.name;sp.rep_effective_date_v452=effective;counts.splits++;
+      }
+    });
+
+    (db.sales_orders||[]).forEach(function(o){
+      if(matchRepV452(o,oldRep)&&isOpenOrderV452(o)){
+        o.previous_rep_id_v452=o.rep_id||oldRep.id;o.previous_rep_name_v452=o.rep_name||oldRep.name;
+        o.rep_id=newRep.id;o.rep_name=newRep.name;o.rep_replaced_date_v452=effective;counts.orders++;
+      }
+    });
+
+    (db.operations||[]).forEach(function(o){
+      if(matchRepV452(o,oldRep)&&isOpenOperationV452(o)){
+        o.previous_rep_id_v452=o.rep_id||oldRep.id;o.previous_rep_name_v452=o.rep_name||oldRep.name;
+        if('rep_id' in o||'rep_name' in o){o.rep_id=newRep.id;o.rep_name=newRep.name}
+        if(o.delivery_rep_id&&String(o.delivery_rep_id)===String(oldRep.id))o.delivery_rep_id=newRep.id;
+        if(o.delivery_rep_name&&normV185(o.delivery_rep_name)===normV185(oldRep.name))o.delivery_rep_name=newRep.name;
+        o.rep_replaced_date_v452=effective;counts.operations++;
+      }
+    });
+
+    (db.collection_requests||[]).forEach(function(c){
+      var pending=!c.status||normV185(c.status)==='pending';
+      var approval=!c.approval_status||normV185(c.approval_status)==='pending';
+      if(pending&&approval&&matchRepV452(c,oldRep)){
+        c.previous_rep_id_v452=c.rep_id||oldRep.id;c.previous_rep_name_v452=c.rep_name||oldRep.name;
+        c.rep_id=newRep.id;c.rep_name=newRep.name;c.rep_replaced_date_v452=effective;counts.collection_requests++;
+      }
+    });
+
+    ensureRepReplacementLogV452().push({
+      id:(typeof uid==='function'?uid():'replace_'+Date.now()),
+      old_rep_id:oldRep.id,old_rep_name:oldRep.name,new_rep_id:newRep.id,new_rep_name:newRep.name,
+      effective_date:effective,regions:regions.slice(),created_at:new Date().toISOString(),counts:cloneV452(counts)
+    });
+
+    try{
+      if(typeof window.salesAllocationRowsV52==='function')db.sales_allocations=window.salesAllocationRowsV52();
+    }catch(e){console.error('V452 allocation refresh',e)}
+
+    if(typeof save==='function')save();
+    if(typeof render==='function')render();
+    setTimeout(function(){try{if(typeof show==='function')show('reps');if(typeof buildRepManagementV185==='function')buildRepManagementV185()}catch(e){}},100);
+
+    alert('تم استبدال المندوب بنجاح.\n\nالعملاء المباشرون: '+counts.customers+'\nتوزيعات العملاء: '+counts.splits+'\nالطلبات المفتوحة: '+counts.orders+'\nعمليات المخزن المفتوحة: '+counts.operations+'\nطلبات التحصيل المعلقة: '+counts.collection_requests+'\n\nالتاريخ السابق محفوظ باسم '+oldRep.name+'.');
+  };
+
+  window.repReplacementCardV452=repReplacementCardV452;
+
   function repUsageV185(rep){
     const same=function(row){
       return row && (
@@ -7047,6 +7319,7 @@ render();
 
     let rep=db.reps.find(r=>r.id===repId);
     if(!rep)return alert('المندوب غير موجود');
+    if(rep.inactive_v452===true)return alert('هذا مندوب سابق مؤرشف للحفاظ على التاريخ ولا يمكن حذفه.');
 
     let usage=repUsageV185(rep);
     let total=usage.sales+usage.orders+usage.collections;
@@ -7095,15 +7368,15 @@ render();
 
     let wrap=document.createElement('div');
     wrap.id='rep_management_clean_v185';
-    wrap.innerHTML=`
+    wrap.innerHTML=repReplacementCardV452()+`
       <div class="card rep-management-card-v185"><div class="rep-management-title-v185"><div><h3>إدارة المندوبين</h3><p>إضافة مندوب جديد أو حذف مندوب من قائمة الاختيارات</p></div></div><div class="rep-add-grid-v185"><label><span>اسم المندوب</span><input id="rep_name_v185" type="text" placeholder="اكتب اسم المندوب"></label><label><span>رقم الهاتف</span><input id="rep_phone_v185" type="text" placeholder="رقم الهاتف"></label><label><span>المنطقة</span><input id="rep_area_v185" type="text" placeholder="منطقة العمل"></label><label><span>التارجت</span><input id="rep_target_v185" type="number" min="0" step="0.01" placeholder="0"></label><button type="button" class="btn ok rep-add-btn-v185" onclick="addRepV185()">إضافة المندوب</button></div><div class="rep-list-v185">
           ${db.reps.length ? db.reps.map(rep=>{
             let usage=repUsageV185(rep);
             return `
-              <div class="rep-row-v185"><div class="rep-info-v185"><b>${esc(rep.name||'')}</b>
+              <div class="rep-row-v185 ${rep.inactive_v452?'rep-row-archived-v452':''}"><div class="rep-info-v185"><b>${esc(rep.name||'')} ${rep.inactive_v452?'<span class="rep-archived-badge-v452">مندوب سابق</span>':''}</b>
                   ${rep.phone?`<span>${esc(rep.phone)}</span>`:''}
                   ${(rep.area||rep.region)?`<span>${esc(rep.area||rep.region)}</span>`:''}
-                </div><div class="rep-counts-v185"><span>مبيعات: ${usage.sales}</span><span>أوردرات: ${usage.orders}</span><span>تحصيلات: ${usage.collections}</span></div><button type="button" class="rep-delete-v185" onclick="deleteRepV185('${rep.id}')">🗑 حذف المندوب</button></div>
+                </div><div class="rep-counts-v185"><span>مبيعات: ${usage.sales}</span><span>أوردرات: ${usage.orders}</span><span>تحصيلات: ${usage.collections}</span></div>${rep.inactive_v452?`<span class="rep-archived-v452">مؤرشف → ${esc(rep.replaced_by_rep_name_v452||'')}</span>`:`<button type="button" class="rep-delete-v185" onclick="deleteRepV185('${rep.id}')">🗑 حذف المندوب</button>`}</div>
             `;
           }).join('') : `<div class="empty">لا يوجد مندوبون حاليًا</div>`}
         </div></div>
@@ -7138,7 +7411,20 @@ render();
     setTimeout(buildRepManagementV185,700);
   });
 })();
-</script><style id="v185-clean-rep-management-style">html body .rep-management-card-v185{border-right:6px solid #16a34a!important;margin-bottom:18px!important}html body .rep-management-title-v185 h3{margin:0 0 6px!important;padding:0!important;border:0!important}html body .rep-management-title-v185 p{margin:0 0 14px!important;color:#64748b!important}html body .rep-add-grid-v185{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr)) auto!important;gap:10px!important;align-items:end!important;margin-bottom:18px!important}html body .rep-add-grid-v185 label{display:grid!important;gap:6px!important}html body .rep-add-grid-v185 label span{font-weight:800!important;color:#334155!important}html body .rep-add-grid-v185 input{width:100%!important;min-height:44px!important;padding:9px 11px!important;border:1px solid #cbd5e1!important;border-radius:10px!important;background:#fff!important;color:#111827!important}html body .rep-list-v185{display:grid!important;gap:10px!important}html body .rep-row-v185{display:grid!important;grid-template-columns:1fr auto auto!important;align-items:center!important;gap:14px!important;padding:12px!important;border:1px solid #e2e8f0!important;border-radius:12px!important;background:#fff!important}html body .rep-info-v185{display:flex!important;flex-wrap:wrap!important;align-items:center!important;gap:8px 14px!important}html body .rep-info-v185 b{font-size:16px!important;color:#0f172a!important}html body .rep-info-v185 span{color:#64748b!important}html body .rep-counts-v185{display:flex!important;flex-wrap:wrap!important;gap:8px!important}html body .rep-counts-v185 span{padding:5px 9px!important;border-radius:999px!important;background:#f1f5f9!important;color:#334155!important;font-size:12px!important;font-weight:800!important}html body .rep-delete-v185,html body.no-delete .rep-delete-v185{display:inline-flex!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;align-items:center!important;justify-content:center!important;min-width:135px!important;min-height:40px!important;padding:9px 14px!important;border:0!important;border-radius:9px!important;background:#dc2626!important;color:#fff!important;font-weight:900!important;cursor:pointer!important}html body .rep-delete-v185:hover{background:#b91c1c!important}@media(max-width:1000px){html body .rep-add-grid-v185{grid-template-columns:repeat(2,minmax(0,1fr))!important}}@media(max-width:700px){html body .rep-add-grid-v185,html body .rep-row-v185{grid-template-columns:1fr!important}}</style><script id="v186-west-east-total-reps">
+</script><style id="v185-clean-rep-management-style">html body .rep-management-card-v185{border-right:6px solid #16a34a!important;margin-bottom:18px!important}html body .rep-management-title-v185 h3{margin:0 0 6px!important;padding:0!important;border:0!important}html body .rep-management-title-v185 p{margin:0 0 14px!important;color:#64748b!important}html body .rep-add-grid-v185{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr)) auto!important;gap:10px!important;align-items:end!important;margin-bottom:18px!important}html body .rep-add-grid-v185 label{display:grid!important;gap:6px!important}html body .rep-add-grid-v185 label span{font-weight:800!important;color:#334155!important}html body .rep-add-grid-v185 input{width:100%!important;min-height:44px!important;padding:9px 11px!important;border:1px solid #cbd5e1!important;border-radius:10px!important;background:#fff!important;color:#111827!important}html body .rep-list-v185{display:grid!important;gap:10px!important}html body .rep-row-v185{display:grid!important;grid-template-columns:1fr auto auto!important;align-items:center!important;gap:14px!important;padding:12px!important;border:1px solid #e2e8f0!important;border-radius:12px!important;background:#fff!important}html body .rep-info-v185{display:flex!important;flex-wrap:wrap!important;align-items:center!important;gap:8px 14px!important}html body .rep-info-v185 b{font-size:16px!important;color:#0f172a!important}html body .rep-info-v185 span{color:#64748b!important}html body .rep-counts-v185{display:flex!important;flex-wrap:wrap!important;gap:8px!important}html body .rep-counts-v185 span{padding:5px 9px!important;border-radius:999px!important;background:#f1f5f9!important;color:#334155!important;font-size:12px!important;font-weight:800!important}html body .rep-delete-v185,html body.no-delete .rep-delete-v185{display:inline-flex!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;align-items:center!important;justify-content:center!important;min-width:135px!important;min-height:40px!important;padding:9px 14px!important;border:0!important;border-radius:9px!important;background:#dc2626!important;color:#fff!important;font-weight:900!important;cursor:pointer!important}html body .rep-delete-v185:hover{background:#b91c1c!important}@media(max-width:1000px){html body .rep-add-grid-v185{grid-template-columns:repeat(2,minmax(0,1fr))!important}}@media(max-width:700px){html body .rep-add-grid-v185,html body .rep-row-v185{grid-template-columns:1fr!important}}</style><style id="v452-rep-replacement-style">
+html body .rep-replace-card-v452{border-right:6px solid #2563eb!important;margin-bottom:18px!important}
+html body .rep-replace-grid-v452{display:grid!important;grid-template-columns:repeat(4,minmax(180px,1fr)) auto!important;gap:10px!important;align-items:end!important}
+html body .rep-replace-grid-v452 label{display:grid!important;gap:6px!important}
+html body .rep-replace-grid-v452 label span{font-weight:800!important;color:#334155!important}
+html body .rep-replace-grid-v452 input,html body .rep-replace-grid-v452 select{width:100%!important;min-height:44px!important;padding:9px 11px!important;border:1px solid #cbd5e1!important;border-radius:10px!important;background:#fff!important;color:#111827!important}
+html body .rep-replace-note-v452{margin-top:12px!important;padding:10px 12px!important;border-radius:10px!important;background:#eff6ff!important;border:1px solid #bfdbfe!important;color:#1e3a8a!important;font-size:12px!important;font-weight:800!important}
+html body .rep-row-archived-v452{opacity:.82!important;border-style:dashed!important;background:#f8fafc!important}
+html body .rep-archived-badge-v452{display:inline-flex!important;margin-right:7px!important;padding:3px 8px!important;border-radius:999px!important;background:#e2e8f0!important;color:#475569!important;font-size:11px!important}
+html body .rep-archived-v452{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-width:135px!important;min-height:40px!important;padding:8px 12px!important;border-radius:9px!important;background:#e2e8f0!important;color:#475569!important;font-weight:900!important}
+@media(max-width:1100px){html body .rep-replace-grid-v452{grid-template-columns:repeat(2,minmax(220px,1fr))!important}}
+@media(max-width:700px){html body .rep-replace-grid-v452{grid-template-columns:1fr!important}}
+</style>
+<script id="v186-west-east-total-reps">
 (function(){
   const REP_GROUPS_V186 = [
     {
@@ -33717,7 +34003,7 @@ html body .summary-box.v303-auto-clickable:after{
   function repForRegion411(region){
     var key=norm(region);
     if(!key)return null;
-    var reps=A(db&&db.reps);
+    var reps=A(db&&db.reps).filter(function(r){return !(r&&r.inactive_v452===true)});
 
     /* Exact main region code first. */
     var exact=reps.find(function(r){return norm(r.region_code)===key});
@@ -34133,9 +34419,10 @@ html body .summary-box.v303-auto-clickable:after{
     return Array.from(new Set(vals));
   }
 
-  window.repForSplitRegionV414=function(split){
+  window.repForSplitRegionV414=function(split,sale){
     if(!split)return null;
-    var reps=A(db&&db.reps);
+    try{if(typeof window.repReplacementForSaleV452==='function'){var replacement=window.repReplacementForSaleV452(split,sale);if(replacement)return replacement}}catch(e){}
+    var reps=A(db&&db.reps).filter(function(r){return !(r&&r.inactive_v452===true)});
 
     /* Best case: split already carries explicit rep identity. */
     if(split.rep_id){
@@ -34243,7 +34530,7 @@ html body .summary-box.v303-auto-clickable:after{
         var pct=N(sp.percentage);
         if(pct<=0)return;
 
-        var rep=window.repForSplitRegionV414(sp);
+        var rep=window.repForSplitRegionV414(sp,s);
 
         rows.push({
           id:String(s.id||'')+'_'+String(sp.id||sp.region_code||Math.random()),
@@ -34480,8 +34767,9 @@ html body .summary-box.v303-auto-clickable:after{
       return false;
     });
   }
-  function repForSplit(sp){
-    var reps=A(db&&db.reps);
+  function repForSplit(sp,sale){
+    try{if(typeof window.repReplacementForSaleV452==='function'){var replacement=window.repReplacementForSaleV452(sp,sale);if(replacement)return replacement}}catch(e){}
+    var reps=A(db&&db.reps).filter(function(r){return !(r&&r.inactive_v452===true)});
 
     if(sp.rep_id){
       var byId=reps.find(function(r){return String(r.id)===String(sp.rep_id)});
@@ -34552,7 +34840,7 @@ html body .summary-box.v303-auto-clickable:after{
 
       splits.forEach(function(sp){
         var pct=N(sp.percentage);
-        var rep=repForSplit(sp);
+        var rep=repForSplit(sp,s);
         rows.push({
           sale:s,
           sale_id:s.id||'',
