@@ -25478,7 +25478,7 @@ html body .summary-box.v303-auto-clickable:after{
   #view-customers .wide-customer-table table{min-width:1350px!important}
 }
 </style>
-<script id="v316-customer-table-clean-layout">
+<script id="v316-customer-table-clean-layout-script">
 (function(){
   var baseRowV316=window.customerEditRowV46;
   if(typeof baseRowV316!=='function')return;
@@ -37461,5 +37461,436 @@ html body .summary-box.v303-auto-clickable:after{
         window.mergeCustomerBatchV454({silent:true,source:'offline_fallback'});
     }catch(e){console.error('V454 offline import',e)}
   },950);
+})();
+</script>
+
+<style id="v455-customers-performance-style">
+#v455_customer_toolbar,
+#v455_split_toolbar,
+#v455_customer_report_toolbar{
+  display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 12px
+}
+#v455_customer_toolbar input,
+#v455_split_toolbar input,
+#v455_customer_report_toolbar input{max-width:360px}
+.v455-pager{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;margin:14px 0 4px}
+.v455-pager .btn{min-width:42px}
+.v455-pager-info{font-weight:900;color:#475569;padding:6px 10px}
+.v455-light-card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px}
+.v455-linked-input{min-width:220px!important}
+.v455-split-collapsed{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.v455-count{font-weight:900;color:#0f766e}
+.v455-perf-note{font-size:12px;color:#64748b;font-weight:800;line-height:1.7}
+#v455_customer_table_shell .wide-customer-table{contain:content}
+@media(max-width:760px){
+  #v455_customer_toolbar input,#v455_split_toolbar input,#v455_customer_report_toolbar input{max-width:none;width:100%}
+}
+</style>
+<script id="v455-customers-performance">
+(function(){
+  'use strict';
+
+  function A(v){return Array.isArray(v)?v:[]}
+  function S(v){return String(v==null?'':v).trim()}
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function E(v){
+    try{return typeof esc==='function'?esc(v):S(v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+    catch(e){return S(v)}
+  }
+  function norm(v){
+    return S(v).toLowerCase()
+      .replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه')
+      .replace(/\s+/g,' ');
+  }
+
+  var state=window.customerPerfV455=window.customerPerfV455||{
+    page:1,pageSize:30,query:'',
+    splitOpen:false,splitPage:1,splitPageSize:20,splitQuery:'',
+    splitSummaryOpen:false,
+    reportOpen:false,reportPage:1,reportPageSize:50,reportQuery:''
+  };
+
+  function customerSearchText(c){
+    return [
+      c&&c.customer_name,c&&c.official_name,c&&c.name,c&&c.clinic_name,
+      c&&c.type,c&&c.phone,c&&c.area,c&&c.address,
+      c&&c.customer_region_v327,c&&c.customer_region,c&&c.region_name,
+      c&&c.clinic_city,c&&c.customer_city,c&&c.city,
+      c&&c.customer_rep_distribution,c&&c.notes
+    ].map(norm).join(' ');
+  }
+
+  function filteredCustomers(){
+    var q=norm(state.query);
+    var rows=A(db&&db.customers);
+    if(!q)return rows;
+    var terms=q.split(' ').filter(Boolean);
+    return rows.filter(function(c){
+      var hay=customerSearchText(c);
+      return terms.every(function(t){return hay.indexOf(t)>=0});
+    });
+  }
+
+  function clampPage(page,total,pageSize){
+    var pages=Math.max(1,Math.ceil(total/pageSize));
+    return Math.max(1,Math.min(pages,Number(page)||1));
+  }
+
+  function pagerHTML(kind,page,total,pageSize){
+    var pages=Math.max(1,Math.ceil(total/pageSize));
+    if(pages<=1)return '<div class="v455-pager-info">'+total+' '+((typeof lang!=='undefined'&&lang==='ar')?'سجل':'records')+'</div>';
+    return '<div class="v455-pager">'+
+      '<button class="btn small secondary" onclick="'+kind+'V455(1)">«</button>'+
+      '<button class="btn small secondary" onclick="'+kind+'V455('+(page-1)+')" '+(page<=1?'disabled':'')+'>‹</button>'+
+      '<span class="v455-pager-info">'+((typeof lang!=='undefined'&&lang==='ar')?'صفحة ':'Page ')+page+' / '+pages+' · '+total+'</span>'+
+      '<button class="btn small secondary" onclick="'+kind+'V455('+(page+1)+')" '+(page>=pages?'disabled':'')+'>›</button>'+
+      '<button class="btn small secondary" onclick="'+kind+'V455('+pages+')">»</button>'+
+    '</div>';
+  }
+
+  function customerHeaders(){
+    var ar=(typeof lang!=='undefined'&&lang==='ar');
+    return '<tr>'+
+      '<th>'+T('customerOfficialName')+'</th>'+
+      '<th>'+T('customerDisplayName')+'</th>'+
+      '<th>'+T('type')+'</th>'+
+      '<th>'+T('phone')+'</th>'+
+      '<th>'+T('area')+'</th>'+
+      '<th>'+(ar?'منطقة العميل':'Customer Region')+'</th>'+
+      '<th>'+T('address')+'</th>'+
+      '<th>'+(ar?'منطقة / مدينة العيادة':'Clinic City / Area')+'</th>'+
+      '<th>'+T('balance')+'</th>'+
+      '<th>'+T('customerRepDistribution')+'</th>'+
+      '<th>'+T('notes')+'</th>'+
+      '<th></th>'+
+    '</tr>';
+  }
+
+  window.customersTableV46=function(){
+    try{if(typeof ensureCustomerFieldsV46==='function')ensureCustomerFieldsV46()}catch(e){}
+    var rows=filteredCustomers();
+    state.page=clampPage(state.page,rows.length,state.pageSize);
+    var start=(state.page-1)*state.pageSize;
+    var pageRows=rows.slice(start,start+state.pageSize);
+    var ar=(typeof lang!=='undefined'&&lang==='ar');
+
+    var table=pageRows.length
+      ? '<div class="wide-customer-table"><table>'+customerHeaders()+
+        pageRows.map(function(c){return customerEditRowV46(c)}).join('')+
+        '</table></div>'
+      : '<div class="empty">'+(ar?'لا يوجد عميل مطابق للبحث':'No customer matches the search')+'</div>';
+
+    return '<div id="v455_customer_table_shell">'+
+      '<div id="v455_customer_toolbar">'+
+        '<input id="v455_customer_search" value="'+E(state.query)+'" placeholder="'+(ar?'بحث بالاسم أو العيادة أو الهاتف أو المنطقة...':'Search name, clinic, phone, region...')+'" oninput="customerSearchV455(this.value)">'+
+        '<span class="badge blue">'+rows.length+' / '+A(db&&db.customers).length+' '+(ar?'عميل':'customers')+'</span>'+
+        '<select style="max-width:150px" onchange="customerPageSizeV455(this.value)">'+
+          [20,30,50,100].map(function(x){return '<option value="'+x+'" '+(Number(state.pageSize)===x?'selected':'')+'>'+x+' '+(ar?'في الصفحة':'per page')+'</option>'}).join('')+
+        '</select>'+
+      '</div>'+
+      table+
+      pagerHTML('customerPage',state.page,rows.length,state.pageSize)+
+    '</div>';
+  };
+  try{customersTableV46=window.customersTableV46}catch(e){}
+
+  window.refreshCustomerTableV455=function(focusSearch){
+    var shell=document.getElementById('v455_customer_table_shell');
+    if(!shell)return;
+    shell.outerHTML=window.customersTableV46();
+    if(focusSearch){
+      var x=document.getElementById('v455_customer_search');
+      if(x){x.focus();try{x.setSelectionRange(x.value.length,x.value.length)}catch(e){}}
+    }
+  };
+
+  var customerSearchTimerV455=null;
+  window.customerSearchV455=function(v){
+    state.query=S(v);state.page=1;
+    clearTimeout(customerSearchTimerV455);
+    customerSearchTimerV455=setTimeout(function(){window.refreshCustomerTableV455(true)},140);
+  };
+  window.customerPageV455=function(p){
+    var total=filteredCustomers().length;
+    state.page=clampPage(p,total,state.pageSize);
+    window.refreshCustomerTableV455(false);
+  };
+  window.customerPageSizeV455=function(v){
+    state.pageSize=Math.max(10,Math.min(100,Number(v)||30));
+    state.page=1;
+    window.refreshCustomerTableV455(false);
+  };
+
+  function customerLabel(c){
+    if(!c)return '';
+    var official=S(c.customer_name||c.official_name);
+    var clinic=S(c.clinic_name||c.name);
+    var phone=S(c.phone);
+    var label=(official&&clinic&&norm(official)!==norm(clinic))?official+' - '+clinic:(official||clinic);
+    if(phone)label+=' · '+phone;
+    return label;
+  }
+
+  function splitCustomer(s){
+    var customers=A(db&&db.customers);
+    var c=customers.find(function(x){return S(x.id)===S(s&&s.customer_id)});
+    if(c)return c;
+    var on=norm(s&&s.customer_name), cn=norm(s&&s.clinic_name);
+    return customers.find(function(x){
+      var xo=norm(x.customer_name||x.official_name), xc=norm(x.clinic_name||x.name);
+      return (on&&xo===on&&(!cn||xc===cn)) || (cn&&xc===cn&&(!on||xo===on));
+    })||null;
+  }
+
+  function customerDatalist(){
+    return '<datalist id="v455_customer_datalist">'+A(db&&db.customers).map(function(c){
+      return '<option value="'+E(customerLabel(c))+'" data-id="'+E(c.id)+'"></option>';
+    }).join('')+'</datalist>';
+  }
+
+  function currentRepForSplit(s){
+    try{
+      if(typeof window.repForSplitRegionV414==='function'){
+        var r=window.repForSplitRegionV414(s);
+        if(r)return r;
+      }
+    }catch(e){}
+    try{return typeof repByRegionV46==='function'?repByRegionV46(s.region_code):null}catch(e){return null}
+  }
+
+  function filteredSplits(){
+    var q=norm(state.splitQuery), rows=A(db&&db.customerRepSplits);
+    if(!q)return rows;
+    return rows.filter(function(s){
+      var c=splitCustomer(s), rep=currentRepForSplit(s);
+      var hay=[s.customer_name,s.clinic_name,s.region_code,s.percentage,s.notes,
+               c&&customerLabel(c),rep&&rep.name].map(norm).join(' ');
+      return hay.indexOf(q)>=0;
+    });
+  }
+
+  window.customerRepSplitTableV45=function(){
+    var rows=filteredSplits();
+    var ar=(typeof lang!=='undefined'&&lang==='ar');
+    if(!rows.length)return '<div class="empty">'+(ar?'لا توجد توزيعات مطابقة':'No matching distributions')+'</div>';
+
+    state.splitPage=clampPage(state.splitPage,rows.length,state.splitPageSize);
+    var start=(state.splitPage-1)*state.splitPageSize;
+    var pageRows=rows.slice(start,start+state.splitPageSize);
+
+    return '<div id="v455_split_table_shell">'+customerDatalist()+
+      '<div id="v455_split_toolbar">'+
+        '<input id="v455_split_search" value="'+E(state.splitQuery)+'" placeholder="'+(ar?'بحث في توزيعات العملاء...':'Search customer distributions...')+'" oninput="splitSearchV455(this.value)">'+
+        '<span class="badge blue">'+rows.length+' / '+A(db&&db.customerRepSplits).length+'</span>'+
+      '</div>'+
+      '<div style="overflow:auto"><table class="rep-split-table">'+
+        '<tr><th>'+T('linkedCustomer')+'</th><th>'+T('customerOfficialName')+'</th><th>'+T('clinicName')+'</th><th>'+T('regionCode')+'</th><th>'+T('rep')+'</th><th>'+T('percentage')+'</th><th>'+T('notes')+'</th><th></th></tr>'+
+        pageRows.map(function(s){
+          var c=splitCustomer(s),rep=currentRepForSplit(s);
+          return '<tr>'+
+            '<td><input class="v455-linked-input" list="v455_customer_datalist" value="'+E(c?customerLabel(c):S(s.customer_name||s.clinic_name))+'" onchange="setSplitCustomerByLabelV455(\''+E(s.id)+'\',this.value)"></td>'+
+            '<td><input value="'+E(s.customer_name||'')+'" onchange="editCustomerRepSplitV45(\''+E(s.id)+'\',\'customer_name\',this.value,false)"></td>'+
+            '<td><input value="'+E(s.clinic_name||'')+'" onchange="editCustomerRepSplitV45(\''+E(s.id)+'\',\'clinic_name\',this.value,false)"></td>'+
+            '<td><select onchange="editCustomerRepSplitV45(\''+E(s.id)+'\',\'region_code\',this.value,false)">'+repRegionOptionsV45(s.region_code||'')+'</select></td>'+
+            '<td>'+E(rep?rep.name:'-')+'</td>'+
+            '<td><input type="number" min="0" max="100" step="0.01" value="'+E(s.percentage||0)+'" onchange="editCustomerRepSplitV45(\''+E(s.id)+'\',\'percentage\',this.value,true)"></td>'+
+            '<td><input value="'+E(s.notes||'')+'" onchange="editCustomerRepSplitV45(\''+E(s.id)+'\',\'notes\',this.value,false)"></td>'+
+            '<td><button class="btn small danger" onclick="deleteCustomerRepSplitV45(\''+E(s.id)+'\')">'+T('delete')+'</button></td>'+
+          '</tr>';
+        }).join('')+
+      '</table></div>'+
+      pagerHTML('splitPage',state.splitPage,rows.length,state.splitPageSize)+
+    '</div>';
+  };
+  try{customerRepSplitTableV45=window.customerRepSplitTableV45}catch(e){}
+
+  window.setSplitCustomerByLabelV455=function(splitId,label){
+    var option=Array.from(document.querySelectorAll('#v455_customer_datalist option')).find(function(o){return o.value===label});
+    var customerId=option&&option.dataset&&option.dataset.id||'';
+    var c=A(db&&db.customers).find(function(x){return S(x.id)===S(customerId)});
+    var s=A(db&&db.customerRepSplits).find(function(x){return S(x.id)===S(splitId)});
+    if(!s||!c){
+      alert((typeof lang!=='undefined'&&lang==='ar')?'اختر عميلًا من القائمة':'Choose a customer from the list');
+      window.refreshSplitManagerV455(true);
+      return;
+    }
+
+    var old=splitCustomer(s);
+    s.customer_id=c.id;
+    s.customer_name=c.customer_name||c.official_name||c.name||'';
+    s.clinic_name=c.clinic_name||c.name||'';
+
+    try{
+      if(old&&typeof customerSplitAutoTextV46==='function')old.customer_rep_distribution=customerSplitAutoTextV46(old);
+      if(typeof customerSplitAutoTextV46==='function')c.customer_rep_distribution=customerSplitAutoTextV46(c);
+      if(typeof save==='function')save();
+    }catch(e){}
+    window.refreshSplitManagerV455(false);
+  };
+
+  var splitSearchTimerV455=null;
+  window.splitSearchV455=function(v){
+    state.splitQuery=S(v);state.splitPage=1;
+    clearTimeout(splitSearchTimerV455);
+    splitSearchTimerV455=setTimeout(function(){window.refreshSplitManagerV455(true)},140);
+  };
+  window.splitPageV455=function(p){
+    var total=filteredSplits().length;
+    state.splitPage=clampPage(p,total,state.splitPageSize);
+    window.refreshSplitManagerV455(false);
+  };
+
+  window.toggleSplitManagerV455=function(){
+    state.splitOpen=!state.splitOpen;
+    state.splitPage=1;
+    window.refreshSplitManagerV455(false);
+  };
+  window.toggleSplitSummaryV455=function(){
+    state.splitSummaryOpen=!state.splitSummaryOpen;
+    window.refreshSplitManagerV455(false);
+  };
+
+  window.refreshSplitManagerV455=function(focusSearch){
+    var shell=document.getElementById('v455_split_manager_shell');
+    if(!shell)return;
+    shell.outerHTML=window.customerRepSplitManagerV45();
+    if(focusSearch){
+      var x=document.getElementById('v455_split_search');
+      if(x){x.focus();try{x.setSelectionRange(x.value.length,x.value.length)}catch(e){}}
+    }
+  };
+
+  window.customerRepSplitManagerV45=function(){
+    try{if(typeof ensureCustomerFieldsV46==='function')ensureCustomerFieldsV46()}catch(e){}
+    var ar=(typeof lang!=='undefined'&&lang==='ar');
+    var count=A(db&&db.customerRepSplits).length;
+
+    if(!state.splitOpen){
+      return '<div id="v455_split_manager_shell" class="card">'+
+        '<div class="v455-split-collapsed"><div><h3 style="margin:0">'+T('customerRepSplits')+'</h3>'+
+        '<div class="v455-perf-note">'+(ar?'التوزيعات محفوظة بالكامل، ويتم تحميلها عند الطلب فقط لتسريع شاشة العملاء.':'All distributions are preserved and loaded only when needed for a faster Customers screen.')+'</div></div>'+
+        '<div class="actions"><span class="badge blue">'+count+' '+(ar?'توزيع':'rows')+'</span>'+
+        '<button class="btn blue" onclick="toggleSplitManagerV455()">'+(ar?'فتح التوزيعات':'Open distributions')+'</button></div></div>'+
+      '</div>';
+    }
+
+    var addSelect='<option value="">'+(ar?'بدون ربط':'No link')+'</option>'+
+      A(db&&db.customers).map(function(c){return '<option value="'+E(c.id)+'">'+E(customerLabel(c))+'</option>'}).join('');
+
+    var summary=state.splitSummaryOpen
+      ? '<div class="card"><h3>'+(ar?'مراجعة إجمالي نسب كل عميل':'Customer split total check')+'</h3>'+customerSplitSummaryV45()+'</div>'
+      : '';
+
+    return '<div id="v455_split_manager_shell">'+
+      '<div class="card">'+
+        '<div class="section-title"><div><h3>'+T('customerRepSplits')+'</h3><div class="v455-perf-note">'+(ar?'العرض مقسم إلى صفحات لتجنب التهنيج مهما زاد عدد العملاء.':'Paginated to stay fast as the customer base grows.')+'</div></div>'+
+          '<div class="actions"><span class="badge blue">'+count+' '+(ar?'توزيع':'rows')+'</span>'+
+          '<button class="btn secondary" onclick="toggleSplitSummaryV455()">'+(state.splitSummaryOpen?(ar?'إخفاء مراجعة النسب':'Hide split check'):(ar?'مراجعة النسب':'Check percentages'))+'</button>'+
+          '<button class="btn secondary" onclick="toggleSplitManagerV455()">'+(ar?'إغلاق التوزيعات':'Close distributions')+'</button></div>'+
+        '</div>'+
+        '<div class="split-tools"><button class="btn blue" onclick="importSalesRepExcelDataV45()">'+T('importExcelReps')+'</button><button class="btn ok" onclick="importCustomersFromSheetV46()">'+T('createCustomersFromSheet')+'</button></div>'+
+        '<div class="grid grid5">'+
+          '<div><label>'+T('linkedCustomer')+'</label><select id="split_customer_id" onchange="let c=db.customers.find(x=>x.id===this.value);if(c){split_customer_name.value=c.customer_name||c.name||\'\';split_clinic_name.value=c.name||c.clinic_name||\'\'}">'+addSelect+'</select></div>'+
+          '<div><label>'+T('customerOfficialName')+'</label><input id="split_customer_name"></div>'+
+          '<div><label>'+T('clinicName')+'</label><input id="split_clinic_name"></div>'+
+          '<div><label>'+T('regionCode')+'</label><select id="split_region_code">'+repRegionOptionsV45('')+'</select></div>'+
+          '<div><label>'+T('percentage')+'</label><input id="split_percentage" type="number" min="0" max="100" step="0.01" value="100"></div>'+
+          '<div><label>'+T('notes')+'</label><input id="split_notes"></div>'+
+          '<div style="display:flex;align-items:end"><button class="btn ok" onclick="addCustomerRepSplitV45()">'+T('add')+'</button></div>'+
+        '</div>'+
+        '<div style="margin-top:14px">'+window.customerRepSplitTableV45()+'</div>'+
+      '</div>'+
+      summary+
+    '</div>';
+  };
+  try{customerRepSplitManagerV45=window.customerRepSplitManagerV45}catch(e){}
+
+  /* Customers report: do not build another full customers table automatically
+     on every Customers-screen render. It becomes lazy and paginated. */
+  var departmentReportCardBaseV455=window.departmentReportCard || (typeof departmentReportCard==='function'?departmentReportCard:null);
+
+  function reportCustomersFiltered(){
+    var q=norm(state.reportQuery),rows=A(db&&db.customers);
+    if(!q)return rows;
+    return rows.filter(function(c){return customerSearchText(c).indexOf(q)>=0});
+  }
+
+  function customerReportBodyV455(){
+    var ar=(typeof lang!=='undefined'&&lang==='ar');
+    var rows=reportCustomersFiltered();
+    state.reportPage=clampPage(state.reportPage,rows.length,state.reportPageSize);
+    var start=(state.reportPage-1)*state.reportPageSize;
+    var pageRows=rows.slice(start,start+state.reportPageSize);
+    var debt=0;
+    try{debt=typeof customerDebt==='function'?customerDebt():rows.reduce(function(a,c){return a+N(c.balance)},0)}catch(e){}
+    return '<div id="v455_customer_report_body">'+
+      '<div id="v455_customer_report_toolbar"><input id="v455_customer_report_search" value="'+E(state.reportQuery)+'" placeholder="'+(ar?'بحث داخل التقرير...':'Search report...')+'" oninput="customerReportSearchV455(this.value)">'+
+      '<span class="badge blue">'+rows.length+' '+(ar?'عميل':'customers')+'</span></div>'+
+      '<div class="dept-report-grid"><div class="stat"><span>'+T('customers')+'</span><strong>'+A(db&&db.customers).length+'</strong></div><div class="stat"><span>'+T('customerDebt')+'</span><strong>'+money(debt)+'</strong></div></div>'+
+      (pageRows.length?'<div style="overflow:auto"><table><tr><th>'+T('customer')+'</th><th>'+T('phone')+'</th><th>'+T('area')+'</th><th>'+T('balance')+'</th></tr>'+
+        pageRows.map(function(c){return '<tr><td>'+E(c.customer_name||c.name||'')+'</td><td>'+E(c.phone||'')+'</td><td>'+E(c.area||c.customer_region_v327||'')+'</td><td>'+money(c.balance)+'</td></tr>'}).join('')+
+        '</table></div>':'<div class="empty">'+T('empty')+'</div>')+
+      pagerHTML('customerReportPage',state.reportPage,rows.length,state.reportPageSize)+
+    '</div>';
+  }
+
+  window.openCustomerReportV455=function(){
+    state.reportOpen=true;
+    var card=document.getElementById('report_customers');
+    if(card)card.innerHTML='<div class="section-title"><h3>'+((typeof lang!=='undefined'&&lang==='ar')?'تقرير العملاء':'Customers report')+'</h3><div class="actions"><button class="btn secondary" onclick="closeCustomerReportV455()">'+((typeof lang!=='undefined'&&lang==='ar')?'إغلاق':'Close')+'</button><button class="btn blue" onclick="printDepartmentReport(\'customers\')">'+T('print')+'</button></div></div>'+customerReportBodyV455();
+  };
+  window.closeCustomerReportV455=function(){
+    state.reportOpen=false;
+    var card=document.getElementById('report_customers');
+    if(card)card.outerHTML=window.departmentReportCard('customers',(typeof lang!=='undefined'&&lang==='ar')?'تقرير العملاء':'Customers report','');
+  };
+  window.customerReportSearchV455=function(v){
+    state.reportQuery=S(v);state.reportPage=1;
+    var body=document.getElementById('v455_customer_report_body');
+    if(body)body.outerHTML=customerReportBodyV455();
+    setTimeout(function(){
+      var x=document.getElementById('v455_customer_report_search');
+      if(x){x.focus();try{x.setSelectionRange(x.value.length,x.value.length)}catch(e){}}
+    },0);
+  };
+  window.customerReportPageV455=function(p){
+    state.reportPage=clampPage(p,reportCustomersFiltered().length,state.reportPageSize);
+    var body=document.getElementById('v455_customer_report_body');
+    if(body)body.outerHTML=customerReportBodyV455();
+  };
+
+  if(typeof departmentReportCardBaseV455==='function'){
+    window.departmentReportCard=function(type,title,desc){
+      if(type!=='customers')return departmentReportCardBaseV455.apply(this,arguments);
+      var ar=(typeof lang!=='undefined'&&lang==='ar');
+      if(state.reportOpen){
+        return '<div class="card dept-report-card" id="report_customers"><div class="section-title"><h3>'+E(title|| (ar?'تقرير العملاء':'Customers report'))+'</h3><div class="actions"><button class="btn secondary" onclick="closeCustomerReportV455()">'+(ar?'إغلاق':'Close')+'</button><button class="btn blue" onclick="printDepartmentReport(\'customers\')">'+T('print')+'</button></div></div>'+customerReportBodyV455()+'</div>';
+      }
+      return '<div class="card dept-report-card" id="report_customers"><div class="v455-split-collapsed"><div><h3 style="margin:0">'+E(title|| (ar?'تقرير العملاء':'Customers report'))+'</h3><div class="v455-perf-note">'+(ar?'التقرير لا يتم تحميله كاملًا إلا عند فتحه لتسريع الموديول.':'The full report is loaded only when opened to keep the module fast.')+'</div></div><div class="actions"><span class="badge blue">'+A(db&&db.customers).length+' '+(ar?'عميل':'customers')+'</span><button class="btn blue" onclick="openCustomerReportV455()">'+(ar?'فتح التقرير':'Open report')+'</button></div></div></div>';
+    };
+    try{departmentReportCard=window.departmentReportCard}catch(e){}
+  }
+
+  window.auditCustomersPerformanceV455=function(){
+    return {
+      customers:A(db&&db.customers).length,
+      visible_customer_rows:Math.min(state.pageSize,filteredCustomers().length),
+      customer_page_size:state.pageSize,
+      distributions:A(db&&db.customerRepSplits).length,
+      split_manager_open:!!state.splitOpen,
+      visible_split_rows:state.splitOpen?Math.min(state.splitPageSize,filteredSplits().length):0,
+      repeated_customer_selects_per_split_row:false,
+      lazy_customer_report:true
+    };
+  };
+
+  /* If Customers is already open after this script loads, repaint once with the
+     lightweight rendering. No data mutation is performed. */
+  setTimeout(function(){
+    try{
+      var v=document.getElementById('view-customers');
+      if(v && !v.classList.contains('hidden') && typeof renderCustomers==='function')renderCustomers();
+    }catch(e){console.error('V455 customers performance repaint',e)}
+  },250);
 })();
 </script>
