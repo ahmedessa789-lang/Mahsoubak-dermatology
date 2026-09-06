@@ -1815,6 +1815,8 @@ async function pullRemoteDb(){
     setTimeout(function(){
       try{if(typeof window.mergeCustomerBatchV453==='function')window.mergeCustomerBatchV453({silent:true,source:'remote_pull'});}
       catch(e){console.error('V453 customer batch import',e)}
+      try{if(typeof window.mergeCustomerBatchV454==='function')window.mergeCustomerBatchV454({silent:true,source:'remote_pull'});}
+      catch(e){console.error('V454 West 2 customer batch import',e)}
     },0);
   }catch(e){
     console.error(e);
@@ -6204,7 +6206,7 @@ render();
     let old=document.getElementById('rep_performance_modal_v175');
     if(old)old.remove();
 
-    let reps=(db.reps||[]);
+    let reps=(db.reps||[]).filter(r=>r&&r.inactive_v452!==true&&r.active!==false);
     let modal=document.createElement('div');
     modal.id='rep_performance_modal_v175';
     modal.className='rep-performance-modal-v175';
@@ -7470,7 +7472,13 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
 
   function rowInGroupV186(row,group){
     let name=normV186(repNameFromRowV186(row));
-    return group.members.some(m=>normV186(m)===name);
+    let members=[...(group.members||[])];
+    (db.rep_replacements_v452||[]).forEach(function(ev){
+      if(members.some(function(m){return normV186(m)===normV186(ev.old_rep_name||'')}) && ev.new_rep_name){
+        if(!members.some(function(m){return normV186(m)===normV186(ev.new_rep_name)}))members.push(ev.new_rep_name);
+      }
+    });
+    return members.some(m=>normV186(m)===name);
   }
 
   function approvedOrderV186(order){
@@ -8006,7 +8014,17 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
   }
 
   function memberNamesV189(repId){
-    if(GROUPS_V189[repId])return GROUPS_V189[repId].members;
+    if(GROUPS_V189[repId]){
+      let names=[...(GROUPS_V189[repId].members||[])];
+      /* Keep historical predecessor names for old dates and add the current
+         replacement name for new dates, so total/group reports stay continuous. */
+      (db.rep_replacements_v452||[]).forEach(ev=>{
+        if(names.map(normV189).includes(normV189(ev.old_rep_name||'')) && ev.new_rep_name){
+          if(!names.map(normV189).includes(normV189(ev.new_rep_name)))names.push(ev.new_rep_name);
+        }
+      });
+      return names;
+    }
     let rep=(db.reps||[]).find(r=>r.id===repId);
     return rep?[rep.name]:[];
   }
@@ -8240,7 +8258,7 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
 
       let options=[
         ...Object.entries(GROUPS_V189).map(([id,g])=>`<option value="${id}">${esc(g.name)}</option>`),
-        ...(db.reps||[]).map(r=>`<option value="${r.id}">${esc(r.name||'')}</option>`)
+        ...(db.reps||[]).filter(r=>r&&r.inactive_v452!==true&&r.active!==false).map(r=>`<option value="${r.id}">${esc(r.name||'')}</option>`)
       ].join('');
 
       let filters=document.createElement('div');
@@ -23090,17 +23108,17 @@ setTimeout(injectV299,1800);
 (function(){
   var previousRangeRepsTableV301 = window.rangeRepsTable;
   window.rangeRepsTable = function(){
-    if(!db.reps.length)return `<div class="empty">${T('empty')}</div>`;
-    var totalSales = typeof totalRepAchievedFiltered==='function'
-      ? totalRepAchievedFiltered()
-      : db.reps.reduce(function(sum,r){
-          return sum + (typeof repAchievementFiltered==='function' ? repAchievementFiltered(r.id) : 0);
-        },0);
+    var reportReps=(db.reps||[]).filter(function(r){return r&&r.inactive_v452!==true&&r.active!==false});
+    if(!reportReps.length)return `<div class="empty">${T('empty')}</div>`;
+    /* Use the same visible/current roster for totals and rows. */
+    var totalSales = reportReps.reduce(function(sum,r){
+      return sum + (typeof repAchievementFiltered==='function' ? repAchievementFiltered(r.id) : 0);
+    },0);
 
-    var totalTarget = db.reps.reduce(function(sum,r){return sum+n(r.target)},0);
+    var totalTarget = reportReps.reduce(function(sum,r){return sum+n(r.target)},0);
     var totalPct = totalTarget ? Math.round(totalSales/totalTarget*100) : 0;
 
-    var rows = db.reps.map(function(r){
+    var rows = reportReps.map(function(r){
       var a=repAchievementFiltered(r.id),
           pct=n(r.target)?Math.round(a/n(r.target)*100):0;
       return `<tr>
@@ -37182,5 +37200,266 @@ html body .summary-box.v303-auto-clickable:after{
       if(typeof onlineBackendEnabled==='function' && !onlineBackendEnabled())window.mergeCustomerBatchV453({silent:true,source:'offline_fallback'});
     }catch(e){console.error('V453 offline import',e)}
   },900);
+})();
+</script>
+
+<script id="v453-rep-report-current-roster-fix">
+(function(){
+  function A(v){return Array.isArray(v)?v:[]}
+  function S(v){return String(v==null?'':v).trim()}
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function E(v){try{return esc(v)}catch(e){return S(v).replace(/[&<>"']/g,'')}}
+  function M(v){try{return money(v)}catch(e){return N(v).toLocaleString()+' EGP'}}
+  function activeReps(){return A(db&&db.reps).filter(function(r){return r&&r.inactive_v452!==true&&r.active!==false})}
+  function repById(id){return A(db&&db.reps).find(function(r){return String(r.id)===String(id)})||null}
+  function replacementForOld(old){if(!old)return null;var id=old.replaced_by_rep_id_v452||'';return id?repById(id):null}
+  function totals(id){
+    var rows=[];try{rows=typeof window.salesRowsV189==='function'?(window.salesRowsV189(id)||[]):[]}catch(e){}
+    var sales=rows.reduce(function(a,s){return a+N(s.total)},0);
+    var coll=A(db&&db.collections).filter(function(c){return String(c.rep_id||'')===String(id)&&(!c.approval_status||c.approval_status==='approved')}).reduce(function(a,c){return a+N(c.amount)},0);
+    return {sales:sales,collections:coll};
+  }
+  function findRepCard(list,id){
+    return Array.from(list.querySelectorAll('.rep-card-v175[data-rep-id]')).find(function(card){return String(card.dataset.repId)===String(id)})||null;
+  }
+  window.syncRepReportCurrentRosterV453=function(){
+    var modal=document.getElementById('rep_performance_modal_v175');if(!modal)return;
+    var list=modal.querySelector('.rep-list-v175');if(!list)return;
+    var active=activeReps(),activeIds=new Set(active.map(function(r){return String(r.id)}));
+    list.querySelectorAll('.rep-card-v175[data-rep-id]').forEach(function(card){
+      var rep=repById(S(card.dataset.repId));if(rep&&!activeIds.has(String(rep.id)))card.remove();
+    });
+    active.forEach(function(rep){
+      if(findRepCard(list,rep.id))return;
+      var t=totals(rep.id),b=document.createElement('button');
+      b.type='button';b.className='rep-card-v175';b.dataset.repId=rep.id;
+      b.onclick=function(){if(typeof window.openRepDetailsV175==='function')window.openRepDetailsV175(rep.id)};
+      b.innerHTML='<b>'+E(rep.name||'')+'</b><span>مبيعات: '+M(t.sales)+'</span><span>تحصيل: '+M(t.collections)+'</span>';
+      list.appendChild(b);
+    });
+    var sel=document.getElementById('rep_report_rep_v189');
+    if(sel){
+      var current=S(sel.value),currentRep=repById(current),mapped=(currentRep&&currentRep.inactive_v452===true)?replacementForOld(currentRep):null;
+      Array.from(sel.options).forEach(function(o){var r=repById(o.value);if(r&&r.inactive_v452===true)o.remove()});
+      active.forEach(function(rep){
+        if(!Array.from(sel.options).some(function(o){return String(o.value)===String(rep.id)})){var o=document.createElement('option');o.value=rep.id;o.textContent=rep.name||'';sel.appendChild(o)}
+      });
+      if(mapped)sel.value=mapped.id;
+    }
+  };
+  var base=window.openRepPerformanceV175;
+  if(typeof base==='function'){
+    window.openRepPerformanceV175=function(){var r=base.apply(this,arguments);setTimeout(window.syncRepReportCurrentRosterV453,120);setTimeout(window.syncRepReportCurrentRosterV453,360);return r};
+    try{openRepPerformanceV175=window.openRepPerformanceV175}catch(e){}
+  }
+  var replaceBase=window.replaceRepV452;
+  if(typeof replaceBase==='function'){
+    window.replaceRepV452=function(){var r=replaceBase.apply(this,arguments);setTimeout(window.syncRepReportCurrentRosterV453,180);return r}
+  }
+})();
+</script>
+
+<script id="v454-customer-batch-west2-20260906">
+(function(){
+  'use strict';
+  var BATCH_ID='customers_20260906_west2_62_v454';
+  var SOURCE_ROWS=[{"source_key":"customer_batch_20260906_west2_001","customer_name":"Evolve","clinic_name":"Evolve","type":"A","phone":"01009555577","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_002","customer_name":"FAIRY CLINICS","clinic_name":"FAIRY CLINICS","type":"A","phone":"01020939233","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_003","customer_name":"Hoda Moneb","clinic_name":"Hoda Moneb","type":"A","phone":"","region_code":"West 2","customer_area":"Maady","address":"","clinic_city":"Maady"},{"source_key":"customer_batch_20260906_west2_004","customer_name":"Bassant Fahmy","clinic_name":"Bassant Fahmy","type":"A","phone":"01111315756","region_code":"West 2","customer_area":"Maady","address":"","clinic_city":"Maady"},{"source_key":"customer_batch_20260906_west2_005","customer_name":"Bella Cl","clinic_name":"Bella Cl","type":"B","phone":"01117669273","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_006","customer_name":"Neven Dorghm","clinic_name":"Neven Dorghm","type":"A","phone":"01111105587","region_code":"West 2","customer_area":"Manial","address":"","clinic_city":"Manial"},{"source_key":"customer_batch_20260906_west2_007","customer_name":"Salma Elkhosht","clinic_name":"golden fab","type":"A","phone":"01070311108","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_008","customer_name":"Well skin","clinic_name":"Well skin","type":"B","phone":"01212388002","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_009","customer_name":"Nellie","clinic_name":"Nellie","type":"A","phone":"01006723006","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_010","customer_name":"Kenzy Clinic","clinic_name":"Kenzy Clinic","type":"B","phone":"01020898653","region_code":"West 2","customer_area":"Hadayk el ahram","address":"","clinic_city":"Hadayk el ahram"},{"source_key":"customer_batch_20260906_west2_011","customer_name":"Mira Samih","clinic_name":"Mira Samih","type":"B","phone":"01117069782","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_012","customer_name":"Walid Harras","clinic_name":"Walid Harras","type":"A","phone":"01146664685","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_013","customer_name":"Marwan Elsawy","clinic_name":"Marwan Elsawy","type":"A","phone":"01116688226","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_014","customer_name":"Shaker Yehia","clinic_name":"Shaker Yehia","type":"A","phone":"01018688881","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_015","customer_name":"Rana Sabry","clinic_name":"Rana Sabry","type":"B","phone":"01010112770","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_016","customer_name":"Heba Shams","clinic_name":"Heba Shams","type":"A","phone":"01003352308","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_017","customer_name":"Mariam Sayed","clinic_name":"Mariam Sayed","type":"B","phone":"01002407427","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_018","customer_name":"Haitham Rizk","clinic_name":"Haitham Rizk","type":"A","phone":"01007342257","region_code":"West 2","customer_area":"mohandesen","address":"","clinic_city":"mohandesen"},{"source_key":"customer_batch_20260906_west2_019","customer_name":"Alaa Salem","clinic_name":"Alaa Salem","type":"B","phone":"01114977721","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_020","customer_name":"Sari Clinic","clinic_name":"Sari Clinic","type":"A","phone":"01040066604","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_021","customer_name":"mostafa jawad","clinic_name":"cueva","type":"A","phone":"01023346673","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_022","customer_name":"Reem Naif","clinic_name":"Reem Naif","type":"B","phone":"01019097000","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_023","customer_name":"Sara Qamar","clinic_name":"Sara Qamar","type":"B","phone":"01117717317","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_024","customer_name":"nada hafez","clinic_name":"Elnada Hospital","type":"B","phone":"01005085845","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_025","customer_name":"Youmna Salem","clinic_name":"Youmna Salem","type":"B","phone":"01144777219","region_code":"West 2","customer_area":"maady","address":"","clinic_city":"maady"},{"source_key":"customer_batch_20260906_west2_026","customer_name":"yasmeen el zawhry","clinic_name":"yasmeen el zawhry","type":"B","phone":"0233040818","region_code":"West 2","customer_area":"Mohandesen","address":"","clinic_city":"Mohandesen"},{"source_key":"customer_batch_20260906_west2_027","customer_name":"shady maghrby","clinic_name":"shady maghrby","type":"A","phone":"01223340470","region_code":"West 2","customer_area":"Zamalik","address":"","clinic_city":"Zamalik"},{"source_key":"customer_batch_20260906_west2_028","customer_name":"soha ismael","clinic_name":"soha ismael","type":"B","phone":"01550339394","region_code":"West 2","customer_area":"Mohandesen","address":"","clinic_city":"Mohandesen"},{"source_key":"customer_batch_20260906_west2_029","customer_name":"ahmed azzam","clinic_name":"vie","type":"A","phone":"01130603362","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_030","customer_name":"aya magdy","clinic_name":"aya magdy","type":"A","phone":"01130603362","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_031","customer_name":"nehal sabry","clinic_name":"le barque","type":"B","phone":"01050505065","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_032","customer_name":"rehab radwan","clinic_name":"rehab radwan","type":"B","phone":"01019009337","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_033","customer_name":"heba el sayed","clinic_name":"heba el sayed","type":"B","phone":"01286885803","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_034","customer_name":"mohamed el eraky","clinic_name":"mohamed el eraky","type":"B","phone":"01111101230","region_code":"West 2","customer_area":"Mohandesen","address":"","clinic_city":"Mohandesen"},{"source_key":"customer_batch_20260906_west2_035","customer_name":"le bello","clinic_name":"le bello","type":"A","phone":"","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Chain"},{"source_key":"customer_batch_20260906_west2_036","customer_name":"glory expert","clinic_name":"glory expert","type":"B","phone":"01000111723","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_037","customer_name":"mohamed aboelghiet","clinic_name":"mohamed aboelghiet","type":"A","phone":"01000166605","region_code":"West 2","customer_area":"October","address":"","clinic_city":"October"},{"source_key":"customer_batch_20260906_west2_038","customer_name":"samar yahia","clinic_name":"samar yahia","type":"A","phone":"01114782383","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_039","customer_name":"sherbeny","clinic_name":"sherbeny","type":"A","phone":"01000668988","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_040","customer_name":"moawia el tamimy","clinic_name":"moawia el tamimy","type":"B","phone":"","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_041","customer_name":"primier health","clinic_name":"primier health","type":"A","phone":"","region_code":"West 2","customer_area":"Zayed","address":"downtown","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_042","customer_name":"phases","clinic_name":"phases","type":"B","phone":"01021544049","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_043","customer_name":"shine on","clinic_name":"shine on","type":"B","phone":"01070070144","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_044","customer_name":"mohamed bastawesy","clinic_name":"mohamed bastawesy","type":"A","phone":"01066664000","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_045","customer_name":"heba hemdan","clinic_name":"glorea","type":"B","phone":"01008074733","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_046","customer_name":"wham","clinic_name":"wham","type":"A","phone":"","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_047","customer_name":"Marmar ezz","clinic_name":"Marmar ezz","type":"A","phone":"01021363433","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_048","customer_name":"Sugary touches","clinic_name":"Sugary touches","type":"B","phone":"01555615043","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_049","customer_name":"Samar hashem","clinic_name":"Samar hashem","type":"B","phone":"01061663396","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_050","customer_name":"Dahab clinic","clinic_name":"Dahab clinic","type":"B","phone":"01128016897","region_code":"West 2","customer_area":"October","address":"","clinic_city":"October"},{"source_key":"customer_batch_20260906_west2_051","customer_name":"Be well","clinic_name":"Be well","type":"B","phone":"","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_052","customer_name":"heba hesham","clinic_name":"Qeva","type":"B","phone":"01099580103","region_code":"West 2","customer_area":"Maady","address":"","clinic_city":"Maady"},{"source_key":"customer_batch_20260906_west2_053","customer_name":"mariem taher","clinic_name":"Ismael clinic","type":"B","phone":"01019120844","region_code":"West 2","customer_area":"Mohandesen","address":"","clinic_city":"Mohandesen"},{"source_key":"customer_batch_20260906_west2_054","customer_name":"Walaa marzook","clinic_name":"Walaa marzook","type":"B","phone":"01008867222","region_code":"West 2","customer_area":"Hadayk el ahram","address":"","clinic_city":"Hadayk el ahram"},{"source_key":"customer_batch_20260906_west2_055","customer_name":"Mariem hamdy","clinic_name":"rejuva","type":"B","phone":"01019809001","region_code":"West 2","customer_area":"Mohandesen","address":"","clinic_city":"Mohandesen"},{"source_key":"customer_batch_20260906_west2_056","customer_name":"Mariem metwally","clinic_name":"Mariem metwally","type":"A","phone":"01000100579","region_code":"West 2","customer_area":"mohandesen","address":"","clinic_city":"mohandesen"},{"source_key":"customer_batch_20260906_west2_057","customer_name":"Au wellness","clinic_name":"Au wellness","type":"B","phone":"","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_058","customer_name":"rehab shawky","clinic_name":"Revia","type":"B","phone":"01224049884","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_059","customer_name":"Yasmeen refaat","clinic_name":"Yasmeen refaat","type":"B","phone":"01009284558","region_code":"West 2","customer_area":"Maady","address":"","clinic_city":"Maady"},{"source_key":"customer_batch_20260906_west2_060","customer_name":"Kin","clinic_name":"Kin","type":"B","phone":"01270009745","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_061","customer_name":"May amer","clinic_name":"May amer","type":"B","phone":"","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"},{"source_key":"customer_batch_20260906_west2_062","customer_name":"sara elgamal","clinic_name":"Revera","type":"B","phone":"","region_code":"West 2","customer_area":"Zayed","address":"","clinic_city":"Zayed"}];
+  var UNIQUE_SOURCE_PHONES=new Set(["01000100579","01000111723","01000166605","01000668988","01002407427","01003352308","01005085845","01006723006","01007342257","01008074733","01008867222","01009284558","01009555577","01010112770","01018688881","01019009337","01019097000","01019120844","01019809001","01020898653","01020939233","01021363433","01021544049","01023346673","01040066604","01050505065","01061663396","01066664000","01070070144","01070311108","01099580103","01111101230","01111105587","01111315756","01114782383","01114977721","01116688226","01117069782","01117669273","01117717317","01128016897","01144777219","01146664685","01212388002","01223340470","01224049884","01270009745","01286885803","01550339394","01555615043","0233040818"]);
+
+  function A(v){return Array.isArray(v)?v:[]}
+  function S(v){return String(v==null?'':v).trim()}
+  function norm(v){return S(v).toLowerCase().replace(/\s+/g,' ')}
+  function phoneNorm(v){return S(v).replace(/\D/g,'')}
+  function customerClinic(c){return S(c&& (c.clinic_name||c.name||''))}
+
+  function ensureImportLog(){
+    if(!Array.isArray(db.customer_import_batches_v454))db.customer_import_batches_v454=[];
+    return db.customer_import_batches_v454;
+  }
+
+  function findExisting(src){
+    var customers=A(db&&db.customers);
+    var cn=norm(src.customer_name), cl=norm(src.clinic_name), phone=phoneNorm(src.phone);
+
+    var bySource=customers.find(function(c){return S(c.import_source_key_v454)===S(src.source_key)});
+    if(bySource)return bySource;
+
+    /* Exact official name + clinic is the primary identity. */
+    var byPair=customers.find(function(c){
+      return norm(c.customer_name||c.official_name||'')===cn &&
+             norm(customerClinic(c))===cl;
+    });
+    if(byPair)return byPair;
+
+    /* A phone is only a fallback when it is unique inside this incoming file.
+       The source contains one shared phone, so those two different customers
+       must never collapse into one record. */
+    if(phone && UNIQUE_SOURCE_PHONES.has(phone)){
+      var byPhone=customers.find(function(c){return phoneNorm(c.phone||'')===phone});
+      if(byPhone)return byPhone;
+    }
+
+    /* Compatibility with legacy customer rows that used only one name field. */
+    return customers.find(function(c){
+      var official=norm(c.customer_name||'');
+      var clinic=norm(customerClinic(c));
+      return (!official && clinic===cl && (clinic===cn || !cn)) ||
+             (official===cn && (!clinic || clinic===cn) && cl===cn);
+    })||null;
+  }
+
+  function fillMissing(c,key,value){
+    if(!S(c[key]) && S(value))c[key]=value;
+  }
+
+  function currentRepForRegion(regionCode){
+    var split={region_code:regionCode};
+    try{
+      if(typeof window.repForSplitRegionV414==='function'){
+        var r=window.repForSplitRegionV414(split,{date:(typeof today==='function'?today():new Date().toISOString().slice(0,10))});
+        if(r && r.active!==false && r.inactive_v452!==true)return r;
+      }
+    }catch(e){}
+    return A(db&&db.reps).find(function(r){
+      return r && r.active!==false && r.inactive_v452!==true &&
+             norm(r.region_code||r.area)===norm(regionCode);
+    })||null;
+  }
+
+  function splitsForCustomer(c){
+    return A(db&&db.customerRepSplits).filter(function(sp){
+      if(S(sp.customer_id) && S(sp.customer_id)===S(c.id))return true;
+      return norm(sp.customer_name)===norm(c.customer_name) &&
+             norm(sp.clinic_name)===norm(customerClinic(c));
+    });
+  }
+
+  function addDefaultSplitIfNeeded(c,src){
+    if(!Array.isArray(db.customerRepSplits))db.customerRepSplits=[];
+    if(splitsForCustomer(c).length)return false;
+    var rep=currentRepForRegion(src.region_code);
+    db.customerRepSplits.push({
+      id:(typeof uid==='function'?uid():'split_'+Date.now()+'_'+Math.random().toString(36).slice(2)),
+      source_key:'v454_split_'+src.source_key,
+      customer_id:c.id,
+      customer_name:c.customer_name||src.customer_name||'',
+      clinic_name:customerClinic(c)||src.clinic_name||'',
+      region_code:src.region_code||'',
+      percentage:100,
+      rep_id:rep&&rep.id||'',
+      rep_name:rep&&rep.name||'',
+      notes:'مستورد من ملف عملاء West 2 بتاريخ 06-09-2026'
+    });
+    return true;
+  }
+
+  window.mergeCustomerBatchV454=function(options){
+    options=options||{};
+    if(!db || typeof db!=='object')return {ok:false,reason:'db_unavailable'};
+    if(!Array.isArray(db.customers))db.customers=[];
+    if(!Array.isArray(db.customerRepSplits))db.customerRepSplits=[];
+
+    var log=ensureImportLog();
+    var prior=log.find(function(x){return x&&x.batch_id===BATCH_ID&&x.completed===true});
+    if(prior)return {ok:true,already_imported:true,added:0,matched:SOURCE_ROWS.length,splits_added:0};
+
+    var stats={ok:true,batch_id:BATCH_ID,source_rows:SOURCE_ROWS.length,added:0,matched:0,updated_missing:0,splits_added:0};
+    var now=new Date().toISOString();
+
+    SOURCE_ROWS.forEach(function(src){
+      var c=findExisting(src);
+      if(!c){
+        c={
+          id:(typeof uid==='function'?uid():'customer_'+Date.now()+'_'+Math.random().toString(36).slice(2)),
+          customer_name:S(src.customer_name),
+          name:S(src.clinic_name)||S(src.customer_name),
+          clinic_name:S(src.clinic_name)||S(src.customer_name),
+          type:S(src.type),
+          phone:S(src.phone),
+          area:S(src.region_code),
+          region_code:S(src.region_code),
+          address:S(src.address),
+          balance:0,
+          notes:'مستورد من ملف عملاء West 2 بتاريخ 06-09-2026',
+          customer_rep_distribution:'',
+          customer_area:S(src.customer_area),
+          customer_city:S(src.clinic_city||src.customer_area),
+          clinic_city:S(src.clinic_city||src.customer_area),
+          city:S(src.clinic_city||src.customer_area),
+          customer_region:S(src.clinic_city||src.customer_area),
+          customer_region_v327:S(src.clinic_city||src.customer_area),
+          imported_customer_area_v454:S(src.customer_area),
+          import_source_key_v454:S(src.source_key),
+          import_batch_v454:BATCH_ID,
+          imported_at_v454:now
+        };
+        db.customers.push(c);
+        stats.added++;
+      }else{
+        stats.matched++;
+        var before=JSON.stringify(c);
+        fillMissing(c,'customer_name',src.customer_name);
+        fillMissing(c,'name',src.clinic_name||src.customer_name);
+        fillMissing(c,'clinic_name',src.clinic_name||src.customer_name);
+        fillMissing(c,'type',src.type);
+        fillMissing(c,'phone',src.phone);
+        fillMissing(c,'area',src.region_code);
+        fillMissing(c,'region_code',src.region_code);
+        fillMissing(c,'address',src.address);
+        fillMissing(c,'customer_area',src.customer_area);
+        fillMissing(c,'clinic_city',src.clinic_city||src.customer_area);
+        fillMissing(c,'customer_city',src.clinic_city||src.customer_area);
+        fillMissing(c,'city',src.clinic_city||src.customer_area);
+        fillMissing(c,'customer_region',src.clinic_city||src.customer_area);
+        fillMissing(c,'customer_region_v327',src.clinic_city||src.customer_area);
+        fillMissing(c,'import_source_key_v454',src.source_key);
+        if(before!==JSON.stringify(c))stats.updated_missing++;
+      }
+
+      if(addDefaultSplitIfNeeded(c,src))stats.splits_added++;
+      try{
+        if(typeof customerSplitAutoTextV46==='function')c.customer_rep_distribution=customerSplitAutoTextV46(c);
+      }catch(e){}
+    });
+
+    log.push({
+      batch_id:BATCH_ID,completed:true,completed_at:now,source_rows:stats.source_rows,
+      added:stats.added,matched:stats.matched,updated_missing:stats.updated_missing,splits_added:stats.splits_added
+    });
+
+    try{if(typeof save==='function')save()}catch(e){console.error('V454 save',e)}
+    try{
+      if(typeof renderCustomers==='function' && document.getElementById('view-customers') &&
+         !document.getElementById('view-customers').classList.contains('hidden'))renderCustomers();
+    }catch(e){}
+    try{if(typeof renderDashboard==='function')renderDashboard()}catch(e){}
+
+    console.info('V454 West 2 customer batch imported',stats);
+    if(!options.silent)alert('تمت إضافة/مطابقة '+stats.source_rows+' عميل West 2 بأمان. العملاء الجدد: '+stats.added+'، الموجودون مسبقًا: '+stats.matched);
+    return stats;
+  };
+
+  window.auditCustomerBatchV454=function(){
+    var log=ensureImportLog();
+    var entry=log.filter(function(x){return x&&x.batch_id===BATCH_ID}).slice(-1)[0]||null;
+    var keys=new Set(SOURCE_ROWS.map(function(x){return x.source_key}));
+    var imported=A(db&&db.customers).filter(function(c){return keys.has(S(c.import_source_key_v454))});
+    return {
+      batch_id:BATCH_ID,
+      source_rows:SOURCE_ROWS.length,
+      imported_with_source_key:imported.length,
+      duplicate_source_phones:["01130603362"],
+      log:entry
+    };
+  };
+
+  /* Local/offline fallback. Online deployment imports only after the authoritative
+     Supabase snapshot has been loaded by pullRemoteDb. */
+  setTimeout(function(){
+    try{
+      if(typeof onlineBackendEnabled==='function' && !onlineBackendEnabled())
+        window.mergeCustomerBatchV454({silent:true,source:'offline_fallback'});
+    }catch(e){console.error('V454 offline import',e)}
+  },950);
 })();
 </script>
