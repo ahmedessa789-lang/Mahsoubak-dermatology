@@ -18385,6 +18385,170 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
   setTimeout(bindAutoRouteV264,700);
 })();
 </script>
+
+<style id="v458-manual-order-rep-commission-style">
+.v458-rep-note{margin-top:6px;padding:8px 10px;border-radius:10px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a!important;font-size:12px;font-weight:800}
+.v458-commission-card{border-right:6px solid #7c3aed!important}
+.v458-commission-tools{display:flex;align-items:end;gap:12px;flex-wrap:wrap;margin:12px 0 16px}
+.v458-commission-tools label{min-width:220px}
+.v458-commission-table-wrap{overflow:auto}
+.v458-commission-table{min-width:1050px!important}
+.v458-progress{height:9px;min-width:120px;background:#e2e8f0;border-radius:999px;overflow:hidden;margin-top:5px}
+.v458-progress span{display:block;height:100%;background:linear-gradient(90deg,#7c3aed,#14b8a6)}
+.v458-eligible{background:#dcfce7;color:#166534}
+.v458-not-eligible{background:#fef3c7;color:#92400e}
+.v458-missing{background:#fee2e2;color:#991b1b}
+</style>
+<script id="v458-manual-order-rep-commission">
+(function(){
+  'use strict';
+  var state={customerId:'',repId:'',month:new Date().toISOString().slice(0,7)};
+  function A(v){return Array.isArray(v)?v:[]}
+  function S(v){return String(v==null?'':v).trim()}
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function E(v){try{return typeof esc==='function'?esc(v):S(v)}catch(e){return S(v)}}
+  function M(v){try{return typeof money==='function'?money(v):N(v).toLocaleString()+' EGP'}catch(e){return N(v).toLocaleString()+' EGP'}}
+  function sameRep(row,rep){return !!(row&&rep)&&((S(row.rep_id)&&S(row.rep_id)===S(rep.id))||S(row.rep_name).toLowerCase()===S(rep.name).toLowerCase())}
+  function approved(row){var s=S(row&&row.status).toLowerCase(),a=S(row&&row.approval_status).toLowerCase();return s!=='rejected'&&s!=='cancelled'&&s!=='canceled'&&a!=='rejected'&&(!a||a==='approved'||s==='approved'||s==='sold')}
+  function inMonth(row,month){return S(row&&(row.approved_date||row.date||row.invoice_date)).slice(0,7)===month}
+  function targetQty(rep){try{if(typeof window.repQtyTargetV346==='function')return N(window.repQtyTargetV346(rep))}catch(e){}return N(rep&&(rep.target_qty!=null?rep.target_qty:(rep.target!=null?rep.target:rep.sales_target)))}
+  function soldQty(row){try{if(typeof window.targetSaleQtyV346==='function')return N(window.targetSaleQtyV346(row))}catch(e){}return N(row&&row.qty)}
+
+  function propagateManualRep(){
+    A(window.db&&db.sales_orders).forEach(function(o){
+      if(!o||o.manual_rep_override_v458!==true)return;
+      A(db.sales).forEach(function(s){
+        var linked=S(s.order_id)===S(o.id)||S(s.sale_order_id)===S(o.id)||(S(o.sale_id)&&S(s.id)===S(o.sale_id));
+        if(!linked)return;
+        s.rep_id=o.rep_id||'';s.rep_name=o.rep_name||'';
+        s.manual_rep_override_v458=true;s.manual_rep_source_v458='orders';
+      });
+    });
+  }
+  window.propagateManualOrderRepV458=propagateManualRep;
+
+  var saveBase=window.save;
+  if(typeof saveBase==='function'){
+    window.save=function(){propagateManualRep();return saveBase.apply(this,arguments)};
+    try{save=window.save}catch(e){}
+  }
+
+  function decorateOrderForm(){
+    var rep=document.getElementById('sa_rep'),customer=document.getElementById('sa_customer');
+    if(!rep)return;
+    var wrap=rep.closest('div');
+    var label=wrap&&wrap.querySelector('label');
+    if(label)label.textContent=(typeof lang!=='undefined'&&lang==='en')?'Order sales representative':'مندوب هذا الأوردر';
+    if(wrap&&!wrap.querySelector('.v458-rep-note')){
+      wrap.insertAdjacentHTML('beforeend','<div class="v458-rep-note">اختيار يدوي مستقل عن تقسيمة العميل الحالية. المبيعات والتارجت والحافز تُسجل للمندوب المختار هنا فقط.</div>');
+    }
+    if(state.customerId&&customer&&A(db.customers).some(function(c){return S(c.id)===state.customerId}))customer.value=state.customerId;
+    if(state.repId&&A(db.reps).some(function(r){return S(r.id)===state.repId&&r.active!==false&&r.inactive_v452!==true}))rep.value=state.repId;
+    if(customer&&!customer.dataset.v458Bound){customer.dataset.v458Bound='1';customer.addEventListener('change',function(){state.customerId=S(this.value)})}
+    if(rep&&!rep.dataset.v458Bound){rep.dataset.v458Bound='1';rep.addEventListener('change',function(){state.repId=S(this.value)})}
+    state.customerId=S(customer&&customer.value);state.repId=S(rep.value);
+  }
+
+  var renderSalesBase=window.renderSales;
+  if(typeof renderSalesBase==='function'){
+    window.renderSales=function(){var r=renderSalesBase.apply(this,arguments);decorateOrderForm();return r};
+    try{renderSales=window.renderSales}catch(e){}
+  }
+
+  function stampNewRows(beforeOrders,beforeSales,rep){
+    A(db.sales_orders).filter(function(x){return !beforeOrders.has(S(x.id))}).forEach(function(x){x.rep_id=rep.id;x.rep_name=rep.name;x.manual_rep_override_v458=true;x.manual_rep_source_v458='orders'});
+    A(db.sales).filter(function(x){return !beforeSales.has(S(x.id))}).forEach(function(x){x.rep_id=rep.id;x.rep_name=rep.name;x.manual_rep_override_v458=true;x.manual_rep_source_v458='orders'});
+    propagateManualRep();
+    if(typeof window.save==='function')window.save();
+  }
+
+  var multiBase=window.saveMultiInvoiceV150;
+  if(typeof multiBase==='function'){
+    window.saveMultiInvoiceV150=function(){
+      var rep=A(db&&db.reps).find(function(x){return S(x.id)===S((document.getElementById('sa_rep')||{}).value)&&x.active!==false&&x.inactive_v452!==true});
+      if(!rep)return alert('اختر مندوب الأوردر');
+      state.repId=S(rep.id);state.customerId=S((document.getElementById('sa_customer')||{}).value);
+      var bo=new Set(A(db.sales_orders).map(function(x){return S(x.id)})),bs=new Set(A(db.sales).map(function(x){return S(x.id)}));
+      var r=multiBase.apply(this,arguments);
+      stampNewRows(bo,bs,rep);
+      return r;
+    };
+    try{saveMultiInvoiceV150=window.saveMultiInvoiceV150}catch(e){}
+  }
+
+  var addBase=window.addSale;
+  if(typeof addBase==='function'){
+    window.addSale=function(){
+      var rep=A(db&&db.reps).find(function(x){return S(x.id)===S((document.getElementById('sa_rep')||{}).value)&&x.active!==false&&x.inactive_v452!==true});
+      if(!rep)return alert('اختر مندوب الأوردر');
+      var bo=new Set(A(db.sales_orders).map(function(x){return S(x.id)})),bs=new Set(A(db.sales).map(function(x){return S(x.id)}));
+      var r=addBase.apply(this,arguments);stampNewRows(bo,bs,rep);return r;
+    };
+    try{addSale=window.addSale}catch(e){}
+  }
+
+  var approveBase=window.createApprovedSaleFromOrder;
+  if(typeof approveBase==='function'){
+    window.createApprovedSaleFromOrder=function(order){
+      var before=new Set(A(db.sales).map(function(x){return S(x.id)}));
+      var r=approveBase.apply(this,arguments);
+      if(order&&order.manual_rep_override_v458===true){
+        A(db.sales).filter(function(x){return !before.has(S(x.id))||S(x.order_id)===S(order.id)||S(x.sale_order_id)===S(order.id)}).forEach(function(x){
+          if(!before.has(S(x.id))||S(x.order_id)===S(order.id)||S(x.sale_order_id)===S(order.id)){
+            x.rep_id=order.rep_id||'';x.rep_name=order.rep_name||'';x.manual_rep_override_v458=true;x.manual_rep_source_v458='orders';
+          }
+        });
+      }
+      return r;
+    };
+    try{createApprovedSaleFromOrder=window.createApprovedSaleFromOrder}catch(e){}
+  }
+
+  function monthRows(rep,month){
+    var manual=A(db&&db.sales).filter(function(s){return s&&s.manual_rep_override_v458===true&&approved(s)&&inMonth(s,month)&&sameRep(s,rep)});
+    var manualIds=new Set(manual.map(function(s){return S(s.id)}));
+    var qty=manual.reduce(function(a,s){return a+soldQty(s)},0),sales=manual.reduce(function(a,s){return a+N(s.total)},0);
+    try{
+      if(typeof window.salesAllocationRowsV52==='function'){
+        A(window.salesAllocationRowsV52()).forEach(function(a){
+          var sid=S(a.sale_id||a.source_sale_id||a.id).replace(/^alloc_/,''),source=A(db.sales).find(function(s){return S(s.id)===sid});
+          if((source&&source.manual_rep_override_v458===true)||manualIds.has(sid)||!approved(a)||!inMonth(a,month)||!sameRep(a,rep))return;
+          qty+=N(a.allocated_qty!=null?a.allocated_qty:a.qty);sales+=N(a.allocated_amount!=null?a.allocated_amount:a.total);
+        });
+        return {qty:qty,sales:sales};
+      }
+    }catch(e){console.error('V458 allocation summary',e)}
+    A(db&&db.sales).forEach(function(s){if(s&&s.manual_rep_override_v458!==true&&approved(s)&&inMonth(s,month)&&sameRep(s,rep)){qty+=soldQty(s);sales+=N(s.total)}});
+    return {qty:qty,sales:sales};
+  }
+  window.repMonthlyCommissionV458=function(rep,month){
+    month=S(month)||state.month;var x=monthRows(rep,month),target=targetQty(rep),pct=target>0?x.qty/target*100:0,salary=N(rep&&rep.monthly_salary_v458);
+    return {month:month,qty:x.qty,sales:x.sales,target:target,pct:pct,salary:salary,eligible:target>0&&pct>=80,commission:target>0&&pct>=80?salary:0};
+  };
+
+  window.saveRepMonthlySalaryV458=function(id){
+    if(typeof can==='function'&&!can('reps','edit'))return typeof permissionAlert==='function'?permissionAlert():alert('لا توجد صلاحية للتعديل');
+    var rep=A(db&&db.reps).find(function(r){return S(r.id)===S(id)}),el=document.getElementById('v458_salary_'+id);if(!rep||!el)return;
+    var salary=N(el.value);if(salary<0)return alert('قيمة المرتب غير صحيحة');rep.monthly_salary_v458=salary;
+    if(typeof save==='function')save();renderCommissionCard();
+  };
+  window.changeCommissionMonthV458=function(v){state.month=S(v)||new Date().toISOString().slice(0,7);renderCommissionCard()};
+
+  function commissionHTML(){
+    var reps=A(db&&db.reps).filter(function(r){return r&&r.active!==false&&r.inactive_v452!==true});
+    var rows=reps.map(function(rep){var x=window.repMonthlyCommissionV458(rep,state.month),status=x.salary<=0?'أدخل المرتب':(x.eligible?'مستحق مرتب شهر':'غير مستحق');var cls=x.salary<=0?'v458-missing':(x.eligible?'v458-eligible':'v458-not-eligible');return '<tr><td><b>'+E(rep.name||'')+'</b></td><td><div style="display:flex;gap:7px"><input id="v458_salary_'+E(rep.id)+'" type="number" min="0" step="0.01" value="'+E(x.salary||'')+'" placeholder="اكتب المرتب"><button class="btn small blue" onclick="saveRepMonthlySalaryV458(\''+E(rep.id)+'\')">حفظ</button></div></td><td>'+N(x.target).toLocaleString()+'</td><td>'+Number(N(x.qty).toFixed(2)).toLocaleString()+'</td><td><b>'+N(x.pct).toFixed(1)+'%</b><div class="v458-progress"><span style="width:'+Math.min(100,Math.max(0,x.pct))+'%"></span></div></td><td>'+M(x.sales)+'</td><td><span class="badge '+cls+'">'+status+'</span></td><td><b>'+M(x.commission)+'</b></td></tr>'}).join('');
+    return '<div class="card v458-commission-card" id="v458_commission_card"><div class="section-title"><div><h3>حافز تحقيق التارجت الشهري</h3><p class="hint">عند تحقيق 80% أو أكثر يستحق المندوب مرتب شهر كامل فقط. اختيار المندوب اليدوي من Orders يتجاوز تقسيمة العميل لهذا البيع فقط.</p></div><span class="badge blue">حد الاستحقاق 80%</span></div><div class="v458-commission-tools"><label>شهر الحساب<input type="month" value="'+E(state.month)+'" onchange="changeCommissionMonthV458(this.value)"></label></div><div class="v458-commission-table-wrap"><table class="v458-commission-table"><tr><th>المندوب</th><th>المرتب الشهري</th><th>التارجت</th><th>المحقق</th><th>نسبة التحقيق</th><th>قيمة المبيعات</th><th>الاستحقاق</th><th>قيمة الحافز</th></tr>'+rows+'</table></div></div>';
+  }
+  function renderCommissionCard(){var view=document.getElementById('view-reps');if(!view)return;var old=document.getElementById('v458_commission_card');if(old)old.remove();view.insertAdjacentHTML('afterbegin',commissionHTML())}
+  window.renderCommissionCardV458=renderCommissionCard;
+  var repsBase=window.renderReps;
+  if(typeof repsBase==='function'){
+    window.renderReps=function(){var r=repsBase.apply(this,arguments);renderCommissionCard();return r};
+    try{renderReps=window.renderReps}catch(e){}
+  }
+  setTimeout(function(){decorateOrderForm();propagateManualRep()},700);
+})();
+</script>
 <script id="v266-full-language-sync">
 (function(){
   var arToEn={
@@ -38593,4 +38757,3 @@ html body .summary-box.v303-auto-clickable:after{
   };
 })();
 </script>
-
