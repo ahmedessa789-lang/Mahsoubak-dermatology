@@ -7442,7 +7442,7 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
     {
       id:'east_total_v186',
       name:'east total',
-      members:['سيف','ماهينور','نوران','سلمى','سلمي']
+      members:['سلمى','ماهينور','نوران']
     }
   ];
 
@@ -7628,7 +7628,7 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
 
   const GROUPS_V187 = {
     west_total_v186: ['مارينا','عماد'],
-    east_total_v186: ['سيف','ماهينور','نوران','سلمي','سلمى']
+    east_total_v186: ['سلمى','ماهينور','نوران']
   };
 
   function repNameV187(row){
@@ -7979,7 +7979,7 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
 (function(){
   const GROUPS_V189 = {
     west_total_v186:{name:'west total',members:['مارينا','عماد']},
-    east_total_v186:{name:'east total',members:['سيف','ماهينور','نوران','سلمى','سلمي']}
+    east_total_v186:{name:'east total',members:['سلمى','ماهينور','نوران']}
   };
 
   let repReportFilterV189={
@@ -29455,7 +29455,7 @@ html body .summary-box.v303-auto-clickable:after{
     if(!set.size && rep){
       var n=norm(rep.name);
       var west=['مارينا','عماد'].map(norm);
-      var east=['سيف','ماهينور','نوران','سلمى','سلمي'].map(norm);
+      var east=['سلمى','ماهينور','نوران'].map(norm);
       if(west.indexOf(n)>=0){set.add('West 1');set.add('West 2')}
       if(east.indexOf(n)>=0){set.add('East 1');set.add('East 2')}
     }
@@ -29642,7 +29642,7 @@ html body .summary-box.v303-auto-clickable:after{
   };
   var TOTAL_GROUPS_V335={
     west_total_v186:{name:'West Total',subgroups:['West 1','West 2'],members:['مارينا','عماد']},
-    east_total_v186:{name:'East Total',subgroups:['East 1','East 2'],members:['سيف','ماهينور','نوران','سلمى','سلمي']}
+    east_total_v186:{name:'East Total',subgroups:['East 1','East 2','Heliopolis'],members:['سلمى','ماهينور','نوران']}
   };
 
   function customerForSale(s){
@@ -29698,7 +29698,7 @@ html body .summary-box.v303-auto-clickable:after{
 
   function totalGroupMembersV350(totalId){
     if(totalId==='west_total_v186')return ['مارينا','عماد'];
-    if(totalId==='east_total_v186')return ['سيف','ماهينور','نوران','سلمى','سلمي'];
+    if(totalId==='east_total_v186')return ['سلمى','ماهينور','نوران'];
     return [];
   }
 
@@ -39122,5 +39122,50 @@ html body .summary-box.v303-auto-clickable:after{
     try{openRepPerformanceV175=window.openRepPerformanceV175}catch(e){}
   }
   normalizeWest();setTimeout(watch,900);
+})();
+</script>
+
+<script id="v468-canonical-salma-record">
+(function(){
+  'use strict';
+  function A(v){return Array.isArray(v)?v:[]}
+  function S(v){return String(v==null?'':v).trim()}
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function norm(v){return S(v).toLowerCase().replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ')}
+  function refs(rep){var total=0;['sales','sales_orders','collections','collection_requests','customerRepSplits'].forEach(function(k){A(db&&db[k]).forEach(function(x){if(S(x.rep_id)===S(rep.id))total++})});return total}
+  function mergeUnique(a,b){var out=[],seen=new Set();A(a).concat(A(b)).forEach(function(v){var k=norm(v);if(k&&!seen.has(k)){seen.add(k);out.push(v)}});return out}
+  function consolidate(){
+    if(!window.db||!Array.isArray(db.reps))return {changed:false,reason:'db_not_ready'};
+    var matches=db.reps.filter(function(r){return r&&r.active!==false&&r.inactive_v452!==true&&norm(r.name)===norm('سلمى')});
+    if(matches.length<=1)return {changed:false,active:matches.length};
+    matches.sort(function(a,b){
+      var as=S(a.source_key)==='rep_salma'?100000:0,bs=S(b.source_key)==='rep_salma'?100000:0;
+      return (bs+refs(b))-(as+refs(a));
+    });
+    var keep=matches[0];keep.name='سلمى';keep.active=true;keep.inactive_v452=false;
+    matches.slice(1).forEach(function(dup){
+      ['sales','sales_orders','collections','collection_requests','customerRepSplits'].forEach(function(k){
+        A(db[k]).forEach(function(row){if(S(row.rep_id)===S(dup.id)){row.rep_id=keep.id;row.rep_name='سلمى';row.rep_merged_v468=true}});
+      });
+      keep.assigned_regions_v324=mergeUnique(keep.assigned_regions_v324,dup.assigned_regions_v324);
+      keep.regions=mergeUnique(keep.regions,dup.regions);keep.sales_regions=mergeUnique(keep.sales_regions,dup.sales_regions);
+      ['target','target_qty','target_value','sales_target','money_target_v325','monthly_salary_v458'].forEach(function(k){keep[k]=Math.max(N(keep[k]),N(dup[k]))});
+      dup.active=false;dup.inactive_v452=true;dup.duplicate_merged_v468=true;dup.merged_into_rep_id_v468=keep.id;dup.merged_at_v468=new Date().toISOString();
+    });
+    if(typeof save==='function')save();
+    if(typeof render==='function')render();
+    return {changed:true,kept_id:keep.id,merged:matches.length-1};
+  }
+  window.consolidateSalmaRecordsV468=consolidate;
+  var attempts=0,timer=setInterval(function(){
+    attempts++;
+    try{
+      var online=typeof onlineBackendEnabled==='function'&&onlineBackendEnabled();
+      var ready=!online||(typeof remoteDbReady!=='undefined'&&remoteDbReady===true);
+      var pulling=typeof remoteDbPulling!=='undefined'&&remoteDbPulling===true;
+      if(ready&&!pulling&&db&&Array.isArray(db.reps)){clearInterval(timer);consolidate()}
+      else if(attempts>=40)clearInterval(timer);
+    }catch(e){if(attempts>=40)clearInterval(timer)}
+  },500);
 })();
 </script>
