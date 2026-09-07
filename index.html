@@ -38598,7 +38598,15 @@ html body .summary-box.v303-auto-clickable:after{
   function M(v){try{return typeof money==='function'?money(v):N(v).toLocaleString()+' EGP'}catch(e){return N(v).toLocaleString()+' EGP'}}
   function norm(v){return S(v).toLowerCase().replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ')}
   function sameRegion(a,b){return norm(a).replace(/\s/g,'')===norm(b).replace(/\s/g,'')}
-  function unique(values){var out=[],seen=new Set();A(values).forEach(function(v){v=S(v);var k=norm(v);if(!k||seen.has(k))return;seen.add(k);out.push(v)});return out}
+  function cleanArea(v){
+    v=S(v);var k=norm(v).replace(/\s/g,'');
+    var groupNames=['east1','east2','easttotal','west1','west2','westtotal','heliopolis','هليوبلس','salma','سلمي','delta','deltatotal','alex','alextotal'];
+    if(!k||groupNames.indexOf(k)>=0)return '';
+    if(k==='newcairo'||k==='القاهرهالجديده'||k==='التجمعالخامس')return 'التجمع';
+    if(k==='مصرالجديده')return 'مصر الجديدة';
+    return v;
+  }
+  function unique(values){var out=[],seen=new Set();A(values).forEach(function(v){v=cleanArea(v);var k=norm(v);if(!k||seen.has(k))return;seen.add(k);out.push(v)});return out}
   function customerForSplit(sp){
     var byId=A(db&&db.customers).find(function(c){return S(c.id)===S(sp&&sp.customer_id)});if(byId)return byId;
     var clinic=norm(sp&&(sp.clinic_name||sp.customer_name));
@@ -38606,11 +38614,11 @@ html body .summary-box.v303-auto-clickable:after{
   }
   function customerAreas(c){
     if(!c)return [];
-    return unique([c.customer_area,c.area,c.clinic_city,c.city,c.district,c.zone,c.customer_region_v327,c.customer_region]);
+    return unique([c.customer_area,c.area,c.clinic_city,c.city,c.district,c.zone]);
   }
   function configuredAreas(id){
-    if(id==='East 1')return ['New Cairo','التجمع','الرحاب','مدينتي','الشروق'];
-    if(id==='East 2')return ['New Cairo','التجمع','الرحاب','مدينتي'];
+    if(id==='East 1')return ['التجمع','الرحاب','مدينتي','الشروق'];
+    if(id==='East 2')return ['التجمع','الرحاب','مدينتي'];
     if(id==='Heliopolis')return ['مصر الجديدة','مدينة نصر','العبور'];
     return [];
   }
