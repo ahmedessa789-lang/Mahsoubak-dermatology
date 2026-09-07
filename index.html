@@ -18386,6 +18386,148 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
 })();
 </script>
 
+<script id="v471-remove-five-approved-orders">
+(function(){
+  'use strict';
+  var MIGRATION='remove_five_warehouse_orders_v471';
+  var TARGETS=[
+    {date:'2026-08-09',customer:'Sapatan',product:'Nad',qty:5,total:617.31},
+    {date:'2026-07-26',customer:'El Gamila',product:'v-tech',qty:5,total:649.8},
+    {date:'2026-07-26',customer:'Sami',product:'v-tech',qty:5,total:0},
+    {date:'2026-06-27',customer:'مرا',product:'Derma Cream A',qty:1,total:180},
+    {date:'2026-06-24',customer:'صيدلية النور',product:'Derma Cream A',qty:2,total:360}
+  ];
+  function A(v){return Array.isArray(v)?v:[]}
+  function S(v){return String(v==null?'':v).trim()}
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function norm(v){return S(v).toLowerCase().replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/[\s_-]+/g,' ')}
+  function sameMoney(a,b){return Math.abs(N(a)-N(b))<0.011}
+  function isTarget(o,t){
+    return S(o&&o.date)===t.date&&
+      norm(o&&o.customer_name)===norm(t.customer)&&
+      norm(o&&o.product_name)===norm(t.product)&&
+      N(o&&o.qty)===t.qty&&sameMoney(o&&o.total,t.total)&&
+      S(o&&o.status)==='approved'&&S(o&&o.operation_status)!=='dispatched';
+  }
+  function cleanup(){
+    if(typeof db==='undefined'||!db||!Array.isArray(db.sales_orders))return {changed:false,reason:'db_not_ready'};
+    db.maintenance_migrations=db.maintenance_migrations||{};
+    if(db.maintenance_migrations[MIGRATION])return {changed:false,reason:'already_done'};
+    var removed=A(db.sales_orders).filter(function(o){return TARGETS.some(function(t){return isTarget(o,t)})});
+    var ids=new Set(removed.map(function(o){return S(o.id)}));
+    if(removed.length){
+      db.sales_orders=db.sales_orders.filter(function(o){return !ids.has(S(o.id))});
+      /* These rows are awaiting dispatch, so the warehouse has not deducted
+         stock and no sale should exist. Remove only an accidental linked sale
+         reference if legacy data created one for the same pending order. */
+      var saleIds=new Set();
+      A(db.sales).forEach(function(s){if(ids.has(S(s.order_id||s.sale_order_id))){saleIds.add(S(s.id))}});
+      if(saleIds.size){
+        db.sales=db.sales.filter(function(s){return !saleIds.has(S(s.id))});
+        if(Array.isArray(db.sales_allocations))db.sales_allocations=db.sales_allocations.filter(function(x){return !saleIds.has(S(x.sale_id||x.source_sale_id))});
+        if(Array.isArray(db.journal))db.journal=db.journal.filter(function(j){return !saleIds.has(S(j.sourceId||j.source_id))});
+      }
+    }
+    db.maintenance_migrations[MIGRATION]={done_at:new Date().toISOString(),removed_count:removed.length,removed_order_ids:Array.from(ids)};
+    if(typeof save==='function')save();
+    if(typeof render==='function')render();
+    return {changed:removed.length>0,removed:removed.length,ids:Array.from(ids)};
+  }
+  window.removeFiveWarehouseOrdersV471=cleanup;
+  var attempts=0,timer=setInterval(function(){
+    attempts++;
+    try{
+      var online=typeof onlineBackendEnabled==='function'&&onlineBackendEnabled();
+      var ready=!online||(typeof remoteDbReady!=='undefined'&&remoteDbReady===true);
+      var pulling=typeof remoteDbPulling!=='undefined'&&remoteDbPulling===true;
+      if(ready&&!pulling&&db&&Array.isArray(db.sales_orders)){clearInterval(timer);cleanup()}
+      else if(attempts>=60)clearInterval(timer);
+    }catch(e){if(attempts>=60)clearInterval(timer)}
+  },500);
+})();
+</script>
+
+
+<script id="v472-customer-batch-east2-20260907">
+(function(){
+  'use strict';
+  var BATCH_ID='customers_20260907_east2_81_v472';
+  var SOURCE_ROWS=[{"source_key":"customer_batch_20260907_east2_001","customer_name":"DR. DAO Derma","clinic_name":"DAO Derma","type":"A","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"arabella","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_002","customer_name":"DR. zeinab tarek","clinic_name":"DR. zeinab tarek","type":"A","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"water way","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_003","customer_name":"DR. mahmoud saaed","clinic_name":"DR. mahmoud saaed","type":"A","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"water way","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_004","customer_name":"DR. mostafa zedan","clinic_name":"DR. mostafa zedan","type":"A","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"water way","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_005","customer_name":"DR. ayman azzam","clinic_name":"DR. ayman azzam","type":"A","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"water way","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_006","customer_name":"DR. Hger Swedan","clinic_name":"DR. Hger Swedan","type":"A","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"water way","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_007","customer_name":"DR. Nourhan Elkordy","clinic_name":"DR. Nourhan Elkordy","type":"A","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"water way","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_008","customer_name":"DR. mohmed el ghlban","clinic_name":"ELE","type":"A","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"water way","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_009","customer_name":"DR. Mai hadhod","clinic_name":"DR. Mai hadhod","type":"A","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_010","customer_name":"DR. Youssef nashaat","clinic_name":"Skyn","type":"A","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_011","customer_name":"DR. Heba EL Khadrgy","clinic_name":"DR. Heba EL Khadrgy","type":"A","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_012","customer_name":"DR.dana maher","clinic_name":"DR. dana maher","type":"A","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_013","customer_name":"DR. ghada amer","clinic_name":"DR. ghada amer","type":"A","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_014","customer_name":"DR. sara assem","clinic_name":"DR. sara assem","type":"A","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_015","customer_name":"DR. nada fekry","clinic_name":"DR. nada fekry","type":"A","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_016","customer_name":"PERFECTION CARE","clinic_name":"PERFECTION CARE","type":"B","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_017","customer_name":"DR. Passant helmy","clinic_name":"DR. Passant helmy","type":"B","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_018","customer_name":"DR. nouran el baye3","clinic_name":"DR. nouran el baye4","type":"B","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_019","customer_name":"TOPLIFE","clinic_name":"TOPLIFE","type":"B","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_020","customer_name":"DR. Mena zwahary","clinic_name":"DR. Mena zwahary","type":"B","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_021","customer_name":"SELF Hup","clinic_name":"SELF Hup","type":"B","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_022","customer_name":"GLAZE","clinic_name":"GLAZE","type":"B","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_023","customer_name":"DR. Asmaa bakr","clinic_name":"DR. Asmaa bakr","type":"B","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_024","customer_name":"DR. aziza ramdan","clinic_name":"DR. aziza ramdan","type":"B","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_025","customer_name":"DR. passant atef","clinic_name":"PIA","type":"B","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"park st","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_026","customer_name":"DR. Marwa kandil","clinic_name":"DR. Marwa kandil","type":"B","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_027","customer_name":"DR. Lydia Twadros","clinic_name":"The Longevity Health","type":"B","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_028","customer_name":"DR. katrin","clinic_name":"DR. katrin","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"mme","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_029","customer_name":"SOLTAIRE","clinic_name":"SOLTAIRE","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_030","customer_name":"DR. Heba fares","clinic_name":"DR. Heba fares","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_031","customer_name":"DR. Nashwa Radwan","clinic_name":"DR. Nashwa Radwan","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_032","customer_name":"DR. ahmed hegazi","clinic_name":"elite plus","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_033","customer_name":"DR. mai abo el naga","clinic_name":"DR. mai abo el naga","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_034","customer_name":"FLAWLESS","clinic_name":"FLAWLESS","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"Mivida","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_035","customer_name":"1842","clinic_name":"1842","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_036","customer_name":"Be Berfect","clinic_name":"Be Berfect","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_037","customer_name":"DR. Alaa shafek","clinic_name":"DR. Alaa shafek","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_038","customer_name":"DR. Salma el rayes","clinic_name":"DR. Salma el rayes","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_039","customer_name":"DR. ahmed el gendy","clinic_name":"CLARIS","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_040","customer_name":"DR. nada hamada","clinic_name":"KDC","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"Mivida","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_041","customer_name":"DR. heba el shamy","clinic_name":"joya","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_042","customer_name":"DR. samah soliman","clinic_name":"SOLIS","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_043","customer_name":"DR. Mena kanany","clinic_name":"Mavin","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_044","customer_name":"KLAR","clinic_name":"KLAR","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_045","customer_name":"LUMINIQUE","clinic_name":"LUMINIQUE","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_046","customer_name":"rosa","clinic_name":"ROSA","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_047","customer_name":"DR. sherihan","clinic_name":"allure","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"mivida","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_048","customer_name":"DR. reham","clinic_name":"skinnovy","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_049","customer_name":"DR. marwan el sawy","clinic_name":"POSH","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_050","customer_name":"DR. haidy","clinic_name":"I glo","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_051","customer_name":"DR. Mirna","clinic_name":"LIMINARIS","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_052","customer_name":"DR. eman afifi","clinic_name":"la poan","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_053","customer_name":"DR. reem merziban","clinic_name":"reem merziban","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_054","customer_name":"DR. shady abdelsalam","clinic_name":"mouji","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_055","customer_name":"DR. batool","clinic_name":"zaat","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_056","customer_name":"DR. Azza","clinic_name":"Prestine","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_057","customer_name":"DR. Sheren","clinic_name":"ivy","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_058","customer_name":"Koia","clinic_name":"Koia","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_059","customer_name":"aura","clinic_name":"aura","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_060","customer_name":"DR. mena atef","clinic_name":"clinca expert","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_061","customer_name":"DR. nancy adeb","clinic_name":"NBD","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"mpp","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_062","customer_name":"DR. REMONDA","clinic_name":"REMONDA","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"mivida","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_063","customer_name":"DR. rehab zakrya","clinic_name":"JOLIDERM","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"trivium","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_064","customer_name":"DR. naglaa salem","clinic_name":"DR. naglaa salem","type":"C","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"trivium","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_065","customer_name":"inshape","clinic_name":"inshape","type":"","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_066","customer_name":"DR. Shaimaa briaq","clinic_name":"DR. Shaimaa briaq","type":"","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_067","customer_name":"DR. DALIA IBRAHIM","clinic_name":"DR. DALIA IBRAHIM","type":"","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_068","customer_name":"DR. hossam el sayed","clinic_name":"yaz","type":"","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_069","customer_name":"DR. Reham labib","clinic_name":"One clinic","type":"","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_070","customer_name":"DR. Jomana Medhat","clinic_name":"Tal","type":"","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_071","customer_name":"DR. Eslam Emara","clinic_name":"Umini","type":"","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_072","customer_name":"DR. leen elfalah","clinic_name":"Biocell","type":"","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_073","customer_name":"DR. Noha Khater","clinic_name":"Noha Khater","type":"","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_074","customer_name":"Sale","clinic_name":"Sale","type":"","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_075","customer_name":"Kan","clinic_name":"Kan","type":"","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_076","customer_name":"DR. hosam elanany","clinic_name":"klinik 29","type":"","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"5a","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_077","customer_name":"DR. mai hassan","clinic_name":"DR. mai hassan","type":"","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"5a","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_078","customer_name":"sol","clinic_name":"sol","type":"A","phone":"","region_code":"East 1","customer_area":"New Cairo","address":"5a","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_079","customer_name":"DR. moataz noosier","clinic_name":"signature","type":"","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"mivida","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_080","customer_name":"DR. sherif alian","clinic_name":"queens","type":"","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"hcc","clinic_city":"New Cairo"},{"source_key":"customer_batch_20260907_east2_081","customer_name":"DR. Hadeer sultan","clinic_name":"Hadeer sultan","type":"","phone":"","region_code":"East 2","customer_area":"New Cairo","address":"Sodic","clinic_city":"New Cairo"}];
+  function A(v){return Array.isArray(v)?v:[]}
+  function S(v){return String(v==null?'':v).trim()}
+  function phoneNorm(v){return S(v).replace(/\D/g,'')}
+  function canonicalName(v){
+    var x=S(v).toLowerCase().replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه');
+    x=x.replace(/^\s*(?:dr|doctor)\.?\s*/i,'').replace(/[^a-z0-9\u0600-\u06ff]+/g,'');
+    return x.replace(/(.)\1+/g,'$1').replace(/y$/,'i');
+  }
+  function customerName(c){return S(c&&(c.customer_name||c.official_name||c.doctor_name||c.name))}
+  function customerClinic(c){return S(c&&(c.clinic_name||c.name||''))}
+  function ensureLog(){if(!Array.isArray(db.customer_import_batches_v472))db.customer_import_batches_v472=[];return db.customer_import_batches_v472}
+  function findExisting(src){
+    var customers=A(db&&db.customers),key=canonicalName(src.customer_name),phone=phoneNorm(src.phone);
+    var bySource=customers.find(function(c){return S(c.import_source_key_v472)===S(src.source_key)});
+    if(bySource)return bySource;
+    var byName=customers.find(function(c){return key&&canonicalName(customerName(c))===key});
+    if(byName)return byName;
+    if(phone){var byPhone=customers.find(function(c){return phoneNorm(c.phone)===phone});if(byPhone)return byPhone}
+    return null;
+  }
+  function fillMissing(c,key,value){if(!S(c[key])&&S(value))c[key]=value}
+  function normRegion(v){return S(v).toLowerCase().replace(/\s+/g,'')}
+  function currentRep(regionCode){
+    try{if(typeof window.repForSplitRegionV414==='function'){var r=window.repForSplitRegionV414({region_code:regionCode},{date:(typeof today==='function'?today():new Date().toISOString().slice(0,10))});if(r&&r.active!==false&&r.inactive_v452!==true)return r}}catch(e){}
+    return A(db&&db.reps).find(function(r){return r&&r.active!==false&&r.inactive_v452!==true&&normRegion(r.region_code||r.area)===normRegion(regionCode)})||null;
+  }
+  function hasAnySplit(c){return A(db&&db.customerRepSplits).some(function(sp){return S(sp.customer_id)&&S(sp.customer_id)===S(c.id)})}
+  function addSplit(c,src){
+    if(hasAnySplit(c))return false;
+    var rep=currentRep(src.region_code);
+    db.customerRepSplits.push({id:(typeof uid==='function'?uid():'split_'+Date.now()+'_'+Math.random().toString(36).slice(2)),source_key:'v472_split_'+src.source_key,customer_id:c.id,customer_name:c.customer_name||src.customer_name,clinic_name:customerClinic(c)||src.clinic_name,region_code:src.region_code,percentage:100,rep_id:rep&&rep.id||'',rep_name:rep&&rep.name||'',notes:'مستورد من ملف عملاء East 2 بتاريخ 07-09-2026'});
+    return true;
+  }
+  window.mergeCustomerBatchV472=function(options){
+    options=options||{};
+    if(typeof db==='undefined'||!db||typeof db!=='object')return {ok:false,reason:'db_unavailable'};
+    if(!Array.isArray(db.customers))db.customers=[];
+    if(!Array.isArray(db.customerRepSplits))db.customerRepSplits=[];
+    var log=ensureLog(),prior=log.find(function(x){return x&&x.batch_id===BATCH_ID&&x.completed===true});
+    if(prior)return {ok:true,already_imported:true,source_rows:SOURCE_ROWS.length,added:0,matched:SOURCE_ROWS.length,splits_added:0};
+    var stats={ok:true,batch_id:BATCH_ID,source_rows:SOURCE_ROWS.length,added:0,matched:0,updated_missing:0,splits_added:0},now=new Date().toISOString();
+    SOURCE_ROWS.forEach(function(src){
+      var c=findExisting(src);
+      if(!c){
+        c={id:(typeof uid==='function'?uid():'customer_'+Date.now()+'_'+Math.random().toString(36).slice(2)),customer_name:S(src.customer_name),name:S(src.clinic_name)||S(src.customer_name),clinic_name:S(src.clinic_name)||S(src.customer_name),type:S(src.type),phone:S(src.phone),area:S(src.region_code),region_code:S(src.region_code),address:S(src.address),balance:0,notes:'مستورد من ملف عملاء East 2 بتاريخ 07-09-2026',customer_rep_distribution:'',customer_area:S(src.customer_area),customer_city:S(src.clinic_city||src.customer_area),clinic_city:S(src.clinic_city||src.customer_area),city:S(src.clinic_city||src.customer_area),customer_region:S(src.clinic_city||src.customer_area),customer_region_v327:S(src.clinic_city||src.customer_area),imported_customer_area_v472:S(src.customer_area),import_source_key_v472:S(src.source_key),import_batch_v472:BATCH_ID,imported_at_v472:now};
+        db.customers.push(c);stats.added++;
+      }else{
+        stats.matched++;var before=JSON.stringify(c);
+        fillMissing(c,'customer_name',src.customer_name);fillMissing(c,'name',src.clinic_name||src.customer_name);fillMissing(c,'clinic_name',src.clinic_name||src.customer_name);fillMissing(c,'type',src.type);fillMissing(c,'phone',src.phone);fillMissing(c,'area',src.region_code);fillMissing(c,'region_code',src.region_code);fillMissing(c,'address',src.address);fillMissing(c,'customer_area',src.customer_area);fillMissing(c,'clinic_city',src.clinic_city||src.customer_area);fillMissing(c,'customer_city',src.clinic_city||src.customer_area);fillMissing(c,'city',src.clinic_city||src.customer_area);fillMissing(c,'customer_region',src.clinic_city||src.customer_area);fillMissing(c,'customer_region_v327',src.clinic_city||src.customer_area);
+        if(before!==JSON.stringify(c))stats.updated_missing++;
+      }
+      if(addSplit(c,src))stats.splits_added++;
+      try{if(typeof customerSplitAutoTextV46==='function')c.customer_rep_distribution=customerSplitAutoTextV46(c)}catch(e){}
+    });
+    log.push({batch_id:BATCH_ID,completed:true,completed_at:now,source_rows:stats.source_rows,added:stats.added,matched:stats.matched,updated_missing:stats.updated_missing,splits_added:stats.splits_added,source_duplicates_skipped:2});
+    try{if(typeof save==='function')save()}catch(e){console.error('V472 save',e)}
+    try{if(typeof renderCustomers==='function')renderCustomers()}catch(e){}
+    try{if(typeof renderDashboard==='function')renderDashboard()}catch(e){}
+    if(!options.silent)alert('تمت معالجة '+stats.source_rows+' عميل بدون تكرار. العملاء الجدد: '+stats.added+'، الموجودون مسبقًا: '+stats.matched);
+    return stats;
+  };
+  window.auditCustomerBatchV472=function(){var log=ensureLog(),entry=log.filter(function(x){return x&&x.batch_id===BATCH_ID}).slice(-1)[0]||null;return {batch_id:BATCH_ID,source_rows:SOURCE_ROWS.length,source_duplicates_skipped:2,log:entry}};
+  var attempts=0,timer=setInterval(function(){
+    attempts++;
+    try{
+      var online=typeof onlineBackendEnabled==='function'&&onlineBackendEnabled();
+      var ready=!online||(typeof remoteDbReady!=='undefined'&&remoteDbReady===true);
+      var pulling=typeof remoteDbPulling!=='undefined'&&remoteDbPulling===true;
+      if(ready&&!pulling&&typeof db!=='undefined'&&db&&Array.isArray(db.customers)){clearInterval(timer);window.mergeCustomerBatchV472({silent:true,source:online?'remote':'offline'})}
+      else if(attempts>=60)clearInterval(timer);
+    }catch(e){if(attempts>=60)clearInterval(timer)}
+  },500);
+})();
+</script>
+
 <style id="v458-manual-order-rep-commission-style">
 .v458-rep-note{margin-top:6px;padding:8px 10px;border-radius:10px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a!important;font-size:12px;font-weight:800}
 .v458-commission-card{border-right:6px solid #7c3aed!important}
