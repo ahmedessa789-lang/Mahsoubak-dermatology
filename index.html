@@ -38574,6 +38574,111 @@ html body .summary-box.v303-auto-clickable:after{
 })();
 </script>
 
+<style id="v459-east-total-neighborhoods-style">
+.v459-east-grid{display:grid;grid-template-columns:repeat(3,minmax(240px,1fr));gap:16px;margin-top:18px}
+.v459-east-card{background:#fff;border:2px solid #c7d2fe;border-radius:18px;padding:18px;cursor:pointer;transition:.18s ease;box-shadow:0 10px 28px rgba(15,23,42,.08)}
+.v459-east-card:hover{transform:translateY(-3px);border-color:#4f46e5;box-shadow:0 16px 38px rgba(79,70,229,.16)}
+.v459-east-card h4{margin:0 0 8px;font-size:21px;color:#0f172a}
+.v459-east-rep{display:inline-flex;padding:5px 9px;border-radius:999px;background:#ede9fe;color:#5b21b6;font-size:12px;font-weight:900}
+.v459-east-areas{display:flex;gap:6px;flex-wrap:wrap;margin:13px 0}
+.v459-east-area{display:inline-flex;padding:5px 8px;border-radius:999px;background:#ecfeff;color:#155e75;border:1px solid #a5f3fc;font-size:11px;font-weight:800}
+.v459-east-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.v459-east-meta div{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px}
+.v459-east-meta span{display:block;color:#64748b;font-size:10px}.v459-east-meta b{font-size:13px;color:#0f172a}
+.v459-east-open{display:block;margin-top:12px;color:#4338ca;font-weight:900;font-size:12px}
+@media(max-width:900px){.v459-east-grid{grid-template-columns:1fr}}
+</style>
+<script id="v459-east-total-neighborhoods">
+(function(){
+  'use strict';
+  function A(v){return Array.isArray(v)?v:[]}
+  function S(v){return String(v==null?'':v).trim()}
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function E(v){try{return typeof esc==='function'?esc(v):S(v)}catch(e){return S(v)}}
+  function M(v){try{return typeof money==='function'?money(v):N(v).toLocaleString()+' EGP'}catch(e){return N(v).toLocaleString()+' EGP'}}
+  function norm(v){return S(v).toLowerCase().replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ')}
+  function sameRegion(a,b){return norm(a).replace(/\s/g,'')===norm(b).replace(/\s/g,'')}
+  function unique(values){var out=[],seen=new Set();A(values).forEach(function(v){v=S(v);var k=norm(v);if(!k||seen.has(k))return;seen.add(k);out.push(v)});return out}
+  function customerForSplit(sp){
+    var byId=A(db&&db.customers).find(function(c){return S(c.id)===S(sp&&sp.customer_id)});if(byId)return byId;
+    var clinic=norm(sp&&(sp.clinic_name||sp.customer_name));
+    return A(db&&db.customers).find(function(c){return clinic&&(norm(c.name)===clinic||norm(c.clinic_name)===clinic||norm(c.customer_name)===clinic)})||null;
+  }
+  function customerAreas(c){
+    if(!c)return [];
+    return unique([c.customer_area,c.area,c.clinic_city,c.city,c.district,c.zone,c.customer_region_v327,c.customer_region]);
+  }
+  function configuredAreas(id){
+    if(id==='East 1')return ['New Cairo','التجمع','الرحاب','مدينتي','الشروق'];
+    if(id==='East 2')return ['New Cairo','التجمع','الرحاب','مدينتي'];
+    if(id==='Heliopolis')return ['مصر الجديدة','مدينة نصر','العبور'];
+    return [];
+  }
+  function actualAreas(id){
+    var values=[];
+    A(db&&db.customerRepSplits).forEach(function(sp){if(!sameRegion(sp&&sp.region_code,id))return;values=values.concat(customerAreas(customerForSplit(sp)))});
+    A(db&&db.customers).forEach(function(c){
+      var fields=[c.region_code,c.sales_region,c.rep_region,c.group_name,c.region_name];
+      if(fields.some(function(v){return sameRegion(v,id)}))values=values.concat(customerAreas(c));
+    });
+    return unique(values.concat(configuredAreas(id)));
+  }
+  function activeRep(name){var k=norm(name);return A(db&&db.reps).find(function(r){return r&&r.active!==false&&r.inactive_v452!==true&&norm(r.name)===k})||null}
+  function normalizeEast(){
+    var groups=window.FINAL_GROUPS_V338;if(!groups||!groups.east_total_v186)return null;
+    var east=groups.east_total_v186;
+    var current={
+      'East 1':activeRep('سلمى')?'سلمى':'سيف',
+      'East 2':'ماهينور',
+      'Heliopolis':'نوران'
+    };
+    east.name='East Total';
+    east.subgroups=['East 1','East 2','Heliopolis'].map(function(id){
+      var old=A(east.subgroups).find(function(sg){return sameRegion(sg&&sg.id,id)})||{};
+      return {id:id,label:id==='Heliopolis'?'Heliopolis / هليوبلس':id,rep:current[id]||old.rep||'',areas:actualAreas(id)};
+    });
+    return east;
+  }
+  window.normalizeEastTotalV459=normalizeEast;
+
+  function rowsFor(rep){
+    if(!rep)return [];
+    try{if(typeof window.repRowsExactV417==='function')return A(window.repRowsExactV417(rep.id))}catch(e){}
+    return A(db&&db.sales).filter(function(s){return (S(s.rep_id)&&S(s.rep_id)===S(rep.id))||norm(s.rep_name)===norm(rep.name)});
+  }
+  function stats(rep){
+    var rows=rowsFor(rep),invoices=new Set(),qty=0,sales=0;
+    rows.forEach(function(s){sales+=N(s.total);qty+=typeof window.targetSaleQtyV346==='function'?N(window.targetSaleQtyV346(s)):N(s.qty);invoices.add(S(s.invoice_group_id||s.order_id||s.id))});
+    return {sales:sales,qty:qty,invoices:invoices.size};
+  }
+  function eastHTML(){
+    var east=normalizeEast();if(!east)return '<div class="empty">تعذر تحميل تقسيم East Total</div>';
+    var total=typeof window.repGroupStatsV457==='function'?window.repGroupStatsV457('east_total_v186'):null;
+    var summary=total?'<div class="v354-total-summary"><div class="stat"><span>إجمالي مبيعات East Total</span><strong>'+M(total.sales)+'</strong></div><div class="stat"><span>التارجت بالكمية</span><strong>'+N(total.target).toLocaleString()+' وحدة</strong></div><div class="stat"><span>المحقق بالكمية</span><strong>'+N(total.achieved).toLocaleString()+' وحدة</strong></div><div class="stat"><span>عدد التقسيمات</span><strong>3</strong></div></div>':'';
+    return '<div class="v335-root"><div class="v336-total-head"><div><h2>East Total</h2><div class="v338-subtitle">East 1 + East 2 + Heliopolis — اضغط على أي منطقة لعرض الأحياء التابعة لها.</div></div></div>'+summary+
+      '<div class="v459-east-grid">'+east.subgroups.map(function(sg){var rep=activeRep(sg.rep),st=stats(rep),areas=unique(sg.areas);return '<div class="v459-east-card" onclick="openSubgroupAreasV338(\'east_total_v186\',\''+E(sg.id)+'\')"><h4>'+E(sg.label)+'</h4><span class="v459-east-rep">المندوب: '+E(rep?rep.name:sg.rep)+'</span><div class="v459-east-areas">'+areas.slice(0,6).map(function(a){return '<span class="v459-east-area">'+E(a)+'</span>'}).join('')+'</div><div class="v459-east-meta"><div><span>المبيعات</span><b>'+M(st.sales)+'</b></div><div><span>الكمية</span><b>'+N(st.qty).toLocaleString()+'</b></div><div><span>الفواتير</span><b>'+st.invoices+'</b></div></div><span class="v459-east-open">اضغط لعرض كل الأحياء والتفاصيل ←</span></div>'}).join('')+'</div></div>';
+  }
+  window.eastTotalHierarchyHtmlV459=eastHTML;
+  var detailBase=window.openRepDetailsV175;
+  window.openRepDetailsV175=function(repId){
+    if(repId!=='east_total_v186')return typeof detailBase==='function'?detailBase.apply(this,arguments):undefined;
+    normalizeEast();
+    var body=document.getElementById('rep_details_body_v175');
+    if(!body&&typeof detailBase==='function'){try{detailBase.apply(this,arguments)}catch(e){}body=document.getElementById('rep_details_body_v175')}
+    if(!body)return;
+    body.innerHTML=eastHTML();
+    document.querySelectorAll('#rep_performance_modal_v175 .rep-card-v175').forEach(function(card){card.classList.toggle('active',S(card.dataset.repId)===repId)});
+  };
+  try{openRepDetailsV175=window.openRepDetailsV175}catch(e){}
+  var renderBase=window.render;
+  if(typeof renderBase==='function'){
+    window.render=function(){normalizeEast();return renderBase.apply(this,arguments)};
+    try{render=window.render}catch(e){}
+  }
+  setTimeout(normalizeEast,650);
+})();
+</script>
+
 
 <style id="v457-rep-group-current-roster-style">
 .v457-roster-note{font-size:12px;color:#64748b;font-weight:800;margin-top:4px}
@@ -38755,5 +38860,30 @@ html body .summary-box.v303-auto-clickable:after{
       historical_east_members:historicalMembers('east_total_v186')
     };
   };
+})();
+</script>
+
+<script id="v460-east-total-final-handler">
+(function(){
+  'use strict';
+  function S(v){return String(v==null?'':v).trim()}
+  var previous=window.openRepDetailsV175;
+  window.openRepDetailsV175=function(repId){
+    if(repId!=='east_total_v186')return typeof previous==='function'?previous.apply(this,arguments):undefined;
+    try{if(typeof window.normalizeEastTotalV459==='function')window.normalizeEastTotalV459()}catch(e){}
+    var body=document.getElementById('rep_details_body_v175');
+    if(!body&&typeof previous==='function'){
+      try{previous.apply(this,arguments)}catch(e){}
+      body=document.getElementById('rep_details_body_v175');
+    }
+    if(!body)return;
+    body.innerHTML=typeof window.eastTotalHierarchyHtmlV459==='function'
+      ?window.eastTotalHierarchyHtmlV459()
+      :'<div class="empty">تعذر تحميل تقسيم East Total</div>';
+    document.querySelectorAll('#rep_performance_modal_v175 .rep-card-v175').forEach(function(card){
+      card.classList.toggle('active',S(card.dataset.repId)===repId);
+    });
+  };
+  try{openRepDetailsV175=window.openRepDetailsV175}catch(e){}
 })();
 </script>
