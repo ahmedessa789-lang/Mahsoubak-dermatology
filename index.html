@@ -39342,6 +39342,90 @@ html body .summary-box.v303-auto-clickable:after{
 })();
 </script>
 
+<script id="v475-multi-clinic-customer-choice">
+(function(){
+  'use strict';
+  function A(v){return Array.isArray(v)?v:[]}
+  function S(v){return String(v==null?'':v).trim()}
+  function E(v){try{return typeof esc==='function'?esc(v):S(v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}catch(e){return S(v)}}
+  function norm(v){return S(v).toLowerCase().replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ')}
+  function customerById(id){return A(db&&db.customers).find(function(c){return S(c.id)===S(id)})||null}
+  function official(c){return S(c&&(c.customer_name||c.official_name||c.name))}
+  function primaryClinic(c){return S(c&&(c.clinic_name||c.name||c.customer_name))}
+  function primaryCity(c){return S(c&&(c.customer_area||c.clinic_city||c.customer_city||c.city||c.customer_region_v327||c.customer_region))}
+  function choices(c){
+    var out=[],seen=new Set();
+    function add(clinic,city,primary){var k=norm(clinic);if(!k||seen.has(k))return;seen.add(k);out.push({clinic:S(clinic),city:S(city),primary:!!primary})}
+    add(primaryClinic(c),primaryCity(c),true);
+    var clinics=A(c&&c.alternate_clinics_v474),areas=A(c&&c.alternate_areas_v474);
+    clinics.forEach(function(clinic,i){add(clinic,areas[i]||primaryCity(c),false)});
+    return out;
+  }
+  function setClinicFields(customer,choice){
+    if(!customer||!choice)return;
+    var sel=document.getElementById('sa_customer');
+    if(sel&&S(sel.value)!==S(customer.id))return;
+    var clinic=document.getElementById('sa_clinic_name_v317');
+    var city=document.getElementById('sa_clinic_city_v360');
+    if(clinic)clinic.value=choice.clinic;
+    if(city&&choice.city)city.value=choice.city;
+    var input=document.getElementById('sa_customer_search_v173');
+    if(input){input.dataset.customerId=customer.id;input.dataset.selectedClinicV475=choice.clinic;input.dataset.selectedCityV475=choice.city||''}
+  }
+  function applyRemembered(){
+    var x=window.selectedCustomerClinicV475;if(!x)return;
+    var sel=document.getElementById('sa_customer');if(!sel||S(sel.value)!==S(x.customerId))return;
+    setClinicFields(customerById(x.customerId),x);
+  }
+  function choose(customerId,clinic,city){
+    var c=customerById(customerId);if(!c)return;
+    var choice={customerId:c.id,clinic:S(clinic)||primaryClinic(c),city:S(city)||primaryCity(c)};
+    window.selectedCustomerClinicV475=choice;
+    var sel=document.getElementById('sa_customer'),input=document.getElementById('sa_customer_search_v173'),menu=document.getElementById('sa_customer_menu_v173');
+    if(sel)sel.value=c.id;
+    if(input){input.value=official(c);input.dataset.customerId=c.id;input.dataset.selectedClinicV475=choice.clinic;input.dataset.selectedCityV475=choice.city}
+    if(menu){menu.hidden=true;menu.innerHTML=''}
+    try{if(typeof updateLinkedRegion==='function')updateLinkedRegion('sa')}catch(e){}
+    try{if(sel)sel.dispatchEvent(new Event('change',{bubbles:true}))}catch(e){}
+    [0,25,90,220].forEach(function(ms){setTimeout(applyRemembered,ms)});
+  }
+  function choiceButton(c,ch){
+    return '<button type="button" class="customer-option-v194 v475-clinic-choice" data-customer-id="'+E(c.id)+'" data-v475-clinic="'+E(ch.clinic)+'" data-v475-city="'+E(ch.city)+'"><b>'+E(official(c))+'</b><small>'+E(ch.clinic)+(ch.city?' — '+E(ch.city):'')+'</small></button>';
+  }
+  function augmentMenu(){
+    var menu=document.getElementById('sa_customer_menu_v173'),input=document.getElementById('sa_customer_search_v173');
+    if(!menu||!input||menu.hidden)return;
+    var q=norm(input.value);if(!q)return;
+    var html=[];
+    A(db&&db.customers).forEach(function(c){
+      var name=official(c);
+      choices(c).forEach(function(ch){if(norm(name).indexOf(q)>=0||norm(ch.clinic).indexOf(q)>=0||norm(ch.city).indexOf(q)>=0)html.push(choiceButton(c,ch))});
+    });
+    if(!html.length)return;
+    menu.innerHTML=html.slice(0,80).join('');menu.hidden=false;menu.dataset.v475Ready='1';
+  }
+  document.addEventListener('mousedown',function(e){
+    var item=e.target.closest('.v475-clinic-choice[data-customer-id]');if(!item)return;
+    e.preventDefault();e.stopImmediatePropagation();
+    choose(item.dataset.customerId,item.dataset.v475Clinic,item.dataset.v475City);
+  },true);
+  document.addEventListener('input',function(e){
+    if(!e.target||e.target.id!=='sa_customer_search_v173')return;
+    window.selectedCustomerClinicV475=null;
+    [0,15,60,140,240].forEach(function(ms){setTimeout(augmentMenu,ms)});
+  },true);
+  document.addEventListener('focusin',function(e){if(e.target&&e.target.id==='sa_customer_search_v173')setTimeout(augmentMenu,30)},true);
+  var fillBase=window.fillSalesCustomerDataV360;
+  if(typeof fillBase==='function')window.fillSalesCustomerDataV360=function(){var r=fillBase.apply(this,arguments);applyRemembered();setTimeout(applyRemembered,0);return r};
+  var syncBase=window.syncSalesCustomerIdentityV405;
+  if(typeof syncBase==='function')window.syncSalesCustomerIdentityV405=function(){var r=syncBase.apply(this,arguments);applyRemembered();return r};
+  var renderBase=window.renderSales;
+  if(typeof renderBase==='function')window.renderSales=function(){var r=renderBase.apply(this,arguments);setTimeout(applyRemembered,40);return r};
+  window.customerClinicChoicesV475=choices;
+  window.chooseCustomerClinicV475=choose;
+})();
+</script>
+
 <script id="v468-canonical-salma-record">
 (function(){
   'use strict';
