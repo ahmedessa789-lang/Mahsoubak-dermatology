@@ -38989,3 +38989,45 @@ html body .summary-box.v303-auto-clickable:after{
   applyMap();setTimeout(applyMap,500);setTimeout(applyMap,1200);
 })();
 </script>
+
+<script id="v464-east-card-persistent-fix">
+(function(){
+  'use strict';
+  var applying=false;
+  function fix(){
+    if(applying)return;
+    var card=document.querySelector('#rep_performance_modal_v175 .rep-card-v175[data-rep-id="east_total_v186"]');
+    if(!card)return;
+    var expected='East 1 + East 2 + Heliopolis';
+    if((card.textContent||'').indexOf(expected)>=0)return;
+    applying=true;
+    try{
+      if(typeof window.fixEastTotalCardV462==='function')window.fixEastTotalCardV462();
+      card=document.querySelector('#rep_performance_modal_v175 .rep-card-v175[data-rep-id="east_total_v186"]');
+      if(card&&(card.textContent||'').indexOf(expected)<0){
+        var st=null;try{if(typeof window.repGroupStatsV457==='function')st=window.repGroupStatsV457('east_total_v186')}catch(e){}
+        var sales=st&&Number(st.sales)||0,collections=st&&Number(st.collections)||0;
+        var moneyText=function(v){try{return typeof money==='function'?money(v):v.toLocaleString()+' EGP'}catch(e){return v.toLocaleString()+' EGP'}};
+        card.innerHTML='<b>East Total</b><span class="v462-east-structure">'+expected+'</span><span>مبيعات: '+moneyText(sales)+'</span><span>تحصيل: '+moneyText(collections)+'</span>';
+      }
+    }finally{applying=false}
+  }
+  window.keepEastTotalCardCleanV464=fix;
+  var observer=new MutationObserver(function(){setTimeout(fix,0)});
+  function watch(){
+    var modal=document.getElementById('rep_performance_modal_v175');
+    if(modal){observer.disconnect();observer.observe(modal,{childList:true,subtree:true});fix()}
+  }
+  var openBase=window.openRepPerformanceV175;
+  if(typeof openBase==='function'){
+    window.openRepPerformanceV175=function(){var r=openBase.apply(this,arguments);[0,60,180,400,700,1100,1800].forEach(function(ms){setTimeout(function(){watch();fix()},ms)});return r};
+    try{openRepPerformanceV175=window.openRepPerformanceV175}catch(e){}
+  }
+  var renderBase=window.render;
+  if(typeof renderBase==='function'){
+    window.render=function(){var r=renderBase.apply(this,arguments);setTimeout(function(){watch();fix()},120);return r};
+    try{render=window.render}catch(e){}
+  }
+  setTimeout(watch,900);
+})();
+</script>
