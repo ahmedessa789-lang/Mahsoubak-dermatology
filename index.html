@@ -38623,13 +38623,10 @@ html body .summary-box.v303-auto-clickable:after{
     return [];
   }
   function actualAreas(id){
-    var values=[];
-    A(db&&db.customerRepSplits).forEach(function(sp){if(!sameRegion(sp&&sp.region_code,id))return;values=values.concat(customerAreas(customerForSplit(sp)))});
-    A(db&&db.customers).forEach(function(c){
-      var fields=[c.region_code,c.sales_region,c.rep_region,c.group_name,c.region_name];
-      if(fields.some(function(v){return sameRegion(v,id)}))values=values.concat(customerAreas(c));
-    });
-    return unique(values.concat(configuredAreas(id)));
+    /* Neighborhood structure is geographic and must not be inferred from
+       customer percentage splits, because one customer may be shared by
+       several reps. Use the approved territory map only. */
+    return unique(configuredAreas(id));
   }
   function activeRep(name){var k=norm(name);return A(db&&db.reps).find(function(r){return r&&r.active!==false&&r.inactive_v452!==true&&norm(r.name)===k})||null}
   function normalizeEast(){
@@ -38933,5 +38930,62 @@ html body .summary-box.v303-auto-clickable:after{
     try{render=window.render}catch(e){}
   }
   setTimeout(fixEastCard,900);
+})();
+</script>
+
+<script id="v463-correct-territory-area-map">
+(function(){
+  'use strict';
+  var MAP={
+    west_total_v186:{
+      'West 1':['زايد','أكتوبر','حدائق الأهرام','فيصل','الهرم'],
+      'West 2':['الدقي','المهندسين','المعادي','الزمالك','المنيل']
+    },
+    east_total_v186:{
+      'East 1':['التجمع','الرحاب','الشروق'],
+      'East 2':['التجمع','مدينتي'],
+      'Heliopolis':['مصر الجديدة','مدينة نصر','العبور']
+    },
+    delta_total_v321:{direct:['طنطا','المنصورة','بنها','شبين الكوم','المنوفية','مدينة السادات']},
+    alex_total_v321:{direct:['الإسكندرية','رشيد','دمنهور']}
+  };
+  function A(v){return Array.isArray(v)?v:[]}
+  function S(v){return String(v==null?'':v).trim()}
+  function key(v){return S(v).toLowerCase().replace(/\s+/g,'')}
+  function applyMap(){
+    var groups=window.FINAL_GROUPS_V338;if(!groups)return;
+    Object.keys(MAP).forEach(function(totalId){
+      var g=groups[totalId],cfg=MAP[totalId];if(!g)return;
+      if(Array.isArray(cfg.direct)){g.areas=cfg.direct.slice();return}
+      A(g.subgroups).forEach(function(sg){
+        var id=Object.keys(cfg).find(function(name){return key(name)===key(sg.id)});
+        if(id)sg.areas=cfg[id].slice();
+      });
+    });
+  }
+  window.applyCorrectTerritoryAreaMapV463=applyMap;
+
+  var normalizeEastBase=window.normalizeEastTotalV459;
+  window.normalizeEastTotalV459=function(){var r=typeof normalizeEastBase==='function'?normalizeEastBase.apply(this,arguments):null;applyMap();return r};
+
+  var subgroupBase=window.openSubgroupAreasV338;
+  if(typeof subgroupBase==='function'){
+    window.openSubgroupAreasV338=function(){applyMap();return subgroupBase.apply(this,arguments)};
+  }
+  var directBase=window.openDirectAreasV338;
+  if(typeof directBase==='function'){
+    window.openDirectAreasV338=function(){applyMap();return directBase.apply(this,arguments)};
+  }
+  var detailBase=window.openRepDetailsV175;
+  if(typeof detailBase==='function'){
+    window.openRepDetailsV175=function(){applyMap();return detailBase.apply(this,arguments)};
+    try{openRepDetailsV175=window.openRepDetailsV175}catch(e){}
+  }
+  var renderBase=window.render;
+  if(typeof renderBase==='function'){
+    window.render=function(){applyMap();var r=renderBase.apply(this,arguments);applyMap();return r};
+    try{render=window.render}catch(e){}
+  }
+  applyMap();setTimeout(applyMap,500);setTimeout(applyMap,1200);
 })();
 </script>
