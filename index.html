@@ -38410,3 +38410,187 @@ html body .summary-box.v303-auto-clickable:after{
 })();
 </script>
 
+
+<style id="v457-rep-group-current-roster-style">
+.v457-roster-note{font-size:12px;color:#64748b;font-weight:800;margin-top:4px}
+.v457-current-badge{display:inline-flex;padding:4px 9px;border-radius:999px;background:#ecfdf5;color:#166534;border:1px solid #a7f3d0;font-size:11px;font-weight:900;margin-inline-start:7px}
+</style>
+<script id="v457-rep-group-current-roster-consistency">
+(function(){
+  'use strict';
+  function A(v){return Array.isArray(v)?v:[]}
+  function S(v){return String(v==null?'':v).trim()}
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function E(v){try{return typeof esc==='function'?esc(v):S(v)}catch(e){return S(v)}}
+  function M(v){try{return typeof money==='function'?money(v):('EGP '+N(v).toLocaleString())}catch(e){return 'EGP '+N(v).toLocaleString()}}
+  function norm(v){return S(v).toLowerCase().replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ')}
+  function repById(id){return A(db&&db.reps).find(function(r){return S(r&&r.id)===S(id)})||null}
+  function repName(row){
+    if(!row)return '';
+    if(S(row.rep_name))return S(row.rep_name);
+    if(S(row.rep_id)){var r=repById(row.rep_id);if(r)return S(r.name)}
+    return '';
+  }
+  function activeRepByName(name){
+    var n=norm(name);
+    return A(db&&db.reps).find(function(r){return r&&r.active!==false&&r.inactive_v452!==true&&norm(r.name)===n})||null;
+  }
+  function uniqueNames(rows){
+    var out=[],seen=new Set();
+    A(rows).forEach(function(v){var k=norm(v);if(!k||seen.has(k))return;seen.add(k);out.push(S(v))});
+    return out;
+  }
+  function replacementName(oldName){
+    var evs=A(db&&db.rep_replacements_v452).filter(function(e){return e&&norm(e.old_rep_name)===norm(oldName)&&S(e.new_rep_name)});
+    if(evs.length)return S(evs[evs.length-1].new_rep_name);
+    var old=A(db&&db.reps).find(function(r){return r&&norm(r.name)===norm(oldName)});
+    if(old&&S(old.replaced_by_rep_name_v452))return S(old.replaced_by_rep_name_v452);
+    return S(oldName);
+  }
+  function baseHistoricalMembers(id){
+    if(id==='west_total_v186')return ['مارينا','عماد'];
+    if(id==='east_total_v186')return ['سيف','ماهينور','نوران','سلمى'];
+    return [];
+  }
+  function historicalMembers(id){
+    var out=baseHistoricalMembers(id).slice();
+    A(db&&db.rep_replacements_v452).forEach(function(ev){
+      if(!ev||!S(ev.old_rep_name)||!S(ev.new_rep_name))return;
+      if(out.some(function(x){return norm(x)===norm(ev.old_rep_name)}))out.push(ev.new_rep_name);
+    });
+    return uniqueNames(out);
+  }
+  function currentMembers(id){
+    return uniqueNames(baseHistoricalMembers(id).map(replacementName));
+  }
+  function belongs(row,id){
+    var n=norm(repName(row));
+    return !!n&&historicalMembers(id).some(function(x){return norm(x)===n});
+  }
+  function approved(row){
+    if(!row)return false;
+    var a=norm(row.approval_status),s=norm(row.status);
+    if(a==='rejected'||s==='rejected'||s==='cancelled'||s==='canceled')return false;
+    return !a||a==='approved'||s==='approved'||s==='sold';
+  }
+  function groupSalesRows(id){
+    var rows=[],linked=new Set(),seen=new Set();
+    A(db&&db.sales).forEach(function(s){
+      if(!approved(s)||!belongs(s,id))return;
+      var key=S(s.id||'')+'|'+S(s.product_id||s.product_name||'')+'|'+S(s.qty||'')+'|'+S(s.total||'');
+      if(key&&seen.has(key))return;if(key)seen.add(key);
+      rows.push(s);if(S(s.order_id))linked.add(S(s.order_id));if(S(s.sale_order_id))linked.add(S(s.sale_order_id));
+    });
+    A(db&&db.sales_orders).forEach(function(o){
+      if(!approved(o)||!belongs(o,id))return;
+      if(linked.has(S(o.id)))return;
+      var hasSale=A(db&&db.sales).some(function(s){return S(s.order_id)===S(o.id)||S(s.sale_order_id)===S(o.id)||(S(o.sale_id)&&S(s.id)===S(o.sale_id))});
+      if(hasSale)return;
+      rows.push({id:'v457_order_'+S(o.id),order_id:o.id,date:o.approved_date||o.date||'',rep_id:o.rep_id||'',rep_name:o.rep_name||'',qty:N(o.qty),total:N(o.total),paid:N(o.paid),remaining:N(o.remaining),approval_status:'approved',_from_order_v457:true});
+    });
+    return rows;
+  }
+  function groupCollections(id){
+    return A(db&&db.collections).filter(function(c){return belongs(c,id)&&(!c.approval_status||norm(c.approval_status)==='approved')});
+  }
+  function targetQty(rep){
+    if(!rep)return 0;
+    try{if(typeof window.repQtyTargetV346==='function')return N(window.repQtyTargetV346(rep))}catch(e){}
+    return N(rep.target_qty!=null?rep.target_qty:(rep.target!=null?rep.target:rep.sales_target));
+  }
+  function achievedQty(rows){
+    return A(rows).reduce(function(a,s){try{return a+(typeof window.targetSaleQtyV346==='function'?N(window.targetSaleQtyV346(s)):N(s.qty))}catch(e){return a+N(s.qty)}},0);
+  }
+  function groupStats(id){
+    var sales=groupSalesRows(id),cols=groupCollections(id);
+    var current=currentMembers(id).map(activeRepByName).filter(Boolean);
+    return {
+      salesRows:sales,
+      sales:sales.reduce(function(a,s){return a+N(s.total)},0),
+      collections:cols.reduce(function(a,c){return a+N(c.amount)},0),
+      target:current.reduce(function(a,r){return a+targetQty(r)},0),
+      achieved:achievedQty(sales),
+      currentReps:current
+    };
+  }
+  window.repGroupCurrentMembersV457=currentMembers;
+  window.repGroupHistoricalMembersV457=historicalMembers;
+  window.repGroupStatsV457=groupStats;
+
+  function fixGroupCards(){
+    var list=document.querySelector('#rep_performance_modal_v175 .rep-list-v175');if(!list)return;
+    ['west_total_v186','east_total_v186'].forEach(function(id){
+      var card=Array.from(list.querySelectorAll('.rep-card-v175[data-rep-id]')).find(function(x){return S(x.dataset.repId)===id});
+      if(!card)return;
+      var st=groupStats(id),names=currentMembers(id),title=id==='west_total_v186'?'West total':'east total';
+      card.innerHTML='<b>'+E(title)+'</b><span>'+names.map(E).join(' + ')+'</span><span>مبيعات: '+M(st.sales)+'</span><span>تحصيل: '+M(st.collections)+'</span>';
+    });
+  }
+  window.fixRepGroupCardsV457=fixGroupCards;
+
+  var perfBase=window.openRepPerformanceV175;
+  if(typeof perfBase==='function'){
+    window.openRepPerformanceV175=function(){
+      var r=perfBase.apply(this,arguments);
+      setTimeout(fixGroupCards,80);setTimeout(fixGroupCards,220);setTimeout(fixGroupCards,500);
+      return r;
+    };
+    try{openRepPerformanceV175=window.openRepPerformanceV175}catch(e){}
+  }
+
+  function individualRows(rep){
+    if(!rep)return [];
+    try{if(typeof window.repRowsExactV417==='function')return A(window.repRowsExactV417(rep.id))}catch(e){}
+    try{if(typeof window.salesRowsV189==='function')return A(window.salesRowsV189(rep.id))}catch(e){}
+    return [];
+  }
+  function individualSales(rep){return individualRows(rep).reduce(function(a,s){return a+N(s.total)},0)}
+  function individualAch(rep){return achievedQty(individualRows(rep))}
+
+  var detailBase=window.openRepDetailsV175;
+  window.openRepDetailsV175=function(repId){
+    if(repId!=='west_total_v186'&&repId!=='east_total_v186')return typeof detailBase==='function'?detailBase.apply(this,arguments):undefined;
+    var body=document.getElementById('rep_details_body_v175');
+    if(!body){if(typeof detailBase==='function')detailBase.apply(this,arguments);body=document.getElementById('rep_details_body_v175')}
+    if(!body)return;
+
+    var st=groupStats(repId),pct=st.target>0?st.achieved/st.target*100:0;
+    var names=currentMembers(repId),reps=names.map(activeRepByName).filter(Boolean);
+    var title=repId==='west_total_v186'?'West Total':'East Total';
+    var subMap=repId==='west_total_v186'
+      ? {'مارينا':'West 1','شهد':'West 2'}
+      : {'سلمى':'East 1','ماهينور':'East 2','نوران':'Heliopolis'};
+
+    body.innerHTML=
+      '<div class="v335-root"><div class="v336-total-head"><div><h2>'+E(title)+'</h2><div class="v338-subtitle">التشكيل الحالي للمنطقة <span class="v457-current-badge">'+names.map(E).join(' + ')+'</span></div></div></div>'+
+      '<div class="v354-total-summary">'+
+        '<div class="stat"><span>إجمالي المبيعات</span><strong>'+M(st.sales)+'</strong></div>'+
+        '<div class="stat"><span>تارجت المنطقة بالكمية</span><strong>'+N(st.target).toLocaleString()+' وحدة</strong></div>'+
+        '<div class="stat"><span>المحقق بالكمية</span><strong>'+N(st.achieved).toLocaleString()+' وحدة</strong></div>'+
+        '<div class="stat"><span>نسبة تحقيق التارجت</span><strong>'+pct.toFixed(1)+'%</strong><div class="v354-pct-bar"><span style="width:'+Math.min(100,Math.max(0,pct))+'%"></span></div></div>'+
+      '</div>'+
+      '<div class="v354-rep-grid">'+reps.map(function(rep){
+        var sales=individualSales(rep),ach=individualAch(rep),target=targetQty(rep),rp=target?ach/target*100:0;
+        return '<div class="v354-rep-card" onclick="openRepDetailsV175(\''+E(rep.id)+'\')"><h4>'+E(subMap[rep.name]||rep.region_code||rep.name)+' — '+E(rep.name)+'</h4><small>مبيعات: '+M(sales)+' | تارجت: '+target.toLocaleString()+' | محقق: '+ach.toLocaleString()+' | تحقيق: '+rp.toFixed(1)+'%</small></div>';
+      }).join('')+'</div></div>';
+
+    document.querySelectorAll('#rep_performance_modal_v175 .rep-card-v175').forEach(function(card){card.classList.toggle('active',S(card.dataset.repId)===S(repId))});
+  };
+  try{openRepDetailsV175=window.openRepDetailsV175}catch(e){}
+
+  window.auditRepGroupsV457=function(){
+    var w=groupStats('west_total_v186'),e=groupStats('east_total_v186');
+    return {
+      west_current_members:currentMembers('west_total_v186'),
+      east_current_members:currentMembers('east_total_v186'),
+      west_unique:new Set(currentMembers('west_total_v186').map(norm)).size===currentMembers('west_total_v186').length,
+      east_unique:new Set(currentMembers('east_total_v186').map(norm)).size===currentMembers('east_total_v186').length,
+      west_sales:w.sales,east_sales:e.sales,
+      west_target:w.target,east_target:e.target,
+      historical_west_members:historicalMembers('west_total_v186'),
+      historical_east_members:historicalMembers('east_total_v186')
+    };
+  };
+})();
+</script>
+
