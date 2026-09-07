@@ -39087,7 +39087,13 @@ html body .summary-box.v303-auto-clickable:after{
     var cards=Array.from(document.querySelectorAll('#rep_performance_modal_v175 .rep-card-v175[data-rep-id]')).filter(function(card){var r=repById(card.dataset.repId);return r&&norm(r.name)===norm('سلمى')});
     if(cards.length<=1)return;
     cards.sort(function(a,b){return repUsageScore(repById(b.dataset.repId))-repUsageScore(repById(a.dataset.repId))});
-    cards.forEach(function(card,i){card.style.display=i===0?'':'none';card.dataset.v465SalmaDuplicate=i===0?'primary':'hidden'});
+    cards.forEach(function(card,i){
+      if(i===0){card.style.removeProperty('display');card.dataset.v465SalmaDuplicate='primary';return}
+      /* The base stylesheet uses display:flex!important, so ordinary hiding
+         cannot win. Remove only the duplicated visual card; database rows and
+         historical transactions remain untouched. */
+      card.remove();
+    });
   }
   function fixOuterCards(){
     if(busy)return;busy=true;
