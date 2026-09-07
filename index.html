@@ -38895,3 +38895,43 @@ html body .summary-box.v303-auto-clickable:after{
   try{openRepDetailsV175=window.openRepDetailsV175}catch(e){}
 })();
 </script>
+
+<style id="v462-east-total-card-style">
+#rep_performance_modal_v175 .rep-card-v175[data-rep-id="east_total_v186"]{border-color:#7c3aed!important;background:linear-gradient(135deg,#faf5ff,#eef2ff)!important}
+#rep_performance_modal_v175 .rep-card-v175[data-rep-id="east_total_v186"] .v462-east-structure{color:#4338ca!important;font-weight:900!important}
+</style>
+<script id="v462-east-total-card-fix">
+(function(){
+  'use strict';
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function M(v){try{return typeof money==='function'?money(v):N(v).toLocaleString()+' EGP'}catch(e){return N(v).toLocaleString()+' EGP'}}
+  function fixEastCard(){
+    try{if(typeof window.normalizeEastTotalV459==='function')window.normalizeEastTotalV459()}catch(e){}
+    var card=document.querySelector('#rep_performance_modal_v175 .rep-card-v175[data-rep-id="east_total_v186"]');
+    if(!card)return;
+    var st=null;try{if(typeof window.repGroupStatsV457==='function')st=window.repGroupStatsV457('east_total_v186')}catch(e){}
+    card.innerHTML='<b>East Total</b>'+
+      '<span class="v462-east-structure">East 1 + East 2 + Heliopolis</span>'+
+      '<span>مبيعات: '+M(st&&st.sales)+'</span>'+
+      '<span>تحصيل: '+M(st&&st.collections)+'</span>';
+  }
+  window.fixEastTotalCardV462=fixEastCard;
+  var groupFixBase=window.fixRepGroupCardsV457;
+  window.fixRepGroupCardsV457=function(){var r=typeof groupFixBase==='function'?groupFixBase.apply(this,arguments):undefined;fixEastCard();return r};
+  var performanceBase=window.openRepPerformanceV175;
+  if(typeof performanceBase==='function'){
+    window.openRepPerformanceV175=function(){
+      var r=performanceBase.apply(this,arguments);
+      [40,120,260,520,800].forEach(function(ms){setTimeout(fixEastCard,ms)});
+      return r;
+    };
+    try{openRepPerformanceV175=window.openRepPerformanceV175}catch(e){}
+  }
+  var renderBase=window.render;
+  if(typeof renderBase==='function'){
+    window.render=function(){var r=renderBase.apply(this,arguments);setTimeout(fixEastCard,100);return r};
+    try{render=window.render}catch(e){}
+  }
+  setTimeout(fixEastCard,900);
+})();
+</script>
