@@ -38908,7 +38908,7 @@ html body .summary-box.v303-auto-clickable:after{
     if(!card)return;
     var st=null;try{if(typeof window.repGroupStatsV457==='function')st=window.repGroupStatsV457('east_total_v186')}catch(e){}
     card.innerHTML='<b>East Total</b>'+
-      '<span class="v462-east-structure">East 1 + East 2 + Heliopolis</span>'+
+      '<span class="v462-east-structure">سلمى + ماهينور + نوران</span>'+
       '<span>مبيعات: '+M(st&&st.sales)+'</span>'+
       '<span>تحصيل: '+M(st&&st.collections)+'</span>';
   }
@@ -38998,7 +38998,7 @@ html body .summary-box.v303-auto-clickable:after{
     if(applying)return;
     var card=document.querySelector('#rep_performance_modal_v175 .rep-card-v175[data-rep-id="east_total_v186"]');
     if(!card)return;
-    var expected='East 1 + East 2 + Heliopolis';
+    var expected='سلمى + ماهينور + نوران';
     if((card.textContent||'').indexOf(expected)>=0)return;
     applying=true;
     try{
@@ -39099,7 +39099,7 @@ html body .summary-box.v303-auto-clickable:after{
     if(busy)return;busy=true;
     try{
       var west=document.querySelector('#rep_performance_modal_v175 .rep-card-v175[data-rep-id="west_total_v186"]');
-      if(west&&(west.textContent||'').indexOf('West 1 + West 2')<0){var st=null;try{if(typeof window.repGroupStatsV457==='function')st=window.repGroupStatsV457('west_total_v186')}catch(e){}west.innerHTML='<b>West Total</b><span class="v462-east-structure">West 1 + West 2</span><span>مبيعات: '+M(st&&st.sales)+'</span><span>تحصيل: '+M(st&&st.collections)+'</span>'}
+      if(west&&(west.textContent||'').indexOf('مارينا + شهد')<0){var st=null;try{if(typeof window.repGroupStatsV457==='function')st=window.repGroupStatsV457('west_total_v186')}catch(e){}west.innerHTML='<b>West Total</b><span class="v462-east-structure">مارينا + شهد</span><span>مبيعات: '+M(st&&st.sales)+'</span><span>تحصيل: '+M(st&&st.collections)+'</span>'}
       if(typeof window.keepEastTotalCardCleanV464==='function')window.keepEastTotalCardCleanV464();
       hideDuplicateSalmaCards();
     }finally{busy=false}
