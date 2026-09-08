@@ -1820,22 +1820,22 @@ async function pullRemoteDb(){
     remoteDbReady=true;
     if(dbLooksUsable(remoteData)){
       db=remoteData;
-      localStorage.setItem(KEY,JSON.stringify(db));
-      syncStatus(lang==='ar'?'Online: تم تحميل البيانات المشتركة من Supabase':'Online: shared data loaded from Supabase');
+      /* V461: do NOT stringify the full online snapshot during startup. */
+      syncStatus(lang==='ar'?'Online: تم تحميل البيانات من Supabase':'Online: data loaded from Supabase');
+      /* Keep an optional local backup only when the browser is idle. */
+      let idleBackup=function(){try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){console.warn('V461 idle local backup skipped',e)}};
+      if(typeof requestIdleCallback==='function')requestIdleCallback(idleBackup,{timeout:12000});
+      else setTimeout(idleBackup,10000);
     }else{
       syncStatus(lang==='ar'?'Online: قاعدة Supabase فارغة - جاري رفع النسخة الحالية':'Online: Supabase is empty - uploading current data');
       remoteDbPulling=false;
       await pushRemoteDb();
       remoteDbPulling=true;
     }
-    render();
-    /* V453: after the authoritative remote snapshot is loaded, merge the approved customer batch once. */
-    setTimeout(function(){
-      try{if(typeof window.mergeCustomerBatchV453==='function')window.mergeCustomerBatchV453({silent:true,source:'remote_pull'});}
-      catch(e){console.error('V453 customer batch import',e)}
-      try{if(typeof window.mergeCustomerBatchV454==='function')window.mergeCustomerBatchV454({silent:true,source:'remote_pull'});}
-      catch(e){console.error('V454 West 2 customer batch import',e)}
-    },0);
+    /* V461: render only the currently open module. Legacy customer merge is retired. */
+    if(typeof window.fastRenderV460==='function')window.fastRenderV460();
+    else if(typeof renderDashboard==='function' && current==='dashboard')renderDashboard();
+    else render();
   }catch(e){
     console.error(e);
     remoteDbReady=false;
@@ -38442,9 +38442,9 @@ html body .customer-option-v194 small{font-weight:700!important}
   }
 
   /* Remote count for dashboard label without loading the full list. */
-  fetchCount().then(function(){
+  setTimeout(function(){fetchCount().then(function(){
     try{var el=document.getElementById('status');if(el&&/Offline Demo Ready/i.test(el.textContent||''))el.textContent=isAr()?'Online: العملاء على Supabase':'Online: customers on Supabase'}catch(e){}
-  });
+  });},4500);
 
   /* Sanitize any old local customer cache that may reappear after remote pull. */
   setInterval(function(){try{if(window.db&&Array.isArray(db.customers)&&db.customers.length>3)db.customers=db.customers.filter(function(c){return c&&c._supabase_customer_v459}).slice(-1)}catch(e){}},5000);
@@ -38537,5 +38537,52 @@ html body .customer-option-v194 small{font-weight:700!important}
   },1800);
 
   console.log('V460 fast active-module rendering enabled');
+})();
+</script>
+
+<!-- ===== V461 ONLINE FAST PATH: prevent render-time saves and retire legacy customer merges ===== -->
+<script id="v461-online-fast-path">
+(function(){
+  'use strict';
+  if(window.__mb_v461_online_fast_path)return;
+  window.__mb_v461_online_fast_path=true;
+
+  /* Those batches were already migrated to public.customers; never merge them into db.customers again. */
+  window.mergeCustomerBatchV453=function(){return {skipped:true,reason:'customers_remote_v461'}};
+  window.mergeCustomerBatchV454=function(){return {skipped:true,reason:'customers_remote_v461'}};
+
+  /* Opening a screen must never cause a full local JSON stringify + Supabase PATCH. */
+  var actualSaveV461=window.save;
+  if(typeof actualSaveV461==='function'){
+    window.save=function(){
+      if(window.__mb_v461_rendering)return true;
+      return actualSaveV461.apply(this,arguments);
+    };
+    try{save=window.save}catch(e){}
+  }
+
+  var fastBaseV461=window.fastRenderV460;
+  if(typeof fastBaseV461==='function'){
+    window.fastRenderV460=function(v){
+      window.__mb_v461_rendering=true;
+      try{return fastBaseV461.apply(this,arguments)}
+      finally{window.__mb_v461_rendering=false}
+    };
+  }
+
+  /* Also guard direct module render calls that old onclick handlers may still use. */
+  ['renderDashboard','renderProducts','renderCustomers','renderSuppliers','renderReps','renderOperations','renderPurchases','renderSales','renderCollections','renderReports','renderAccounts','renderTrialBalance','renderSettings','renderRegions','renderCashFlow','renderUsers','renderIncome','renderBalance','renderCustomerCost'].forEach(function(name){
+    var fn=window[name];
+    if(typeof fn!=='function'||fn.__v461guard)return;
+    var wrapped=function(){
+      var was=!!window.__mb_v461_rendering;
+      window.__mb_v461_rendering=true;
+      try{return fn.apply(this,arguments)}finally{window.__mb_v461_rendering=was}
+    };
+    wrapped.__v461guard=true;window[name]=wrapped;
+    try{if(name==='renderDashboard')renderDashboard=wrapped;else if(name==='renderProducts')renderProducts=wrapped;else if(name==='renderCustomers')renderCustomers=wrapped;else if(name==='renderSuppliers')renderSuppliers=wrapped;else if(name==='renderReps')renderReps=wrapped;else if(name==='renderOperations')renderOperations=wrapped;else if(name==='renderPurchases')renderPurchases=wrapped;else if(name==='renderSales')renderSales=wrapped;else if(name==='renderCollections')renderCollections=wrapped;else if(name==='renderReports')renderReports=wrapped;else if(name==='renderAccounts')renderAccounts=wrapped;else if(name==='renderTrialBalance')renderTrialBalance=wrapped;else if(name==='renderSettings')renderSettings=wrapped}catch(e){}
+  });
+
+  console.log('V461 online fast path enabled');
 })();
 </script>
