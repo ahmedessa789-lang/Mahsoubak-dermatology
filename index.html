@@ -1780,11 +1780,13 @@ async function pushRemoteDb(){
   if(remoteDbSaving||remoteDbPulling||!remoteDbReady||!onlineBackendEnabled())return;
   remoteDbSaving=true;
   try{
-    let res=await fetch(supabaseEndpoint()+'?id=eq.'+encodeURIComponent(SUPABASE_ROW_ID),{method:'PATCH',headers:supabaseHeaders({'Prefer':'return=minimal'}),body:JSON.stringify({data:db,updated_at:new Date().toISOString()})});
+    let remoteStampV480=new Date().toISOString();
+    let res=await fetch(supabaseEndpoint()+'?id=eq.'+encodeURIComponent(SUPABASE_ROW_ID),{method:'PATCH',headers:supabaseHeaders({'Prefer':'return=minimal'}),body:JSON.stringify({data:db,updated_at:remoteStampV480})});
     if(!res.ok){
-      res=await fetch(supabaseEndpoint(),{method:'POST',headers:supabaseHeaders({'Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify({id:SUPABASE_ROW_ID,data:db,updated_at:new Date().toISOString()})});
+      res=await fetch(supabaseEndpoint(),{method:'POST',headers:supabaseHeaders({'Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify({id:SUPABASE_ROW_ID,data:db,updated_at:remoteStampV480})});
     }
     if(!res.ok)throw new Error('Supabase save failed');
+    localStorage.setItem('mb_remote_stamp_v480',remoteStampV480);
     syncStatus(lang==='ar'?'Online: تم حفظ البيانات على Supabase':'Online: saved to Supabase');
   }catch(e){
     console.error(e);
@@ -1795,14 +1797,27 @@ async function pullRemoteDb(){
   if(remoteDbBooted||!onlineBackendEnabled())return;
   remoteDbBooted=true;remoteDbPulling=true;
   try{
-    let res=await fetch(supabaseEndpoint()+'?id=eq.'+encodeURIComponent(SUPABASE_ROW_ID)+'&select=data',{method:'GET',headers:supabaseHeaders(),cache:'no-store'});
+    let metaResV480=await fetch(supabaseEndpoint()+'?id=eq.'+encodeURIComponent(SUPABASE_ROW_ID)+'&select=updated_at',{method:'GET',headers:supabaseHeaders(),cache:'no-store'});
+    if(!metaResV480.ok)throw new Error('Supabase metadata load failed');
+    let metaRowsV480=await metaResV480.json();
+    let remoteStampV480=String(metaRowsV480&&metaRowsV480[0]&&metaRowsV480[0].updated_at||'');
+    let localStampV480=String(localStorage.getItem('mb_remote_stamp_v480')||'');
+    if(remoteStampV480&&localStampV480&&new Date(localStampV480).getTime()===new Date(remoteStampV480).getTime()&&dbLooksUsable(db)){
+      remoteDbReady=true;
+      syncStatus(lang==='ar'?'Online: البيانات محدثة':'Online: data is up to date');
+      render();
+      return;
+    }
+    let res=await fetch(supabaseEndpoint()+'?id=eq.'+encodeURIComponent(SUPABASE_ROW_ID)+'&select=data,updated_at',{method:'GET',headers:supabaseHeaders(),cache:'no-store'});
     if(!res.ok)throw new Error('Supabase load failed');
     let rows=await res.json();
     let remoteData=rows&&rows[0]&&rows[0].data;
+    remoteStampV480=String(rows&&rows[0]&&rows[0].updated_at||remoteStampV480||'');
     remoteDbReady=true;
     if(dbLooksUsable(remoteData)){
       db=remoteData;
       localStorage.setItem(KEY,JSON.stringify(db));
+      if(remoteStampV480)localStorage.setItem('mb_remote_stamp_v480',remoteStampV480);
       syncStatus(lang==='ar'?'Online: تم تحميل البيانات المشتركة من Supabase':'Online: shared data loaded from Supabase');
     }else{
       syncStatus(lang==='ar'?'Online: قاعدة Supabase فارغة - جاري رفع النسخة الحالية':'Online: Supabase is empty - uploading current data');
@@ -39560,6 +39575,26 @@ var attempts=0,timer=0; /* v479: manual importer retained; automatic rescan disa
       else if(attempts>=40)clearInterval(timer);
     }catch(e){if(attempts>=40)clearInterval(timer)}
   },500);
+})();
+</script>
+<script id="v480-save-only-on-real-change">
+(function(){
+  'use strict';
+  var baseSaveV480=window.save;
+  if(typeof baseSaveV480!=='function')return;
+  window.save=function(){
+    var serializedV480='';
+    try{serializedV480=JSON.stringify(db)}catch(e){return baseSaveV480.apply(this,arguments)}
+    var persistedV480='';
+    try{persistedV480=localStorage.getItem(KEY)||''}catch(e){}
+    if(serializedV480===persistedV480){
+      if(typeof remoteDbReady!=='undefined'&&remoteDbReady&&typeof syncStatus==='function')
+        syncStatus(lang==='ar'?'Online: البيانات محدثة':'Online: data is up to date');
+      return;
+    }
+    return baseSaveV480.apply(this,arguments);
+  };
+  try{save=window.save}catch(e){}
 })();
 </script>
 <script id="v478-final-render">
