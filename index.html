@@ -38453,3 +38453,89 @@ html body .customer-option-v194 small{font-weight:700!important}
   console.log('V459 clean remote customers enabled');
 })();
 </script>
+
+
+<!-- ===== V460 FAST MODULE RENDER: bypass legacy render-all chain ===== -->
+<script id="v460-fast-module-render">
+(function(){
+  'use strict';
+  if(window.__mb_v460_fast_module_render)return;
+  window.__mb_v460_fast_module_render=true;
+
+  var renderMap={
+    dashboard:'renderDashboard', products:'renderProducts', customers:'renderCustomers',
+    suppliers:'renderSuppliers', reps:'renderReps', operations:'renderOperations',
+    purchases:'renderPurchases', sales:'renderSales', collections:'renderCollections',
+    reports:'renderReports', accounts:'renderAccounts', trial:'renderTrialBalance',
+    settings:'renderSettings', regions:'renderRegions', cashflow:'renderCashFlow',
+    users:'renderUsers', income:'renderIncome', balance:'renderBalance',
+    customerCost:'renderCustomerCost'
+  };
+
+  function safeT(k){try{return typeof T==='function'?T(k):k}catch(e){return k}}
+  function updateChromeV460(){
+    try{document.documentElement.lang=(typeof lang!=='undefined'?lang:'ar')}catch(e){}
+    try{document.documentElement.dir=(typeof lang!=='undefined'&&lang==='en')?'ltr':'rtl'}catch(e){}
+    try{var x=document.getElementById('brandLine');if(x)x.textContent=(typeof lang!=='undefined'&&lang==='en')?'Stock • Operations • Sales • Collections • Dashboard':'مخازن • عمليات • مبيعات • تحصيلات • Dashboard'}catch(e){}
+    try{var x=document.getElementById('saveBtn');if(x)x.textContent=safeT('save')}catch(e){}
+    try{var x=document.getElementById('printBtn');if(x)x.textContent=safeT('print')}catch(e){}
+    try{var x=document.getElementById('title');if(x)x.textContent=safeT(current)}catch(e){}
+    try{var x=document.getElementById('sub');if(x)x.textContent=safeT((window.titleMap||titleMap||{})[current])}catch(e){}
+    try{var bc=document.querySelector('.erp-breadcrumb');if(bc)bc.style.display=current==='dashboard'?'none':'block'}catch(e){}
+    try{var ta=document.querySelector('.erp-top-actions');if(ta)ta.style.display=current==='dashboard'?'none':'flex'}catch(e){}
+    try{
+      var nav=document.getElementById('nav'),tm=(window.titleMap||titleMap||{}),ic=(window.icons||icons||{});
+      if(nav)nav.innerHTML=Object.keys(tm).map(function(k){return '<button class="'+(current===k?'active':'')+'" onclick="show(\''+k+'\')">'+(ic[k]||'•')+' '+safeT(k)+'</button>'}).join('');
+    }catch(e){}
+  }
+
+  function makeOnlyCurrentVisibleV460(v){
+    try{document.querySelectorAll('main section[id^="view-"]').forEach(function(s){s.classList.add('hidden')})}catch(e){}
+    try{var el=document.getElementById('view-'+v);if(el)el.classList.remove('hidden')}catch(e){}
+  }
+
+  window.fastRenderV460=function(v){
+    if(v)try{current=v}catch(e){}
+    updateChromeV460();
+    var name=renderMap[current],fn=name&&window[name];
+    if(typeof fn==='function'){
+      try{return fn()}catch(e){console.error('V460 '+name,e)}
+    }
+  };
+
+  /* Replace the 50+ nested legacy render wrappers with one active-module render. */
+  window.render=function(){return window.fastRenderV460()};
+  try{render=window.render}catch(e){}
+
+  /* Navigation no longer calls the legacy show->render-all chain. */
+  window.show=function(v){
+    try{
+      if(typeof ensureUsers==='function')ensureUsers();
+      if(typeof can==='function' && !can(v,'view')){
+        if(typeof permissionAlert==='function')permissionAlert();
+        if(typeof firstAllowedModule==='function')v=firstAllowedModule();
+      }
+    }catch(e){}
+    try{current=v}catch(e){}
+    makeOnlyCurrentVisibleV460(v);
+    return window.fastRenderV460(v);
+  };
+  try{show=window.show}catch(e){}
+
+  /* Language switches should repaint only the open module. */
+  if(typeof window.setLang==='function'){
+    window.setLang=function(l){
+      try{lang=l;localStorage.setItem('mb_lang',l)}catch(e){}
+      return window.fastRenderV460();
+    };
+    try{setLang=window.setLang}catch(e){}
+  }
+
+  /* Some old startup timers may leave hidden module HTML behind. Clear very large hidden DOM once. */
+  setTimeout(function(){
+    try{document.querySelectorAll('main section[id^="view-"].hidden').forEach(function(el){if(el.innerHTML&&el.innerHTML.length>120000)el.innerHTML=''})}catch(e){}
+  },1800);
+
+  console.log('V460 fast active-module rendering enabled');
+})();
+</script>
