@@ -226,7 +226,27 @@ html[dir="ltr"] .dash-card{border-right:1px solid var(--erp-line)!important;bord
 .tile-icon{animation:softFloat 4.8s ease-in-out infinite}.module-tile:nth-child(2) .tile-icon{animation-delay:.4s}.module-tile:nth-child(3) .tile-icon{animation-delay:.8s}.module-tile:nth-child(4) .tile-icon{animation-delay:1.2s}.module-tile:nth-child(5) .tile-icon{animation-delay:1.6s}.module-tile:nth-child(6) .tile-icon{animation-delay:2s}
 @media(max-width:760px){.main{padding-top:16px!important}.exec-stat strong{font-size:22px!important}.module-tile{min-height:auto!important}}
 
-</style></head><body><div class="doc-print-actions"><button class="btn blue" onclick="window.print()">${T('print')}</button><button class="btn secondary" onclick="window.close()">${lang==='ar'?'إغلاق':'Close'}</button></div>${rangeReportHTML()}</body></html>`);w.document.close();w.focus();}
+</style></head><body><div class="doc-print-actions"><button class="btn blue" onclick="window.print()">${T('print')}</button><button class="btn secondary" onclick="window.close()">${lang==='ar'?'إغلاق':'Close'}</button></div>${rangeReportHTML()}
+<!-- ===== V458 SAFE: customers are Supabase-remote-only ===== -->
+<script id="v458-customers-remote-only">
+(function(){
+  'use strict';
+  window.__mb_customers_remote_only_v458=true;
+  function trimRuntimeCustomersV458(){
+    try{
+      if(!window.db||!Array.isArray(db.customers)){if(window.db)db.customers=[];return}
+      db.customers=db.customers.filter(function(c){return c&&c._supabase_customer_v456===true}).slice(-25);
+    }catch(e){}
+  }
+  window.mergeCustomerBatchV453=function(){return {added:0,skipped:0,disabled_v458:true}};
+  window.mergeCustomerBatchV454=function(){return {added:0,skipped:0,disabled_v458:true}};
+  setInterval(trimRuntimeCustomersV458,15000);
+  setTimeout(trimRuntimeCustomersV458,0);
+  console.log('V458 remote-only customers enabled');
+})();
+</script>
+
+</body></html>`);w.document.close();w.focus();}
 function exportRangeCSV(){let s=filteredSummary();let rows=[[lang==='ar'?'الفترة':'Period',reportPeriodLabel()],[],[lang==='ar'?'المؤشر':'Metric',lang==='ar'?'القيمة':'Value'],[T('salesTotal'),s.sales],[T('purchasesTotal'),s.purchases],[T('collections'),s.collections],[T('operations'),s.operations],[],[T('date'),T('customer'),T('rep'),T('product'),T('qty'),T('total'),T('paid'),T('remaining')],...filteredSales().map(x=>[x.date,x.customer_name,x.rep_name||'',x.product_name,x.qty,x.total,x.paid,x.remaining])];let csv='\ufeff'+rows.map(r=>r.map(x=>`"${String(x??'').replace(/"/g,'""')}"`).join(',')).join('\n');let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='mahsoubak_period_report_'+(reportRange.from||'from')+'_'+(reportRange.to||'to')+'.csv';a.click()}
 
 function daysUntil(d){if(!d)return null;let x=new Date(d+'T00:00:00'),t=new Date(today()+'T00:00:00');if(isNaN(x))return null;return Math.ceil((x-t)/86400000)} function expiryStatus(p){let d=daysUntil(p.expiry);if(d===null)return {cls:'ok',label:T('noExpiry'),days:null};if(d<0)return {cls:'low',label:T('expired'),days:d};if(d<=60)return {cls:'warn',label:T('expirySoon'),days:d};return {cls:'ok',label:T('ok'),days:d}}
@@ -252,9 +272,9 @@ function accountMovement(code){ensureAccounting();let acc=accountByCode(code), d
 
 function emptyDb(){return {products:[],customers:[],suppliers:[],reps:[],operations:[],purchases:[],sales:[],collections:[],accounts:defaultAccounts(),journal:[],settings:{company:'Mahsoubak Business',subtitle:'Dermatology Distribution System'}}}
 function seed(){let d=emptyDb();d.products=[{id:uid(),code:'DRM-001',name:'Derma Cream A',brand:'Generic',category:'Creams',purchase:120,sale:180,stock:50,min:10,expiry:'2026-09-30'},{id:uid(),code:'DRM-002',name:'Skin Serum B',brand:'Generic',category:'Serum',purchase:160,sale:240,stock:25,min:8,expiry:'2026-07-30'},{id:uid(),code:'DRM-003',name:'Sunscreen SPF 50',brand:'Generic',category:'Sun Care',purchase:190,sale:300,stock:6,min:10,expiry:'2026-06-25'}];d.customers=[{id:uid(),name:'صيدلية النور',type:'Pharmacy',phone:'01000000000',area:'Dokki',address:'',balance:0,notes:''},{id:uid(),name:'Clinic Beauty Center',type:'Clinic',phone:'01111111111',area:'Mohandessin',address:'',balance:0,notes:''}];d.suppliers=[{id:uid(),name:'Derm Supplier',phone:'01222222222',brand:'Generic',balance:0,notes:''}];d.reps=[{id:uid(),name:'Ahmed Rep',phone:'01012345678',area:'Giza',target:50000,notes:''},{id:uid(),name:'Mona Rep',phone:'01055555555',area:'Cairo',target:40000,notes:''}];return d}
-function load(){try{return JSON.parse(localStorage.getItem(KEY))||seed()}catch(e){return seed()}} function save(){localStorage.setItem(KEY,JSON.stringify(db));document.getElementById('status').textContent=lang==='ar'?'Offline: محفوظ محليًا':'Offline: saved locally'} function setLang(l){lang=l;localStorage.setItem('mb_lang',l);render()}
+function load(){try{let d=JSON.parse(localStorage.getItem(KEY))||seed();if(d&&Array.isArray(d.customers)&&d.customers.length){try{if(!localStorage.getItem(KEY+'_customers_v458_backup'))localStorage.setItem(KEY+'_customers_v458_backup',JSON.stringify(d.customers))}catch(_e){}d.customers=[]}return d}catch(e){let d=seed();d.customers=[];return d}} function save(){if(db&&Array.isArray(db.customers)){db.customers=db.customers.filter(c=>c&&c._supabase_customer_v456===true)}localStorage.setItem(KEY,JSON.stringify(db));document.getElementById('status').textContent=lang==='ar'?'Offline: محفوظ محليًا':'Offline: saved locally'} function setLang(l){lang=l;localStorage.setItem('mb_lang',l);render()}
 function show(v){current=v;document.querySelectorAll('main section').forEach(s=>s.classList.add('hidden'));document.getElementById('view-'+v).classList.remove('hidden');render()}
-function render(){document.documentElement.lang=lang;document.documentElement.dir=lang==='ar'?'rtl':'ltr';document.getElementById('brandLine').textContent=lang==='ar'?'مخازن • عمليات • مبيعات • تحصيلات • Dashboard':'Stock • Operations • Sales • Collections • Dashboard';document.getElementById('saveBtn').textContent=T('save');document.getElementById('printBtn').textContent=T('print');document.getElementById('title').textContent=T(current);document.getElementById('sub').textContent=T(titleMap[current]);document.getElementById('nav').innerHTML=Object.keys(titleMap).map(k=>`<button class="${current===k?'active':''}" onclick="show('${k}')">${icons[k]} ${T(k)}</button>`).join('');renderDashboard();renderProducts();renderCustomers();renderSuppliers();renderReps();renderOperations();renderPurchases();renderSales();ensureAccounting();renderCollections();renderReports();renderAccounts();renderTrialBalance();renderSettings();save()}
+function render(){document.documentElement.lang=lang;document.documentElement.dir=lang==='ar'?'rtl':'ltr';document.getElementById('brandLine').textContent=lang==='ar'?'مخازن • عمليات • مبيعات • تحصيلات • Dashboard':'Stock • Operations • Sales • Collections • Dashboard';document.getElementById('saveBtn').textContent=T('save');document.getElementById('printBtn').textContent=T('print');document.getElementById('title').textContent=T(current);document.getElementById('sub').textContent=T(titleMap[current]);document.getElementById('nav').innerHTML=Object.keys(titleMap).map(k=>`<button class="${current===k?'active':''}" onclick="show('${k}')">${icons[k]} ${T(k)}</button>`).join('');ensureAccounting();let f={dashboard:renderDashboard,products:renderProducts,customers:renderCustomers,suppliers:renderSuppliers,reps:renderReps,operations:renderOperations,purchases:renderPurchases,sales:renderSales,collections:renderCollections,reports:renderReports,accounts:renderAccounts,trial:renderTrialBalance,settings:renderSettings}[current];if(typeof f==='function')f();save()}
 function options(arr){if(arr===db.reps)arr=arr.filter(x=>x&&x.inactive_v452!==true&&x.active!==false);return arr.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}
 function inp(id,label,type='text'){return `<div><label>${T(label)}</label><input id="${id}" type="${type}"></div>`}
 function editCell(table,id,field,val,num){let r=db[table].find(x=>x.id===id); if(!r)return; r[field]=num?n(val):val; save(); renderDashboard()}
@@ -1802,6 +1822,8 @@ async function pullRemoteDb(){
     remoteDbReady=true;
     if(dbLooksUsable(remoteData)){
       db=remoteData;
+      if(!Array.isArray(db.customers))db.customers=[];
+      db.customers=[];
       localStorage.setItem(KEY,JSON.stringify(db));
       syncStatus(lang==='ar'?'Online: تم تحميل البيانات المشتركة من Supabase':'Online: shared data loaded from Supabase');
     }else{
@@ -1811,13 +1833,7 @@ async function pullRemoteDb(){
       remoteDbPulling=true;
     }
     render();
-    /* V453: after the authoritative remote snapshot is loaded, merge the approved customer batch once. */
-    setTimeout(function(){
-      try{if(typeof window.mergeCustomerBatchV453==='function')window.mergeCustomerBatchV453({silent:true,source:'remote_pull'});}
-      catch(e){console.error('V453 customer batch import',e)}
-      try{if(typeof window.mergeCustomerBatchV454==='function')window.mergeCustomerBatchV454({silent:true,source:'remote_pull'});}
-      catch(e){console.error('V454 West 2 customer batch import',e)}
-    },0);
+    /* V458: customers now live in public.customers only. Never repopulate db.customers from legacy batches. */
   }catch(e){
     console.error(e);
     remoteDbReady=false;
