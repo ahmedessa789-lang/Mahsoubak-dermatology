@@ -38178,3 +38178,137 @@ html body .customer-option-v194 small{font-weight:700!important}
   },250);
 })();
 </script>
+
+
+<!-- ===== V457 GLOBAL PERFORMANCE LIGHT MODE - SAFE, NO DATA DELETE ===== -->
+<script id="v457-global-performance-light-safe">
+(function(){
+  'use strict';
+  if(window.__mb_v457_global_performance_light)return;
+  window.__mb_v457_global_performance_light=true;
+
+  /*
+    Goal: keep the legacy business logic intact, but stop hidden modules from
+    rebuilding their full DOM on every render(). This is especially important
+    now that the customer list is large. The active module still renders normally.
+  */
+  var moduleMap={
+    renderDashboard:['dashboard'],
+    renderProducts:['products'],
+    renderCustomers:['customers'],
+    renderSuppliers:['suppliers'],
+    renderReps:['reps'],
+    renderOperations:['operations'],
+    renderPurchases:['purchases'],
+    renderSales:['sales'],
+    renderCollections:['collections'],
+    renderReports:['reports'],
+    renderAccounts:['accounts'],
+    renderTrialBalance:['trial'],
+    renderSettings:['settings'],
+    renderRegions:['regions'],
+    renderUsers:['users'],
+    renderCashFlow:['cashflow'],
+    renderCustomerCostCenterV228:['customerCost'],
+    renderAdvisor:['aiAdvisor']
+  };
+
+  function currentModuleV457(){
+    try{return String(window.current||current||'')}catch(e){return String(window.current||'')}
+  }
+
+  function activeV457(names){
+    var c=currentModuleV457();
+    if(names.indexOf(c)>=0)return true;
+    for(var i=0;i<names.length;i++){
+      var el=document.getElementById('view-'+names[i]);
+      if(el && !el.classList.contains('hidden'))return true;
+    }
+    return false;
+  }
+
+  function installLazyV457(name,names){
+    var base=window[name];
+    if(typeof base!=='function' || base.__v457Lazy)return;
+    var wrapped=function(){
+      if(!activeV457(names))return;
+      return base.apply(this,arguments);
+    };
+    wrapped.__v457Lazy=true;
+    wrapped.__v457Base=base;
+    window[name]=wrapped;
+    try{eval(name+'=window["'+name+'"]')}catch(e){}
+  }
+
+  Object.keys(moduleMap).forEach(function(name){installLazyV457(name,moduleMap[name])});
+
+  /* Explicitly repaint only the destination screen after navigation. */
+  var showBaseV457=window.show;
+  if(typeof showBaseV457==='function' && !showBaseV457.__v457Show){
+    var showWrappedV457=function(v){
+      var r=showBaseV457.apply(this,arguments);
+      setTimeout(function(){
+        var wanted=[];
+        Object.keys(moduleMap).forEach(function(name){
+          if(moduleMap[name].indexOf(String(v))>=0)wanted.push(name);
+        });
+        wanted.forEach(function(name){
+          try{if(typeof window[name]==='function')window[name]()}catch(e){console.error('V457 '+name,e)}
+        });
+      },0);
+      return r;
+    };
+    showWrappedV457.__v457Show=true;
+    window.show=showWrappedV457;
+    try{show=window.show}catch(e){}
+  }
+
+  /*
+    Legacy code calls save() from many render wrappers even when several calls
+    happen within milliseconds. Coalesce those calls into one real save. This
+    preserves the complete existing save chain and Supabase sync logic.
+  */
+  var realSaveV457=window.save;
+  var saveTimerV457=null;
+  var savePendingV457=false;
+  var flushingV457=false;
+
+  function flushSaveV457(){
+    if(flushingV457 || !savePendingV457 || typeof realSaveV457!=='function')return;
+    clearTimeout(saveTimerV457);saveTimerV457=null;
+    savePendingV457=false;flushingV457=true;
+    try{return realSaveV457.apply(window,[])}
+    catch(e){console.error('V457 save flush',e)}
+    finally{flushingV457=false}
+  }
+
+  if(typeof realSaveV457==='function'){
+    window.save=function(){
+      savePendingV457=true;
+      clearTimeout(saveTimerV457);
+      saveTimerV457=setTimeout(flushSaveV457,220);
+      return true;
+    };
+    window.save.__v457Debounced=true;
+    try{save=window.save}catch(e){}
+    window.flushSaveV457=flushSaveV457;
+    window.addEventListener('beforeunload',function(){try{flushSaveV457()}catch(e){}});
+  }
+
+  /* Avoid browser work from huge hidden tables left by an older render. */
+  setTimeout(function(){
+    try{
+      Object.keys(moduleMap).forEach(function(name){
+        var names=moduleMap[name];
+        if(activeV457(names))return;
+        names.forEach(function(k){
+          var el=document.getElementById('view-'+k);
+          if(el && el.innerHTML && el.innerHTML.length>250000)el.innerHTML='';
+        });
+      });
+    }catch(e){console.error('V457 hidden cleanup',e)}
+  },900);
+
+  console.log('V457 global performance light mode enabled');
+})();
+</script>
