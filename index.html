@@ -36092,6 +36092,126 @@ html body .customer-option-v194 small{font-weight:700!important}
   console.log('V456 startup light mode enabled');
 })();
 </script>
+
+
+<!-- ===== V462 LOCAL-SPEED ENGINE + INDEPENDENT ONLINE SYNC ===== -->
+<script id="v462-local-speed-online-sync">
+(function(){
+  if(window.__mb_v462_installed)return;
+  window.__mb_v462_installed=true;
+
+  /*
+    Critical change: legacy code uses onlineBackendEnabled() as a switch for a lot
+    of extra online-only work. The same file is fast under file:// because that
+    switch is false. Keep the UI/runtime on that exact fast path, and handle
+    Supabase ourselves with one small independent sync layer.
+  */
+  try{ if(typeof remoteDbTimer!=='undefined' && remoteDbTimer)clearTimeout(remoteDbTimer); }catch(e){}
+  try{ if(typeof remoteDbBooted!=='undefined')remoteDbBooted=true; }catch(e){}
+  try{ onlineBackendEnabled=function(){return false}; window.onlineBackendEnabled=onlineBackendEnabled; }catch(e){window.onlineBackendEnabled=function(){return false}}
+
+  /* Retire old customer import jobs permanently; customers now live in public.customers. */
+  window.mergeCustomerBatchV453=function(){return {skipped:true,reason:'remote_customers_v462'}};
+  window.mergeCustomerBatchV454=function(){return {skipped:true,reason:'remote_customers_v462'}};
+
+  function headersV462(extra){
+    var h={
+      'apikey':SUPABASE_PUBLISHABLE_KEY,
+      'Authorization':'Bearer '+SUPABASE_PUBLISHABLE_KEY,
+      'Content-Type':'application/json'
+    };
+    if(extra)Object.assign(h,extra);
+    return h;
+  }
+  function endpointV462(){return SUPABASE_URL.replace(/\/$/,'')+'/rest/v1/'+SUPABASE_TABLE}
+  function statusV462(t){try{syncStatus(t)}catch(e){var el=document.getElementById('status');if(el)el.textContent=t}}
+
+  var pulling=false,pushTimer=null,pushing=false,dirty=false;
+
+  async function pullV462(){
+    if(pulling)return;
+    pulling=true;
+    statusV462(lang==='ar'?'Online: جاري تحميل البيانات...':'Online: loading data...');
+    try{
+      var res=await fetch(endpointV462()+'?id=eq.'+encodeURIComponent(SUPABASE_ROW_ID)+'&select=data,updated_at',{
+        headers:headersV462(),cache:'no-store'
+      });
+      if(!res.ok)throw new Error('HTTP '+res.status);
+      var rows=await res.json();
+      var r=rows&&rows[0];
+      if(r&&dbLooksUsable(r.data)){
+        db=r.data;
+        if(!Array.isArray(db.customers))db.customers=[];
+        try{remoteDbReady=true}catch(e){}
+        statusV462(lang==='ar'?'Online: البيانات محدثة':'Online: data loaded');
+        if(typeof window.fastRenderV460==='function')window.fastRenderV460(current);
+        else if(typeof render==='function')render();
+      }else{
+        statusV462(lang==='ar'?'Online: لا توجد بيانات صالحة':'Online: no valid data');
+      }
+    }catch(e){
+      console.error('V462 pull',e);
+      statusV462(lang==='ar'?'Offline: تعذر تحميل Supabase':'Offline: Supabase load failed');
+    }finally{pulling=false}
+  }
+
+  async function pushNowV462(){
+    if(pushing||!dirty)return;
+    dirty=false;pushing=true;
+    try{
+      /* Never put the standalone customer directory back into the main snapshot. */
+      var payloadDb=Object.assign({},db,{customers:[]});
+      var body=JSON.stringify({data:payloadDb,updated_at:new Date().toISOString()});
+      var res=await fetch(endpointV462()+'?id=eq.'+encodeURIComponent(SUPABASE_ROW_ID),{
+        method:'PATCH',headers:headersV462({'Prefer':'return=minimal'}),body:body
+      });
+      if(!res.ok)throw new Error('HTTP '+res.status);
+      statusV462(lang==='ar'?'Online: تم الحفظ':'Online: saved');
+    }catch(e){
+      dirty=true;
+      console.error('V462 push',e);
+      statusV462(lang==='ar'?'Online: تعذر الحفظ - البيانات محفوظة محليًا':'Online: save failed - local copy kept');
+    }finally{pushing=false}
+  }
+  function schedulePushV462(){
+    dirty=true;clearTimeout(pushTimer);pushTimer=setTimeout(pushNowV462,1200);
+  }
+
+  /* Keep all existing save-side business rules, but add our own async remote push. */
+  var businessSaveV462=window.save;
+  if(typeof businessSaveV462==='function'){
+    window.save=function(){
+      if(window.__mb_v461_rendering||window.__mb_v462_rendering)return true;
+      var r=businessSaveV462.apply(this,arguments);
+      schedulePushV462();
+      return r;
+    };
+    try{save=window.save}catch(e){}
+  }
+
+  /* Keep module navigation on the local-speed render path. */
+  var fastV462=window.fastRenderV460;
+  if(typeof fastV462==='function'){
+    window.fastRenderV460=function(v){
+      window.__mb_v462_rendering=true;
+      try{return fastV462.apply(this,arguments)}finally{window.__mb_v462_rendering=false}
+    };
+  }
+
+  window.pullFastRemoteV462=pullV462;
+  window.pushFastRemoteV462=pushNowV462;
+
+  /* Start immediately, but don't block first paint. */
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(pullV462,0)},{once:true});
+  else setTimeout(pullV462,0);
+
+  window.addEventListener('beforeunload',function(){
+    try{if(dirty && navigator.sendBeacon){/* regular async save normally fires before this */}}catch(e){}
+  });
+
+  console.log('V462 local-speed runtime with independent Supabase sync enabled');
+})();
+</script>
 </body></html>';
 
     w.document.open();
@@ -37945,644 +38065,4 @@ html body .customer-option-v194 small{font-weight:700!important}
   }
 
   function customerDatalist(){
-    return '<datalist id="v455_customer_datalist">'+A(db&&db.customers).map(function(c){
-      return '<option value="'+E(customerLabel(c))+'" data-id="'+E(c.id)+'"></option>';
-    }).join('')+'</datalist>';
-  }
-
-  function currentRepForSplit(s){
-    try{
-      if(typeof window.repForSplitRegionV414==='function'){
-        var r=window.repForSplitRegionV414(s);
-        if(r)return r;
-      }
-    }catch(e){}
-    try{return typeof repByRegionV46==='function'?repByRegionV46(s.region_code):null}catch(e){return null}
-  }
-
-  function filteredSplits(){
-    var q=norm(state.splitQuery), rows=A(db&&db.customerRepSplits);
-    if(!q)return rows;
-    return rows.filter(function(s){
-      var c=splitCustomer(s), rep=currentRepForSplit(s);
-      var hay=[s.customer_name,s.clinic_name,s.region_code,s.percentage,s.notes,
-               c&&customerLabel(c),rep&&rep.name].map(norm).join(' ');
-      return hay.indexOf(q)>=0;
-    });
-  }
-
-  window.customerRepSplitTableV45=function(){
-    var rows=filteredSplits();
-    var ar=(typeof lang!=='undefined'&&lang==='ar');
-    if(!rows.length)return '<div class="empty">'+(ar?'لا توجد توزيعات مطابقة':'No matching distributions')+'</div>';
-
-    state.splitPage=clampPage(state.splitPage,rows.length,state.splitPageSize);
-    var start=(state.splitPage-1)*state.splitPageSize;
-    var pageRows=rows.slice(start,start+state.splitPageSize);
-
-    return '<div id="v455_split_table_shell">'+customerDatalist()+
-      '<div id="v455_split_toolbar">'+
-        '<input id="v455_split_search" value="'+E(state.splitQuery)+'" placeholder="'+(ar?'بحث في توزيعات العملاء...':'Search customer distributions...')+'" oninput="splitSearchV455(this.value)">'+
-        '<span class="badge blue">'+rows.length+' / '+A(db&&db.customerRepSplits).length+'</span>'+
-      '</div>'+
-      '<div style="overflow:auto"><table class="rep-split-table">'+
-        '<tr><th>'+T('linkedCustomer')+'</th><th>'+T('customerOfficialName')+'</th><th>'+T('clinicName')+'</th><th>'+T('regionCode')+'</th><th>'+T('rep')+'</th><th>'+T('percentage')+'</th><th>'+T('notes')+'</th><th></th></tr>'+
-        pageRows.map(function(s){
-          var c=splitCustomer(s),rep=currentRepForSplit(s);
-          return '<tr>'+
-            '<td><input class="v455-linked-input" list="v455_customer_datalist" value="'+E(c?customerLabel(c):S(s.customer_name||s.clinic_name))+'" onchange="setSplitCustomerByLabelV455(\''+E(s.id)+'\',this.value)"></td>'+
-            '<td><input value="'+E(s.customer_name||'')+'" onchange="editCustomerRepSplitV45(\''+E(s.id)+'\',\'customer_name\',this.value,false)"></td>'+
-            '<td><input value="'+E(s.clinic_name||'')+'" onchange="editCustomerRepSplitV45(\''+E(s.id)+'\',\'clinic_name\',this.value,false)"></td>'+
-            '<td><select onchange="editCustomerRepSplitV45(\''+E(s.id)+'\',\'region_code\',this.value,false)">'+repRegionOptionsV45(s.region_code||'')+'</select></td>'+
-            '<td>'+E(rep?rep.name:'-')+'</td>'+
-            '<td><input type="number" min="0" max="100" step="0.01" value="'+E(s.percentage||0)+'" onchange="editCustomerRepSplitV45(\''+E(s.id)+'\',\'percentage\',this.value,true)"></td>'+
-            '<td><input value="'+E(s.notes||'')+'" onchange="editCustomerRepSplitV45(\''+E(s.id)+'\',\'notes\',this.value,false)"></td>'+
-            '<td><button class="btn small danger" onclick="deleteCustomerRepSplitV45(\''+E(s.id)+'\')">'+T('delete')+'</button></td>'+
-          '</tr>';
-        }).join('')+
-      '</table></div>'+
-      pagerHTML('splitPage',state.splitPage,rows.length,state.splitPageSize)+
-    '</div>';
-  };
-  try{customerRepSplitTableV45=window.customerRepSplitTableV45}catch(e){}
-
-  window.setSplitCustomerByLabelV455=function(splitId,label){
-    var option=Array.from(document.querySelectorAll('#v455_customer_datalist option')).find(function(o){return o.value===label});
-    var customerId=option&&option.dataset&&option.dataset.id||'';
-    var c=A(db&&db.customers).find(function(x){return S(x.id)===S(customerId)});
-    var s=A(db&&db.customerRepSplits).find(function(x){return S(x.id)===S(splitId)});
-    if(!s||!c){
-      alert((typeof lang!=='undefined'&&lang==='ar')?'اختر عميلًا من القائمة':'Choose a customer from the list');
-      window.refreshSplitManagerV455(true);
-      return;
-    }
-
-    var old=splitCustomer(s);
-    s.customer_id=c.id;
-    s.customer_name=c.customer_name||c.official_name||c.name||'';
-    s.clinic_name=c.clinic_name||c.name||'';
-
-    try{
-      if(old&&typeof customerSplitAutoTextV46==='function')old.customer_rep_distribution=customerSplitAutoTextV46(old);
-      if(typeof customerSplitAutoTextV46==='function')c.customer_rep_distribution=customerSplitAutoTextV46(c);
-      if(typeof save==='function')save();
-    }catch(e){}
-    window.refreshSplitManagerV455(false);
-  };
-
-  var splitSearchTimerV455=null;
-  window.splitSearchV455=function(v){
-    state.splitQuery=S(v);state.splitPage=1;
-    clearTimeout(splitSearchTimerV455);
-    splitSearchTimerV455=setTimeout(function(){window.refreshSplitManagerV455(true)},140);
-  };
-  window.splitPageV455=function(p){
-    var total=filteredSplits().length;
-    state.splitPage=clampPage(p,total,state.splitPageSize);
-    window.refreshSplitManagerV455(false);
-  };
-
-  window.toggleSplitManagerV455=function(){
-    state.splitOpen=!state.splitOpen;
-    state.splitPage=1;
-    window.refreshSplitManagerV455(false);
-  };
-  window.toggleSplitSummaryV455=function(){
-    state.splitSummaryOpen=!state.splitSummaryOpen;
-    window.refreshSplitManagerV455(false);
-  };
-
-  window.refreshSplitManagerV455=function(focusSearch){
-    var shell=document.getElementById('v455_split_manager_shell');
-    if(!shell)return;
-    shell.outerHTML=window.customerRepSplitManagerV45();
-    if(focusSearch){
-      var x=document.getElementById('v455_split_search');
-      if(x){x.focus();try{x.setSelectionRange(x.value.length,x.value.length)}catch(e){}}
-    }
-  };
-
-  window.customerRepSplitManagerV45=function(){
-    try{if(typeof ensureCustomerFieldsV46==='function')ensureCustomerFieldsV46()}catch(e){}
-    var ar=(typeof lang!=='undefined'&&lang==='ar');
-    var count=A(db&&db.customerRepSplits).length;
-
-    if(!state.splitOpen){
-      return '<div id="v455_split_manager_shell" class="card">'+
-        '<div class="v455-split-collapsed"><div><h3 style="margin:0">'+T('customerRepSplits')+'</h3>'+
-        '<div class="v455-perf-note">'+(ar?'التوزيعات محفوظة بالكامل، ويتم تحميلها عند الطلب فقط لتسريع شاشة العملاء.':'All distributions are preserved and loaded only when needed for a faster Customers screen.')+'</div></div>'+
-        '<div class="actions"><span class="badge blue">'+count+' '+(ar?'توزيع':'rows')+'</span>'+
-        '<button class="btn blue" onclick="toggleSplitManagerV455()">'+(ar?'فتح التوزيعات':'Open distributions')+'</button></div></div>'+
-      '</div>';
-    }
-
-    var addSelect='<option value="">'+(ar?'بدون ربط':'No link')+'</option>'+
-      A(db&&db.customers).map(function(c){return '<option value="'+E(c.id)+'">'+E(customerLabel(c))+'</option>'}).join('');
-
-    var summary=state.splitSummaryOpen
-      ? '<div class="card"><h3>'+(ar?'مراجعة إجمالي نسب كل عميل':'Customer split total check')+'</h3>'+customerSplitSummaryV45()+'</div>'
-      : '';
-
-    return '<div id="v455_split_manager_shell">'+
-      '<div class="card">'+
-        '<div class="section-title"><div><h3>'+T('customerRepSplits')+'</h3><div class="v455-perf-note">'+(ar?'العرض مقسم إلى صفحات لتجنب التهنيج مهما زاد عدد العملاء.':'Paginated to stay fast as the customer base grows.')+'</div></div>'+
-          '<div class="actions"><span class="badge blue">'+count+' '+(ar?'توزيع':'rows')+'</span>'+
-          '<button class="btn secondary" onclick="toggleSplitSummaryV455()">'+(state.splitSummaryOpen?(ar?'إخفاء مراجعة النسب':'Hide split check'):(ar?'مراجعة النسب':'Check percentages'))+'</button>'+
-          '<button class="btn secondary" onclick="toggleSplitManagerV455()">'+(ar?'إغلاق التوزيعات':'Close distributions')+'</button></div>'+
-        '</div>'+
-        '<div class="split-tools"><button class="btn blue" onclick="importSalesRepExcelDataV45()">'+T('importExcelReps')+'</button><button class="btn ok" onclick="importCustomersFromSheetV46()">'+T('createCustomersFromSheet')+'</button></div>'+
-        '<div class="grid grid5">'+
-          '<div><label>'+T('linkedCustomer')+'</label><select id="split_customer_id" onchange="let c=db.customers.find(x=>x.id===this.value);if(c){split_customer_name.value=c.customer_name||c.name||\'\';split_clinic_name.value=c.name||c.clinic_name||\'\'}">'+addSelect+'</select></div>'+
-          '<div><label>'+T('customerOfficialName')+'</label><input id="split_customer_name"></div>'+
-          '<div><label>'+T('clinicName')+'</label><input id="split_clinic_name"></div>'+
-          '<div><label>'+T('regionCode')+'</label><select id="split_region_code">'+repRegionOptionsV45('')+'</select></div>'+
-          '<div><label>'+T('percentage')+'</label><input id="split_percentage" type="number" min="0" max="100" step="0.01" value="100"></div>'+
-          '<div><label>'+T('notes')+'</label><input id="split_notes"></div>'+
-          '<div style="display:flex;align-items:end"><button class="btn ok" onclick="addCustomerRepSplitV45()">'+T('add')+'</button></div>'+
-        '</div>'+
-        '<div style="margin-top:14px">'+window.customerRepSplitTableV45()+'</div>'+
-      '</div>'+
-      summary+
-    '</div>';
-  };
-  try{customerRepSplitManagerV45=window.customerRepSplitManagerV45}catch(e){}
-
-  /* Customers report: do not build another full customers table automatically
-     on every Customers-screen render. It becomes lazy and paginated. */
-  var departmentReportCardBaseV455=window.departmentReportCard || (typeof departmentReportCard==='function'?departmentReportCard:null);
-
-  function reportCustomersFiltered(){
-    var q=norm(state.reportQuery),rows=A(db&&db.customers);
-    if(!q)return rows;
-    return rows.filter(function(c){return customerSearchText(c).indexOf(q)>=0});
-  }
-
-  function customerReportBodyV455(){
-    var ar=(typeof lang!=='undefined'&&lang==='ar');
-    var rows=reportCustomersFiltered();
-    state.reportPage=clampPage(state.reportPage,rows.length,state.reportPageSize);
-    var start=(state.reportPage-1)*state.reportPageSize;
-    var pageRows=rows.slice(start,start+state.reportPageSize);
-    var debt=0;
-    try{debt=typeof customerDebt==='function'?customerDebt():rows.reduce(function(a,c){return a+N(c.balance)},0)}catch(e){}
-    return '<div id="v455_customer_report_body">'+
-      '<div id="v455_customer_report_toolbar"><input id="v455_customer_report_search" value="'+E(state.reportQuery)+'" placeholder="'+(ar?'بحث داخل التقرير...':'Search report...')+'" oninput="customerReportSearchV455(this.value)">'+
-      '<span class="badge blue">'+rows.length+' '+(ar?'عميل':'customers')+'</span></div>'+
-      '<div class="dept-report-grid"><div class="stat"><span>'+T('customers')+'</span><strong>'+A(db&&db.customers).length+'</strong></div><div class="stat"><span>'+T('customerDebt')+'</span><strong>'+money(debt)+'</strong></div></div>'+
-      (pageRows.length?'<div style="overflow:auto"><table><tr><th>'+T('customer')+'</th><th>'+T('phone')+'</th><th>'+T('area')+'</th><th>'+T('balance')+'</th></tr>'+
-        pageRows.map(function(c){return '<tr><td>'+E(c.customer_name||c.name||'')+'</td><td>'+E(c.phone||'')+'</td><td>'+E(c.area||c.customer_region_v327||'')+'</td><td>'+money(c.balance)+'</td></tr>'}).join('')+
-        '</table></div>':'<div class="empty">'+T('empty')+'</div>')+
-      pagerHTML('customerReportPage',state.reportPage,rows.length,state.reportPageSize)+
-    '</div>';
-  }
-
-  window.openCustomerReportV455=function(){
-    state.reportOpen=true;
-    var card=document.getElementById('report_customers');
-    if(card)card.innerHTML='<div class="section-title"><h3>'+((typeof lang!=='undefined'&&lang==='ar')?'تقرير العملاء':'Customers report')+'</h3><div class="actions"><button class="btn secondary" onclick="closeCustomerReportV455()">'+((typeof lang!=='undefined'&&lang==='ar')?'إغلاق':'Close')+'</button><button class="btn blue" onclick="printDepartmentReport(\'customers\')">'+T('print')+'</button></div></div>'+customerReportBodyV455();
-  };
-  window.closeCustomerReportV455=function(){
-    state.reportOpen=false;
-    var card=document.getElementById('report_customers');
-    if(card)card.outerHTML=window.departmentReportCard('customers',(typeof lang!=='undefined'&&lang==='ar')?'تقرير العملاء':'Customers report','');
-  };
-  window.customerReportSearchV455=function(v){
-    state.reportQuery=S(v);state.reportPage=1;
-    var body=document.getElementById('v455_customer_report_body');
-    if(body)body.outerHTML=customerReportBodyV455();
-    setTimeout(function(){
-      var x=document.getElementById('v455_customer_report_search');
-      if(x){x.focus();try{x.setSelectionRange(x.value.length,x.value.length)}catch(e){}}
-    },0);
-  };
-  window.customerReportPageV455=function(p){
-    state.reportPage=clampPage(p,reportCustomersFiltered().length,state.reportPageSize);
-    var body=document.getElementById('v455_customer_report_body');
-    if(body)body.outerHTML=customerReportBodyV455();
-  };
-
-  if(typeof departmentReportCardBaseV455==='function'){
-    window.departmentReportCard=function(type,title,desc){
-      if(type!=='customers')return departmentReportCardBaseV455.apply(this,arguments);
-      var ar=(typeof lang!=='undefined'&&lang==='ar');
-      if(state.reportOpen){
-        return '<div class="card dept-report-card" id="report_customers"><div class="section-title"><h3>'+E(title|| (ar?'تقرير العملاء':'Customers report'))+'</h3><div class="actions"><button class="btn secondary" onclick="closeCustomerReportV455()">'+(ar?'إغلاق':'Close')+'</button><button class="btn blue" onclick="printDepartmentReport(\'customers\')">'+T('print')+'</button></div></div>'+customerReportBodyV455()+'</div>';
-      }
-      return '<div class="card dept-report-card" id="report_customers"><div class="v455-split-collapsed"><div><h3 style="margin:0">'+E(title|| (ar?'تقرير العملاء':'Customers report'))+'</h3><div class="v455-perf-note">'+(ar?'التقرير لا يتم تحميله كاملًا إلا عند فتحه لتسريع الموديول.':'The full report is loaded only when opened to keep the module fast.')+'</div></div><div class="actions"><span class="badge blue">'+A(db&&db.customers).length+' '+(ar?'عميل':'customers')+'</span><button class="btn blue" onclick="openCustomerReportV455()">'+(ar?'فتح التقرير':'Open report')+'</button></div></div></div>';
-    };
-    try{departmentReportCard=window.departmentReportCard}catch(e){}
-  }
-
-  window.auditCustomersPerformanceV455=function(){
-    return {
-      customers:A(db&&db.customers).length,
-      visible_customer_rows:Math.min(state.pageSize,filteredCustomers().length),
-      customer_page_size:state.pageSize,
-      distributions:A(db&&db.customerRepSplits).length,
-      split_manager_open:!!state.splitOpen,
-      visible_split_rows:state.splitOpen?Math.min(state.splitPageSize,filteredSplits().length):0,
-      repeated_customer_selects_per_split_row:false,
-      lazy_customer_report:true
-    };
-  };
-
-  /* If Customers is already open after this script loads, repaint once with the
-     lightweight rendering. No data mutation is performed. */
-  setTimeout(function(){
-    try{
-      var v=document.getElementById('view-customers');
-      if(v && !v.classList.contains('hidden') && typeof renderCustomers==='function')renderCustomers();
-    }catch(e){console.error('V455 customers performance repaint',e)}
-  },250);
-})();
-</script>
-
-
-<!-- ===== V457 GLOBAL PERFORMANCE LIGHT MODE - SAFE, NO DATA DELETE ===== -->
-<script id="v457-global-performance-light-safe">
-(function(){
-  'use strict';
-  if(window.__mb_v457_global_performance_light)return;
-  window.__mb_v457_global_performance_light=true;
-
-  /*
-    Goal: keep the legacy business logic intact, but stop hidden modules from
-    rebuilding their full DOM on every render(). This is especially important
-    now that the customer list is large. The active module still renders normally.
-  */
-  var moduleMap={
-    renderDashboard:['dashboard'],
-    renderProducts:['products'],
-    renderCustomers:['customers'],
-    renderSuppliers:['suppliers'],
-    renderReps:['reps'],
-    renderOperations:['operations'],
-    renderPurchases:['purchases'],
-    renderSales:['sales'],
-    renderCollections:['collections'],
-    renderReports:['reports'],
-    renderAccounts:['accounts'],
-    renderTrialBalance:['trial'],
-    renderSettings:['settings'],
-    renderRegions:['regions'],
-    renderUsers:['users'],
-    renderCashFlow:['cashflow'],
-    renderCustomerCostCenterV228:['customerCost'],
-    renderAdvisor:['aiAdvisor']
-  };
-
-  function currentModuleV457(){
-    try{return String(window.current||current||'')}catch(e){return String(window.current||'')}
-  }
-
-  function activeV457(names){
-    var c=currentModuleV457();
-    if(names.indexOf(c)>=0)return true;
-    for(var i=0;i<names.length;i++){
-      var el=document.getElementById('view-'+names[i]);
-      if(el && !el.classList.contains('hidden'))return true;
-    }
-    return false;
-  }
-
-  function installLazyV457(name,names){
-    var base=window[name];
-    if(typeof base!=='function' || base.__v457Lazy)return;
-    var wrapped=function(){
-      if(!activeV457(names))return;
-      return base.apply(this,arguments);
-    };
-    wrapped.__v457Lazy=true;
-    wrapped.__v457Base=base;
-    window[name]=wrapped;
-    try{eval(name+'=window["'+name+'"]')}catch(e){}
-  }
-
-  Object.keys(moduleMap).forEach(function(name){installLazyV457(name,moduleMap[name])});
-
-  /* Explicitly repaint only the destination screen after navigation. */
-  var showBaseV457=window.show;
-  if(typeof showBaseV457==='function' && !showBaseV457.__v457Show){
-    var showWrappedV457=function(v){
-      var r=showBaseV457.apply(this,arguments);
-      setTimeout(function(){
-        var wanted=[];
-        Object.keys(moduleMap).forEach(function(name){
-          if(moduleMap[name].indexOf(String(v))>=0)wanted.push(name);
-        });
-        wanted.forEach(function(name){
-          try{if(typeof window[name]==='function')window[name]()}catch(e){console.error('V457 '+name,e)}
-        });
-      },0);
-      return r;
-    };
-    showWrappedV457.__v457Show=true;
-    window.show=showWrappedV457;
-    try{show=window.show}catch(e){}
-  }
-
-  /*
-    Legacy code calls save() from many render wrappers even when several calls
-    happen within milliseconds. Coalesce those calls into one real save. This
-    preserves the complete existing save chain and Supabase sync logic.
-  */
-  var realSaveV457=window.save;
-  var saveTimerV457=null;
-  var savePendingV457=false;
-  var flushingV457=false;
-
-  function flushSaveV457(){
-    if(flushingV457 || !savePendingV457 || typeof realSaveV457!=='function')return;
-    clearTimeout(saveTimerV457);saveTimerV457=null;
-    savePendingV457=false;flushingV457=true;
-    try{return realSaveV457.apply(window,[])}
-    catch(e){console.error('V457 save flush',e)}
-    finally{flushingV457=false}
-  }
-
-  if(typeof realSaveV457==='function'){
-    window.save=function(){
-      savePendingV457=true;
-      clearTimeout(saveTimerV457);
-      saveTimerV457=setTimeout(flushSaveV457,220);
-      return true;
-    };
-    window.save.__v457Debounced=true;
-    try{save=window.save}catch(e){}
-    window.flushSaveV457=flushSaveV457;
-    window.addEventListener('beforeunload',function(){try{flushSaveV457()}catch(e){}});
-  }
-
-  /* Avoid browser work from huge hidden tables left by an older render. */
-  setTimeout(function(){
-    try{
-      Object.keys(moduleMap).forEach(function(name){
-        var names=moduleMap[name];
-        if(activeV457(names))return;
-        names.forEach(function(k){
-          var el=document.getElementById('view-'+k);
-          if(el && el.innerHTML && el.innerHTML.length>250000)el.innerHTML='';
-        });
-      });
-    }catch(e){console.error('V457 hidden cleanup',e)}
-  },900);
-
-  console.log('V457 global performance light mode enabled');
-})();
-</script>
-
-<!-- ===== V459 CLEAN REMOTE CUSTOMERS: appended safely after legacy build ===== -->
-<style id="v459-remote-customers-style">
-#v459_customer_shell{display:grid;gap:14px}.v459-toolbar{display:grid;grid-template-columns:minmax(260px,1fr) auto auto;gap:10px;align-items:center}.v459-toolbar input{min-height:44px}.v459-status{font-weight:900;color:#0f766e}.v459-table-wrap{overflow:auto;max-height:66vh}.v459-table-wrap table{min-width:900px}.v459-pager{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap}.v459-pager button{min-width:88px}.v459-search-wrap{position:relative;width:100%}.v459-menu{position:absolute;z-index:999999;left:0;right:0;top:calc(100% + 6px);background:#fff;border:1px solid #cbd5e1;border-radius:12px;box-shadow:0 16px 36px rgba(15,23,42,.18);padding:6px;max-height:300px;overflow:auto}.v459-menu[hidden]{display:none!important}.v459-option{display:block;width:100%;border:0;background:#fff;padding:10px 12px;border-radius:8px;text-align:right;cursor:pointer;font-weight:800}.v459-option:hover{background:#ecfdf5}.v459-muted{color:#64748b;font-size:12px}.v459-loading{padding:16px;text-align:center;color:#64748b;font-weight:800}@media(max-width:760px){.v459-toolbar{grid-template-columns:1fr}.v459-table-wrap{max-height:none}}
-</style>
-<script id="v459-clean-remote-customers">
-(function(){
-  'use strict';
-  if(window.__mb_v459_clean_remote_customers)return;
-  window.__mb_v459_clean_remote_customers=true;
-
-  var SB_URL=(typeof SUPABASE_URL!=='undefined'?SUPABASE_URL:'https://fkksydpbfqkctvlkoaom.supabase.co');
-  var SB_KEY=(typeof SUPABASE_PUBLISHABLE_KEY!=='undefined'?SUPABASE_PUBLISHABLE_KEY:'sb_publishable_gq0JyUXR5M57OZAaOd6eEg_6WyzVx9D');
-  var state={q:'',page:1,pageSize:20,total:0,rows:[],timer:null,loading:false,countKnown:false};
-
-  function H(extra){return Object.assign({'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},extra||{})}
-  function E(v){try{return typeof esc==='function'?esc(v==null?'':String(v)):String(v==null?'':v).replace(/[&<>\"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c]})}catch(_){return String(v||'')}}
-  function isAr(){try{return lang==='ar'}catch(_){return true}}
-  function normalize(v){return String(v||'').toLowerCase().trim().replace(/^\s*(dr|doctor)[\.,]?\s*/i,'').replace(/[^a-z0-9ء-ي]+/g,'')}
-  function customerToRuntime(c){
-    return Object.assign({},c,{name:c.customer_name||c.name||'',area:c.customer_area||c.region_code||c.area||'',_supabase_customer_v459:true});
-  }
-  function keepRuntimeCustomer(c){
-    try{
-      if(!window.db)return;
-      db.customers=[customerToRuntime(c)];
-    }catch(e){}
-  }
-  function endpoint(params){return SB_URL.replace(/\/$/,'')+'/rest/v1/customers?'+params.toString()}
-
-  async function fetchCount(){
-    try{
-      var p=new URLSearchParams();p.set('select','id');p.set('limit','1');
-      var r=await fetch(endpoint(p),{headers:H({'Prefer':'count=exact'}),cache:'no-store'});
-      var cr=r.headers.get('content-range')||'';var m=cr.match(/\/(\d+)$/);if(m){state.total=Number(m[1])||0;state.countKnown=true;window.__mb_customer_count_v459=state.total;}
-      return state.total;
-    }catch(e){return state.total}
-  }
-
-  async function fetchPage(q,page,pageSize){
-    var p=new URLSearchParams();
-    p.set('select','id,customer_name,customer_type,phone,region_code,customer_area,address,balance,notes');
-    var nq=normalize(q);
-    if(nq)p.set('normalized_name','ilike.*'+nq+'*');
-    p.set('order','customer_name.asc');p.set('offset',String((page-1)*pageSize));p.set('limit',String(pageSize));
-    var r=await fetch(endpoint(p),{headers:H({'Prefer':'count=exact'}),cache:'no-store'});
-    if(!r.ok)throw new Error('Customer query '+r.status);
-    var cr=r.headers.get('content-range')||'';var m=cr.match(/\/(\d+)$/);if(m)state.total=Number(m[1])||0;
-    state.countKnown=true;window.__mb_customer_count_v459=state.total;
-    return await r.json();
-  }
-
-  function customerShell(){
-    var ar=isAr(),pages=Math.max(1,Math.ceil((state.total||0)/state.pageSize));
-    var rows=state.rows||[];
-    return '<div id="v459_customer_shell">'+
-      '<div class="card"><div class="section-title"><div><h3 style="margin:0">'+(ar?'العملاء — Supabase Live':'Customers — Supabase Live')+'</h3><div class="v459-muted">'+(ar?'العملاء لا يتم تحميلهم مع فتح البرنامج؛ يتم جلب الصفحة المطلوبة فقط.':'Customers are loaded only when needed, not during startup.')+'</div></div><span class="badge blue">'+(state.countKnown?state.total:'…')+' '+(ar?'عميل':'customers')+'</span></div></div>'+
-      '<div class="card"><div class="v459-toolbar"><input id="v459_customer_q" value="'+E(state.q)+'" placeholder="'+(ar?'بحث باسم العميل...':'Search customer name...')+'" oninput="customerSearchV459(this.value)"><span class="v459-status">'+(state.loading?(ar?'جاري التحميل...':'Loading...'):(ar?'Supabase مباشر':'Supabase live'))+'</span><select onchange="customerPageSizeV459(this.value)">'+[20,30,50].map(function(x){return '<option value="'+x+'" '+(state.pageSize===x?'selected':'')+'>'+x+'</option>'}).join('')+'</select></div></div>'+
-      '<div class="card"><div class="v459-table-wrap">'+(state.loading?'<div class="v459-loading">'+(ar?'جاري تحميل العملاء...':'Loading customers...')+'</div>':(rows.length?'<table><tr><th>'+ (ar?'الاسم':'Name') +'</th><th>'+ (ar?'النوع':'Type') +'</th><th>'+ (ar?'الهاتف':'Phone') +'</th><th>'+ (ar?'المنطقة':'Region') +'</th><th>'+ (ar?'العنوان':'Address') +'</th><th>'+ (ar?'الرصيد':'Balance') +'</th></tr>'+rows.map(function(c){return '<tr><td><b>'+E(c.customer_name)+'</b></td><td>'+E(c.customer_type||'')+'</td><td>'+E(c.phone||'')+'</td><td>'+E(c.region_code||c.customer_area||'')+'</td><td>'+E(c.address||'')+'</td><td>'+E(typeof money==='function'?money(c.balance||0):c.balance||0)+'</td></tr>'}).join('')+'</table>':'<div class="empty">'+(ar?'لا يوجد عميل مطابق':'No matching customer')+'</div>'))+'</div></div>'+
-      '<div class="v459-pager"><button class="btn secondary" onclick="customerPageV459('+(state.page-1)+')" '+(state.page<=1?'disabled':'')+'>'+(ar?'السابق':'Previous')+'</button><span class="badge blue">'+state.page+' / '+pages+'</span><button class="btn secondary" onclick="customerPageV459('+(state.page+1)+')" '+(state.page>=pages?'disabled':'')+'>'+(ar?'التالي':'Next')+'</button></div>'+
-      '</div>';
-  }
-
-  async function refreshCustomers(focus){
-    var view=document.getElementById('view-customers');if(!view)return;
-    state.loading=true;view.innerHTML=customerShell();
-    try{state.rows=await fetchPage(state.q,state.page,state.pageSize)}catch(e){console.error(e);state.rows=[]}
-    state.loading=false;view.innerHTML=customerShell();
-    if(focus){var q=document.getElementById('v459_customer_q');if(q){q.focus();try{q.setSelectionRange(q.value.length,q.value.length)}catch(_){}}}
-  }
-  window.customerSearchV459=function(v){state.q=String(v||'');state.page=1;clearTimeout(state.timer);state.timer=setTimeout(function(){refreshCustomers(true)},220)};
-  window.customerPageV459=function(p){var pages=Math.max(1,Math.ceil((state.total||0)/state.pageSize));state.page=Math.max(1,Math.min(Number(p)||1,pages));refreshCustomers(false)};
-  window.customerPageSizeV459=function(v){state.pageSize=Number(v)||20;state.page=1;refreshCustomers(false)};
-  window.renderCustomers=function(){var v=document.getElementById('view-customers');if(!v)return;v.innerHTML=customerShell();refreshCustomers(false)};
-  try{renderCustomers=window.renderCustomers}catch(e){}
-
-  async function querySalesCustomers(q){
-    if(normalize(q).length<2)return [];
-    try{return await fetchPage(q,1,20)}catch(e){console.error(e);return []}
-  }
-  window.bindCustomerSearchV194=function(){
-    var select=document.getElementById('sa_customer');if(!select)return;
-    var old=document.getElementById('sa_customer_search_wrap_v173');if(old)old.remove();
-    select.style.display='none';
-    var wrap=document.createElement('div');wrap.id='sa_customer_search_wrap_v173';wrap.className='v459-search-wrap';
-    var input=document.createElement('input');input.id='sa_customer_search_v173';input.autocomplete='off';input.placeholder=isAr()?'اكتب حرفين على الأقل من اسم العميل':'Type at least 2 letters';
-    var menu=document.createElement('div');menu.id='sa_customer_menu_v173';menu.className='v459-menu';menu.hidden=true;wrap.appendChild(input);wrap.appendChild(menu);select.insertAdjacentElement('beforebegin',wrap);
-    var timer=null,seq=0;
-    input.addEventListener('input',function(){
-      var value=this.value;this.dataset.customerId='';select.value='';clearTimeout(timer);var mine=++seq;
-      if(normalize(value).length<2){menu.hidden=true;menu.innerHTML='';return}
-      menu.hidden=false;menu.innerHTML='<div class="v459-loading">'+(isAr()?'جاري البحث...':'Searching...')+'</div>';
-      timer=setTimeout(async function(){var rows=await querySalesCustomers(value);if(mine!==seq)return;menu.innerHTML=rows.length?rows.map(function(c){return '<button type="button" class="v459-option" data-id="'+E(c.id)+'"><b>'+E(c.customer_name)+'</b><div class="v459-muted">'+E([c.region_code||c.customer_area||'',c.phone||''].filter(Boolean).join(' · '))+'</div></button>'}).join(''):'<div class="v459-loading">'+(isAr()?'لا توجد نتائج':'No results')+'</div>';menu.hidden=false;Array.prototype.forEach.call(menu.querySelectorAll('.v459-option'),function(b){b.addEventListener('mousedown',function(ev){ev.preventDefault();var c=rows.find(function(x){return String(x.id)===String(b.dataset.id)});if(!c)return;keepRuntimeCustomer(c);var rt=db.customers[0];select.innerHTML='<option value="'+E(rt.id)+'">'+E(rt.name)+'</option>';select.value=rt.id;input.value=rt.name;input.dataset.customerId=rt.id;menu.hidden=true;try{if(typeof updateLinkedRegion==='function')updateLinkedRegion('sa')}catch(_){} });});},240);
-    });
-    input.addEventListener('keydown',function(e){if(e.key==='Escape'){menu.hidden=true}if(e.key==='Enter'){var b=menu.querySelector('.v459-option');if(b){e.preventDefault();b.dispatchEvent(new MouseEvent('mousedown',{bubbles:true}))}}});
-    input.addEventListener('blur',function(){setTimeout(function(){menu.hidden=true},140)});
-  };
-  try{bindCustomerSearchV194=window.bindCustomerSearchV194}catch(e){}
-
-  /* Keep main snapshot light: only the currently selected runtime customer may exist briefly. */
-  var addSaleBase=window.addSale;
-  if(typeof addSaleBase==='function'&&!addSaleBase.__v459){
-    window.addSale=function(){
-      var cid=(document.getElementById('sa_customer')||{}).value||'';
-      var r=addSaleBase.apply(this,arguments);
-      try{var c=(db.customers||[]).find(function(x){return String(x.id)===String(cid)});if(c&&c._supabase_customer_v459){var p=new URLSearchParams();p.set('id','eq.'+c.id);fetch(SB_URL.replace(/\/$/,'')+'/rest/v1/customers?'+p.toString(),{method:'PATCH',headers:H({'Prefer':'return=minimal'}),body:JSON.stringify({balance:Number(c.balance||0)})}).catch(function(){})}}catch(e){}
-      setTimeout(function(){try{if(window.db&&Array.isArray(db.customers))db.customers=[]}catch(e){}},1200);
-      return r;
-    };window.addSale.__v459=true;try{addSale=window.addSale}catch(e){}
-  }
-
-  /* Remote count for dashboard label without loading the full list. */
-  setTimeout(function(){fetchCount().then(function(){
-    try{var el=document.getElementById('status');if(el&&/Offline Demo Ready/i.test(el.textContent||''))el.textContent=isAr()?'Online: العملاء على Supabase':'Online: customers on Supabase'}catch(e){}
-  });},4500);
-
-  /* Sanitize any old local customer cache that may reappear after remote pull. */
-  setInterval(function(){try{if(window.db&&Array.isArray(db.customers)&&db.customers.length>3)db.customers=db.customers.filter(function(c){return c&&c._supabase_customer_v459}).slice(-1)}catch(e){}},5000);
-
-  document.addEventListener('DOMContentLoaded',function(){setTimeout(function(){try{if(document.getElementById('view-customers')&&!document.getElementById('view-customers').classList.contains('hidden'))renderCustomers();if(typeof bindCustomerSearchV194==='function')bindCustomerSearchV194()}catch(e){}},700)});
-  console.log('V459 clean remote customers enabled');
-})();
-</script>
-
-
-<!-- ===== V460 FAST MODULE RENDER: bypass legacy render-all chain ===== -->
-<script id="v460-fast-module-render">
-(function(){
-  'use strict';
-  if(window.__mb_v460_fast_module_render)return;
-  window.__mb_v460_fast_module_render=true;
-
-  var renderMap={
-    dashboard:'renderDashboard', products:'renderProducts', customers:'renderCustomers',
-    suppliers:'renderSuppliers', reps:'renderReps', operations:'renderOperations',
-    purchases:'renderPurchases', sales:'renderSales', collections:'renderCollections',
-    reports:'renderReports', accounts:'renderAccounts', trial:'renderTrialBalance',
-    settings:'renderSettings', regions:'renderRegions', cashflow:'renderCashFlow',
-    users:'renderUsers', income:'renderIncome', balance:'renderBalance',
-    customerCost:'renderCustomerCost'
-  };
-
-  function safeT(k){try{return typeof T==='function'?T(k):k}catch(e){return k}}
-  function updateChromeV460(){
-    try{document.documentElement.lang=(typeof lang!=='undefined'?lang:'ar')}catch(e){}
-    try{document.documentElement.dir=(typeof lang!=='undefined'&&lang==='en')?'ltr':'rtl'}catch(e){}
-    try{var x=document.getElementById('brandLine');if(x)x.textContent=(typeof lang!=='undefined'&&lang==='en')?'Stock • Operations • Sales • Collections • Dashboard':'مخازن • عمليات • مبيعات • تحصيلات • Dashboard'}catch(e){}
-    try{var x=document.getElementById('saveBtn');if(x)x.textContent=safeT('save')}catch(e){}
-    try{var x=document.getElementById('printBtn');if(x)x.textContent=safeT('print')}catch(e){}
-    try{var x=document.getElementById('title');if(x)x.textContent=safeT(current)}catch(e){}
-    try{var x=document.getElementById('sub');if(x)x.textContent=safeT((window.titleMap||titleMap||{})[current])}catch(e){}
-    try{var bc=document.querySelector('.erp-breadcrumb');if(bc)bc.style.display=current==='dashboard'?'none':'block'}catch(e){}
-    try{var ta=document.querySelector('.erp-top-actions');if(ta)ta.style.display=current==='dashboard'?'none':'flex'}catch(e){}
-    try{
-      var nav=document.getElementById('nav'),tm=(window.titleMap||titleMap||{}),ic=(window.icons||icons||{});
-      if(nav)nav.innerHTML=Object.keys(tm).map(function(k){return '<button class="'+(current===k?'active':'')+'" onclick="show(\''+k+'\')">'+(ic[k]||'•')+' '+safeT(k)+'</button>'}).join('');
-    }catch(e){}
-  }
-
-  function makeOnlyCurrentVisibleV460(v){
-    try{document.querySelectorAll('main section[id^="view-"]').forEach(function(s){s.classList.add('hidden')})}catch(e){}
-    try{var el=document.getElementById('view-'+v);if(el)el.classList.remove('hidden')}catch(e){}
-  }
-
-  window.fastRenderV460=function(v){
-    if(v)try{current=v}catch(e){}
-    updateChromeV460();
-    var name=renderMap[current],fn=name&&window[name];
-    if(typeof fn==='function'){
-      try{return fn()}catch(e){console.error('V460 '+name,e)}
-    }
-  };
-
-  /* Replace the 50+ nested legacy render wrappers with one active-module render. */
-  window.render=function(){return window.fastRenderV460()};
-  try{render=window.render}catch(e){}
-
-  /* Navigation no longer calls the legacy show->render-all chain. */
-  window.show=function(v){
-    try{
-      if(typeof ensureUsers==='function')ensureUsers();
-      if(typeof can==='function' && !can(v,'view')){
-        if(typeof permissionAlert==='function')permissionAlert();
-        if(typeof firstAllowedModule==='function')v=firstAllowedModule();
-      }
-    }catch(e){}
-    try{current=v}catch(e){}
-    makeOnlyCurrentVisibleV460(v);
-    return window.fastRenderV460(v);
-  };
-  try{show=window.show}catch(e){}
-
-  /* Language switches should repaint only the open module. */
-  if(typeof window.setLang==='function'){
-    window.setLang=function(l){
-      try{lang=l;localStorage.setItem('mb_lang',l)}catch(e){}
-      return window.fastRenderV460();
-    };
-    try{setLang=window.setLang}catch(e){}
-  }
-
-  /* Some old startup timers may leave hidden module HTML behind. Clear very large hidden DOM once. */
-  setTimeout(function(){
-    try{document.querySelectorAll('main section[id^="view-"].hidden').forEach(function(el){if(el.innerHTML&&el.innerHTML.length>120000)el.innerHTML=''})}catch(e){}
-  },1800);
-
-  console.log('V460 fast active-module rendering enabled');
-})();
-</script>
-
-<!-- ===== V461 ONLINE FAST PATH: prevent render-time saves and retire legacy customer merges ===== -->
-<script id="v461-online-fast-path">
-(function(){
-  'use strict';
-  if(window.__mb_v461_online_fast_path)return;
-  window.__mb_v461_online_fast_path=true;
-
-  /* Those batches were already migrated to public.customers; never merge them into db.customers again. */
-  window.mergeCustomerBatchV453=function(){return {skipped:true,reason:'customers_remote_v461'}};
-  window.mergeCustomerBatchV454=function(){return {skipped:true,reason:'customers_remote_v461'}};
-
-  /* Opening a screen must never cause a full local JSON stringify + Supabase PATCH. */
-  var actualSaveV461=window.save;
-  if(typeof actualSaveV461==='function'){
-    window.save=function(){
-      if(window.__mb_v461_rendering)return true;
-      return actualSaveV461.apply(this,arguments);
-    };
-    try{save=window.save}catch(e){}
-  }
-
-  var fastBaseV461=window.fastRenderV460;
-  if(typeof fastBaseV461==='function'){
-    window.fastRenderV460=function(v){
-      window.__mb_v461_rendering=true;
-      try{return fastBaseV461.apply(this,arguments)}
-      finally{window.__mb_v461_rendering=false}
-    };
-  }
-
-  /* Also guard direct module render calls that old onclick handlers may still use. */
-  ['renderDashboard','renderProducts','renderCustomers','renderSuppliers','renderReps','renderOperations','renderPurchases','renderSales','renderCollections','renderReports','renderAccounts','renderTrialBalance','renderSettings','renderRegions','renderCashFlow','renderUsers','renderIncome','renderBalance','renderCustomerCost'].forEach(function(name){
-    var fn=window[name];
-    if(typeof fn!=='function'||fn.__v461guard)return;
-    var wrapped=function(){
-      var was=!!window.__mb_v461_rendering;
-      window.__mb_v461_rendering=true;
-      try{return fn.apply(this,arguments)}finally{window.__mb_v461_rendering=was}
-    };
-    wrapped.__v461guard=true;window[name]=wrapped;
-    try{if(name==='renderDashboard')renderDashboard=wrapped;else if(name==='renderProducts')renderProducts=wrapped;else if(name==='renderCustomers')renderCustomers=wrapped;else if(name==='renderSuppliers')renderSuppliers=wrapped;else if(name==='renderReps')renderReps=wrapped;else if(name==='renderOperations')renderOperations=wrapped;else if(name==='renderPurchases')renderPurchases=wrapped;else if(name==='renderSales')renderSales=wrapped;else if(name==='renderCollections')renderCollections=wrapped;else if(name==='renderReports')renderReports=wrapped;else if(name==='renderAccounts')renderAccounts=wrapped;else if(name==='renderTrialBalance')renderTrialBalance=wrapped;else if(name==='renderSettings')renderSettings=wrapped}catch(e){}
-  });
-
-  console.log('V461 online fast path enabled');
-})();
-</script>
+    return '<datalist id="v455_customer_datalist">'+A(db&&
