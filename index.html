@@ -39126,3 +39126,71 @@ console.log('Stable 34 active: original features preserved; public.customers aut
 })();
 </script>
 
+
+
+<!-- ===== Remote customers guaranteed loader retry fix ===== -->
+<script id="remote-customers-guaranteed-loader-20260908">
+(function(){
+'use strict';
+if(window.__mb_customer_retry_fix_20260908)return;
+window.__mb_customer_retry_fix_20260908=true;
+
+var U='https://fkksydpbfqkctvlkoaom.supabase.co';
+var K='sb_publishable_gq0JyUXR5M57OZAaOd6eEg_6WyzVx9D';
+var tries=0,maxTries=8,busy=false,loaded=false;
+function A(v){return Array.isArray(v)?v:[]}
+function S(v){return String(v==null?'':v).trim()}
+function online(){return location.protocol==='http:'||location.protocol==='https:'}
+function hdr(){return {'apikey':K,'Authorization':'Bearer '+K,'Content-Type':'application/json'}}
+function runtime(r){
+  var l=(r&&r.legacy_data&&typeof r.legacy_data==='object')?r.legacy_data:{};
+  var c=Object.assign({},l,r||{});
+  c.id=S(r&&r.id)||S(l.id);
+  c.customer_name=S(r&&r.customer_name)||S(l.customer_name)||S(l.name)||S(l.clinic_name);
+  c.name=S(l.name)||S(l.clinic_name)||c.customer_name;
+  c.clinic_name=S(l.clinic_name)||c.name;
+  c.type=S(r&&r.customer_type)||S(l.type);
+  c.phone=S(r&&r.phone)||S(l.phone);
+  c.region_code=S(r&&r.region_code)||S(l.region_code)||S(l.area);
+  c.customer_area=S(r&&r.customer_area)||S(l.customer_area)||S(l.clinic_city)||S(l.area);
+  c.area=S(l.area)||c.region_code||c.customer_area;
+  c.address=S(r&&r.address)||S(l.address);
+  c.balance=Number(r&&r.balance!=null?r.balance:(l.balance||0))||0;
+  c.notes=S(r&&r.notes)||S(l.notes);
+  c._supabase_customer_runtime_20260908=true;
+  return c;
+}
+function status(msg){try{if(typeof syncStatus==='function')syncStatus(msg)}catch(e){} }
+async function loadNow(){
+  if(!online()||busy||loaded)return;
+  busy=true;tries++;
+  try{
+    var url=U+'/rest/v1/customers?select=*&order=customer_name.asc&limit=2000';
+    var res=await fetch(url,{method:'GET',headers:hdr(),cache:'no-store'});
+    if(!res.ok)throw new Error('HTTP '+res.status+' '+(await res.text()).slice(0,200));
+    var rows=await res.json();
+    if(!Array.isArray(rows))throw new Error('Invalid customers response');
+    if(!rows.length)throw new Error('Supabase customers returned 0 rows');
+    if(typeof db!=='object'||!db)throw new Error('db not ready');
+    db.customers=rows.map(runtime);
+    loaded=true;
+    window.__mb_supabase_customer_count=db.customers.length;
+    window.__mb_customer_retry_loaded=true;
+    try{if(typeof snapshotCustomers==='function')snapshotCustomers()}catch(e){}
+    try{if(typeof render==='function')render()}catch(e){console.error('customers retry render',e)}
+    status((typeof lang!=='undefined'&&lang==='ar')?'Online: تم تحميل '+db.customers.length+' عميل من Supabase':'Online: loaded '+db.customers.length+' customers from Supabase');
+    console.log('Guaranteed customer loader: '+db.customers.length+' customers');
+  }catch(e){
+    console.error('Guaranteed customer loader attempt '+tries,e);
+    status((typeof lang!=='undefined'&&lang==='ar')?'Online: جاري إعادة تحميل العملاء...':'Online: retrying customer load...');
+    if(tries<maxTries)setTimeout(loadNow,Math.min(500+tries*600,4000));
+  }finally{busy=false}
+}
+window.forceLoadCustomersFromSupabase=loadNow;
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(loadNow,50)},{once:true});
+else setTimeout(loadNow,50);
+setTimeout(loadNow,900);
+setTimeout(loadNow,2200);
+setTimeout(loadNow,5000);
+})();
+</script>
