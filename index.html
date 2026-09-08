@@ -18513,7 +18513,7 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
 </script>
 
 
-<script id="v474-customer-batch-delta-20260907">
+<script type="application/json" id="v474-customer-batch-delta-20260907">
 (function(){
 'use strict';
 var BATCH_ID='customers_20260907_delta_150_v474';
@@ -18543,7 +18543,7 @@ var attempts=0,timer=0; /* v479: manual importer retained; automatic rescan disa
 </script>
 
 
-<script id="v473-customer-batch-heliopolis-20260907">
+<script type="application/json" id="v473-customer-batch-heliopolis-20260907">
 (function(){
   'use strict';
   var BATCH_ID='customers_20260907_heliopolis_59_v473';
@@ -18588,7 +18588,7 @@ var attempts=0,timer=0; /* v479: manual importer retained; automatic rescan disa
 </script>
 
 
-<script id="v472-customer-batch-east2-20260907">
+<script type="application/json" id="v472-customer-batch-east2-20260907">
 (function(){
   'use strict';
   var BATCH_ID='customers_20260907_east2_81_v472';
@@ -35602,6 +35602,7 @@ html body .summary-box.v303-auto-clickable:after{
   function S(v){return String(v==null?'':v).trim()}
   function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
   function D(v){return S(v).slice(0,10)}
+  function norm(v){return S(v).toLowerCase().replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ')}
 
   function amount(row){
     if(!row)return 0;
@@ -36307,6 +36308,7 @@ html body .summary-box.v303-auto-clickable:after{
   function S(v){return String(v==null?'':v).trim()}
   function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
   function D(v){return S(v).slice(0,10)}
+  function norm(v){return S(v).toLowerCase().replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ')}
 
   function invoiceKey(row){
     if(!row)return '';
@@ -36505,7 +36507,23 @@ html body .summary-box.v303-auto-clickable:after{
   };
 
   window.reconcileAllCustomerCollectionsV431=function(persist){
-    var results=A(db.customers).map(function(c){
+    /*
+      v481 performance: imported customers with no sales/collections have no debt
+      work to reconcile. Index active customer ids/names once instead of scanning
+      every transaction again for every customer.
+    */
+    var activeIds=new Set(),activeNames=new Set();
+    [db.sales,db.collections,db.collection_requests].forEach(function(list){
+      A(list).forEach(function(row){
+        if(row&&row.customer_id!=null&&String(row.customer_id))activeIds.add(String(row.customer_id));
+        var nm=customerName(row);if(nm)activeNames.add(norm(nm));
+      });
+    });
+    var activeCustomers=A(db.customers).filter(function(c){
+      return activeIds.has(String(c.id))||activeNames.has(norm(customerName(c)))||
+        Math.abs(N(c.balance))>0.001||Math.abs(N(c.invoice_outstanding_v431))>0.001;
+    });
+    var results=activeCustomers.map(function(c){
       return window.reconcileCustomerCollectionsV431(c.id,false);
     }).filter(Boolean);
     if(persist!==false){
@@ -36572,12 +36590,6 @@ html body .summary-box.v303-auto-clickable:after{
   function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
 
   window.customerDebtAuthoritativeV433=function(){
-    try{
-      if(typeof window.reconcileAllCustomerCollectionsV431==='function'){
-        window.reconcileAllCustomerCollectionsV431(false);
-      }
-    }catch(e){}
-
     return A(db.customers).reduce(function(sum,c){
       return sum+Math.max(0,N(c.invoice_outstanding_v431!=null?c.invoice_outstanding_v431:c.balance));
     },0);
@@ -36636,14 +36648,8 @@ html body .summary-box.v303-auto-clickable:after{
     try{renderCollections=window.renderCollections}catch(e){}
   }
 
-  /* Persist the correction once after loading existing Supabase/local data. */
-  setTimeout(function(){
-    try{
-      var r=window.syncCustomerDebtSingleSourceV433(true);
-      console.log('V433 customer debt synchronized',r);
-      if(typeof render==='function')render();
-    }catch(e){console.error('V433 debt sync',e)}
-  },1200);
+  /* v481: the V431 startup pass already reconciles active accounts.
+     Do not repeat the full debt pass and render a second time. */
 })();
 </script>
 
@@ -37444,7 +37450,7 @@ html body .summary-box.v303-auto-clickable:after{
 })();
 </script>
 
-<script id="v453-customer-batch-20260906">
+<script type="application/json" id="v453-customer-batch-20260906">
 (function(){
   'use strict';
   var BATCH_ID='customers_20260906_east1_98_v453';
@@ -37692,7 +37698,7 @@ html body .summary-box.v303-auto-clickable:after{
 })();
 </script>
 
-<script id="v454-customer-batch-west2-20260906">
+<script type="application/json" id="v454-customer-batch-west2-20260906">
 (function(){
   'use strict';
   var BATCH_ID='customers_20260906_west2_62_v454';
@@ -39475,7 +39481,7 @@ html body .summary-box.v303-auto-clickable:after{
 })();
 </script>
 
-<script id="v476-customer-batch-west1-20260908">
+<script type="application/json" id="v476-customer-batch-west1-20260908">
 (function(){
 'use strict';
 var BATCH_ID='customers_20260908_west1_69_v476';
@@ -39504,7 +39510,7 @@ var attempts=0,timer=0; /* v479: manual importer retained; automatic rescan disa
 })();
 </script>
 
-<script id="v477-customer-batch-alexandria-20260908">
+<script type="application/json" id="v477-customer-batch-alexandria-20260908">
 (function(){
 'use strict';
 var BATCH_ID='customers_20260908_alexandria_112_v477';
