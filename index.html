@@ -36049,7 +36049,115 @@ html body .summary-box.v303-auto-clickable:after{
       '<div class="row"><div class="label">ملاحظات</div><div class="value">'+E(r.notes||'-')+'</div></div>'+
       '</div>'+
       '<script>window.onload=function(){setTimeout(function(){window.print()},120)}<\/script>'+
-      '</body></html>';
+      '
+<!-- ===== V469 SAFE: dashboard/current-rep consistency only; no DB mutation ===== -->
+<script id="v469-safe-rep-dashboard-consistency">
+(function(){
+  'use strict';
+  function A(v){return Array.isArray(v)?v:[]}
+  function S(v){return String(v==null?'':v).trim()}
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function E(v){try{return typeof esc==='function'?esc(v):S(v)}catch(e){return S(v)}}
+  function norm(v){return S(v).toLowerCase().replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ')}
+
+  function activeReps(){
+    return A(window.db&&db.reps).filter(function(r){return r&&r.active!==false&&r.inactive_v452!==true});
+  }
+  function repById(id){return A(window.db&&db.reps).find(function(r){return S(r&&r.id)===S(id)})||null}
+  function activeByName(name){var k=norm(name);return activeReps().find(function(r){return norm(r.name)===k})||null}
+
+  function replacementName(name){
+    var cur=S(name), guard=0;
+    while(cur&&guard++<8){
+      var events=A(window.db&&db.rep_replacements_v452).filter(function(x){return x&&norm(x.old_rep_name)===norm(cur)&&S(x.new_rep_name)});
+      if(events.length){var nx=S(events[events.length-1].new_rep_name);if(norm(nx)===norm(cur))break;cur=nx;continue}
+      var old=A(window.db&&db.reps).find(function(r){return r&&norm(r.name)===norm(cur)});
+      if(old&&S(old.replaced_by_rep_name_v452)&&norm(old.replaced_by_rep_name_v452)!==norm(cur)){cur=S(old.replaced_by_rep_name_v452);continue}
+      break;
+    }
+    return cur;
+  }
+  function rowOriginalRepName(row){
+    if(S(row&&row.rep_name))return S(row.rep_name);
+    if(S(row&&row.rep_id)){var r=repById(row.rep_id);if(r)return S(r.name)}
+    return '';
+  }
+  function rowCurrentRepName(row){return replacementName(rowOriginalRepName(row))}
+
+  function approvedRows(){
+    try{if(typeof window.dashboardApprovedCompanySalesV468==='function')return A(window.dashboardApprovedCompanySalesV468())}catch(e){}
+    var seen=new Set(),rows=[];
+    A(window.db&&db.sales).forEach(function(s){
+      var a=norm(s&&s.approval_status),st=norm(s&&s.status);
+      if(a==='rejected'||st==='rejected'||st==='cancelled'||st==='canceled')return;
+      if(a&&a!=='approved'&&st!=='approved'&&st!=='sold')return;
+      var key=S(s&&s.id)+'|'+S(s&&s.product_id||s&&s.product_name)+'|'+S(s&&s.qty)+'|'+S(s&&s.total);
+      if(key&&seen.has(key))return;if(key)seen.add(key);rows.push(s);
+    });
+    return rows;
+  }
+  function saleQty(row){try{if(typeof window.targetSaleQtyV346==='function')return N(window.targetSaleQtyV346(row))}catch(e){}return N(row&&row.qty)}
+  function repTarget(rep){return N(rep&&(rep.target_value||rep.target||rep.target_qty||rep.sales_target||0))}
+  function repAchieved(rep){
+    if(!rep)return 0;var k=norm(rep.name);
+    return approvedRows().reduce(function(sum,row){return norm(rowCurrentRepName(row))===k?sum+saleQty(row):sum},0);
+  }
+
+  /* Dashboard chart: current active roster only, using the same quantity basis as the 10.97% KPI. */
+  window.repsCardBars=function(){
+    var reps=activeReps();
+    var arr=reps.map(function(r){return {r:r,v:repAchieved(r),t:repTarget(r)}})
+      .sort(function(a,b){return b.v-a.v});
+    var max=Math.max.apply(null,arr.map(function(x){return Math.max(x.t,x.v)}).concat([1]));
+    arr=arr.slice(0,4).map(function(x){return {l:(S(x.r.name).split(' ')[0]||'مندوب'),v:x.v,max:max}});
+    return arr.length?arr:[{l:'المندوبين',v:0,max:1}];
+  };
+  try{repsCardBars=window.repsCardBars}catch(e){}
+
+  /* Sales-rep detail table: current roster only. Historical rows are attributed to the current replacement owner for this management view. */
+  window.repTargetTable=function(){
+    var reps=activeReps();
+    if(!reps.length)return '<div class="empty">لا توجد بيانات</div>';
+    return '<table><tr><th>البياع</th><th>التارجت (وحدة)</th><th>المحقق (وحدة)</th><th>المتبقي (وحدة)</th><th>نسبة التحقيق</th></tr>'+reps.map(function(r){
+      var target=repTarget(r),ach=repAchieved(r),remain=Math.max(0,target-ach),pct=target>0?ach/target*100:0;
+      return '<tr><td><b>'+E(r.name||'-')+'</b></td><td>'+target.toLocaleString()+'</td><td>'+ach.toLocaleString()+'</td><td>'+remain.toLocaleString()+'</td><td><div class="v286-pct">'+(Math.round(pct*10)/10)+'%</div><div class="v286-pct-bar"><span style="width:'+Math.max(0,Math.min(100,pct))+'%"></span></div></td></tr>';
+    }).join('')+'</table>';
+  };
+
+  /* Keep the existing modal layout, replacing only its rep table with the corrected current-roster table. */
+  var expandedBase=window.expandedDashboardHTML;
+  if(typeof expandedBase==='function'){
+    window.expandedDashboardHTML=function(key){
+      if(key!=='reps')return expandedBase.apply(this,arguments);
+      var head=(typeof modalHeader==='function')?modalHeader('تفاصيل إدارة البياعين','التارجت، المحقق، ونسبة الإنجاز لكل بياع (بالكمية)'):'';
+      var summary=(typeof repsQuantitySummaryHTMLV272==='function')?repsQuantitySummaryHTMLV272():'';
+      var stock=(typeof stockAvailabilityTable==='function')?stockAvailabilityTable():'';
+      return head+'<div class="stack">'+summary+'<div class="card"><h3>Sales Target</h3>'+window.repTargetTable()+'</div><div class="card"><h3>إتاحة المخزون للبياعين</h3>'+stock+'</div></div>';
+    };
+  }
+
+  /* Analytics-only canonicalization: remove the obsolete Salma pseudo-region and correct the obvious Wwst typo. No database rows are changed. */
+  function canonicalRegion(v){
+    var s=S(v),k=norm(s);
+    if(k==='salma'||k==='سلمي'||k==='سلمى')return 'East 1';
+    if(/^wwst\b/i.test(s))return s.replace(/^wwst\b/i,'West');
+    return s;
+  }
+  var regionBase=window.regionNameVerifiedV307;
+  if(typeof regionBase==='function')window.regionNameVerifiedV307=function(){return canonicalRegion(regionBase.apply(this,arguments))};
+  var allRegionsBase=window.allRegionsVerifiedV307;
+  if(typeof allRegionsBase==='function')window.allRegionsVerifiedV307=function(){
+    var out=[],seen=new Set();A(allRegionsBase.apply(this,arguments)).forEach(function(x){var v=canonicalRegion(x),k=norm(v);if(!k||seen.has(k))return;seen.add(k);out.push(v)});return out;
+  };
+
+  window.auditRepConsistencyV469=function(){
+    var reps=activeReps(),target=reps.reduce(function(a,r){return a+repTarget(r)},0),ach=reps.reduce(function(a,r){return a+repAchieved(r)},0);
+    var company=approvedRows().reduce(function(a,s){return a+saleQty(s)},0);
+    return {active_reps:reps.map(function(r){return r.name}),target:target,rep_achieved_sum:ach,company_achieved:company,consistent:Math.abs(ach-company)<0.0001};
+  };
+})();
+</script>
+</body></html>';
 
     w.document.open();
     w.document.write(html);
