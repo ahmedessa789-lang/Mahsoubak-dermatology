@@ -36002,6 +36002,78 @@ html body .summary-box.v303-auto-clickable:after{
 html body .customer-option-v194 b{display:block!important}
 html body .customer-option-v194 small{font-weight:700!important}
 </style>
+
+
+<!-- ===== v456 SAFE STARTUP LIGHT MODE: defer customer-heavy hidden modules ===== -->
+<script id="v456-safe-startup-light">
+(function(){
+  'use strict';
+  if(window.__mb_v456_startup_light)return;
+  window.__mb_v456_startup_light=true;
+
+  var moduleMap={
+    renderCustomers:['customers'],
+    renderSales:['sales'],
+    renderOperations:['operations'],
+    renderCollections:['collections'],
+    renderReps:['reps'],
+    renderRegions:['regions']
+  };
+
+  function isActive(names){
+    var c=String(window.current||'');
+    if(names.indexOf(c)>=0)return true;
+    for(var i=0;i<names.length;i++){
+      var el=document.getElementById('view-'+names[i]);
+      if(el && !el.classList.contains('hidden'))return true;
+    }
+    return false;
+  }
+
+  function deferRenderer(name,names){
+    var base=window[name];
+    if(typeof base!=='function' || base.__v456Deferred)return;
+    var wrapped=function(){
+      if(!isActive(names))return;
+      return base.apply(this,arguments);
+    };
+    wrapped.__v456Deferred=true;
+    wrapped.__v456Base=base;
+    window[name]=wrapped;
+    try{eval(name+'=window["'+name+'"]')}catch(e){}
+  }
+
+  Object.keys(moduleMap).forEach(function(k){deferRenderer(k,moduleMap[k])});
+
+  /* Re-apply after late legacy patches finish installing. */
+  [0,250,700,1500,3000].forEach(function(ms){
+    setTimeout(function(){
+      Object.keys(moduleMap).forEach(function(k){
+        var f=window[k];
+        if(typeof f==='function'&&!f.__v456Deferred)deferRenderer(k,moduleMap[k]);
+      });
+    },ms);
+  });
+
+  /* Make navigation explicitly render the requested module after the common render chain. */
+  var showBase=window.show;
+  if(typeof showBase==='function'){
+    window.show=function(v){
+      var r=showBase.apply(this,arguments);
+      setTimeout(function(){
+        var fn={customers:'renderCustomers',sales:'renderSales',operations:'renderOperations',collections:'renderCollections',reps:'renderReps',regions:'renderRegions'}[v];
+        if(fn && typeof window[fn]==='function'){
+          try{window[fn]()}catch(e){console.error('V456 '+fn,e)}
+        }
+      },0);
+      return r;
+    };
+    try{show=window.show}catch(e){}
+  }
+
+  console.log('V456 startup light mode enabled');
+})();
+</script>
 </body></html>';
 
     w.document.open();
