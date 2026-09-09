@@ -38773,8 +38773,8 @@ html body .summary-box.v303-auto-clickable:after{
   'use strict';
   var MAP={
     west_total_v186:{
-      'West 1':['زايد','أكتوبر','حدائق الأهرام','فيصل','الهرم'],
-      'West 2':['الدقي','المهندسين','المعادي','الزمالك','المنيل']
+      'West 1':['زايد','أكتوبر','حدائق الأهرام','فيصل','الهرم','الدقي','المهندسين','المعادي','الزمالك','المنيل'],
+      'West 2':['زايد','أكتوبر','حدائق الأهرام','فيصل','الهرم','الدقي','المهندسين','المعادي','الزمالك','المنيل']
     },
     east_total_v186:{
       'East 1':['التجمع','الرحاب','مدينتي','الشروق'],
@@ -38891,9 +38891,10 @@ html body .summary-box.v303-auto-clickable:after{
     var groups=window.FINAL_GROUPS_V338;if(!groups||!groups.west_total_v186)return null;
     var g=groups.west_total_v186,existing=A(g.subgroups);
     g.name='West Total';
+    var westAllAreas=['زايد','أكتوبر','حدائق الأهرام','فيصل','الهرم','الدقي','المهندسين','المعادي','الزمالك','المنيل'];
     g.subgroups=[
-      {id:'West 1',label:'West 1',rep:'مارينا',areas:['زايد','أكتوبر','حدائق الأهرام','فيصل','الهرم']},
-      {id:'West 2',label:'West 2',rep:activeRep('شهد')?'شهد':'عماد',areas:['الدقي','المهندسين','المعادي','الزمالك','المنيل']}
+      {id:'West 1',label:'West 1',rep:'مارينا',areas:westAllAreas.slice()},
+      {id:'West 2',label:'West 2',rep:activeRep('شهد')?'شهد':'عماد',areas:westAllAreas.slice()}
     ];
     return g;
   }
