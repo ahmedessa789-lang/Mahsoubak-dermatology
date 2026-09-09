@@ -2145,10 +2145,48 @@ function customerSplitSummaryV45(){
   if(!arr.length)return `<div class="empty">${T('empty')}</div>`;
   return `<table><tr><th>${T('customer')}</th><th>${T('clinicName')}</th><th>${lang==='ar'?'عدد التوزيعات':'Split rows'}</th><th>${lang==='ar'?'إجمالي النسب':'Total %'}</th><th>${T('status')}</th></tr>${arr.map(x=>{let ok=Math.round(x.total)===100;return `<tr><td>${esc(x.customer_name)}</td><td>${esc(x.clinic_name)}</td><td>${x.count}</td><td>${x.total}%</td><td><span class="badge ${ok?'ok':'low'}">${ok?(lang==='ar'?'مكتمل 100%':'Complete 100%'):(lang==='ar'?'راجع النسبة':'Check %')}</span></td></tr>`}).join('')}</table>`;
 }
+function editCustomerRepIdentitySafeV469(id,field,val){
+  ensureCustomerRepModuleV45();
+  var r=db.customerRepSplits.find(function(x){return x.id===id});
+  if(!r)return;
+  var oldCustomer=String(r.customer_name||'').trim();
+  var oldClinic=String(r.clinic_name||'').trim();
+  var v=String(val==null?'':val).trim();
+  if(field==='customer_name'){
+    r.customer_name=v;
+    (db.customerRepSplits||[]).forEach(function(s){
+      if(s===r)return;
+      if((r.customer_id&&s.customer_id===r.customer_id)||(!r.customer_id&&String(s.customer_name||'').trim()===oldCustomer&&String(s.clinic_name||'').trim()===oldClinic))s.customer_name=v;
+    });
+    if(r.customer_id){
+      var c=(db.customers||[]).find(function(x){return x.id===r.customer_id});
+      if(c)c.customer_name=v;
+    }
+  }else if(field==='clinic_name'){
+    r.clinic_name=v;
+    (db.customerRepSplits||[]).forEach(function(s){
+      if(s===r)return;
+      if((r.customer_id&&s.customer_id===r.customer_id)||(!r.customer_id&&String(s.customer_name||'').trim()===oldCustomer&&String(s.clinic_name||'').trim()===oldClinic))s.clinic_name=v;
+    });
+    if(r.customer_id){
+      var c2=(db.customers||[]).find(function(x){return x.id===r.customer_id});
+      if(c2){c2.name=v;c2.clinic_name=v;}
+    }
+  }else if(field==='region_code'){
+    r.region_code=v;
+  }
+  save();
+  try{if(typeof scheduleCustomerSync==='function')scheduleCustomerSync()}catch(_e){}
+  try{renderReps()}catch(_e){try{render()}catch(__e){}}
+}
+function repRegionDatalistV469(){
+  var regions=[...new Set([...(db.reps||[]).map(function(r){return r.region_code||r.area||r.name}),...SALES_REP_DEFAULTS_V45.map(function(r){return r.region_code}),...(db.customerRepSplits||[]).map(function(s){return s.region_code})].filter(Boolean))];
+  return `<datalist id="rep_region_list_v469">${regions.map(function(x){return `<option value="${esc(x)}"></option>`}).join('')}</datalist>`;
+}
 function customerRepSplitTableV45(){
   ensureCustomerRepModuleV45();
   if(!db.customerRepSplits.length)return `<div class="empty">${T('empty')}</div>`;
-  return `<table class="rep-split-table"><tr><th>${T('customer')}</th><th>${T('clinicName')}</th><th>${T('regionCode')}</th><th>${T('percentage')}</th><th>${T('notes')}</th><th></th></tr>${db.customerRepSplits.map(s=>`<tr><td><input value="${esc(s.customer_name||'')}" onchange="editCustomerRepSplitV45('${s.id}','customer_name',this.value,false)"></td><td><input value="${esc(s.clinic_name||'')}" onchange="editCustomerRepSplitV45('${s.id}','clinic_name',this.value,false)"></td><td><select onchange="editCustomerRepSplitV45('${s.id}','region_code',this.value,false)">${repRegionOptionsV45(s.region_code||'')}</select></td><td><input type="number" min="0" max="100" step="0.01" value="${esc(s.percentage||0)}" onchange="editCustomerRepSplitV45('${s.id}','percentage',this.value,true)"></td><td><input value="${esc(s.notes||'')}" onchange="editCustomerRepSplitV45('${s.id}','notes',this.value,false)"></td><td><button class="btn small danger" onclick="deleteCustomerRepSplitV45('${s.id}')">${T('delete')}</button></td></tr>`).join('')}</table>`;
+  return repRegionDatalistV469()+`<div class="rep-split-note" style="margin-bottom:10px">${lang==='ar'?'يمكنك الآن تعديل اسم العميل واسم العيادة والمنطقة القديمة مباشرة. تعديل اسم عميل مربوط يحدّث كل توزيعاته والعميل المرتبط.':'You can now directly edit old customer, clinic, and region names. Linked customer name edits update all its splits and linked customer.'}</div><table class="rep-split-table"><tr><th>${T('customer')}</th><th>${T('clinicName')}</th><th>${T('regionCode')}</th><th>${T('percentage')}</th><th>${T('notes')}</th><th></th></tr>${db.customerRepSplits.map(s=>`<tr><td><input value="${esc(s.customer_name||'')}" onchange="editCustomerRepIdentitySafeV469('${s.id}','customer_name',this.value)"></td><td><input value="${esc(s.clinic_name||'')}" onchange="editCustomerRepIdentitySafeV469('${s.id}','clinic_name',this.value)"></td><td><input list="rep_region_list_v469" value="${esc(s.region_code||'')}" onchange="editCustomerRepIdentitySafeV469('${s.id}','region_code',this.value)"></td><td><input type="number" min="0" max="100" step="0.01" value="${esc(s.percentage||0)}" onchange="editCustomerRepSplitV45('${s.id}','percentage',this.value,true)"></td><td><input value="${esc(s.notes||'')}" onchange="editCustomerRepSplitV45('${s.id}','notes',this.value,false)"></td><td><button class="btn small danger" onclick="deleteCustomerRepSplitV45('${s.id}')">${T('delete')}</button></td></tr>`).join('')}</table>`;
 }
 function customerRepSplitManagerV45(){
   ensureCustomerRepModuleV45();
