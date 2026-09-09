@@ -36224,6 +36224,61 @@ html body .summary-box.v303-auto-clickable:after{
   };
 })();
 </script>
+
+<script id="v470-analytics-region-fallback-safe">
+(function(){
+  function S(v){return String(v==null?'':v).trim()}
+  function norm(v){return S(v).toLowerCase().replace(/\s+/g,' ').replace(/[أإآ]/g,'ا').replace(/ى/g,'ي')}
+  function cleanRegion(v){
+    var s=S(v); if(!s)return '';
+    if(/^wwst\b/i.test(s))s=s.replace(/^wwst\b/i,'West');
+    if(/^(غير محدد|غير محددة|undefined|unknown|n\/a|-)+$/i.test(s))return '';
+    return s;
+  }
+  function customerForSale(s){
+    s=s||{};
+    var cid=S(s.customer_id||s.customerId);
+    var customers=Array.isArray(db&&db.customers)?db.customers:[];
+    if(cid){var c=customers.find(function(x){return S(x&&x.id)===cid});if(c)return c}
+    var nm=norm(s.customer_name||s.customer||s.clinic_name||s.client_name);
+    if(!nm)return null;
+    return customers.find(function(c){return [c.customer_name,c.official_name,c.name,c.clinic_name,c.full_name].some(function(v){return norm(v)===nm})})||null;
+  }
+  function regionFromCustomer(c){
+    if(!c)return '';
+    return cleanRegion(c.region_name||c.region||c.customer_region||c.customer_area||c.clinic_city||c.customer_city||c.area||c.zone||c.district||c.city||c.governorate);
+  }
+  function regionFromSplits(s,c){
+    var rows=Array.isArray(db&&db.customerRepSplits)?db.customerRepSplits:[];
+    var cid=S((c&&c.id)||s.customer_id||s.customerId);
+    var names=[s.customer_name,s.customer,s.clinic_name,c&&c.customer_name,c&&c.official_name,c&&c.name,c&&c.clinic_name].map(norm).filter(Boolean);
+    var regions=[];
+    rows.forEach(function(sp){
+      var match=false;
+      if(cid&&S(sp&&sp.customer_id)===cid)match=true;
+      if(!match){
+        var sn=[sp&&sp.customer_name,sp&&sp.clinic_name].map(norm).filter(Boolean);
+        match=sn.some(function(x){return names.indexOf(x)>=0});
+      }
+      if(match){var r=cleanRegion(sp&&sp.region_code);if(r&&regions.indexOf(r)<0)regions.push(r)}
+    });
+    return regions.length===1?regions[0]:'';
+  }
+  var base=window.regionNameVerifiedV307;
+  window.regionNameVerifiedV307=function(s){
+    var direct='';
+    try{if(typeof base==='function')direct=cleanRegion(base.call(this,s))}catch(e){}
+    if(direct)return direct;
+    s=s||{};
+    direct=cleanRegion(s.region_name||s.region||s.customer_region||s.customer_area||s.customer_city||s.area||s.zone||s.district||s.city||s.governorate);
+    if(direct)return direct;
+    var c=customerForSale(s);
+    var cr=regionFromCustomer(c); if(cr)return cr;
+    var sr=regionFromSplits(s,c); if(sr)return sr;
+    return 'غير محددة';
+  };
+})();
+</script>
 </body></html>';
 
     w.document.open();
