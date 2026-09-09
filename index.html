@@ -34778,6 +34778,22 @@ html body .summary-box.v303-auto-clickable:after{
     var rows=[];
 
     sales.forEach(function(s){
+      /* V458 PRESERVE: a manually selected order rep overrides customer split for this sale only. */
+      if(s&&s.manual_rep_override_v458===true){
+        var manualRep=A(db&&db.reps).find(function(r){
+          return String(r.id||'')===String(s.rep_id||'') || norm(r.name)===norm(s.rep_name||'');
+        })||null;
+        rows.push({
+          id:String(s.id||'')+'_manual_v458',
+          sale_id:s.id||'', date:s.date||'', customer_name:s.customer_name||'', clinic_name:s.clinic_name||'',
+          product_name:s.product_name||'', region_code:s.region_name||manualRep&&manualRep.region_code||'',
+          region_name:s.region_name||manualRep&&manualRep.region_code||'', rep_id:manualRep&&manualRep.id||s.rep_id||'',
+          rep_name:manualRep&&manualRep.name||s.rep_name||'', percentage:100,
+          total_qty:N(s.qty), total_amount:N(s.total), allocated_qty:N(s.qty), allocated_amount:N(s.total),
+          paid:N(s.paid), remaining:N(s.remaining), _manual_rep_override_v458:true, _mapping_status:'manual'
+        });
+        return;
+      }
       var c=customerForSale(s);
       var splits=splitRowsForCustomer(c);
 
@@ -35096,6 +35112,19 @@ html body .summary-box.v303-auto-clickable:after{
     A(db&&db.sales).forEach(function(s){
       if(s.approval_status && s.approval_status!=='approved')return;
       if(!inPeriod(s))return;
+
+      /* V458 PRESERVE: manual order rep owns 100% of this sale, independent of customer distribution. */
+      if(s&&s.manual_rep_override_v458===true){
+        var directManual=repByIdOrName(s.rep_id||s.rep_name);
+        rows.push({
+          sale:s, sale_id:s.id||'', customer:customerForSale(s), rep:directManual,
+          rep_id:directManual&&directManual.id||s.rep_id||'', rep_name:directManual&&directManual.name||s.rep_name||'',
+          region_code:s.region_name||directManual&&directManual.region_code||'', percentage:100,
+          qty:N(s.qty), total:N(s.total), paid:N(s.paid), remaining:N(s.remaining),
+          fallback:false, manual_rep_override_v458:true
+        });
+        return;
+      }
 
       var c=customerForSale(s);
       var splits=splitsForCustomer(c);
