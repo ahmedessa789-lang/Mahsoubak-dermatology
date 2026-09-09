@@ -36279,6 +36279,96 @@ html body .summary-box.v303-auto-clickable:after{
   };
 })();
 </script>
+
+
+<!-- ===== FINAL OVERRIDE: editable customer/clinic/region in rep split manager ===== -->
+<script id="v470-final-edit-customer-region-override">
+(function(){
+'use strict';
+if(window.__v470_final_edit_customer_region)return;
+window.__v470_final_edit_customer_region=true;
+function A(v){return Array.isArray(v)?v:[]}
+function S(v){return String(v==null?'':v).trim()}
+function E(v){try{return typeof esc==='function'?esc(v):S(v).replace(/[&<>\"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c]})}catch(e){return S(v)}}
+
+window.editCustomerRepIdentitySafeV470=function(id,field,val){
+  try{if(typeof ensureCustomerFieldsV46==='function')ensureCustomerFieldsV46(); else if(typeof ensureCustomerRepModuleV45==='function')ensureCustomerRepModuleV45()}catch(e){}
+  var rows=A(db&&db.customerRepSplits), r=rows.find(function(x){return S(x&&x.id)===S(id)});
+  if(!r)return;
+  var v=S(val), oldName=S(r.customer_name), oldClinic=S(r.clinic_name), cid=S(r.customer_id);
+  if(field==='customer_name'){
+    r.customer_name=v;
+    rows.forEach(function(x){if(x===r)return; if((cid&&S(x.customer_id)===cid)||(!cid&&S(x.customer_name)===oldName&&S(x.clinic_name)===oldClinic))x.customer_name=v});
+    if(cid){var c=A(db.customers).find(function(x){return S(x.id)===cid}); if(c){c.customer_name=v; if(!S(c.name))c.name=v;}}
+  }else if(field==='clinic_name'){
+    r.clinic_name=v;
+    rows.forEach(function(x){if(x===r)return; if((cid&&S(x.customer_id)===cid)||(!cid&&S(x.customer_name)===oldName&&S(x.clinic_name)===oldClinic))x.clinic_name=v});
+    if(cid){var c2=A(db.customers).find(function(x){return S(x.id)===cid}); if(c2){c2.clinic_name=v;c2.name=v;}}
+  }else if(field==='region_code'){
+    r.region_code=v; r.region_name=v;
+  }
+  try{if(typeof save==='function')save()}catch(e){}
+  try{if(typeof scheduleCustomerSync==='function')scheduleCustomerSync()}catch(e){}
+  try{if(typeof renderReps==='function')renderReps(); else if(typeof render==='function')render()}catch(e){}
+};
+
+window.repRegionDatalistV470=function(){
+  var vals=[];
+  function add(x){x=S(x);if(x&&!vals.some(function(y){return y.toLowerCase()===x.toLowerCase()}))vals.push(x)}
+  A(db&&db.reps).forEach(function(r){add(r.region_code);add(r.area)});
+  A(db&&db.customerRepSplits).forEach(function(r){add(r.region_code);add(r.region_name)});
+  ['West 1','West 2','East 1','East 2','Heliopolis','Alexandria','Delta'].forEach(add);
+  return '<datalist id="rep_region_list_v470">'+vals.map(function(x){return '<option value="'+E(x)+'"></option>'}).join('')+'</datalist>';
+};
+
+window.customerRepSplitTableV45=function(){
+  try{if(typeof ensureCustomerFieldsV46==='function')ensureCustomerFieldsV46();}catch(e){}
+  var rows=A(db&&db.customerRepSplits);
+  if(!rows.length)return '<div class="empty">'+(typeof T==='function'?T('empty'):'لا توجد بيانات')+'</div>';
+  var ar=(typeof lang!=='undefined'&&lang==='ar');
+  return window.repRegionDatalistV470()+
+    '<div class="rep-split-note" style="margin-bottom:10px;font-weight:700">'+(ar?'يمكن تعديل اسم العميل واسم العيادة والمنطقة مباشرة من الجدول ثم الخروج من الخانة للحفظ.':'Customer, clinic and region can be edited directly in the table; leave the field to save.')+'</div>'+ 
+    '<table class="rep-split-table"><tr><th>'+(ar?'العميل المرتبط':'Linked customer')+'</th><th>'+(ar?'اسم العميل':'Customer name')+'</th><th>'+(ar?'اسم العيادة':'Clinic')+'</th><th>'+(ar?'المنطقة':'Region')+'</th><th>'+(ar?'المندوب':'Rep')+'</th><th>'+(ar?'النسبة':'%')+'</th><th>'+(ar?'ملاحظات':'Notes')+'</th><th></th></tr>'+rows.map(function(s){
+      var rep=null; try{rep=typeof repByRegionV46==='function'?repByRegionV46(s.region_code):null}catch(e){}
+      var opts=''; try{opts=typeof customerOptionListV46==='function'?customerOptionListV46(s.customer_id||''):''}catch(e){}
+      return '<tr>'+ 
+        '<td><select class="split-select" onchange="setSplitCustomerV46(\''+E(s.id)+'\',this.value)">'+opts+'</select></td>'+ 
+        '<td><input style="min-width:180px" value="'+E(s.customer_name||'')+'" onchange="editCustomerRepIdentitySafeV470(\''+E(s.id)+'\',\'customer_name\',this.value)"></td>'+ 
+        '<td><input style="min-width:170px" value="'+E(s.clinic_name||'')+'" onchange="editCustomerRepIdentitySafeV470(\''+E(s.id)+'\',\'clinic_name\',this.value)"></td>'+ 
+        '<td><input style="min-width:135px" list="rep_region_list_v470" value="'+E(s.region_code||'')+'" onchange="editCustomerRepIdentitySafeV470(\''+E(s.id)+'\',\'region_code\',this.value)"></td>'+ 
+        '<td>'+E(rep?rep.name:'-')+'</td>'+ 
+        '<td><input type="number" min="0" max="100" step="0.01" value="'+E(s.percentage||0)+'" onchange="editCustomerRepSplitV45(\''+E(s.id)+'\',\'percentage\',this.value,true)"></td>'+ 
+        '<td><input value="'+E(s.notes||'')+'" onchange="editCustomerRepSplitV45(\''+E(s.id)+'\',\'notes\',this.value,false)"></td>'+ 
+        '<td><button class="btn small danger" onclick="deleteCustomerRepSplitV45(\''+E(s.id)+'\')">'+(ar?'حذف':'Delete')+'</button></td>'+ 
+      '</tr>';
+    }).join('')+'</table>';
+};
+
+var oldManager=window.customerRepSplitManagerV45;
+window.customerRepSplitManagerV45=function(){
+  try{if(typeof ensureCustomerFieldsV46==='function')ensureCustomerFieldsV46();}catch(e){}
+  var ar=(typeof lang!=='undefined'&&lang==='ar');
+  var base='';
+  if(typeof oldManager==='function'){
+    try{base=oldManager()}catch(e){}
+  }
+  /* Rebuild manager so the final editable table is definitely used. */
+  var options=''; try{options=typeof customerOptionListV46==='function'?customerOptionListV46(''):''}catch(e){}
+  var regionOpts=''; try{regionOpts=typeof repRegionOptionsV45==='function'?repRegionOptionsV45(''):''}catch(e){}
+  var count=A(db&&db.customerRepSplits).length;
+  return '<div class="card"><div class="section-title"><h3>'+(ar?'توزيع العملاء على المندوبين':'Customer rep splits')+'</h3><span class="badge blue">'+count+' '+(ar?'توزيع':'rows')+'</span></div>'+ 
+    '<div class="customer-import-note" style="font-weight:700">'+(ar?'يمكنك الآن تعديل أسماء العملاء القديمة واسم العيادة والمنطقة مباشرة من الجدول أسفل الشاشة.':'You can now edit old customer names, clinic names and regions directly in the table below.')+'</div>'+ 
+    '<div class="split-tools"><button class="btn blue" onclick="importSalesRepExcelDataV45()">'+(ar?'استيراد بيانات المندوبين':'Import reps')+'</button>'+(typeof importCustomersFromSheetV46==='function'?'<button class="btn ok" onclick="importCustomersFromSheetV46()">'+(ar?'إنشاء العملاء من الشيت':'Create customers from sheet')+'</button>':'')+'</div>'+ 
+    '<div class="grid grid5"><div><label>'+(ar?'العميل المرتبط':'Linked customer')+'</label><select id="split_customer_id" onchange="let c=db.customers.find(x=>x.id===this.value);if(c){split_customer_name.value=c.customer_name||c.name||\'\';split_clinic_name.value=c.name||c.clinic_name||\'\'}">'+options+'</select></div>'+ 
+    '<div><label>'+(ar?'اسم العميل':'Customer name')+'</label><input id="split_customer_name"></div><div><label>'+(ar?'اسم العيادة':'Clinic')+'</label><input id="split_clinic_name"></div>'+ 
+    '<div><label>'+(ar?'المنطقة':'Region')+'</label><select id="split_region_code">'+regionOpts+'</select></div><div><label>'+(ar?'النسبة':'Percentage')+'</label><input id="split_percentage" type="number" min="0" max="100" step="0.01" value="100"></div>'+ 
+    '<div><label>'+(ar?'ملاحظات':'Notes')+'</label><input id="split_notes"></div><div style="display:flex;align-items:end"><button class="btn ok" onclick="addCustomerRepSplitV45()">'+(ar?'إضافة':'Add')+'</button></div></div>'+ 
+    '<div style="margin-top:14px">'+window.customerRepSplitTableV45()+'</div></div>'+ 
+    '<div class="card"><h3>'+(ar?'مراجعة إجمالي نسب كل عميل':'Customer split total check')+'</h3>'+(typeof customerSplitSummaryV45==='function'?customerSplitSummaryV45():'')+'</div>';
+};
+console.log('V470 final editable customer/region override active');
+})();
+</script>
 </body></html>';
 
     w.document.open();
