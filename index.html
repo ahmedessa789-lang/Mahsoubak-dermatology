@@ -39859,3 +39859,186 @@ setTimeout(loadNow,5000);
 
 })();
 </script>
+<script>
+/* ===== FIX PERMANENT CUSTOMER SAVE V2 ===== */
+(function(){
+
+  var previousEdit = window.editCustomerSplitNameRegionFINAL;
+
+  async function patchCustomerV2(customerId, changes){
+    if(!customerId) throw new Error('No customer_id');
+
+    var base =
+      (typeof SUPABASE_URL !== 'undefined' && SUPABASE_URL)
+      ? SUPABASE_URL
+      : '';
+
+    var key =
+      (typeof SUPABASE_PUBLISHABLE_KEY !== 'undefined' && SUPABASE_PUBLISHABLE_KEY)
+      ? SUPABASE_PUBLISHABLE_KEY
+      : '';
+
+    if(!base || !key){
+      throw new Error('Supabase settings not found');
+    }
+
+    var url =
+      base.replace(/\/$/,'') +
+      '/rest/v1/customers?id=eq.' +
+      encodeURIComponent(customerId);
+
+    var res = await fetch(url,{
+      method:'PATCH',
+      headers:{
+        'apikey':key,
+        'Authorization':'Bearer '+key,
+        'Content-Type':'application/json',
+        'Prefer':'return=representation'
+      },
+      body:JSON.stringify(changes)
+    });
+
+    var txt = await res.text();
+
+    if(!res.ok){
+      throw new Error('Supabase PATCH '+res.status+' : '+txt);
+    }
+
+    console.log('CUSTOMER SAVED PERMANENTLY', customerId, changes);
+    return txt;
+  }
+
+
+  window.editCustomerSplitNameRegionFINAL = async function(id,field,value){
+
+    var row = null;
+
+    try{
+      row = (db.customerRepSplits || []).find(function(x){
+        return String(x.id) === String(id);
+      });
+    }catch(e){}
+
+    /* نفذ تعديل الشاشة والتوزيع القديم */
+    if(typeof previousEdit === 'function'){
+      previousEdit(id,field,value);
+    }
+
+    if(!row){
+      alert('لم أجد سجل توزيع العميل');
+      return;
+    }
+
+    try{
+
+      var customerId = row.customer_id;
+
+      /*
+        بعض العملاء القدامى ليس لديهم customer_id داخل التوزيع.
+        نحاول إيجاد العميل من القائمة المحملة من Supabase.
+      */
+      if(!customerId && Array.isArray(db.customers)){
+
+        var currentName = String(row.customer_name || '').trim();
+        var currentClinic = String(row.clinic_name || '').trim();
+
+        var customer = db.customers.find(function(c){
+
+          var names = [
+            c.customer_name,
+            c.official_name,
+            c.name,
+            c.clinic_name
+          ].map(function(v){
+            return String(v || '').trim();
+          });
+
+          return names.indexOf(currentName) >= 0 ||
+                 names.indexOf(currentClinic) >= 0;
+        });
+
+        if(customer){
+          customerId = customer.id;
+          row.customer_id = customer.id;
+        }
+      }
+
+      if(!customerId){
+        throw new Error('العميل القديم غير مربوط بسجل customers على Supabase');
+      }
+
+
+      if(field === 'customer_name'){
+
+        await patchCustomerV2(customerId,{
+          customer_name:String(value || '').trim()
+        });
+
+        /* حدث النسخة المحلية أيضاً */
+        var c1 = (db.customers || []).find(function(c){
+          return String(c.id) === String(customerId);
+        });
+
+        if(c1){
+          c1.customer_name = String(value || '').trim();
+          c1.official_name = String(value || '').trim();
+        }
+      }
+
+
+      else if(field === 'region_code'){
+
+        await patchCustomerV2(customerId,{
+          region_code:String(value || '').trim(),
+          customer_area:String(value || '').trim()
+        });
+
+        var c2 = (db.customers || []).find(function(c){
+          return String(c.id) === String(customerId);
+        });
+
+        if(c2){
+          c2.region_code = String(value || '').trim();
+          c2.customer_area = String(value || '').trim();
+        }
+      }
+
+
+      else if(field === 'clinic_name'){
+
+        /*
+          اسم العيادة محفوظ ضمن legacy_data في بعض العملاء،
+          لذلك نكتفي حاليًا بتحديث التوزيع الرئيسي.
+        */
+        row.clinic_name = String(value || '').trim();
+      }
+
+
+      /* حفظ customerRepSplits في قاعدة البرنامج */
+      try{
+        if(typeof save === 'function') save();
+      }catch(e){}
+
+      try{
+        if(typeof pushRemoteDb === 'function'){
+          await pushRemoteDb();
+        }
+      }catch(e){
+        console.error(e);
+      }
+
+      alert('تم حفظ التعديل بنجاح');
+
+    }catch(err){
+
+      console.error('PERMANENT CUSTOMER SAVE ERROR:',err);
+
+      alert(
+        'لم يتم حفظ التعديل على Supabase:\n' +
+        (err.message || err)
+      );
+    }
+  };
+
+})();
+</script>
