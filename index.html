@@ -40123,3 +40123,66 @@ try{editCustomerRepIdentitySafeV470=window.editCustomerRepIdentitySafeV470}catch
 console.log('V473 verified permanent customer edit active');
 })();
 </script>
+
+
+<script>
+/* ===== V474 LEGACY CUSTOMER SPLIT IDS FIX ===== */
+(function(){
+  function S(v){return String(v==null?'':v).trim()}
+  function A(v){return Array.isArray(v)?v:[]}
+  function makeId(i,row){
+    var seed=[S(row&&row.customer_name),S(row&&row.clinic_name),S(row&&row.region_code),S(row&&row.percentage),String(i)].join('|');
+    var h=2166136261;
+    for(var j=0;j<seed.length;j++){h^=seed.charCodeAt(j);h=Math.imul(h,16777619)}
+    return 'split_legacy_'+(h>>>0).toString(36)+'_'+i;
+  }
+  function ensureLegacySplitIdsV474(){
+    if(!window.db||!Array.isArray(db.customerRepSplits))return false;
+    var rows=db.customerRepSplits,seen={},changed=false;
+    rows.forEach(function(r,i){
+      if(!r)return;
+      var id=S(r.id);
+      if(!id||seen[id]){
+        var nid=makeId(i,r),n=1;
+        while(seen[nid])nid=makeId(i,r)+'_'+(n++);
+        r.id=nid;id=nid;changed=true;
+      }
+      seen[id]=true;
+    });
+    if(changed){
+      try{if(typeof save==='function')save()}catch(e){console.error('V474 local save',e)}
+      try{if(typeof pushRemoteDb==='function')pushRemoteDb()}catch(e){console.error('V474 remote save',e)}
+      console.log('V474: legacy customer split IDs repaired');
+    }
+    return changed;
+  }
+  window.ensureLegacySplitIdsV474=ensureLegacySplitIdsV474;
+
+  /* Ensure IDs before the user opens/edits the distribution screen. */
+  ensureLegacySplitIdsV474();
+  setTimeout(function(){
+    var changed=ensureLegacySplitIdsV474();
+    if(changed){
+      try{if(typeof renderReps==='function')renderReps();else if(typeof renderCustomers==='function')renderCustomers()}catch(e){}
+    }
+  },800);
+
+  /* Extra safety: repair IDs immediately before the real edit handler runs. */
+  var realEdit=window.editCustomerRepIdentitySafeV470;
+  if(typeof realEdit==='function'){
+    window.editCustomerRepIdentitySafeV470=async function(id,field,val){
+      ensureLegacySplitIdsV474();
+      var sid=S(id),rows=A(window.db&&db.customerRepSplits);
+      var row=rows.find(function(x){return S(x&&x.id)===sid});
+      if(!row && (!sid || sid==='undefined' || sid==='null')){
+        alert('تم إصلاح سجلات التوزيع القديمة. افتح شاشة التوزيع مرة أخرى ثم عدّل الاسم.');
+        try{if(typeof renderReps==='function')renderReps()}catch(e){}
+        return;
+      }
+      return realEdit.call(this,id,field,val);
+    };
+    window.editCustomerSplitNameRegionFINAL=window.editCustomerRepIdentitySafeV470;
+    try{editCustomerRepIdentitySafeV470=window.editCustomerRepIdentitySafeV470}catch(e){}
+  }
+})();
+</script>
