@@ -39762,3 +39762,100 @@ setTimeout(loadNow,5000);
 
 })();
 </script>
+<script>
+/* ===== PERMANENT CUSTOMER NAME / REGION SAVE TO SUPABASE ===== */
+(function(){
+
+  var oldEdit = window.editCustomerSplitNameRegionFINAL;
+
+  async function saveCustomerDirectToSupabase(customerId, changes){
+    if(!customerId || !window.SUPABASE_URL || !window.SUPABASE_PUBLISHABLE_KEY) return;
+
+    var url =
+      SUPABASE_URL +
+      '/rest/v1/customers?id=eq.' +
+      encodeURIComponent(customerId);
+
+    var res = await fetch(url,{
+      method:'PATCH',
+      headers:{
+        'apikey': SUPABASE_PUBLISHABLE_KEY,
+        'Authorization':'Bearer ' + SUPABASE_PUBLISHABLE_KEY,
+        'Content-Type':'application/json',
+        'Prefer':'return=minimal'
+      },
+      body:JSON.stringify(changes)
+    });
+
+    if(!res.ok){
+      throw new Error(
+        'Customer Supabase save failed: ' +
+        res.status + ' ' + await res.text()
+      );
+    }
+  }
+
+  window.editCustomerSplitNameRegionFINAL = async function(id,field,value){
+
+    var row = null;
+
+    try{
+      row = (db.customerRepSplits || []).find(function(x){
+        return String(x.id) === String(id);
+      });
+    }catch(e){}
+
+    /* شغل التعديل القديم الأول */
+    if(typeof oldEdit === 'function'){
+      oldEdit(id,field,value);
+    }
+
+    try{
+
+      /* لو الاسم اتغير احفظه فعلياً في جدول customers */
+      if(row && row.customer_id && field === 'customer_name'){
+
+        await saveCustomerDirectToSupabase(
+          row.customer_id,
+          {
+            customer_name:String(value || '').trim()
+          }
+        );
+      }
+
+      /* لو المنطقة اتغيرت احفظها أيضاً على العميل */
+      if(row && row.customer_id && field === 'region_code'){
+
+        await saveCustomerDirectToSupabase(
+          row.customer_id,
+          {
+            region_code:String(value || '').trim(),
+            customer_area:String(value || '').trim()
+          }
+        );
+      }
+
+      /* احفظ توزيع العميل في قاعدة البرنامج الرئيسية */
+      try{
+        if(typeof save === 'function') save();
+      }catch(e){}
+
+      /* إجبار المزامنة فوراً بدل انتظار المؤقت */
+      try{
+        if(typeof pushRemoteDb === 'function'){
+          await pushRemoteDb();
+        }
+      }catch(e){
+        console.error('Main DB sync:',e);
+      }
+
+      console.log('Customer change saved permanently.');
+
+    }catch(err){
+      console.error(err);
+      alert('حدث خطأ أثناء حفظ تعديل العميل على Supabase');
+    }
+  };
+
+})();
+</script>
