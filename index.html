@@ -39475,3 +39475,38 @@ setTimeout(loadNow,5000);
 @media(max-width:900px){#v455_split_table_shell .rep-split-table{min-width:760px}}
 </style>
 <script>console.log('V476 customer split table: visual-only new style active');</script>
+
+
+<script>
+/* FINAL NEW TABLE STYLE ONLY - DOES NOT CHANGE DATA OR SAVE LOGIC */
+(function(){
+  function e(v){
+    try{return typeof esc==='function'?esc(v):String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}catch(_){return String(v==null?'':v)}
+  }
+  window.customerRepSplitTableV45=function(){
+    try{ if(typeof ensureCustomerFieldsV46==='function') ensureCustomerFieldsV46(); else if(typeof ensureCustomerRepModuleV45==='function') ensureCustomerRepModuleV45(); }catch(_e){}
+    var rows=(window.db&&Array.isArray(db.customerRepSplits))?db.customerRepSplits:[];
+    if(!rows.length) return '<div class="empty">'+(typeof T==='function'?T('empty'):'لا توجد توزيعات عملاء')+'</div>';
+    var head='<table class="rep-split-table"><tr>'+
+      '<th>'+(typeof T==='function'?T('customerOfficialName'):'اسم العميل')+'</th>'+
+      '<th>'+(typeof T==='function'?T('clinicName'):'اسم العيادة')+'</th>'+
+      '<th>'+(typeof T==='function'?T('regionCode'):'المنطقة / الكود')+'</th>'+
+      '<th>'+(typeof T==='function'?T('percentage'):'النسبة %')+'</th>'+
+      '<th>'+(typeof T==='function'?T('notes'):'ملاحظات')+'</th><th></th></tr>';
+    var body=rows.map(function(s){
+      var id=e(s.id||'');
+      return '<tr>'+
+        '<td><input value="'+e(s.customer_name||'')+'" onchange="editCustomerRepSplitV45(\''+id+'\',\'customer_name\',this.value,false)"></td>'+
+        '<td><input value="'+e(s.clinic_name||'')+'" onchange="editCustomerRepSplitV45(\''+id+'\',\'clinic_name\',this.value,false)"></td>'+
+        '<td><input value="'+e(s.region_code||'')+'" onchange="editCustomerRepSplitV45(\''+id+'\',\'region_code\',this.value,false)"></td>'+
+        '<td><input type="number" min="0" max="100" step="0.01" value="'+e(s.percentage||0)+'" onchange="editCustomerRepSplitV45(\''+id+'\',\'percentage\',this.value,true)"></td>'+
+        '<td><input value="'+e(s.notes||'')+'" onchange="editCustomerRepSplitV45(\''+id+'\',\'notes\',this.value,false)"></td>'+
+        '<td><button class="btn small danger" onclick="deleteCustomerRepSplitV45(\''+id+'\')">'+(typeof T==='function'?T('delete'):'حذف')+'</button></td>'+
+      '</tr>';
+    }).join('');
+    return head+body+'</table>';
+  };
+  try{ customerRepSplitTableV45=window.customerRepSplitTableV45; }catch(_e){}
+  console.log('Final new customer distribution table style active');
+})();
+</script>
