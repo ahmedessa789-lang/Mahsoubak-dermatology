@@ -39540,3 +39540,225 @@ setTimeout(loadNow,2200);
 setTimeout(loadNow,5000);
 })();
 </script>
+
+
+<script>
+/* ===== FINAL CUSTOMER SPLIT EDIT FIX ===== */
+(function(){
+
+  function S(v){ return String(v == null ? '' : v).trim(); }
+  function A(v){ return Array.isArray(v) ? v : []; }
+  function E(v){
+    return String(v == null ? '' : v)
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;')
+      .replace(/'/g,'&#39;');
+  }
+
+  window.editCustomerSplitNameRegionFINAL = function(id, field, value){
+    if(!window.db || !Array.isArray(db.customerRepSplits)) return;
+
+    var row = db.customerRepSplits.find(function(x){
+      return String(x.id) === String(id);
+    });
+
+    if(!row) return;
+
+    var oldName   = S(row.customer_name);
+    var oldClinic = S(row.clinic_name);
+    var newValue  = S(value);
+
+    if(field === 'customer_name'){
+      row.customer_name = newValue;
+
+      /* تحديث كل توزيعات نفس العميل */
+      db.customerRepSplits.forEach(function(s){
+        if(s === row) return;
+
+        if(
+          (row.customer_id && s.customer_id === row.customer_id) ||
+          (
+            !row.customer_id &&
+            S(s.customer_name) === oldName &&
+            S(s.clinic_name) === oldClinic
+          )
+        ){
+          s.customer_name = newValue;
+        }
+      });
+
+      /* تحديث العميل نفسه لو مربوط */
+      if(row.customer_id){
+        var customer = A(db.customers).find(function(c){
+          return String(c.id) === String(row.customer_id);
+        });
+
+        if(customer){
+          customer.customer_name = newValue;
+          customer.official_name = newValue;
+        }
+      }
+    }
+
+    else if(field === 'clinic_name'){
+      row.clinic_name = newValue;
+
+      db.customerRepSplits.forEach(function(s){
+        if(s === row) return;
+
+        if(
+          (row.customer_id && s.customer_id === row.customer_id) ||
+          (
+            !row.customer_id &&
+            S(s.customer_name) === oldName &&
+            S(s.clinic_name) === oldClinic
+          )
+        ){
+          s.clinic_name = newValue;
+        }
+      });
+
+      if(row.customer_id){
+        var customer2 = A(db.customers).find(function(c){
+          return String(c.id) === String(row.customer_id);
+        });
+
+        if(customer2){
+          customer2.clinic_name = newValue;
+          customer2.name = newValue;
+        }
+      }
+    }
+
+    else if(field === 'region_code'){
+      row.region_code = newValue;
+    }
+
+    try{
+      if(typeof save === 'function') save();
+    }catch(e){
+      console.error(e);
+    }
+
+    /* مزامنة العميل مع Supabase لو الدالة موجودة */
+    try{
+      if(typeof scheduleCustomerSync === 'function'){
+        scheduleCustomerSync();
+      }
+    }catch(e){
+      console.error(e);
+    }
+  };
+
+
+  window.customerRepSplitTableV45 = function(){
+
+    var rows = A(db && db.customerRepSplits);
+    var ar = (typeof lang !== 'undefined' && lang === 'ar');
+
+    if(!rows.length){
+      return '<div class="empty">'+
+        (ar ? 'لا توجد توزيعات عملاء' : 'No customer distributions')+
+      '</div>';
+    }
+
+    /* قائمة اقتراحات المناطق الحالية */
+    var regions = [];
+
+    A(db.reps).forEach(function(r){
+      [r.region_code,r.area,r.region_name].forEach(function(v){
+        v = S(v);
+        if(v && regions.indexOf(v) === -1) regions.push(v);
+      });
+    });
+
+    rows.forEach(function(r){
+      var v = S(r.region_code);
+      if(v && regions.indexOf(v) === -1) regions.push(v);
+    });
+
+    var datalist =
+      '<datalist id="customer_split_regions_FINAL">'+
+      regions.map(function(r){
+        return '<option value="'+E(r)+'"></option>';
+      }).join('')+
+      '</datalist>';
+
+    var html =
+      datalist+
+      '<div style="overflow:auto">'+
+      '<table class="rep-split-table">'+
+      '<tr>'+
+      '<th>اسم العميل</th>'+
+      '<th>اسم العيادة</th>'+
+      '<th>المنطقة</th>'+
+      '<th>النسبة %</th>'+
+      '<th>الملاحظات</th>'+
+      '<th></th>'+
+      '</tr>';
+
+    rows.forEach(function(s){
+
+      html +=
+      '<tr>'+
+
+      '<td>'+
+      '<input type="text" value="'+E(s.customer_name || '')+'" '+
+      'onchange="editCustomerSplitNameRegionFINAL(\''+E(s.id)+'\',\'customer_name\',this.value)">'+
+      '</td>'+
+
+      '<td>'+
+      '<input type="text" value="'+E(s.clinic_name || '')+'" '+
+      'onchange="editCustomerSplitNameRegionFINAL(\''+E(s.id)+'\',\'clinic_name\',this.value)">'+
+      '</td>'+
+
+      '<td>'+
+      '<input type="text" list="customer_split_regions_FINAL" '+
+      'value="'+E(s.region_code || '')+'" '+
+      'onchange="editCustomerSplitNameRegionFINAL(\''+E(s.id)+'\',\'region_code\',this.value)">'+
+      '</td>'+
+
+      '<td>'+
+      '<input type="number" min="0" max="100" step="0.01" '+
+      'value="'+E(s.percentage || 0)+'" '+
+      'onchange="editCustomerRepSplitV45(\''+E(s.id)+'\',\'percentage\',this.value,true)">'+
+      '</td>'+
+
+      '<td>'+
+      '<input type="text" value="'+E(s.notes || '')+'" '+
+      'onchange="editCustomerRepSplitV45(\''+E(s.id)+'\',\'notes\',this.value,false)">'+
+      '</td>'+
+
+      '<td>'+
+      '<button class="btn small danger" '+
+      'onclick="deleteCustomerRepSplitV45(\''+E(s.id)+'\')">'+
+      (ar ? 'حذف' : 'Delete')+
+      '</button>'+
+      '</td>'+
+
+      '</tr>';
+    });
+
+    html += '</table></div>';
+
+    return html;
+  };
+
+  try{
+    customerRepSplitTableV45 = window.customerRepSplitTableV45;
+  }catch(e){}
+
+  /* لو شاشة العملاء مفتوحة وقت تحميل الكود */
+  setTimeout(function(){
+    try{
+      var view = document.getElementById('view-customers');
+      if(view && !view.classList.contains('hidden')){
+        if(typeof renderCustomers === 'function') renderCustomers();
+      }
+    }catch(e){}
+  },300);
+
+})();
+</script>
