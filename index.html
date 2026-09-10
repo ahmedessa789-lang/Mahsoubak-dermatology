@@ -40258,3 +40258,90 @@ console.log('V473 verified permanent customer edit active');
   },300);
 })();
 </script>
+
+
+<script id="v476-index-based-customer-split-edit">
+(function(){
+'use strict';
+if(window.__v476IndexBasedEdit)return;
+window.__v476IndexBasedEdit=true;
+function A(v){return Array.isArray(v)?v:[]}
+function S(v){return String(v==null?'':v).trim()}
+function E(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
+function norm(v){return S(v).toLowerCase().replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ')}
+function base(){try{return S(SUPABASE_URL)}catch(e){return ''}}
+function key(){try{return S(SUPABASE_PUBLISHABLE_KEY)}catch(e){return ''}}
+function headers(extra){var h={apikey:key(),Authorization:'Bearer '+key(),'Content-Type':'application/json'};Object.keys(extra||{}).forEach(function(k){h[k]=extra[k]});return h}
+async function api(path,opts){var b=base();if(!b||!key())throw new Error('Supabase settings not available');var r=await fetch(b.replace(/\/$/,'')+'/rest/v1/'+path,opts||{});var txt=await r.text();if(!r.ok)throw new Error('Supabase '+r.status+': '+txt);return txt?JSON.parse(txt):null}
+async function byId(id){if(!S(id))return null;var z=await api('customers?id=eq.'+encodeURIComponent(id)+'&select=*',{headers:headers()});return A(z)[0]||null}
+async function byExactName(name){if(!S(name))return null;var z=await api('customers?customer_name=eq.'+encodeURIComponent(S(name))+'&select=*&limit=5',{headers:headers()});z=A(z);return z.length===1?z[0]:null}
+async function resolve(row,oldName,oldClinic){
+  var c=null;
+  if(S(row&&row.customer_id)){c=await byId(row.customer_id);if(c)return c}
+  var n1=norm(oldName),n2=norm(oldClinic),local=A(window.db&&db.customers);
+  var m=local.filter(function(x){var vals=[x&&x.customer_name,x&&x.official_name,x&&x.name,x&&x.clinic_name].map(norm);return (n1&&vals.indexOf(n1)>=0)||(n2&&vals.indexOf(n2)>=0)});
+  if(m.length===1&&S(m[0].id)){c=await byId(m[0].id);if(c)return c}
+  c=await byExactName(oldName);if(c)return c;
+  throw new Error('لم أستطع تحديد العميل الحقيقي على Supabase بشكل آمن');
+}
+async function patchCustomer(id,body){
+  var z=await api('customers?id=eq.'+encodeURIComponent(id),{method:'PATCH',headers:headers({Prefer:'return=representation'}),body:JSON.stringify(body)});
+  z=A(z);if(z.length!==1)throw new Error('Supabase لم يرجع سجل عميل واحد بعد التعديل');
+  return z[0];
+}
+async function persistMain(){
+  var snap=JSON.parse(JSON.stringify(window.db||{}));snap.customers=[];
+  var table=(typeof SUPABASE_TABLE!=='undefined'&&SUPABASE_TABLE)?SUPABASE_TABLE:'mahsoubak_db';
+  var rid=(typeof SUPABASE_ROW_ID!=='undefined'&&SUPABASE_ROW_ID)?SUPABASE_ROW_ID:'main';
+  var z=await api(table+'?id=eq.'+encodeURIComponent(rid),{method:'PATCH',headers:headers({Prefer:'return=minimal'}),body:JSON.stringify({data:snap,updated_at:new Date().toISOString()})});
+  try{localStorage.setItem('mahsoubak_db',JSON.stringify(window.db||{}))}catch(e){}
+}
+window.editCustomerSplitByIndexV476=async function(index,field,value){
+  var rows=A(window.db&&db.customerRepSplits),i=Number(index);
+  if(!Number.isInteger(i)||i<0||i>=rows.length){alert('تعذر تحديد صف التوزيع الحالي');return}
+  var row=rows[i]; if(!row){alert('تعذر تحديد صف التوزيع الحالي');return}
+  var oldName=S(row.customer_name),oldClinic=S(row.clinic_name),nv=S(value),linked=null;
+  try{
+    if(field==='customer_name'||field==='region_code')linked=await resolve(row,oldName,oldClinic);
+    if(linked)row.customer_id=linked.id;
+    if(field==='customer_name'){
+      var saved=await patchCustomer(linked.id,{customer_name:nv});
+      if(S(saved.customer_name)!==nv)throw new Error('الاسم لم يتغير فعلياً على Supabase');
+      row.customer_name=nv;
+      rows.forEach(function(x){if(x!==row&&S(x&&x.customer_id)===S(linked.id))x.customer_name=nv});
+      var lc=A(db.customers).find(function(x){return S(x&&x.id)===S(linked.id)});if(lc){lc.customer_name=nv;lc.official_name=nv}
+    } else if(field==='region_code'){
+      var saved2=await patchCustomer(linked.id,{region_code:nv,customer_area:nv});
+      if(S(saved2.region_code)!==nv&&S(saved2.customer_area)!==nv)throw new Error('المنطقة لم تتغير فعلياً على Supabase');
+      row.region_code=nv;row.region_name=nv;
+      var lc2=A(db.customers).find(function(x){return S(x&&x.id)===S(linked.id)});if(lc2){lc2.region_code=nv;lc2.customer_area=nv}
+    } else if(field==='clinic_name'){
+      row.clinic_name=nv;
+    } else {return}
+    await persistMain();
+    alert('تم الحفظ والتأكد منه على Supabase');
+    try{if(typeof renderCustomers==='function')renderCustomers();else if(typeof renderReps==='function')renderReps()}catch(e){}
+  }catch(err){console.error('V476 customer edit failed',err);alert('لم يتم الحفظ بشكل دائم: '+(err&&err.message?err.message:err))}
+};
+
+/* Replace only the distribution table renderer; use ARRAY INDEX, never legacy id. */
+window.customerRepSplitTableV45=function(){
+  var rows=A(window.db&&db.customerRepSplits), ar=(typeof lang!=='undefined'&&lang==='ar');
+  if(!rows.length)return '<div class="empty">'+(ar?'لا توجد توزيعات عملاء':'No customer distributions')+'</div>';
+  var regs=[];A(window.db&&db.reps).forEach(function(r){[r&&r.region_code,r&&r.area,r&&r.region_name].forEach(function(v){v=S(v);if(v&&regs.indexOf(v)<0)regs.push(v)})});rows.forEach(function(r){var v=S(r&&r.region_code);if(v&&regs.indexOf(v)<0)regs.push(v)});
+  var h='<datalist id="v476_regions">'+regs.map(function(r){return '<option value="'+E(r)+'"></option>'}).join('')+'</datalist><div style="overflow:auto"><table class="rep-split-table"><tr><th>'+(ar?'اسم العميل':'Customer')+'</th><th>'+(ar?'اسم العيادة':'Clinic')+'</th><th>'+(ar?'المنطقة':'Region')+'</th><th>'+(ar?'النسبة %':'Percentage %')+'</th><th>'+(ar?'الملاحظات':'Notes')+'</th><th></th></tr>';
+  rows.forEach(function(s,i){
+    h+='<tr>'+
+      '<td><input style="min-width:180px" value="'+E(s&&s.customer_name||'')+'" onchange="editCustomerSplitByIndexV476('+i+',\'customer_name\',this.value)"></td>'+
+      '<td><input style="min-width:170px" value="'+E(s&&s.clinic_name||'')+'" onchange="editCustomerSplitByIndexV476('+i+',\'clinic_name\',this.value)"></td>'+
+      '<td><input style="min-width:135px" list="v476_regions" value="'+E(s&&s.region_code||'')+'" onchange="editCustomerSplitByIndexV476('+i+',\'region_code\',this.value)"></td>'+
+      '<td><input type="number" min="0" max="100" step="0.01" value="'+E((s&&s.percentage)||0)+'" onchange="editCustomerRepSplitV45(\''+E(s&&s.id||'')+'\',\'percentage\',this.value,true)"></td>'+
+      '<td><input value="'+E(s&&s.notes||'')+'" onchange="editCustomerRepSplitV45(\''+E(s&&s.id||'')+'\',\'notes\',this.value,false)"></td>'+
+      '<td><button class="btn small danger" onclick="deleteCustomerRepSplitV45(\''+E(s&&s.id||'')+'\')">'+(ar?'حذف':'Delete')+'</button></td></tr>';
+  });
+  return h+'</table></div>';
+};
+try{customerRepSplitTableV45=window.customerRepSplitTableV45}catch(e){}
+console.log('V476 index-based customer split edit active');
+})();
+</script>
