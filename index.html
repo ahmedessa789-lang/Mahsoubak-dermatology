@@ -37770,7 +37770,7 @@ html body .summary-box.v303-auto-clickable:after{
     var start=(state.splitPage-1)*state.splitPageSize;
     var pageRows=rows.slice(start,start+state.splitPageSize);
 
-    return '<div id="v455_split_table_shell">'+customerDatalist()+
+    return '<div id="v455_split_table_shell">'+customerDatalist()+(typeof repRegionDatalistV469==='function'?repRegionDatalistV469():'')+
       '<div id="v455_split_toolbar">'+
         '<input id="v455_split_search" value="'+E(state.splitQuery)+'" placeholder="'+(ar?'بحث في توزيعات العملاء...':'Search customer distributions...')+'" oninput="splitSearchV455(this.value)">'+
         '<span class="badge blue">'+rows.length+' / '+A(db&&db.customerRepSplits).length+'</span>'+
@@ -37783,7 +37783,7 @@ html body .summary-box.v303-auto-clickable:after{
             '<td><input class="v455-linked-input" list="v455_customer_datalist" value="'+E(c?customerLabel(c):S(s.customer_name||s.clinic_name))+'" onchange="setSplitCustomerByLabelV455(\''+E(s.id)+'\',this.value)"></td>'+
             '<td><input value="'+E(s.customer_name||'')+'" onchange="editCustomerRepSplitV45(\''+E(s.id)+'\',\'customer_name\',this.value,false)"></td>'+
             '<td><input value="'+E(s.clinic_name||'')+'" onchange="editCustomerRepSplitV45(\''+E(s.id)+'\',\'clinic_name\',this.value,false)"></td>'+
-            '<td><select onchange="editCustomerRepSplitV45(\''+E(s.id)+'\',\'region_code\',this.value,false)">'+repRegionOptionsV45(s.region_code||'')+'</select></td>'+
+            '<td><input list="rep_region_list_v469" value="'+E(s.region_code||'')+'" onchange="editCustomerRepSplitV45(\''+E(s.id)+'\',\'region_code\',this.value,false)"></td>'+
             '<td>'+E(rep?rep.name:'-')+'</td>'+
             '<td><input type="number" min="0" max="100" step="0.01" value="'+E(s.percentage||0)+'" onchange="editCustomerRepSplitV45(\''+E(s.id)+'\',\'percentage\',this.value,true)"></td>'+
             '<td><input value="'+E(s.notes||'')+'" onchange="editCustomerRepSplitV45(\''+E(s.id)+'\',\'notes\',this.value,false)"></td>'+
