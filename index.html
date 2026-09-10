@@ -40186,3 +40186,75 @@ console.log('V473 verified permanent customer edit active');
   }
 })();
 </script>
+
+<script>
+/* ===== V475 ENSURE SPLIT IDS BEFORE TABLE RENDER ===== */
+(function(){
+  function S(v){return String(v==null?'':v).trim()}
+  function A(v){return Array.isArray(v)?v:[]}
+  function makeId(i,row){
+    var seed=[S(row&&row.customer_name),S(row&&row.clinic_name),S(row&&row.region_code),S(row&&row.percentage),String(i)].join('|');
+    var h=2166136261;
+    for(var j=0;j<seed.length;j++){h^=seed.charCodeAt(j);h=Math.imul(h,16777619)}
+    return 'split_legacy_'+(h>>>0).toString(36)+'_'+i;
+  }
+  function ensureNow(){
+    if(!window.db||!Array.isArray(db.customerRepSplits))return false;
+    var seen={},changed=false;
+    db.customerRepSplits.forEach(function(r,i){
+      if(!r)return;
+      var id=S(r.id);
+      if(!id||seen[id]){
+        var nid=makeId(i,r),n=1;
+        while(seen[nid])nid=makeId(i,r)+'_'+(n++);
+        r.id=nid; id=nid; changed=true;
+      }
+      seen[id]=true;
+    });
+    if(changed){
+      try{localStorage.setItem('mahsoubak_db',JSON.stringify(db))}catch(e){}
+      try{if(typeof save==='function')save()}catch(e){}
+      try{if(typeof pushRemoteDb==='function')pushRemoteDb()}catch(e){}
+      console.log('V475: IDs fixed BEFORE distribution table render');
+    }
+    return changed;
+  }
+  window.ensureCustomerSplitIdsBeforeRenderV475=ensureNow;
+
+  var oldTable=window.customerRepSplitTableV45;
+  if(typeof oldTable!=='function'){
+    try{if(typeof customerRepSplitTableV45==='function')oldTable=customerRepSplitTableV45}catch(e){}
+  }
+  if(typeof oldTable==='function'){
+    window.customerRepSplitTableV45=function(){
+      ensureNow();
+      return oldTable.apply(this,arguments);
+    };
+    try{customerRepSplitTableV45=window.customerRepSplitTableV45}catch(e){}
+  }
+
+  /* Also ensure immediately before final edit lookup. */
+  var edit=window.editCustomerRepIdentitySafeV470;
+  if(typeof edit==='function'){
+    window.editCustomerRepIdentitySafeV470=async function(id,field,val){
+      ensureNow();
+      return edit.call(this,id,field,val);
+    };
+    window.editCustomerSplitNameRegionFINAL=window.editCustomerRepIdentitySafeV470;
+    try{editCustomerRepIdentitySafeV470=window.editCustomerRepIdentitySafeV470}catch(e){}
+  }
+
+  /* DB may arrive after page load, so force one safe rerender once it is available. */
+  var tries=0;
+  var timer=setInterval(function(){
+    tries++;
+    if(window.db&&Array.isArray(db.customerRepSplits)){
+      var changed=ensureNow();
+      if(changed){
+        try{if(typeof renderCustomers==='function')renderCustomers(); else if(typeof renderReps==='function')renderReps()}catch(e){}
+      }
+      clearInterval(timer);
+    } else if(tries>20){clearInterval(timer)}
+  },300);
+})();
+</script>
