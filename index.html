@@ -36116,7 +36116,15 @@ html body .summary-box.v303-auto-clickable:after{
       '<div class="row"><div class="label">ملاحظات</div><div class="value">'+E(r.notes||'-')+'</div></div>'+
       '</div>'+
       '<script>window.onload=function(){setTimeout(function(){window.print()},120)}<\/script>'+
-      '
+      '</body></html>';
+
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+  };
+})();
+</script>
+
 <!-- ===== V469 SAFE: dashboard/current-rep consistency only; no DB mutation ===== -->
 <script id="v469-safe-rep-dashboard-consistency">
 (function(){
@@ -36369,14 +36377,18 @@ window.customerRepSplitManagerV45=function(){
 console.log('V470 final editable customer/region override active');
 })();
 </script>
-</body></html>';
 
-    w.document.open();
-    w.document.write(html);
-    w.document.close();
-  };
+<script id="v471-dashboard-collections-compat">
+(function(){
+  try{
+    if(typeof window.dashboardCollectionsAllV445!=='function' && typeof dashboardCollectionsAllV446==='function'){
+      window.dashboardCollectionsAllV445=dashboardCollectionsAllV446;
+      try{dashboardCollectionsAllV445=window.dashboardCollectionsAllV445}catch(e){}
+    }
+  }catch(e){}
 })();
 </script>
+
 
 
 
@@ -40041,4 +40053,71 @@ setTimeout(loadNow,5000);
   };
 
 })();
+</script>\n<script id="v472-permanent-split-customer-supabase-save">
+(function(){
+'use strict';
+function A(v){return Array.isArray(v)?v:[]}
+function S(v){return String(v==null?'':v).trim()}
+function norm(v){return S(v).toLowerCase().replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ')}
+function getBase(){try{return typeof SUPABASE_URL!=='undefined'?S(SUPABASE_URL):''}catch(e){return ''}}
+function getKey(){try{return typeof SUPABASE_PUBLISHABLE_KEY!=='undefined'?S(SUPABASE_PUBLISHABLE_KEY):''}catch(e){return ''}}
+async function patchCustomer(id,body){
+  var base=getBase(),key=getKey();
+  if(!base||!key)throw new Error('Supabase settings not available');
+  var res=await fetch(base.replace(/\/$/,'')+'/rest/v1/customers?id=eq.'+encodeURIComponent(id),{
+    method:'PATCH',headers:{apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify(body)
+  });
+  var txt=await res.text();
+  if(!res.ok)throw new Error('Supabase PATCH '+res.status+': '+txt);
+  return txt;
+}
+function findLinked(row,oldName,oldClinic){
+  var customers=A(window.db&&db.customers);
+  if(S(row&&row.customer_id)){
+    var byId=customers.find(function(c){return S(c&&c.id)===S(row.customer_id)});
+    if(byId)return byId;
+  }
+  var n1=norm(oldName),n2=norm(oldClinic);
+  return customers.find(function(c){
+    var vals=[c&&c.customer_name,c&&c.official_name,c&&c.name,c&&c.clinic_name].map(norm);
+    return (n1&&vals.indexOf(n1)>=0)||(n2&&vals.indexOf(n2)>=0);
+  })||null;
+}
+window.editCustomerRepIdentitySafeV470=async function(id,field,val){
+  try{if(typeof ensureCustomerFieldsV46==='function')ensureCustomerFieldsV46();else if(typeof ensureCustomerRepModuleV45==='function')ensureCustomerRepModuleV45()}catch(e){}
+  var rows=A(window.db&&db.customerRepSplits);
+  var row=rows.find(function(x){return S(x&&x.id)===S(id)});
+  if(!row){alert('لم أجد سجل توزيع العميل');return;}
+  var oldName=S(row.customer_name),oldClinic=S(row.clinic_name),nv=S(val);
+  var linked=findLinked(row,oldName,oldClinic);
+  try{
+    if(!linked||!S(linked.id))throw new Error('لم أجد العميل المرتبط داخل قائمة العملاء المحملة من Supabase');
+    row.customer_id=linked.id;
+    if(field==='customer_name'){
+      row.customer_name=nv;
+      rows.forEach(function(x){if(x!==row&&S(x.customer_id)===S(linked.id))x.customer_name=nv});
+      await patchCustomer(linked.id,{customer_name:nv});
+      linked.customer_name=nv;linked.official_name=nv;
+    }else if(field==='region_code'){
+      row.region_code=nv;row.region_name=nv;
+      await patchCustomer(linked.id,{region_code:nv,customer_area:nv});
+      linked.region_code=nv;linked.customer_area=nv;
+    }else if(field==='clinic_name'){
+      row.clinic_name=nv;
+      rows.forEach(function(x){if(x!==row&&S(x.customer_id)===S(linked.id))x.clinic_name=nv});
+      /* clinic_name is not a guaranteed top-level column; keep this in split snapshot only */
+    }
+    try{if(typeof save==='function')save()}catch(e){}
+    try{if(typeof pushRemoteDb==='function')await pushRemoteDb()}catch(e){console.error('main snapshot sync',e)}
+    console.log('V472 saved permanently',linked.id,field,nv);
+    try{if(typeof renderReps==='function')renderReps();else if(typeof render==='function')render()}catch(e){}
+  }catch(err){
+    console.error('V472 permanent edit failed',err);
+    alert('لم يتم حفظ التعديل بشكل دائم: '+(err&&err.message?err.message:err));
+  }
+};
+try{editCustomerRepIdentitySafeV470=window.editCustomerRepIdentitySafeV470}catch(e){}
+console.log('V472 permanent customer/region save active');
+})();
 </script>
+
