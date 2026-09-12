@@ -36523,14 +36523,12 @@ html body .summary-box.v303-auto-clickable:after{
     c.collections_unapplied_v431=cols.reduce(function(a,x){return a+N(x.unapplied_amount_v431)},0);
 
     /*
-      V433 SINGLE SOURCE OF TRUTH:
-      Customer debt shown everywhere = actual outstanding invoices after approved
-      collections. Do not infer a hidden historical opening balance from an old
-      mismatch, because that makes customer cards disagree with collections reports.
+      CLEAN V480 REPORT LEDGER:
+      Calculate invoice outstanding for reports/audits only. The editable customer
+      balance remains the authoritative current debt used by the customer list and dashboard.
     */
-    c.opening_balance_v432=0;
-    c.balance=N(c.invoice_outstanding_v431);
-    c.balance_source_v432='invoice_outstanding_only_v433';
+    /* CLEAN V480: invoice reconciliation is audit/report data only.
+       Customer.balance is the master current debt and must not be overwritten here. */
     c.collection_reconciled_at_v431=new Date().toISOString();
 
     if(persist!==false){
@@ -36606,98 +36604,12 @@ html body .summary-box.v303-auto-clickable:after{
       };
     });
   };
-
-  /* Backfill historical approved collections once on load. */
-  setTimeout(function(){
-    try{
-      window.reconcileAllCustomerCollectionsV431(true);
-      if(typeof render==='function')render();
-    }catch(e){console.error('V431 debt reconciliation',e)}
-  },900);
+  /* CLEAN V480: no full debt reconciliation on startup; reports reconcile only when needed. */
 })();
 </script>
 
 
-<script id="v433-customer-debt-single-source">
-(function(){
-  function A(v){return Array.isArray(v)?v:[]}
-  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
 
-  window.customerDebtAuthoritativeV433=function(){
-    try{
-      if(typeof window.reconcileAllCustomerCollectionsV431==='function'){
-        window.reconcileAllCustomerCollectionsV431(false);
-      }
-    }catch(e){}
-
-    return A(db.customers).reduce(function(sum,c){
-      return sum+Math.max(0,N(c.invoice_outstanding_v431!=null?c.invoice_outstanding_v431:c.balance));
-    },0);
-  };
-
-  window.syncCustomerDebtSingleSourceV433=function(persist){
-    var changed=0;
-    try{
-      if(typeof window.reconcileAllCustomerCollectionsV431==='function'){
-        window.reconcileAllCustomerCollectionsV431(false);
-      }
-    }catch(e){}
-
-    A(db.customers).forEach(function(c){
-      var debt=Math.max(0,N(c.invoice_outstanding_v431));
-      if(Math.abs(N(c.balance)-debt)>0.001)changed++;
-      c.opening_balance_v432=0;
-      c.balance=debt;
-      c.balance_source_v432='invoice_outstanding_only_v433';
-    });
-
-    if(persist!==false){
-      try{if(typeof save==='function')save()}catch(e){}
-    }
-    return {changed:changed,total:window.customerDebtAuthoritativeV433()};
-  };
-
-  /*
-    Legacy dashboard helpers often sum c.balance. Keep c.balance synchronized
-    before every main render so all old cards automatically show the same debt.
-  */
-  var renderBaseV433=window.render;
-  if(typeof renderBaseV433==='function'){
-    window.render=function(){
-      try{window.syncCustomerDebtSingleSourceV433(false)}catch(e){}
-      return renderBaseV433.apply(this,arguments);
-    };
-    try{render=window.render}catch(e){}
-  }
-
-  var dashboardBaseV433=window.renderDashboard;
-  if(typeof dashboardBaseV433==='function'){
-    window.renderDashboard=function(){
-      try{window.syncCustomerDebtSingleSourceV433(false)}catch(e){}
-      return dashboardBaseV433.apply(this,arguments);
-    };
-    try{renderDashboard=window.renderDashboard}catch(e){}
-  }
-
-  var collectionsBaseV433=window.renderCollections;
-  if(typeof collectionsBaseV433==='function'){
-    window.renderCollections=function(){
-      try{window.syncCustomerDebtSingleSourceV433(false)}catch(e){}
-      return collectionsBaseV433.apply(this,arguments);
-    };
-    try{renderCollections=window.renderCollections}catch(e){}
-  }
-
-  /* Persist the correction once after loading existing Supabase/local data. */
-  setTimeout(function(){
-    try{
-      var r=window.syncCustomerDebtSingleSourceV433(true);
-      console.log('V433 customer debt synchronized',r);
-      if(typeof render==='function')render();
-    }catch(e){console.error('V433 debt sync',e)}
-  },1200);
-})();
-</script>
 
 
 <script id="v434-collections-date-audit">
@@ -39459,486 +39371,11 @@ table.rep-split-table th:first-child,
 table.rep-split-table td:first-child{display:none !important;}
 </style>
 
-
-<script id="v476-dashboard-customer-debt-safe-readonly">
-(function(){
-  if(window.__mbDebtDashboardV476)return;
-  window.__mbDebtDashboardV476=true;
-
-  function A(v){return Array.isArray(v)?v:[]}
-  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
-  function S(v){return String(v==null?'':v).trim()}
-  function norm(v){return S(v).toLowerCase().replace(/\s+/g,' ')}
-  function approved(row){
-    var st=norm(row&&(row.approval_status||row.status||'approved'));
-    return st!=='pending'&&st!=='rejected'&&st!=='cancelled'&&st!=='canceled';
-  }
-  function realSale(row){
-    if(!approved(row))return false;
-    var t=norm(row&&(row.order_type||row.order_type_label||'sale'));
-    return t.indexOf('bonus')<0&&t.indexOf('بونص')<0&&t.indexOf('sample')<0&&
-           t.indexOf('free')<0&&t.indexOf('display')<0&&t.indexOf('عين')<0&&t.indexOf('عرض')<0;
-  }
-  function saleTotal(row){return N(row&&(row.total_including_vat!=null?row.total_including_vat:row.total))}
-  function invoiceKey(row){
-    if(S(row&&row.invoice_no))return 'NO|'+norm(row.invoice_no);
-    if(S(row&&row.invoice_group_id))return 'GROUP|'+S(row.invoice_group_id);
-    return 'ROW|'+S(row&&row.id);
-  }
-  function customerLabel(c){return S(c&&(c.customer_name||c.official_name||c.name||c.clinic_name))}
-
-  function buildCustomerResolver(){
-    var customers=A(db&&db.customers), byId=new Map(), aliasOwners=new Map(), aliasesById=new Map();
-    function addAlias(c,v){
-      var k=norm(v); if(!k||!c)return;
-      var id=S(c.id); if(!id)return;
-      if(!aliasesById.has(id))aliasesById.set(id,new Set());
-      aliasesById.get(id).add(k);
-      if(!aliasOwners.has(k))aliasOwners.set(k,new Set());
-      aliasOwners.get(k).add(id);
-    }
-    customers.forEach(function(c){
-      var id=S(c.id); if(id)byId.set(id,c);
-      [c.customer_name,c.official_name,c.name,c.clinic_name].forEach(function(v){addAlias(c,v)});
-    });
-    A(db&&db.customerRepSplits).forEach(function(sp){
-      var id=S(sp&&(sp.customer_id||sp.linked_customer_id||sp.customer_ref_id));
-      var c=id?byId.get(id):null;
-      if(c){addAlias(c,sp.customer_name);addAlias(c,sp.clinic_name)}
-    });
-    function resolve(row){
-      if(!row)return null;
-      var id=S(row.customer_id||row.linked_customer_id||row.customer_ref_id);
-      if(id&&byId.has(id))return byId.get(id);
-      var candidates=[row.customer_name,row.customer,row.client_name,row.clinic_name,row.customer_clinic];
-      for(var i=0;i<candidates.length;i++){
-        var k=norm(candidates[i]); if(!k)continue;
-        var owners=aliasOwners.get(k);
-        if(owners&&owners.size===1){var only=Array.from(owners)[0];return byId.get(only)||null}
-      }
-      return null;
-    }
-    return {customers:customers,resolve:resolve};
-  }
-
-  function summary(){
-    var R=buildCustomerResolver(), data=new Map(), unmatchedSales=0, unmatchedCollections=0;
-    R.customers.forEach(function(c){data.set(S(c.id),{customer:c,groups:new Map(),collections:0,debt:0})});
-
-    A(db&&db.sales).forEach(function(row){
-      if(!realSale(row))return;
-      var c=R.resolve(row); if(!c){unmatchedSales++;return}
-      var bucket=data.get(S(c.id)); if(!bucket)return;
-      var key=invoiceKey(row), g=bucket.groups.get(key);
-      if(!g){g={rows:[],total:0};bucket.groups.set(key,g)}
-      g.rows.push(row); g.total+=saleTotal(row);
-    });
-
-    A(db&&db.collections).forEach(function(row){
-      if(!approved(row))return;
-      var c=R.resolve(row); if(!c){unmatchedCollections++;return}
-      var bucket=data.get(S(c.id)); if(bucket)bucket.collections+=Math.max(0,N(row.amount));
-    });
-
-    data.forEach(function(bucket){
-      var receivable=0;
-      bucket.groups.forEach(function(g){
-        var initialPaid=0, rows=g.rows;
-        var recv=rows.map(function(r){return r.receivable_at_sale_v431!=null?N(r.receivable_at_sale_v431):null}).filter(function(v){return v!=null});
-        if(recv.length){
-          var sameRecv=recv.every(function(v){return Math.abs(v-recv[0])<0.001});
-          if(sameRecv) initialPaid=Math.max(0,g.total-recv[0]);
-          else initialPaid=Math.max(0,g.total-recv.reduce(function(a,b){return a+b},0));
-        }else{
-          var saved=rows.map(function(r){return r.initial_paid_v431!=null?N(r.initial_paid_v431):null}).filter(function(v){return v!=null});
-          if(saved.length){
-            var sameSaved=saved.every(function(v){return Math.abs(v-saved[0])<0.001});
-            initialPaid=sameSaved?saved[0]:saved.reduce(function(a,b){return a+b},0);
-          }else{
-            var paid=rows.map(function(r){return N(r.paid)});
-            var samePaid=paid.length&&paid.every(function(v){return Math.abs(v-paid[0])<0.001});
-            initialPaid=samePaid?paid[0]:paid.reduce(function(a,b){return a+b},0);
-          }
-        }
-        initialPaid=Math.max(0,Math.min(g.total,initialPaid));
-        receivable+=Math.max(0,g.total-initialPaid);
-      });
-      bucket.debt=Math.max(0,receivable-bucket.collections);
-    });
-
-    var rows=Array.from(data.values()).map(function(x){return {customer:x.customer,debt:x.debt}});
-    return {
-      rows:rows,
-      total:rows.reduce(function(a,x){return a+x.debt},0),
-      debtors:rows.filter(function(x){return x.debt>0.005}).length,
-      unmatchedSales:unmatchedSales,
-      unmatchedCollections:unmatchedCollections
-    };
-  }
-
-  window.dashboardCustomerDebtSummaryV476=summary;
-  window.customerDebt=function(){return summary().total};
-  try{customerDebt=window.customerDebt}catch(e){}
-
-  window.customersCardBars=function(){
-    var x=summary().rows.filter(function(r){return r.debt>0.005}).sort(function(a,b){return b.debt-a.debt}).slice(0,4)
-      .map(function(r){return {l:(customerLabel(r.customer)||'عميل').split(' ')[0],v:r.debt}});
-    return typeof simpleBarsFromTotals==='function'?simpleBarsFromTotals(x,(typeof lang!=='undefined'&&lang==='ar')?'عميل':'Customer'):x;
-  };
-  try{customersCardBars=window.customersCardBars}catch(e){}
-
-  window.customerDebtTable=function(){
-    var ar=typeof lang!=='undefined'&&lang==='ar';
-    var arr=summary().rows.filter(function(r){return r.debt>0.005}).sort(function(a,b){return b.debt-a.debt});
-    if(!arr.length)return '<div class="empty">'+(typeof T==='function'?T('empty'):(ar?'لا توجد بيانات':'No data'))+'</div>';
-    return '<table><tr><th>'+(ar?'العميل':'Customer')+'</th><th>'+(ar?'التليفون':'Phone')+'</th><th>'+(ar?'المديونية':'Debt')+'</th></tr>'+arr.map(function(r){
-      var c=r.customer||{};
-      return '<tr><td>'+(typeof esc==='function'?esc(customerLabel(c)):customerLabel(c))+'</td><td>'+(typeof esc==='function'?esc(c.phone||''):S(c.phone))+'</td><td>'+(typeof money==='function'?money(r.debt):r.debt.toFixed(2))+'</td></tr>';
-    }).join('')+'</table>';
-  };
-  try{customerDebtTable=window.customerDebtTable}catch(e){}
-
-  /* Dashboard-only compatibility: legacy cards count debtors from c.balance.
-     Temporarily expose the calculated values during render, then restore originals.
-     Nothing is persisted and Supabase balances are not modified by this patch. */
-  var baseDashboard=window.renderDashboard;
-  if(typeof baseDashboard==='function'){
-    window.renderDashboard=function(){
-      var calc=summary(), old=[];
-      calc.rows.forEach(function(r){old.push([r.customer,r.customer.balance]);r.customer.balance=r.debt});
-      try{return baseDashboard.apply(this,arguments)}
-      finally{old.forEach(function(x){x[0].balance=x[1]})}
-    };
-    try{renderDashboard=window.renderDashboard}catch(e){}
-  }
-
-  console.log('V476 dashboard debt: read-only transaction calculation active');
-})();
-</script>
-
-
-<script id="v476-customer-list-persistent-edit">
+<script id="v480-clean-customer-master-single-source">
 (function(){
   'use strict';
-  function S(v){return String(v==null?'':v).trim()}
-  function A(v){return Array.isArray(v)?v:[]}
-  function supaBase(){try{return (typeof SUPABASE_URL!=='undefined'&&SUPABASE_URL)?String(SUPABASE_URL).replace(/\/$/,''):''}catch(e){return ''}}
-  function supaKey(){try{return (typeof SUPABASE_PUBLISHABLE_KEY!=='undefined'&&SUPABASE_PUBLISHABLE_KEY)?String(SUPABASE_PUBLISHABLE_KEY):''}catch(e){return ''}}
-  async function patchCustomerV476(id,payload){
-    var U=supaBase(),K=supaKey();
-    if(!U||!K||!id)throw new Error('Supabase customer settings/id missing');
-    var r=await fetch(U+'/rest/v1/customers?id=eq.'+encodeURIComponent(id),{
-      method:'PATCH',headers:{apikey:K,Authorization:'Bearer '+K,'Content-Type':'application/json',Prefer:'return=representation'},
-      body:JSON.stringify(payload)
-    });
-    var t=await r.text();
-    if(!r.ok)throw new Error('Supabase '+r.status+' '+t);
-    return t;
-  }
-  function legacyOf(c){var x=c&&c.legacy_data;return x&&typeof x==='object'&&!Array.isArray(x)?Object.assign({},x):{}}
-  function syncSplits(c,field,val,oldVal){
-    A(db&&db.customerRepSplits).forEach(function(s){
-      if(S(s.customer_id)===S(c.id)){
-        if(field==='customer_name')s.customer_name=val;
-        if(field==='name'||field==='clinic_name')s.clinic_name=val;
-        if(field==='area'||field==='customer_area'||field==='region_code')s.region_code=val;
-      }else if(field==='customer_name'&&oldVal&&S(s.customer_name)===S(oldVal)){
-        s.customer_name=val;
-      }
-    });
-  }
-  var baseEdit=window.editCell || (typeof editCell==='function'?editCell:null);
-  window.editCell=async function(table,id,field,value,isNumber){
-    if(table!=='customers')return typeof baseEdit==='function'?baseEdit.apply(this,arguments):undefined;
-    var c=A(db&&db.customers).find(function(x){return S(x&&x.id)===S(id)});
-    if(!c)return;
-    var old=c[field], val=isNumber?(Number(value)||0):S(value);
-    c[field]=val;
-    var payload={},legacy=legacyOf(c);
-    if(field==='customer_name')payload.customer_name=val;
-    else if(field==='phone')payload.phone=val;
-    else if(field==='address')payload.address=val;
-    else if(field==='balance')payload.balance=val;
-    else if(field==='notes')payload.notes=val;
-    else if(field==='type'){payload.customer_type=val;c.customer_type=val;}
-    else if(field==='area'||field==='customer_area'||field==='region_code'){
-      payload.customer_area=val;payload.region_code=val;c.area=val;c.customer_area=val;c.region_code=val;
-    }else if(field==='customer_rep_distribution'){
-      try{if(typeof save==='function')save()}catch(e){}
-      return;
-    }else{
-      legacy[field]=val;payload.legacy_data=legacy;c.legacy_data=legacy;
-    }
-    syncSplits(c,field,val,old);
-    try{
-      await patchCustomerV476(c.id,payload);
-      try{if(typeof save==='function')save()}catch(e){}
-    }catch(err){
-      c[field]=old;
-      console.error('Customer save failed',err);
-      alert((typeof lang!=='undefined'&&lang==='ar'?'تعذر حفظ تعديل العميل على Supabase: ':'Customer save failed: ')+(err.message||err));
-    }
-  };
-  try{editCell=window.editCell}catch(e){}
-
-  window.editCustomerClinicNameV46=async function(id,val){
-    var c=A(db&&db.customers).find(function(x){return S(x&&x.id)===S(id)});if(!c)return;
-    var oldName=c.name,oldClinic=c.clinic_name,newVal=S(val),legacy=legacyOf(c);
-    c.name=newVal;c.clinic_name=newVal;legacy.name=newVal;legacy.clinic_name=newVal;c.legacy_data=legacy;
-    syncSplits(c,'clinic_name',newVal,oldClinic||oldName);
-    try{
-      await patchCustomerV476(c.id,{legacy_data:legacy});
-      try{if(typeof save==='function')save()}catch(e){}
-    }catch(err){
-      c.name=oldName;c.clinic_name=oldClinic;
-      console.error('Customer clinic save failed',err);
-      alert((typeof lang!=='undefined'&&lang==='ar'?'تعذر حفظ اسم العيادة على Supabase: ':'Clinic name save failed: ')+(err.message||err));
-    }
-  };
-  try{editCustomerClinicNameV46=window.editCustomerClinicNameV46}catch(e){}
-})();
-</script>
-
-
-
-<script id="v477-customer-list-edit-like-distribution-final">
-(function(){
-  'use strict';
-  if(window.__mbCustomerListEditV477)return;
-  window.__mbCustomerListEditV477=true;
-
-  function S(v){return String(v==null?'':v).trim()}
-  function A(v){return Array.isArray(v)?v:[]}
-  function U(){try{return String(typeof SUPABASE_URL!=='undefined'?SUPABASE_URL:'').replace(/\/$/,'')}catch(e){return ''}}
-  function K(){try{return String(typeof SUPABASE_PUBLISHABLE_KEY!=='undefined'?SUPABASE_PUBLISHABLE_KEY:'')}catch(e){return ''}}
-  function legacyOf(c){var x=c&&c.legacy_data;return x&&typeof x==='object'&&!Array.isArray(x)?Object.assign({},x):{}}
-  function headers(extra){return Object.assign({apikey:K(),Authorization:'Bearer '+K(),'Content-Type':'application/json'},extra||{})}
-
-  async function patchAndVerify(id,payload,expected){
-    if(!id||!U()||!K())throw new Error('Supabase customer settings/id missing');
-    var url=U()+'/rest/v1/customers?id=eq.'+encodeURIComponent(id);
-    var r=await fetch(url,{method:'PATCH',headers:headers({Prefer:'return=representation'}),body:JSON.stringify(payload)});
-    var body=await r.text();
-    if(!r.ok)throw new Error('Supabase PATCH '+r.status+' '+body);
-
-    var q=await fetch(url+'&select=id,customer_name,region_code,customer_area,legacy_data',{method:'GET',headers:headers(),cache:'no-store'});
-    if(!q.ok)throw new Error('Supabase verify '+q.status);
-    var rows=await q.json(), row=rows&&rows[0];
-    if(!row)throw new Error('Customer row not found after save');
-    if(expected){
-      if(expected.customer_name!=null && S(row.customer_name)!==S(expected.customer_name))throw new Error('Customer name verification failed');
-      if(expected.region!=null && S(row.region_code)!==S(expected.region) && S(row.customer_area)!==S(expected.region))throw new Error('Customer region verification failed');
-    }
-    return row;
-  }
-
-  function syncSplits(c,field,val,oldVal){
-    A(db&&db.customerRepSplits).forEach(function(s){
-      var linked=S(s&&(s.customer_id||s.linked_customer_id||s.customer_ref_id))===S(c&&c.id);
-      if(linked){
-        if(field==='customer_name')s.customer_name=val;
-        if(field==='area'||field==='customer_area'||field==='region_code')s.region_code=val;
-      }else if(field==='customer_name'&&oldVal&&S(s&&s.customer_name)===S(oldVal)){
-        s.customer_name=val;
-      }
-    });
-  }
-
-  var prevEdit=window.editCell;
-  window.editCell=async function(table,id,field,value,isNumber){
-    if(table!=='customers')return typeof prevEdit==='function'?prevEdit.apply(this,arguments):undefined;
-    var c=A(db&&db.customers).find(function(x){return S(x&&x.id)===S(id)});
-    if(!c)return;
-
-    /* Only intercept the two fields that were reverting. Other customer fields keep the existing logic. */
-    if(field!=='customer_name' && field!=='area' && field!=='customer_area' && field!=='region_code'){
-      return typeof prevEdit==='function'?prevEdit.apply(this,arguments):undefined;
-    }
-
-    var val=S(value), oldName=S(c.customer_name), oldArea=S(c.area||c.customer_area||c.region_code), legacy=legacyOf(c), payload={}, expected={};
-
-    if(field==='customer_name'){
-      c.customer_name=val;
-      c.official_name=val;
-      legacy.customer_name=val;
-      legacy.official_name=val;
-      /* Do not overwrite a distinct clinic name, but remove stale name copies that exactly matched the old customer name. */
-      if(!S(legacy.name)||S(legacy.name)===oldName)legacy.name=val;
-      if(!S(legacy.clinic_name)||S(legacy.clinic_name)===oldName)legacy.clinic_name=val;
-      c.legacy_data=legacy;
-      payload.customer_name=val;
-      payload.legacy_data=legacy;
-      expected.customer_name=val;
-      syncSplits(c,'customer_name',val,oldName);
-    }else{
-      c.area=val;c.customer_area=val;c.region_code=val;
-      legacy.area=val;
-      legacy.region_code=val;
-      legacy.customer_area=val;
-      if(!S(legacy.clinic_city)||S(legacy.clinic_city)===oldArea)legacy.clinic_city=val;
-      if(!S(legacy.customer_region_v327)||S(legacy.customer_region_v327)===oldArea)legacy.customer_region_v327=val;
-      c.legacy_data=legacy;
-      payload.region_code=val;
-      payload.customer_area=val;
-      payload.legacy_data=legacy;
-      expected.region=val;
-      syncSplits(c,'region_code',val,oldArea);
-    }
-
-    try{
-      await patchAndVerify(c.id,payload,expected);
-      try{if(typeof save==='function')save()}catch(e){}
-      try{if(typeof snapshotCustomers==='function')snapshotCustomers()}catch(e){}
-      console.log('V477 customer saved and verified',c.id,field,val);
-    }catch(err){
-      console.error('V477 permanent customer edit failed',err);
-      alert((typeof lang!=='undefined'&&lang==='ar'?'تعذر حفظ التعديل بشكل دائم: ':'Permanent customer save failed: ')+(err.message||err));
-      try{if(typeof forceLoadCustomersFromSupabase==='function')setTimeout(forceLoadCustomersFromSupabase,100)}catch(e){}
-    }
-  };
-  try{editCell=window.editCell}catch(e){}
-
-  console.log('V477 customer list: name/region persistent save mirrors distribution logic');
-})();
-</script>
-
-
-<script id="v478-dashboard-debt-match-collections">
-(function(){
-  'use strict';
-  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
-  function S(v){return String(v==null?'':v).trim()}
-  function E(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
-  function D(v){return S(v).slice(0,10)}
-  function sales(){return Array.isArray(db&&db.sales)?db.sales:[]}
-  function collections(){
-    var rows=Array.isArray(db&&db.collections)?db.collections.slice():[];
-    var seen=new Set(rows.map(function(c){return String(c&&c.source_receipt_id_v435||'')}).filter(Boolean));
-    (Array.isArray(db&&db.cash_receipts_in)?db.cash_receipts_in:[]).forEach(function(r){
-      if(!r||!r.id||seen.has(String(r.id)))return;
-      var customerId=S(r.customer_id||''),customerName=S(r.customer_name||r.party||'');
-      if(!customerId&&customerName){
-        var m=(db.customers||[]).find(function(c){
-          var n1=S(c.customer_name||c.official_name||c.name||c.clinic_name).toLowerCase();
-          return n1&&n1===customerName.toLowerCase();
-        });
-        if(m)customerId=m.id;
-      }
-      if(!customerId)return;
-      rows.push({id:'RCPT|'+r.id,date:r.date||r.created_at||'',customer_id:customerId,customer_name:customerName,amount:N(r.amount),status:'approved',approval_status:'approved',source_receipt_id_v435:r.id});
-      seen.add(String(r.id));
-    });
-    return rows.filter(function(c){
-      var st=S(c&& (c.approval_status||c.status||'approved')).toLowerCase();
-      return !['pending','rejected','cancelled','canceled','void'].includes(st);
-    });
-  }
-  function normDate(v){
-    v=S(v); if(!v)return '';
-    var m=v.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
-    if(m)return m[1]+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[3]).padStart(2,'0');
-    m=v.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/);
-    if(m)return m[3]+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[1]).padStart(2,'0');
-    var dt=new Date(v);
-    if(!isNaN(dt.getTime()))return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
-    return '';
-  }
-  function invoiceDate(x){
-    if(!x)return '';
-    var cand=[x.invoice_date,x.original_date,x.order_date,x.sale_date,x.date,x.created_at].map(normDate).filter(Boolean);
-    var order=null;
-    if(x.order_id)order=(db.sales_orders||[]).find(function(o){return String(o.id||'')===String(x.order_id||'')})||null;
-    if(!order&&x.invoice_group_id)order=(db.sales_orders||[]).find(function(o){return String(o.invoice_group_id||o.id||'')===String(x.invoice_group_id||'')})||null;
-    if(order)[order.invoice_date,order.order_date,order.date,order.created_date,order.created_at].map(normDate).filter(Boolean).forEach(function(v){cand.push(v)});
-    cand=cand.filter(Boolean).sort(); return cand.length?cand[0]:'';
-  }
-  function key(x){
-    if(S(x.invoice_no))return 'NO|'+S(x.invoice_no).toLowerCase();
-    if(S(x.invoice_group_id))return 'GROUP|'+S(x.invoice_group_id);
-    if(S(x.order_id))return 'ORDER|'+S(x.order_id);
-    return 'ROW|'+S(x.id);
-  }
-  function ledger(){
-    var grouped=new Map();
-    sales().forEach(function(x){
-      var type=S(x.order_type||x.order_type_label||'sale').toLowerCase();
-      if(type.indexOf('bonus')>=0||type.indexOf('بونص')>=0||type.indexOf('sample')>=0||type.indexOf('free')>=0||type.indexOf('display')>=0||type.indexOf('عين')>=0||type.indexOf('عرض')>=0)return;
-      var k=key(x);
-      if(!grouped.has(k))grouped.set(k,{key:k,customer_id:x.customer_id||'',customer_name:x.customer_name||'-',invoice_no:x.invoice_no||x.invoice_group_id||x.order_id||x.id||'-',date:invoiceDate(x),rows:[],total:0,initial_paid:0,collected:0,remaining:0});
-      var g=grouped.get(k); g.rows.push(x); g.total+=N(x.total_including_vat||x.total);
-      var dt=invoiceDate(x); if(dt&&(!g.date||dt<g.date))g.date=dt;
-      if(!g.customer_id&&x.customer_id)g.customer_id=x.customer_id;
-      if((!g.customer_name||g.customer_name==='-')&&x.customer_name)g.customer_name=x.customer_name;
-    });
-    var inv=Array.from(grouped.values());
-    inv.forEach(function(g){
-      var preserved=g.rows.map(function(r){return r.initial_paid_v431!=null?N(r.initial_paid_v431):null}).filter(function(v){return v!=null});
-      if(preserved.length){var same=preserved.every(function(v){return v===preserved[0]});g.initial_paid=same?preserved[0]:preserved.reduce(function(a,b){return a+b},0)}
-      else{var vals=g.rows.map(function(r){return N(r.paid)});var samePaid=vals.length&&vals.every(function(v){return v===vals[0]});g.initial_paid=samePaid?vals[0]:vals.reduce(function(a,b){return a+b},0)}
-      g.initial_paid=Math.max(0,Math.min(g.total,g.initial_paid)); g.remaining=Math.max(0,g.total-g.initial_paid);
-    });
-    inv.sort(function(a,b){return String(a.date||'').localeCompare(String(b.date||''))||String(a.key).localeCompare(String(b.key))});
-    var by={}; inv.forEach(function(g){var ck=S(g.customer_id||g.customer_name).toLowerCase();(by[ck]||(by[ck]=[])).push(g)});
-    collections().slice().sort(function(a,b){return D(a.date||a.approved_date||a.created_at).localeCompare(D(b.date||b.approved_date||b.created_at))}).forEach(function(c){
-      var ck=S(c.customer_id||c.customer_name).toLowerCase(),list=by[ck]||[],left=Math.max(0,N(c.amount));
-      for(var i=0;i<list.length&&left>0.000001;i++){var x=list[i];if(x.remaining<=0.000001)continue;var take=Math.min(left,x.remaining);x.collected+=take;x.remaining-=take;left-=take}
-    });
-    return inv;
-  }
-  function summary(){
-    var map={};
-    ledger().forEach(function(inv){
-      if(inv.remaining<=0.000001)return;
-      var k=S(inv.customer_id||inv.customer_name).toLowerCase()||'unknown';
-      if(!map[k])map[k]={id:inv.customer_id||'',name:inv.customer_name||'-',debt:0};
-      map[k].debt+=inv.remaining;
-    });
-    var rows=Object.keys(map).map(function(k){return map[k]});
-    return {rows:rows,total:rows.reduce(function(a,x){return a+x.debt},0),debtors:rows.filter(function(x){return x.debt>0.005}).length};
-  }
-  window.dashboardDebtMatchCollectionsV478=summary;
-  window.customerDebt=function(){return summary().total};
-  try{customerDebt=window.customerDebt}catch(e){}
-  window.customersCardBars=function(){
-    var rows=summary().rows.slice().sort(function(a,b){return b.debt-a.debt}).slice(0,4).map(function(x){return {l:S(x.name).split(' ')[0]||'عميل',v:x.debt}});
-    return typeof simpleBarsFromTotals==='function'?simpleBarsFromTotals(rows,(typeof lang!=='undefined'&&lang==='ar')?'عميل':'Customer'):rows;
-  };
-  try{customersCardBars=window.customersCardBars}catch(e){}
-  window.customerDebtTable=function(){
-    var ar=typeof lang!=='undefined'&&lang==='ar',rows=summary().rows.slice().sort(function(a,b){return b.debt-a.debt});
-    if(!rows.length)return '<div class="empty">'+(ar?'لا توجد بيانات':'No data')+'</div>';
-    return '<table><tr><th>'+(ar?'العميل':'Customer')+'</th><th>'+(ar?'المديونية':'Debt')+'</th></tr>'+rows.map(function(x){return '<tr><td>'+E(x.name)+'</td><td>'+(typeof money==='function'?money(x.debt):x.debt.toFixed(2))+'</td></tr>'}).join('')+'</table>';
-  };
-  try{customerDebtTable=window.customerDebtTable}catch(e){}
-  var base=window.renderDashboard;
-  if(typeof base==='function'){
-    window.renderDashboard=function(){
-      var out=base.apply(this,arguments),x=summary();
-      setTimeout(function(){
-        try{
-          document.querySelectorAll('.dash-card').forEach(function(card){
-            var title=card.querySelector('.dash-title'); if(!title)return;
-            if(/مديونيات العملاء|Customer debt/i.test(title.textContent||'')){
-              var value=card.querySelector('.dash-value'); if(value)value.textContent=typeof money==='function'?money(x.total):x.total.toFixed(2);
-              card.querySelectorAll('.metric-row').forEach(function(r){if(/عملاء مديونون|Debtors/i.test(r.textContent||'')){var b=r.querySelector('b');if(b)b.textContent=String(x.debtors)}});
-            }
-          });
-          document.querySelectorAll('.exec-stat').forEach(function(st){if(/مديونيات|customer debt/i.test(st.textContent||'')){var strong=st.querySelector('strong');if(strong)strong.textContent=typeof money==='function'?money(x.total):x.total.toFixed(2)}});
-        }catch(e){}
-      },0);
-      return out;
-    };
-    try{renderDashboard=window.renderDashboard}catch(e){}
-  }
-  console.log('V478 dashboard debt now uses the same invoice/collection ledger as Collections report');
-})();
-</script>
-
-<script id="v479-customer-master-edit-natural-cycle">
-(function(){
-  'use strict';
-  if(window.__mbV479CustomerMaster)return;
-  window.__mbV479CustomerMaster=true;
+  if(window.__mbV480CleanCustomerMaster)return;
+  window.__mbV480CleanCustomerMaster=true;
 
   function A(v){return Array.isArray(v)?v:[]}
   function S(v){return String(v==null?'':v).trim()}
@@ -39946,309 +39383,157 @@ table.rep-split-table td:first-child{display:none !important;}
   function E(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
   function U(){try{return S(typeof SUPABASE_URL!=='undefined'?SUPABASE_URL:'').replace(/\/$/,'')}catch(e){return ''}}
   function K(){try{return S(typeof SUPABASE_PUBLISHABLE_KEY!=='undefined'?SUPABASE_PUBLISHABLE_KEY:'')}catch(e){return ''}}
-  function headers(extra){return Object.assign({apikey:K(),Authorization:'Bearer '+K(),'Content-Type':'application/json'},extra||{})}
-  function legacyOf(c){var x=c&&c.legacy_data;return x&&typeof x==='object'&&!Array.isArray(x)?Object.assign({},x):{}}
-  function customer(c){return c||null}
+  function H(extra){return Object.assign({apikey:K(),Authorization:'Bearer '+K(),'Content-Type':'application/json'},extra||{})}
+  function legacy(c){var x=c&&c.legacy_data;return x&&typeof x==='object'&&!Array.isArray(x)?Object.assign({},x):{}}
   function findCustomer(id){return A(db&&db.customers).find(function(c){return S(c&&c.id)===S(id)})||null}
 
-  /* ---------- Supabase customer persistence ---------- */
-  function persistentRow(c){
-    var legacy=legacyOf(c);
-    if(S(c.name))legacy.name=S(c.name);
-    if(S(c.clinic_name))legacy.clinic_name=S(c.clinic_name);
-    if(S(c.official_name))legacy.official_name=S(c.official_name);
-    if(S(c.type||c.customer_type))legacy.type=S(c.type||c.customer_type);
-    if(S(c.area))legacy.area=S(c.area);
-    if(S(c.region_code))legacy.region_code=S(c.region_code);
-    if(S(c.customer_area))legacy.customer_area=S(c.customer_area);
-    if(S(c.customer_region_v327))legacy.customer_region_v327=S(c.customer_region_v327);
-    if(S(c.customer_region))legacy.customer_region=S(c.customer_region);
-    if(S(c.clinic_city))legacy.clinic_city=S(c.clinic_city);
-    if(S(c.customer_city))legacy.customer_city=S(c.customer_city);
-    if(S(c.city))legacy.city=S(c.city);
-    c.legacy_data=legacy;
+  function row(c){
+    var l=legacy(c);
+    if(S(c.customer_name)){l.customer_name=S(c.customer_name);l.official_name=S(c.customer_name)}
+    if(S(c.name)){l.name=S(c.name)}
+    if(S(c.clinic_name)){l.clinic_name=S(c.clinic_name)}
+    if(S(c.type||c.customer_type))l.type=S(c.type||c.customer_type);
+    if(S(c.area)){l.area=S(c.area);l.region_code=S(c.area)}
+    if(S(c.region_code))l.region_code=S(c.region_code);
+    if(S(c.customer_area))l.customer_area=S(c.customer_area);
+    l.balance=N(c.balance);
+    c.legacy_data=l;
     return {
-      id:S(c.id),
       customer_name:S(c.customer_name||c.official_name||c.name||c.clinic_name),
       customer_type:S(c.customer_type||c.type),
       phone:S(c.phone),
       region_code:S(c.region_code||c.area),
-      customer_area:S(c.customer_area||c.clinic_city||c.customer_city||c.customer_region_v327||c.customer_region||c.area),
+      customer_area:S(c.customer_area||c.area||c.clinic_city||c.customer_city||c.customer_region_v327||c.customer_region),
       address:S(c.address),
-      balance:N(c.balance),
+      balance:Math.max(0,N(c.balance)),
       notes:S(c.notes),
-      legacy_data:legacy
+      legacy_data:l
     };
   }
-  function rowHash(c){
-    var r=persistentRow(c);
-    return JSON.stringify([r.customer_name,r.customer_type,r.phone,r.region_code,r.customer_area,r.address,Math.round(r.balance*100)/100,r.notes,r.legacy_data]);
-  }
-  var synced=new Map(),syncTimer=null,syncBusy=false,syncAgain=false;
+  function hash(c){var r=row(c);return JSON.stringify([r.customer_name,r.customer_type,r.phone,r.region_code,r.customer_area,r.address,Math.round(r.balance*100)/100,r.notes,r.legacy_data])}
 
-  async function patchCustomer(c){
+  var baseline=new Map(),baselineReady=false,timer=null,busy=false,again=false;
+  function establishBaseline(){
+    var rows=A(db&&db.customers);if(!rows.length)return false;
+    baseline.clear();rows.forEach(function(c){if(S(c.id))baseline.set(S(c.id),hash(c))});
+    baselineReady=true;return true;
+  }
+  async function patch(c){
     if(!c||!S(c.id)||!U()||!K())throw new Error('Supabase customer settings/id missing');
-    var r=persistentRow(c),id=r.id; delete r.id;
-    var res=await fetch(U()+'/rest/v1/customers?id=eq.'+encodeURIComponent(id),{
-      method:'PATCH',headers:headers({Prefer:'return=representation'}),body:JSON.stringify(r)
-    });
+    var payload=row(c);
+    var res=await fetch(U()+'/rest/v1/customers?id=eq.'+encodeURIComponent(S(c.id)),{method:'PATCH',headers:H({Prefer:'return=representation'}),body:JSON.stringify(payload)});
     var txt=await res.text();
     if(!res.ok)throw new Error('Supabase customer PATCH '+res.status+' '+txt);
-    synced.set(id,rowHash(c));
-    c._v479_synced_balance=N(c.balance);
+    baseline.set(S(c.id),hash(c));
     return txt;
   }
-  async function syncChangedCustomers(){
-    if(syncBusy){syncAgain=true;return}
-    syncBusy=true;
+  async function syncChanged(){
+    if(!baselineReady){establishBaseline();return}
+    if(busy){again=true;return}busy=true;
     try{
-      var changed=A(db&&db.customers).filter(function(c){return S(c&&c.id)&&synced.get(S(c.id))!==rowHash(c)});
+      var changed=A(db&&db.customers).filter(function(c){return S(c&&c.id)&&baseline.get(S(c.id))!==hash(c)});
       for(var i=0;i<changed.length;i++){
-        try{await patchCustomer(changed[i])}catch(err){console.error('V479 customer background sync failed',changed[i]&&changed[i].id,err)}
+        try{await patch(changed[i])}catch(err){console.error('V480 customer sync failed',changed[i]&&changed[i].id,err)}
       }
-    }finally{
-      syncBusy=false;
-      if(syncAgain){syncAgain=false;queueSync(250)}
-    }
+    }finally{busy=false;if(again){again=false;queueSync(300)}}
   }
-  function queueSync(ms){clearTimeout(syncTimer);syncTimer=setTimeout(syncChangedCustomers,ms==null?350:ms)}
-  function establishSyncBaseline(){
-    var rows=A(db&&db.customers); if(!rows.length)return false;
-    rows.forEach(function(c){synced.set(S(c.id),rowHash(c));c._v479_synced_balance=N(c.balance)});
-    return true;
-  }
+  function queueSync(ms){clearTimeout(timer);timer=setTimeout(syncChanged,ms==null?450:ms)}
 
-  /* ---------- Preserve historical/opening debt while future sales/collections move naturally ---------- */
-  var baseReconcile=window.reconcileCustomerCollectionsV431;
-  var debtAnchor=new Map();
-  function rawCycleNet(c){
-    if(!c)return 0;
-    if(typeof baseReconcile!=='function')return N(c.balance);
-    var old=N(c.balance),r=null;
-    try{r=baseReconcile(c.id,false)}catch(e){}
-    var out=r?N(r.outstanding):N(c.invoice_outstanding_v431);
-    var unapplied=r?N(r.unapplied):N(c.collections_unapplied_v431);
-    c.balance=old;
-    return out-unapplied;
-  }
-  function ensureDebtAnchor(c,amount){
-    if(!c)return null;
-    var id=S(c.id),a=debtAnchor.get(id);
-    if(a)return a;
-    var current=(amount==null?N(c.balance):N(amount));
-    a={amount:current,cycle:rawCycleNet(c),at:new Date().toISOString()};
-    debtAnchor.set(id,a);
-    return a;
-  }
-  function effectiveDebt(c,cycle){
-    var a=ensureDebtAnchor(c);
-    if(!a)return Math.max(0,N(c&&c.balance));
-    var x=a.amount+(N(cycle)-N(a.cycle));
-    return Math.max(0,Math.round(x*100)/100);
-  }
-  function setDebtNow(c,amount){
-    var val=Math.max(0,N(amount)),cycle=rawCycleNet(c);
-    debtAnchor.set(S(c.id),{amount:val,cycle:cycle,at:new Date().toISOString()});
-    c.balance=val;
-    c.balance_source_v479='customer_master_manual_anchor';
-    return val;
-  }
-
-  if(typeof baseReconcile==='function'){
-    window.reconcileCustomerCollectionsV431=function(customerId,persist){
-      var c=findCustomer(customerId); if(!c)return null;
-      ensureDebtAnchor(c,N(c.balance));
-      var r=baseReconcile.apply(this,arguments)||{};
-      var cycle=N(r.outstanding)-N(r.unapplied);
-      var debt=effectiveDebt(c,cycle);
-      c.balance=debt;
-      c.balance_source_v479='customer_master_plus_cycle';
-      r.invoice_outstanding=N(r.outstanding);
-      r.outstanding_effective=debt;
-      r.balance=debt;
-      if(persist!==false){try{if(typeof save==='function')save()}catch(e){}}
-      return r;
-    };
-    try{reconcileCustomerCollectionsV431=window.reconcileCustomerCollectionsV431}catch(e){}
-  }
-  window.reconcileAllCustomerCollectionsV431=function(persist){
-    var out=A(db&&db.customers).map(function(c){return window.reconcileCustomerCollectionsV431(c.id,false)}).filter(Boolean);
-    if(persist!==false){try{if(typeof save==='function')save()}catch(e){}}
-    return out;
-  };
-  try{reconcileAllCustomerCollectionsV431=window.reconcileAllCustomerCollectionsV431}catch(e){}
-  window.customerOutstandingV431=function(id){
-    var r=window.reconcileCustomerCollectionsV431(id,false);return r?N(r.balance):0;
-  };
-  try{customerOutstandingV431=window.customerOutstandingV431}catch(e){}
-
-  /* Stop V433 from erasing manually maintained/opening balances. */
-  window.syncCustomerDebtSingleSourceV433=function(persist){
-    window.reconcileAllCustomerCollectionsV431(false);
-    var total=A(db&&db.customers).reduce(function(a,c){return a+Math.max(0,N(c.balance))},0);
-    if(persist!==false){try{if(typeof save==='function')save()}catch(e){}}
-    return {changed:0,total:total};
-  };
-  window.customerDebtAuthoritativeV433=function(){
-    try{window.reconcileAllCustomerCollectionsV431(false)}catch(e){}
-    return A(db&&db.customers).reduce(function(a,c){return a+Math.max(0,N(c.balance))},0);
-  };
-
-  /* ---------- Propagate customer identity/region through the normal internal cycle ---------- */
-  function sameOldName(v,oldName){return oldName&&S(v).toLowerCase()===S(oldName).toLowerCase()}
+  function sameName(v,name){return name&&S(v).toLowerCase()===S(name).toLowerCase()}
   function propagateName(c,oldName,newName){
-    A(db&&db.customerRepSplits).forEach(function(x){if(S(x.customer_id)===S(c.id)||sameOldName(x.customer_name,oldName))x.customer_name=newName});
+    A(db&&db.customerRepSplits).forEach(function(x){if(S(x.customer_id)===S(c.id)||sameName(x.customer_name,oldName))x.customer_name=newName});
     [db&&db.sales,db&&db.sales_orders,db&&db.collections,db&&db.operations,db&&db.cash_receipts_in].forEach(function(arr){
-      A(arr).forEach(function(x){if(S(x.customer_id)===S(c.id)||sameOldName(x.customer_name,oldName)){x.customer_id=c.id;x.customer_name=newName}});
+      A(arr).forEach(function(x){if(S(x.customer_id)===S(c.id)||sameName(x.customer_name,oldName)){x.customer_id=c.id;x.customer_name=newName}})
     });
   }
   function propagateClinic(c,oldName,newName){
-    A(db&&db.customerRepSplits).forEach(function(x){if(S(x.customer_id)===S(c.id)||sameOldName(x.clinic_name,oldName))x.clinic_name=newName});
-    [db&&db.sales,db&&db.sales_orders,db&&db.operations].forEach(function(arr){
-      A(arr).forEach(function(x){if(S(x.customer_id)===S(c.id)){x.clinic_name=newName;x.order_clinic_name=newName}});
-    });
+    A(db&&db.customerRepSplits).forEach(function(x){if(S(x.customer_id)===S(c.id)||sameName(x.clinic_name,oldName))x.clinic_name=newName});
+    [db&&db.sales,db&&db.sales_orders,db&&db.operations].forEach(function(arr){A(arr).forEach(function(x){if(S(x.customer_id)===S(c.id)){x.clinic_name=newName;x.order_clinic_name=newName}})});
   }
   function propagateRegion(c,val){
     A(db&&db.customerRepSplits).forEach(function(x){if(S(x.customer_id)===S(c.id))x.region_code=val});
   }
 
-  /* ---------- One authoritative editor for Customers list ---------- */
-  var previousEdit=window.editCell;
+  /* One customer-list editor only. No debt recalculation patch is allowed to overwrite balance. */
+  var baseEdit=window.editCell || (typeof editCell==='function'?editCell:null);
   window.editCell=async function(table,id,field,value,isNumber){
-    if(table!=='customers')return typeof previousEdit==='function'?previousEdit.apply(this,arguments):undefined;
-    var c=findCustomer(id); if(!c)return;
-    var val=isNumber?N(value):S(value),legacy=legacyOf(c);
+    if(table!=='customers')return typeof baseEdit==='function'?baseEdit.apply(this,arguments):undefined;
+    var c=findCustomer(id);if(!c)return;
+    var val=isNumber?N(value):S(value),l=legacy(c);
     try{
-      if(field==='balance'){
-        setDebtNow(c,val);
-        legacy.balance=N(c.balance);legacy.balance_source_v479='manual_customer_list';legacy.balance_anchor_at_v479=new Date().toISOString();c.legacy_data=legacy;
-        await patchCustomer(c);
-      }else if(field==='customer_name'){
-        var oldName=S(c.customer_name||c.official_name||c.name);
-        c.customer_name=S(val);c.official_name=S(val);legacy.customer_name=S(val);legacy.official_name=S(val);c.legacy_data=legacy;
-        propagateName(c,oldName,S(val));
-        await patchCustomer(c);
-      }else if(field==='area'||field==='region_code'){
-        c.area=S(val);c.region_code=S(val);legacy.area=S(val);legacy.region_code=S(val);c.legacy_data=legacy;
+      if(field==='customer_name'){
+        var old=S(c.customer_name||c.official_name||c.name);
+        c.customer_name=S(val);c.official_name=S(val);l.customer_name=S(val);l.official_name=S(val);c.legacy_data=l;
+        propagateName(c,old,S(val));
+      }else if(field==='balance'){
+        c.balance=Math.max(0,N(val));l.balance=c.balance;l.balance_source='customer_list_master';l.balance_updated_at=new Date().toISOString();c.legacy_data=l;
+      }else if(field==='area'||field==='region_code'||field==='customer_area'){
+        c.area=S(val);c.region_code=S(val);c.customer_area=S(val);l.area=S(val);l.region_code=S(val);l.customer_area=S(val);c.legacy_data=l;
         propagateRegion(c,S(val));
-        await patchCustomer(c);
-      }else if(field==='customer_area'){
-        c.customer_area=S(val);legacy.customer_area=S(val);c.legacy_data=legacy;
-        await patchCustomer(c);
+      }else if(field==='type'){
+        c.type=S(val);c.customer_type=S(val);l.type=S(val);c.legacy_data=l;
       }else{
-        if(typeof previousEdit==='function')await previousEdit.apply(this,arguments);
-        /* The global save-sync below persists any field the older editor changed. */
+        if(typeof baseEdit==='function')await baseEdit.apply(this,arguments);
       }
+      await patch(c);
       try{if(typeof save==='function')save()}catch(e){}
       try{if(typeof renderDashboard==='function'&&field==='balance')renderDashboard()}catch(e){}
-      console.log('V479 customer master edit saved',id,field,val);
     }catch(err){
-      console.error('V479 customer master edit failed',err);
+      console.error('V480 customer edit failed',err);
       alert((typeof lang!=='undefined'&&lang==='ar'?'تعذر حفظ تعديل العميل: ':'Customer edit failed: ')+(err.message||err));
       try{if(typeof forceLoadCustomersFromSupabase==='function')setTimeout(forceLoadCustomersFromSupabase,100)}catch(e){}
     }
   };
   try{editCell=window.editCell}catch(e){}
 
-  var oldClinicEditor=window.editCustomerClinicNameV46;
+  var baseClinic=window.editCustomerClinicNameV46;
   window.editCustomerClinicNameV46=async function(id,value){
-    var c=findCustomer(id);if(!c)return;
-    var old=S(c.clinic_name||c.name),val=S(value),legacy=legacyOf(c);
-    c.name=val;c.clinic_name=val;legacy.name=val;legacy.clinic_name=val;c.legacy_data=legacy;
-    propagateClinic(c,old,val);
-    try{await patchCustomer(c);try{if(typeof save==='function')save()}catch(e){}}
+    var c=findCustomer(id);if(!c)return;var old=S(c.clinic_name||c.name),val=S(value),l=legacy(c);
+    c.name=val;c.clinic_name=val;l.name=val;l.clinic_name=val;c.legacy_data=l;propagateClinic(c,old,val);
+    try{await patch(c);try{if(typeof save==='function')save()}catch(e){}}
     catch(err){console.error(err);alert((typeof lang!=='undefined'&&lang==='ar'?'تعذر حفظ اسم العيادة: ':'Clinic name save failed: ')+(err.message||err))}
   };
   try{editCustomerClinicNameV46=window.editCustomerClinicNameV46}catch(e){}
 
   window.updateCustomerRegionV327=async function(id,value){
-    var c=findCustomer(id);if(!c)return;var val=S(value),legacy=legacyOf(c);
-    c.customer_region_v327=val;c.customer_region=val;c.region_name=val;c.customer_area=val;
-    legacy.customer_region_v327=val;legacy.customer_region=val;legacy.region_name=val;legacy.customer_area=val;c.legacy_data=legacy;
-    try{await patchCustomer(c);try{if(typeof save==='function')save()}catch(e){}}
+    var c=findCustomer(id);if(!c)return;var val=S(value),l=legacy(c);
+    c.area=val;c.region_code=val;c.customer_area=val;c.customer_region_v327=val;c.customer_region=val;c.region_name=val;
+    l.area=val;l.region_code=val;l.customer_area=val;l.customer_region_v327=val;l.customer_region=val;l.region_name=val;c.legacy_data=l;propagateRegion(c,val);
+    try{await patch(c);try{if(typeof save==='function')save()}catch(e){}}
     catch(err){console.error(err);alert((typeof lang!=='undefined'&&lang==='ar'?'تعذر حفظ منطقة العميل: ':'Customer region save failed: ')+(err.message||err))}
   };
-  window.updateCustomerClinicCityV359=async function(id,value){
-    var c=findCustomer(id);if(!c)return;var val=S(value),legacy=legacyOf(c);
-    c.clinic_city=val;c.customer_city=val;c.city=val;c.customer_area=val;
-    legacy.clinic_city=val;legacy.customer_city=val;legacy.city=val;legacy.customer_area=val;c.legacy_data=legacy;
-    try{await patchCustomer(c);try{if(typeof save==='function')save()}catch(e){}}
-    catch(err){console.error(err);alert((typeof lang!=='undefined'&&lang==='ar'?'تعذر حفظ منطقة/مدينة العيادة: ':'Clinic city save failed: ')+(err.message||err))}
-  };
+  window.updateCustomerClinicCityV359=window.updateCustomerRegionV327;
 
-  /* ---------- Every normal business save also persists changed customer fields/balance ---------- */
+  /* The business cycle already changes c.balance in addSale/addCollection.
+     Sync those changes to Supabase after the normal save without recomputing debt. */
   var baseSave=window.save || (typeof save==='function'?save:null);
   if(typeof baseSave==='function'){
-    window.save=function(){
-      var r=baseSave.apply(this,arguments);
-      queueSync(250);
-      return r;
-    };
+    window.save=function(){var r=baseSave.apply(this,arguments);if(baselineReady)queueSync(450);else establishBaseline();return r};
     try{save=window.save}catch(e){}
   }
 
-  /* ---------- Dashboard/customer-debt views use the same authoritative current balances ---------- */
-  function debtSummary(){
-    try{window.reconcileAllCustomerCollectionsV431(false)}catch(e){}
-    var rows=A(db&&db.customers).map(function(c){return {id:c.id,name:S(c.customer_name||c.official_name||c.name||c.clinic_name)||'-',debt:Math.max(0,N(c.balance)),customer:c}}).filter(function(x){return x.debt>0.005});
-    return {rows:rows,total:rows.reduce(function(a,x){return a+x.debt},0),debtors:rows.length};
-  }
-  window.customerDebt=function(){return debtSummary().total};try{customerDebt=window.customerDebt}catch(e){}
+  function debtRows(){return A(db&&db.customers).map(function(c){return {customer:c,debt:Math.max(0,N(c.balance)),name:S(c.customer_name||c.official_name||c.name||c.clinic_name)||'-'}}).filter(function(x){return x.debt>0.005})}
+  window.customerDebt=function(){return debtRows().reduce(function(a,x){return a+x.debt},0)};
+  try{customerDebt=window.customerDebt}catch(e){}
   window.customerDebtTable=function(){
-    var ar=typeof lang!=='undefined'&&lang==='ar',rows=debtSummary().rows.slice().sort(function(a,b){return b.debt-a.debt});
+    var ar=typeof lang!=='undefined'&&lang==='ar',rows=debtRows().sort(function(a,b){return b.debt-a.debt});
     if(!rows.length)return '<div class="empty">'+(ar?'لا توجد بيانات':'No data')+'</div>';
-    return '<table><tr><th>'+(ar?'العميل':'Customer')+'</th><th>'+(ar?'المديونية':'Debt')+'</th></tr>'+rows.map(function(x){return '<tr><td>'+E(x.name)+'</td><td>'+(typeof money==='function'?money(x.debt):x.debt.toFixed(2))+'</td></tr>'}).join('')+'</table>';
+    return '<table><tr><th>'+(ar?'العميل':'Customer')+'</th><th>'+(ar?'التليفون':'Phone')+'</th><th>'+(ar?'المديونية':'Debt')+'</th></tr>'+rows.map(function(x){return '<tr><td>'+E(x.name)+'</td><td>'+E(x.customer.phone||'')+'</td><td>'+(typeof money==='function'?money(x.debt):x.debt.toFixed(2))+'</td></tr>'}).join('')+'</table>';
   };
   try{customerDebtTable=window.customerDebtTable}catch(e){}
   window.customersCardBars=function(){
-    var rows=debtSummary().rows.slice().sort(function(a,b){return b.debt-a.debt}).slice(0,4).map(function(x){return {l:S(x.name).split(' ')[0]||'عميل',v:x.debt}});
+    var rows=debtRows().sort(function(a,b){return b.debt-a.debt}).slice(0,4).map(function(x){return {l:S(x.name).split(' ')[0]||'عميل',v:x.debt}});
     return typeof simpleBarsFromTotals==='function'?simpleBarsFromTotals(rows,(typeof lang!=='undefined'&&lang==='ar')?'عميل':'Customer'):rows;
   };
   try{customersCardBars=window.customersCardBars}catch(e){}
 
-  var dashBase=window.renderDashboard;
-  if(typeof dashBase==='function'){
-    window.renderDashboard=function(){
-      try{window.reconcileAllCustomerCollectionsV431(false)}catch(e){}
-      var out=dashBase.apply(this,arguments);
-      setTimeout(function(){
-        var x=debtSummary();
-        try{
-          document.querySelectorAll('.dash-card').forEach(function(card){
-            var title=card.querySelector('.dash-title');if(!title)return;
-            if(/مديونيات العملاء|Customer debt/i.test(title.textContent||'')){
-              var v=card.querySelector('.dash-value');if(v)v.textContent=typeof money==='function'?money(x.total):x.total.toFixed(2);
-              card.querySelectorAll('.metric-row').forEach(function(r){if(/عملاء مديونون|Debtors/i.test(r.textContent||'')){var b=r.querySelector('b');if(b)b.textContent=String(x.debtors)}});
-            }
-          });
-          document.querySelectorAll('.exec-stat').forEach(function(st){if(/مديونيات|customer debt/i.test(st.textContent||'')){var strong=st.querySelector('strong');if(strong)strong.textContent=typeof money==='function'?money(x.total):x.total.toFixed(2)}});
-        }catch(e){}
-      },40);
-      return out;
-    };
-    try{renderDashboard=window.renderDashboard}catch(e){}
-  }
-
-  /* Capture the Supabase-loaded balances BEFORE old reconciliation patches can erase historical/opening debt. */
-  var tries=0,baselineTimer=setInterval(function(){
+  /* Establish the remote customer snapshot once. No render/dashboard wrappers. */
+  var tries=0,bt=setInterval(function(){
     tries++;
-    if(A(db&&db.customers).length){
-      A(db.customers).forEach(function(c){ensureDebtAnchor(c,N(c.balance))});
-      establishSyncBaseline();
-      clearInterval(baselineTimer);
-      console.log('V479 customer master baseline ready:',db.customers.length,'customers');
-    }else if(tries>80){clearInterval(baselineTimer)}
-  },50);
-
-  /* One later pass is intentional: remote customer loader may finish just after the first paint. */
-  setTimeout(function(){
-    if(A(db&&db.customers).length){
-      A(db.customers).forEach(function(c){ensureDebtAnchor(c,N(c.balance))});
-      if(!synced.size)establishSyncBaseline();
-    }
-  },700);
-
-  console.log('V479 customer list is authoritative: edits persist and debt follows the normal sale/collection cycle');
+    if(A(db&&db.customers).length && (window.__mb_customer_retry_loaded||tries>20)){
+      establishBaseline();clearInterval(bt);console.log('V480 CLEAN customer/debt source active:',db.customers.length);
+    }else if(tries>120){clearInterval(bt);establishBaseline()}
+  },100);
 })();
 </script>
 
