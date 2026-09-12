@@ -39699,3 +39699,237 @@ table.rep-split-table td:first-child{display:none !important;}
 })();
 </script>
 
+
+
+<script id="v477-customer-list-edit-like-distribution-final">
+(function(){
+  'use strict';
+  if(window.__mbCustomerListEditV477)return;
+  window.__mbCustomerListEditV477=true;
+
+  function S(v){return String(v==null?'':v).trim()}
+  function A(v){return Array.isArray(v)?v:[]}
+  function U(){try{return String(typeof SUPABASE_URL!=='undefined'?SUPABASE_URL:'').replace(/\/$/,'')}catch(e){return ''}}
+  function K(){try{return String(typeof SUPABASE_PUBLISHABLE_KEY!=='undefined'?SUPABASE_PUBLISHABLE_KEY:'')}catch(e){return ''}}
+  function legacyOf(c){var x=c&&c.legacy_data;return x&&typeof x==='object'&&!Array.isArray(x)?Object.assign({},x):{}}
+  function headers(extra){return Object.assign({apikey:K(),Authorization:'Bearer '+K(),'Content-Type':'application/json'},extra||{})}
+
+  async function patchAndVerify(id,payload,expected){
+    if(!id||!U()||!K())throw new Error('Supabase customer settings/id missing');
+    var url=U()+'/rest/v1/customers?id=eq.'+encodeURIComponent(id);
+    var r=await fetch(url,{method:'PATCH',headers:headers({Prefer:'return=representation'}),body:JSON.stringify(payload)});
+    var body=await r.text();
+    if(!r.ok)throw new Error('Supabase PATCH '+r.status+' '+body);
+
+    var q=await fetch(url+'&select=id,customer_name,region_code,customer_area,legacy_data',{method:'GET',headers:headers(),cache:'no-store'});
+    if(!q.ok)throw new Error('Supabase verify '+q.status);
+    var rows=await q.json(), row=rows&&rows[0];
+    if(!row)throw new Error('Customer row not found after save');
+    if(expected){
+      if(expected.customer_name!=null && S(row.customer_name)!==S(expected.customer_name))throw new Error('Customer name verification failed');
+      if(expected.region!=null && S(row.region_code)!==S(expected.region) && S(row.customer_area)!==S(expected.region))throw new Error('Customer region verification failed');
+    }
+    return row;
+  }
+
+  function syncSplits(c,field,val,oldVal){
+    A(db&&db.customerRepSplits).forEach(function(s){
+      var linked=S(s&&(s.customer_id||s.linked_customer_id||s.customer_ref_id))===S(c&&c.id);
+      if(linked){
+        if(field==='customer_name')s.customer_name=val;
+        if(field==='area'||field==='customer_area'||field==='region_code')s.region_code=val;
+      }else if(field==='customer_name'&&oldVal&&S(s&&s.customer_name)===S(oldVal)){
+        s.customer_name=val;
+      }
+    });
+  }
+
+  var prevEdit=window.editCell;
+  window.editCell=async function(table,id,field,value,isNumber){
+    if(table!=='customers')return typeof prevEdit==='function'?prevEdit.apply(this,arguments):undefined;
+    var c=A(db&&db.customers).find(function(x){return S(x&&x.id)===S(id)});
+    if(!c)return;
+
+    /* Only intercept the two fields that were reverting. Other customer fields keep the existing logic. */
+    if(field!=='customer_name' && field!=='area' && field!=='customer_area' && field!=='region_code'){
+      return typeof prevEdit==='function'?prevEdit.apply(this,arguments):undefined;
+    }
+
+    var val=S(value), oldName=S(c.customer_name), oldArea=S(c.area||c.customer_area||c.region_code), legacy=legacyOf(c), payload={}, expected={};
+
+    if(field==='customer_name'){
+      c.customer_name=val;
+      c.official_name=val;
+      legacy.customer_name=val;
+      legacy.official_name=val;
+      /* Do not overwrite a distinct clinic name, but remove stale name copies that exactly matched the old customer name. */
+      if(!S(legacy.name)||S(legacy.name)===oldName)legacy.name=val;
+      if(!S(legacy.clinic_name)||S(legacy.clinic_name)===oldName)legacy.clinic_name=val;
+      c.legacy_data=legacy;
+      payload.customer_name=val;
+      payload.legacy_data=legacy;
+      expected.customer_name=val;
+      syncSplits(c,'customer_name',val,oldName);
+    }else{
+      c.area=val;c.customer_area=val;c.region_code=val;
+      legacy.area=val;
+      legacy.region_code=val;
+      legacy.customer_area=val;
+      if(!S(legacy.clinic_city)||S(legacy.clinic_city)===oldArea)legacy.clinic_city=val;
+      if(!S(legacy.customer_region_v327)||S(legacy.customer_region_v327)===oldArea)legacy.customer_region_v327=val;
+      c.legacy_data=legacy;
+      payload.region_code=val;
+      payload.customer_area=val;
+      payload.legacy_data=legacy;
+      expected.region=val;
+      syncSplits(c,'region_code',val,oldArea);
+    }
+
+    try{
+      await patchAndVerify(c.id,payload,expected);
+      try{if(typeof save==='function')save()}catch(e){}
+      try{if(typeof snapshotCustomers==='function')snapshotCustomers()}catch(e){}
+      console.log('V477 customer saved and verified',c.id,field,val);
+    }catch(err){
+      console.error('V477 permanent customer edit failed',err);
+      alert((typeof lang!=='undefined'&&lang==='ar'?'تعذر حفظ التعديل بشكل دائم: ':'Permanent customer save failed: ')+(err.message||err));
+      try{if(typeof forceLoadCustomersFromSupabase==='function')setTimeout(forceLoadCustomersFromSupabase,100)}catch(e){}
+    }
+  };
+  try{editCell=window.editCell}catch(e){}
+
+  console.log('V477 customer list: name/region persistent save mirrors distribution logic');
+})();
+</script>
+
+
+<script id="v478-dashboard-debt-match-collections">
+(function(){
+  'use strict';
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S(v){return String(v==null?'':v).trim()}
+  function E(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function D(v){return S(v).slice(0,10)}
+  function sales(){return Array.isArray(db&&db.sales)?db.sales:[]}
+  function collections(){
+    var rows=Array.isArray(db&&db.collections)?db.collections.slice():[];
+    var seen=new Set(rows.map(function(c){return String(c&&c.source_receipt_id_v435||'')}).filter(Boolean));
+    (Array.isArray(db&&db.cash_receipts_in)?db.cash_receipts_in:[]).forEach(function(r){
+      if(!r||!r.id||seen.has(String(r.id)))return;
+      var customerId=S(r.customer_id||''),customerName=S(r.customer_name||r.party||'');
+      if(!customerId&&customerName){
+        var m=(db.customers||[]).find(function(c){
+          var n1=S(c.customer_name||c.official_name||c.name||c.clinic_name).toLowerCase();
+          return n1&&n1===customerName.toLowerCase();
+        });
+        if(m)customerId=m.id;
+      }
+      if(!customerId)return;
+      rows.push({id:'RCPT|'+r.id,date:r.date||r.created_at||'',customer_id:customerId,customer_name:customerName,amount:N(r.amount),status:'approved',approval_status:'approved',source_receipt_id_v435:r.id});
+      seen.add(String(r.id));
+    });
+    return rows.filter(function(c){
+      var st=S(c&& (c.approval_status||c.status||'approved')).toLowerCase();
+      return !['pending','rejected','cancelled','canceled','void'].includes(st);
+    });
+  }
+  function normDate(v){
+    v=S(v); if(!v)return '';
+    var m=v.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
+    if(m)return m[1]+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[3]).padStart(2,'0');
+    m=v.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/);
+    if(m)return m[3]+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[1]).padStart(2,'0');
+    var dt=new Date(v);
+    if(!isNaN(dt.getTime()))return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+    return '';
+  }
+  function invoiceDate(x){
+    if(!x)return '';
+    var cand=[x.invoice_date,x.original_date,x.order_date,x.sale_date,x.date,x.created_at].map(normDate).filter(Boolean);
+    var order=null;
+    if(x.order_id)order=(db.sales_orders||[]).find(function(o){return String(o.id||'')===String(x.order_id||'')})||null;
+    if(!order&&x.invoice_group_id)order=(db.sales_orders||[]).find(function(o){return String(o.invoice_group_id||o.id||'')===String(x.invoice_group_id||'')})||null;
+    if(order)[order.invoice_date,order.order_date,order.date,order.created_date,order.created_at].map(normDate).filter(Boolean).forEach(function(v){cand.push(v)});
+    cand=cand.filter(Boolean).sort(); return cand.length?cand[0]:'';
+  }
+  function key(x){
+    if(S(x.invoice_no))return 'NO|'+S(x.invoice_no).toLowerCase();
+    if(S(x.invoice_group_id))return 'GROUP|'+S(x.invoice_group_id);
+    if(S(x.order_id))return 'ORDER|'+S(x.order_id);
+    return 'ROW|'+S(x.id);
+  }
+  function ledger(){
+    var grouped=new Map();
+    sales().forEach(function(x){
+      var type=S(x.order_type||x.order_type_label||'sale').toLowerCase();
+      if(type.indexOf('bonus')>=0||type.indexOf('بونص')>=0||type.indexOf('sample')>=0||type.indexOf('free')>=0||type.indexOf('display')>=0||type.indexOf('عين')>=0||type.indexOf('عرض')>=0)return;
+      var k=key(x);
+      if(!grouped.has(k))grouped.set(k,{key:k,customer_id:x.customer_id||'',customer_name:x.customer_name||'-',invoice_no:x.invoice_no||x.invoice_group_id||x.order_id||x.id||'-',date:invoiceDate(x),rows:[],total:0,initial_paid:0,collected:0,remaining:0});
+      var g=grouped.get(k); g.rows.push(x); g.total+=N(x.total_including_vat||x.total);
+      var dt=invoiceDate(x); if(dt&&(!g.date||dt<g.date))g.date=dt;
+      if(!g.customer_id&&x.customer_id)g.customer_id=x.customer_id;
+      if((!g.customer_name||g.customer_name==='-')&&x.customer_name)g.customer_name=x.customer_name;
+    });
+    var inv=Array.from(grouped.values());
+    inv.forEach(function(g){
+      var preserved=g.rows.map(function(r){return r.initial_paid_v431!=null?N(r.initial_paid_v431):null}).filter(function(v){return v!=null});
+      if(preserved.length){var same=preserved.every(function(v){return v===preserved[0]});g.initial_paid=same?preserved[0]:preserved.reduce(function(a,b){return a+b},0)}
+      else{var vals=g.rows.map(function(r){return N(r.paid)});var samePaid=vals.length&&vals.every(function(v){return v===vals[0]});g.initial_paid=samePaid?vals[0]:vals.reduce(function(a,b){return a+b},0)}
+      g.initial_paid=Math.max(0,Math.min(g.total,g.initial_paid)); g.remaining=Math.max(0,g.total-g.initial_paid);
+    });
+    inv.sort(function(a,b){return String(a.date||'').localeCompare(String(b.date||''))||String(a.key).localeCompare(String(b.key))});
+    var by={}; inv.forEach(function(g){var ck=S(g.customer_id||g.customer_name).toLowerCase();(by[ck]||(by[ck]=[])).push(g)});
+    collections().slice().sort(function(a,b){return D(a.date||a.approved_date||a.created_at).localeCompare(D(b.date||b.approved_date||b.created_at))}).forEach(function(c){
+      var ck=S(c.customer_id||c.customer_name).toLowerCase(),list=by[ck]||[],left=Math.max(0,N(c.amount));
+      for(var i=0;i<list.length&&left>0.000001;i++){var x=list[i];if(x.remaining<=0.000001)continue;var take=Math.min(left,x.remaining);x.collected+=take;x.remaining-=take;left-=take}
+    });
+    return inv;
+  }
+  function summary(){
+    var map={};
+    ledger().forEach(function(inv){
+      if(inv.remaining<=0.000001)return;
+      var k=S(inv.customer_id||inv.customer_name).toLowerCase()||'unknown';
+      if(!map[k])map[k]={id:inv.customer_id||'',name:inv.customer_name||'-',debt:0};
+      map[k].debt+=inv.remaining;
+    });
+    var rows=Object.keys(map).map(function(k){return map[k]});
+    return {rows:rows,total:rows.reduce(function(a,x){return a+x.debt},0),debtors:rows.filter(function(x){return x.debt>0.005}).length};
+  }
+  window.dashboardDebtMatchCollectionsV478=summary;
+  window.customerDebt=function(){return summary().total};
+  try{customerDebt=window.customerDebt}catch(e){}
+  window.customersCardBars=function(){
+    var rows=summary().rows.slice().sort(function(a,b){return b.debt-a.debt}).slice(0,4).map(function(x){return {l:S(x.name).split(' ')[0]||'عميل',v:x.debt}});
+    return typeof simpleBarsFromTotals==='function'?simpleBarsFromTotals(rows,(typeof lang!=='undefined'&&lang==='ar')?'عميل':'Customer'):rows;
+  };
+  try{customersCardBars=window.customersCardBars}catch(e){}
+  window.customerDebtTable=function(){
+    var ar=typeof lang!=='undefined'&&lang==='ar',rows=summary().rows.slice().sort(function(a,b){return b.debt-a.debt});
+    if(!rows.length)return '<div class="empty">'+(ar?'لا توجد بيانات':'No data')+'</div>';
+    return '<table><tr><th>'+(ar?'العميل':'Customer')+'</th><th>'+(ar?'المديونية':'Debt')+'</th></tr>'+rows.map(function(x){return '<tr><td>'+E(x.name)+'</td><td>'+(typeof money==='function'?money(x.debt):x.debt.toFixed(2))+'</td></tr>'}).join('')+'</table>';
+  };
+  try{customerDebtTable=window.customerDebtTable}catch(e){}
+  var base=window.renderDashboard;
+  if(typeof base==='function'){
+    window.renderDashboard=function(){
+      var out=base.apply(this,arguments),x=summary();
+      setTimeout(function(){
+        try{
+          document.querySelectorAll('.dash-card').forEach(function(card){
+            var title=card.querySelector('.dash-title'); if(!title)return;
+            if(/مديونيات العملاء|Customer debt/i.test(title.textContent||'')){
+              var value=card.querySelector('.dash-value'); if(value)value.textContent=typeof money==='function'?money(x.total):x.total.toFixed(2);
+              card.querySelectorAll('.metric-row').forEach(function(r){if(/عملاء مديونون|Debtors/i.test(r.textContent||'')){var b=r.querySelector('b');if(b)b.textContent=String(x.debtors)}});
+            }
+          });
+          document.querySelectorAll('.exec-stat').forEach(function(st){if(/مديونيات|customer debt/i.test(st.textContent||'')){var strong=st.querySelector('strong');if(strong)strong.textContent=typeof money==='function'?money(x.total):x.total.toFixed(2)}});
+        }catch(e){}
+      },0);
+      return out;
+    };
+    try{renderDashboard=window.renderDashboard}catch(e){}
+  }
+  console.log('V478 dashboard debt now uses the same invoice/collection ledger as Collections report');
+})();
+</script>
