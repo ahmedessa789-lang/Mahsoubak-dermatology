@@ -287,7 +287,7 @@ function del(table,id){if(!confirm(T('delete')+'?'))return;db[table]=db[table].f
 
 function totalSales(){return db.sales.reduce((a,s)=>a+n(s.total),0)} function totalPurchases(){return db.purchases.reduce((a,s)=>a+n(s.total),0)} function customerDebt(){return db.customers.reduce((a,c)=>a+n(c.balance),0)} function supplierDue(){return db.suppliers.reduce((a,s)=>a+n(s.balance),0)} function inventoryValue(){return db.products.reduce((a,p)=>a+n(p.purchase)*n(p.stock),0)} function repAchievement(id){return db.sales.filter(s=>s.rep_id===id).reduce((a,s)=>a+n(s.total),0)}
 function renderDashboard(){let fs=(db.sales||[]), fp=(db.purchases||[]), fc=dashboardCollectionsAllV446(), fo=(db.operations||[]), pending=fo.filter(o=>o.status==='requested').length, prepared=fo.filter(o=>o.status==='prepared').length, soldOps=fo.filter(o=>o.status==='sold').length, low=db.products.filter(p=>n(p.stock)<=n(p.min)).length, collections=fc.reduce((a,c)=>a+n(c.amount),0), exp=expiryCount(), sales=fs.reduce((a,s)=>a+n(s.total),0), purchases=fp.reduce((a,s)=>a+n(s.total),0), debt=customerDebt(), due=supplierDue(), inv=inventoryValue();document.getElementById('view-dashboard').innerHTML=`
-<div class="executive-strip"><div class="exec-stat"><span>${T('salesTotal')}</span><strong>${money(sales)}</strong><em>${dashboardInvoiceGroupsV446(fs).length} ${lang==='ar'?'فاتورة':'invoices'}</em></div><div class="exec-stat"><span>${T('inventoryValue')}</span><strong>${money(inv)}</strong><em>${db.products.length} ${lang==='ar'?'صنف':'items'}</em></div><div class="exec-stat"><span>${T('customerDebt')}</span><strong>${money(debt)}</strong><em>${(typeof window.customerDebtStateV484==='function'?window.customerDebtStateV484().debtors:db.customers.filter(c=>n(c.balance)>0).length)} ${lang==='ar'?'عميل مديون':'debt customers'}</em></div><div class="exec-stat"><span>${T('expiryAlert')}</span><strong>${exp.warn+exp.low}</strong><em>${low} ${lang==='ar'?'أصناف ناقصة':'low stock'}</em></div></div><div class="compact-dashboard-grid">
+<div class="executive-strip"><div class="exec-stat"><span>${T('salesTotal')}</span><strong>${money(sales)}</strong><em>${dashboardInvoiceGroupsV446(fs).length} ${lang==='ar'?'فاتورة':'invoices'}</em></div><div class="exec-stat"><span>${T('inventoryValue')}</span><strong>${money(inv)}</strong><em>${db.products.length} ${lang==='ar'?'صنف':'items'}</em></div><div class="exec-stat"><span>${T('customerDebt')}</span><strong>${money(debt)}</strong><em>${db.customers.filter(c=>n(c.balance)>0).length} ${lang==='ar'?'عميل مديون':'debt customers'}</em></div><div class="exec-stat"><span>${T('expiryAlert')}</span><strong>${exp.warn+exp.low}</strong><em>${low} ${lang==='ar'?'أصناف ناقصة':'low stock'}</em></div></div><div class="compact-dashboard-grid">
 ${compactDashboardBox('sales',lang==='ar'?'المبيعات':'Sales',money(sales),[(lang==='ar'?'تحصيل':'Collections')+': '+money(collections),(lang==='ar'?'فواتير':'Invoices')+': '+dashboardInvoiceGroupsV446(fs).length])}
 ${compactDashboardBox('stock',lang==='ar'?'المخزون':'Inventory',money(inv),[(lang==='ar'?'متاح للبياعين':'Available items')+': '+db.products.length,(lang==='ar'?'ناقص':'Low stock')+': '+low])}
 ${compactDashboardBox('operations',lang==='ar'?'العمليات':'Operations',pending,[(lang==='ar'?'جاهز للتجهيز':'Prepared')+': '+prepared,(lang==='ar'?'تم البيع':'Sold')+': '+soldOps])}
@@ -333,7 +333,7 @@ function expandedDashboardHTML(key){
  if(key==='operations') return `${modalHeader(lang==='ar'?'تفاصيل إدارة العمليات':'Operations department details',lang==='ar'?'طلبات المخزن المطلوبة والمنفذة':'Requested and fulfilled stock operations')}<div class="dash-panel-body">${expandedStats([[T('requested'),pending],[T('sold'),soldOps],[(lang==='ar'?'كل الطلبات':'All orders'),db.operations.length],[T('salesTotal'),money(db.operations.reduce((a,o)=>a+n(o.total),0))]])}${bigBars([{l:T('requested'),v:pending,display:pending},{l:T('sold'),v:soldOps,display:soldOps},{l:lang==='ar'?'إجمالي':'Total',v:db.operations.length,display:db.operations.length}])}<div class="card"><h3>${T('operationList')}</h3>${operationsDetailTable()}</div></div>`;
  if(key==='purchases') return `${modalHeader(lang==='ar'?'تفاصيل إدارة المشتريات':'Purchasing department details',lang==='ar'?'فواتير الشراء، الموردين، والمستحقات':'Purchases, suppliers and dues')}<div class="dash-panel-body">${expandedStats([[T('purchasesTotal'),money(purchases)],[T('supplierDue'),money(due)],[T('suppliers'),db.suppliers.length],[T('purchases'),db.purchases.length]])}${bigBars([{l:T('purchasesTotal'),v:purchases},{l:T('supplierDue'),v:due},{l:T('suppliers'),v:db.suppliers.length,display:db.suppliers.length}])}<div class="card"><h3>${T('purchases')}</h3>${purchasesDetailTable()}</div></div>`;
  if(key==='reps') return `${modalHeader(lang==='ar'?'تفاصيل إدارة البياعين':'Sales reps department details',lang==='ar'?'التارجت، المحقق، ونسبة الإنجاز لكل بياع':'Targets, achieved sales and performance per rep')}<div class="dash-panel-body">${expandedStats([[T('target'),money(totalRepTarget())],[T('achieved'),money(totalRepAchieved())],[T('achievement'),avgRepPercent()+'%'],[T('reps'),db.reps.length]])}${bigBars(db.reps.length?db.reps.map(r=>({l:r.name,v:repAchievement(r.id),display:money(repAchievement(r.id))})): [{l:T('reps'),v:0,display:'0'}])}<div class="dash-detail-two"><div class="card"><h3>${T('reps')}</h3>${repTargetTable()}</div><div class="card"><h3>${T('stockAvailability')}</h3>${stockAvailabilityTable()}</div></div></div>`;
- return `${modalHeader(lang==='ar'?'تفاصيل إدارة العملاء':'Customer management details',lang==='ar'?'العملاء، المديونيات، والتحصيلات':'Customers, debt and collections')}<div class="dash-panel-body">${expandedStats([[T('customers'),db.customers.length],[T('customerDebt'),money(debt)],[T('collections'),db.collections.length],[T('paid'),money(collections)]])}${bigBars([{l:T('customers'),v:db.customers.length,display:db.customers.length},{l:lang==='ar'?'عملاء مديونين':'Debtors',v:(typeof window.customerDebtStateV484==='function'?window.customerDebtStateV484().debtors:db.customers.filter(c=>n(c.balance)>0).length),display:(typeof window.customerDebtStateV484==='function'?window.customerDebtStateV484().debtors:db.customers.filter(c=>n(c.balance)>0).length)},{l:T('collections'),v:db.collections.length,display:db.collections.length}])}<div class="dash-detail-two"><div class="card"><h3>${T('customers')}</h3>${customersDetailTable()}</div><div class="card"><h3>${T('customerDebt')}</h3>${customerDebtTable()}</div></div></div>`;
+ return `${modalHeader(lang==='ar'?'تفاصيل إدارة العملاء':'Customer management details',lang==='ar'?'العملاء، المديونيات، والتحصيلات':'Customers, debt and collections')}<div class="dash-panel-body">${expandedStats([[T('customers'),db.customers.length],[T('customerDebt'),money(debt)],[T('collections'),db.collections.length],[T('paid'),money(collections)]])}${bigBars([{l:T('customers'),v:db.customers.length,display:db.customers.length},{l:lang==='ar'?'عملاء مديونين':'Debtors',v:db.customers.filter(c=>n(c.balance)>0).length,display:db.customers.filter(c=>n(c.balance)>0).length},{l:T('collections'),v:db.collections.length,display:db.collections.length}])}<div class="dash-detail-two"><div class="card"><h3>${T('customers')}</h3>${customersDetailTable()}</div><div class="card"><h3>${T('customerDebt')}</h3>${customerDebtTable()}</div></div></div>`;
 }
 
 function exportDashboardCSV(){exportRangeCSV()}
@@ -685,7 +685,7 @@ function renderDashboard(){
     ${dashboardBox('stock',lang==='ar'?'المخزون':'Inventory',lang==='ar'?'الكميات المتاحة والتنبيهات':'Available stock and alerts',money(inv),stockCardBars(),[[lang==='ar'?'أصناف متاحة':'Available items',db.products.length],[lang==='ar'?'أصناف ناقصة':'Low stock',low],[lang==='ar'?'تنبيهات الصلاحية':'Expiry alerts',exp.warn+exp.low]])}
     ${dashboardBox('operations',lang==='ar'?'العمليات':'Operations',lang==='ar'?'طلبات المخزن وحالة التنفيذ':'Warehouse requests and fulfillment status',fo.length,operationsCardBars(),[[lang==='ar'?'مطلوب':'Requested',pending],[lang==='ar'?'تم التجهيز':'Prepared',prepared],[lang==='ar'?'تم البيع':'Sold',soldOps]])}
     ${dashboardBox('reps',lang==='ar'?'البياعين':'Sales reps',lang==='ar'?'التارجت وتحقيق الفترة':'Target versus achieved sales',avgRepPercentFiltered()+'%',repsCardBars(),[[lang==='ar'?'إجمالي التارجت':'Total target',money(totalRepTarget())],[lang==='ar'?'المحقق بالفترة':'Achieved in period',money(totalRepAchievedFiltered())],[lang==='ar'?'عدد البياعين':'Rep count',db.reps.length]])}
-    ${dashboardBox('customers',lang==='ar'?'مديونيات العملاء':'Customer debt',lang==='ar'?'المديونيات والتحصيلات والعملاء النشطون':'Debt, collections and active customers',money(debt),customersCardBars(),[[lang==='ar'?'التحصيلات':'Collections',money(collections)],[lang==='ar'?'عملاء مديونون':'Debtors',(typeof window.customerDebtStateV484==='function'?window.customerDebtStateV484().debtors:db.customers.filter(c=>n(c.balance)>0).length)],[lang==='ar'?'إجمالي العملاء':'Total customers',db.customers.length]])}
+    ${dashboardBox('customers',lang==='ar'?'مديونيات العملاء':'Customer debt',lang==='ar'?'المديونيات والتحصيلات والعملاء النشطون':'Debt, collections and active customers',money(debt),customersCardBars(),[[lang==='ar'?'التحصيلات':'Collections',money(collections)],[lang==='ar'?'عملاء مديونون':'Debtors',db.customers.filter(c=>n(c.balance)>0).length],[lang==='ar'?'إجمالي العملاء':'Total customers',db.customers.length]])}
   </div><div class="clean-dashboard-sections no-print"><details class="erp-details" open><summary>${lang==='ar'?'تقارير الفترة والطباعة':'Period reports and export'}</summary><div class="details-body">${dashboardRangeControls()}</div></details><details class="erp-details"><summary>${lang==='ar'?'تفاصيل تشغيلية: البياعين / المخزون / المديونيات / الصلاحية':'Operational details: reps / stock / debts / expiry'}</summary><div class="details-body insight-grid clean-insights"><div class="insight-card insight-reps"><div class="section-title"><h3>${T('reps')}</h3><button class="btn small secondary" onclick="show('reps')">${T('reps')}</button></div>${repTargetTable()}</div><div class="insight-card insight-stock"><div class="section-title"><h3>${T('stockAvailability')}</h3><button class="btn small secondary" onclick="show('products')">${T('products')}</button></div>${stockAvailabilityTable()}</div><div class="insight-card insight-debt"><div class="section-title"><h3>${T('customerDebt')}</h3><button class="btn small secondary" onclick="show('customers')">${T('customers')}</button></div>${customerDebtTable()}</div><div class="insight-card insight-expiry"><div class="section-title"><h3>${T('expiryAlert')}</h3><button class="btn small secondary" onclick="show('products')">${T('products')}</button></div>${expiryTable()}</div></div></details></div>`;
 }
 
@@ -735,7 +735,7 @@ function renderDashboard(){
   <div class="dashboard-grid market-dashboard-grid">
     ${dashboardBox('sales',lang==='ar'?'المبيعات':'Sales',lang==='ar'?'إجمالي حركة البيع المسجلة':'Total recorded sales movement',money(sales),salesCardBars(),[[lang==='ar'?'التحصيل':'Collections',money(collections)],[lang==='ar'?'الفواتير':'Invoices',dashboardInvoiceGroupsV446(fs).length],[lang==='ar'?'متوسط الفاتورة':'Avg invoice',money(dashboardInvoiceGroupsV446(fs).length?Math.round(sales/dashboardInvoiceGroupsV446(fs).length):0)]])}
     ${dashboardBox('stock',lang==='ar'?'المخزون':'Inventory',lang==='ar'?'مؤشر قيمة وكميات المخزون':'Inventory value and quantities index',money(inv),stockCardBars(),[[lang==='ar'?'أصناف متاحة':'Available items',db.products.length],[lang==='ar'?'أصناف ناقصة':'Low stock',low],[lang==='ar'?'تنبيهات الصلاحية':'Expiry alerts',exp.warn+exp.low]])}
-    ${dashboardBox('customers',lang==='ar'?'مديونيات العملاء':'Customer debt',lang==='ar'?'مؤشر المخاطر والتحصيل':'Risk and collection index',money(debt),customersCardBars(),[[lang==='ar'?'التحصيلات':'Collections',money(collections)],[lang==='ar'?'عملاء مديونون':'Debtors',(typeof window.customerDebtStateV484==='function'?window.customerDebtStateV484().debtors:db.customers.filter(c=>n(c.balance)>0).length)],[lang==='ar'?'إجمالي العملاء':'Total customers',db.customers.length]])}
+    ${dashboardBox('customers',lang==='ar'?'مديونيات العملاء':'Customer debt',lang==='ar'?'مؤشر المخاطر والتحصيل':'Risk and collection index',money(debt),customersCardBars(),[[lang==='ar'?'التحصيلات':'Collections',money(collections)],[lang==='ar'?'عملاء مديونون':'Debtors',db.customers.filter(c=>n(c.balance)>0).length],[lang==='ar'?'إجمالي العملاء':'Total customers',db.customers.length]])}
     ${dashboardBox('operations',lang==='ar'?'العمليات':'Operations',lang==='ar'?'حركة الطلبات والتنفيذ':'Request and fulfillment movement',fo.length,operationsCardBars(),[[lang==='ar'?'مطلوب':'Requested',pending],[lang==='ar'?'تم التجهيز':'Prepared',prepared],[lang==='ar'?'تم البيع':'Sold',soldOps]])}
     ${dashboardBox('reps',lang==='ar'?'البياعين':'Sales reps',lang==='ar'?'مؤشر تحقيق التارجت':'Target achievement index',avgRepPercentFiltered()+'%',repsCardBars(),[[lang==='ar'?'إجمالي التارجت بالكمية':'Total quantity target',dashboardRepTargetQtyTextV468()],[lang==='ar'?'المحقق بالكمية':'Achieved quantity',dashboardRepAchievedQtyTextV468()],[lang==='ar'?'إجمالي مبيعات الشركة':'Company total sales',money(dashboardCompanySalesTotalV468())]])}
     ${dashboardBox('purchases',lang==='ar'?'المشتريات':'Purchases',lang==='ar'?'مؤشر تكلفة التوريد':'Supply cost index',money(purchases),purchaseCardBars(),[[lang==='ar'?'مستحقات الموردين':'Supplier due',money(due)],[lang==='ar'?'فواتير الشراء':'Purchase invoices',dashboardPurchaseGroupsV446(fp).length],[lang==='ar'?'متوسط الشراء':'Avg purchase',money(dashboardPurchaseGroupsV446(fp).length?Math.round(purchases/dashboardPurchaseGroupsV446(fp).length):0)]])}
@@ -7010,7 +7010,7 @@ render();
     let remainingTotal=sales.reduce((a,s)=>a+n(s.remaining),0);
 
     return `
-      <div class="rep-detail-head-v175"><div><h2>${esc(rep.name||'')}</h2><p>${esc(rep.phone||'')}</p></div><button type="button" class="btn blue" onclick="printRepDetailsV179('${rep.id}')">طباعة التقرير</button></div><div class="grid grid4 rep-summary-v175"><div class="stat"><span>المبيعات بعد الموافقة</span><strong>${money(salesTotal)}</strong></div><div class="stat"><span>التحصيلات بعد الموافقة</span><strong>${money(collectionTotal)}</strong></div><div class="stat"><span>المتبقي من مبيعات المدة</span><strong>${money(remainingTotal)}</strong></div><div class="stat"><span>عدد الفواتير المعتمدة</span><strong>${new Set(sales.map(s=>s.invoice_key||s.invoice_number||s.order_id||s.sale_id||s.id)).size}</strong></div></div><div class="card"><h3>المبيعات والتحصيل المعتمد لكل عميل</h3>
+      <div class="rep-detail-head-v175"><div><h2>${esc(rep.name||'')}</h2><p>${esc(rep.phone||'')}</p></div><button type="button" class="btn blue" onclick="printRepDetailsV179('${rep.id}')">طباعة التقرير</button></div><div class="grid grid4 rep-summary-v175"><div class="stat"><span>المبيعات بعد الموافقة</span><strong>${money(salesTotal)}</strong></div><div class="stat"><span>التحصيلات بعد الموافقة</span><strong>${money(collectionTotal)}</strong></div><div class="stat"><span>المتبقي على العملاء</span><strong>${money(remainingTotal)}</strong></div><div class="stat"><span>عدد الفواتير المعتمدة</span><strong>${new Set(sales.map(s=>s.invoice_key||s.invoice_number||s.order_id||s.sale_id||s.id)).size}</strong></div></div><div class="card"><h3>المبيعات والتحصيل المعتمد لكل عميل</h3>
         ${rows.length?`<table><tr><th>العميل</th><th>المبيعات المعتمدة</th><th>التحصيلات المعتمدة</th><th>المتبقي</th><th>عدد الفواتير</th><th>عدد التحصيلات</th></tr>
           ${rows.map(r=>`<tr><td><b>${esc(r.name)}</b></td><td>${money(r.sales)}</td><td>${money(r.collections)}</td><td>${money(r.remaining)}</td><td>${r.invoiceCount}</td><td>${r.collectionCount}</td></tr>`).join('')}
         </table>`:`<div class="empty">لا توجد مبيعات أو تحصيلات معتمدة لهذا المندوب</div>`}
@@ -8261,7 +8261,7 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
       <div class="grid grid4 rep-summary-v175">
         <div class="stat v303-clickable" data-v303-drill="rep-sales" onclick="window.openRepDrillDirectV304('rep-sales');return false;" title="اضغط على الكارت"><span>المبيعات خلال المدة</span><strong>${money(salesTotal)}</strong></div>
         <div class="stat v303-clickable" data-v303-drill="rep-collections" onclick="window.openRepDrillDirectV304('rep-collections');return false;" title="اضغط على الكارت"><span>التحصيلات خلال المدة</span><strong>${money(collectionTotal)}</strong></div>
-        <div class="stat v303-clickable" data-v303-drill="rep-remaining" onclick="window.openRepDrillDirectV304('rep-remaining');return false;" title="اضغط على الكارت"><span>المتبقي من مبيعات المدة</span><strong>${money(remainingTotal)}</strong></div>
+        <div class="stat v303-clickable" data-v303-drill="rep-remaining" onclick="window.openRepDrillDirectV304('rep-remaining');return false;" title="اضغط على الكارت"><span>المتبقي على العملاء</span><strong>${money(remainingTotal)}</strong></div>
         <div class="stat v303-clickable" data-v303-drill="rep-invoices" onclick="window.openRepDrillDirectV304('rep-invoices');return false;" title="اضغط على الكارت"><span>عدد الفواتير</span><strong>${sales.length}</strong></div>
       </div><div class="grid grid4 rep-target-summary-v189">
         <div class="stat v303-clickable" data-v303-drill="target" onclick="window.openRepDrillDirectV304('target');return false;" title="اضغط على الكارت"><span>التارجت (${target.label})</span><strong>${Number(target.target).toLocaleString()}</strong></div>
@@ -15741,20 +15741,17 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
     });
   }
   function customerDebtMap(){
+    if(typeof window.customerDebtReportRowsV485==='function')return window.customerDebtReportRowsV485(true);
     var map={};
     salesRows().forEach(function(x){
-      var debt=saleRemain(x);
-      if(debt<=0)return;
+      var debt=saleRemain(x);if(debt<=0)return;
       var k=x.customer_id||customerName(x);
       if(!map[k])map[k]={id:x.customer_id||'',name:customerName(x),debt:0,oldest:'',rep:repName(x),count:0,rows:[]};
-      map[k].debt+=debt;
-      map[k].count++;
-      var d=saleDate(x);
-      map[k].rows.push({sale:x,date:d,debt:debt,age:d?daysBetween(d,today()):0});
+      map[k].debt+=debt;map[k].count++;
+      var d=saleDate(x);map[k].rows.push({sale:x,date:d,debt:debt,age:d?daysBetween(d,today()):0});
       if(d&&(!map[k].oldest||d<map[k].oldest))map[k].oldest=d;
     });
-    var rows=Object.keys(map).map(function(k){return map[k]}).filter(function(x){return x.debt>0});
-    return typeof window.unifiedDebtRowsV484==='function'?window.unifiedDebtRowsV484(rows):rows;
+    return Object.keys(map).map(function(k){return map[k]}).filter(function(x){return x.debt>0});
   }
   function riskFor(c){
     var age=c.oldest?daysBetween(c.oldest,today()):0;
@@ -15970,9 +15967,9 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
 
   function collectionsDashboardHTML(){
     var ledger=invoiceLedgerV437();
-    var debt=typeof window.currentDebtRowsV485==='function'
-      ? window.currentDebtRowsV485()
-      : (function(){var debtRaw=debtCustomersFromLedgerV437(ledger);return typeof window.unifiedDebtRowsV484==='function'?window.unifiedDebtRowsV484(debtRaw):debtRaw})();
+    var debt=typeof window.customerDebtReportRowsV485==='function'
+      ? window.customerDebtReportRowsV485(true)
+      : debtCustomersFromLedgerV437(ledger);
     var totalDebt=debt.reduce(function(a,x){return a+x.debt},0);
     var allCollections=ledger.collections;
     var todayRows=allCollections.filter(function(x){
@@ -16029,7 +16026,7 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
   }
 
   function agingHTML(){
-    var debt=(typeof window.currentDebtRowsV485==='function'?window.currentDebtRowsV485():customerDebtMap()).slice().sort(function(a,b){return b.debt-a.debt});
+    var debt=customerDebtMap().sort(function(a,b){return b.debt-a.debt});
     var groups={'0 - 30 يوم':0,'31 - 60 يوم':0,'61 - 90 يوم':0,'أكثر من 90 يوم':0};
 
     debt.forEach(function(x){
@@ -16117,7 +16114,7 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
   };
 
   function classificationHTML(){
-    var debt=(typeof window.currentDebtRowsV485==='function'?window.currentDebtRowsV485():customerDebtMap()).slice();
+    var debt=customerDebtMap();
     return '<div class="v248-note">تصنيف التحصيل هنا يعتمد على عمر المديونية: عاجل حتى 7 أيام، متوسط حتى 30 يوم، وطويل أكثر من 30 يوم.</div>'+
       '<table><tr><th>العميل</th><th>المديونية</th><th>عمر المديونية</th><th>تصنيف التحصيل</th><th>المخاطرة</th></tr>'+
       debt.sort(function(a,b){return b.debt-a.debt}).map(function(x){var age=x.oldest?daysBetween(x.oldest,today()):0,r=riskFor(x);return '<tr><td>'+e(x.name)+'</td><td>'+money2(x.debt)+'</td><td>'+age+' يوم</td><td>'+collectionClass(age)+'</td><td><span class="v248-badge '+r.cls+'">'+r.level+'</span></td></tr>'}).join('')+'</table>';
@@ -16140,8 +16137,8 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
     var view=document.getElementById(id);if(!view)return;
     view.innerHTML='<div class="card"><div class="section-title"><h3>'+title+'</h3></div>'+html+'</div>';
   }
-  window.renderV248Dashboard=function(){makeView('view-collections-dashboard','Dashboard التحصيلات',collectionsDashboardHTML())};
-  window.renderV248Aging=function(){makeView('view-aging-report','أعمار الديون',agingHTML())};
+  window.renderV248Dashboard=function(){if(typeof window.markCustomerDebtDirtyV485==='function')window.markCustomerDebtDirtyV485();makeView('view-collections-dashboard','Dashboard التحصيلات',collectionsDashboardHTML())};
+  window.renderV248Aging=function(){if(typeof window.markCustomerDebtDirtyV485==='function')window.markCustomerDebtDirtyV485();makeView('view-aging-report','أعمار الديون',agingHTML())};
   window.renderV248Classification=function(){makeView('view-collection-classification','تصنيف التحصيل',classificationHTML())};
   window.renderV248Performance=function(){makeView('view-collector-performance','تقرير الأداء ومتابعة المحصلين',performanceHTML())};
   window.renderV248Forecast=function(){makeView('view-cash-forecast','توقع التدفقات النقدية',forecastHTML())};
@@ -16424,39 +16421,16 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
   }
 
   function debtRows(){
+    if(typeof window.customerDebtReportRowsV485==='function')return window.customerDebtReportRowsV485(true);
     var map={};
-
     invoiceLedgerV440().forEach(function(inv){
       if(inv.remaining<=0.000001)return;
-
       var k=s(inv.customer_id||inv.customer_name).toLowerCase()||'unknown';
-      if(!map[k]){
-        map[k]={
-          id:inv.customer_id||'',
-          name:inv.customer_name||'-',
-          debt:0,
-          oldest:'',
-          rep:inv.rep||'-',
-          invoices:[]
-        };
-      }
-
-      map[k].debt+=inv.remaining;
-      map[k].invoices.push({
-        id:inv.key,
-        invoice_no:inv.invoice_no,
-        date:inv.date,
-        remaining:inv.remaining,
-        total:inv.total,
-        paid:inv.initial_paid+inv.collected,
-        collected:inv.collected
-      });
-
+      if(!map[k])map[k]={id:inv.customer_id||'',name:inv.customer_name||'-',debt:0,oldest:'',rep:inv.rep||'-',invoices:[]};
+      map[k].debt+=inv.remaining;map[k].invoices.push(inv);
       if(inv.date&&(!map[k].oldest||inv.date<map[k].oldest))map[k].oldest=inv.date;
     });
-
-    var rows=Object.keys(map).map(function(k){return map[k]});
-    return typeof window.unifiedDebtRowsV484==='function'?window.unifiedDebtRowsV484(rows):rows;
+    return Object.keys(map).map(function(k){return map[k]});
   }
 
   function risk(x){
@@ -39370,12 +39344,13 @@ table.rep-split-table th:first-child,
 table.rep-split-table td:first-child{display:none !important;}
 </style>
 
-<script id="v485-clean-customer-splits-debt-natural-cycle">
+<script id="v486-clean-customer-debt-canonical-single-source">
 (function(){
   'use strict';
   if(window.__mbV483CustomerMaster)return;
   window.__mbV483CustomerMaster=true;
   window.__mbV485DebtNaturalCycle=true;
+  window.__mbV486DebtCanonical=true;
 
   function A(v){return Array.isArray(v)?v:[]}
   function S(v){return String(v==null?'':v).trim()}
@@ -39490,25 +39465,50 @@ table.rep-split-table td:first-child{display:none !important;}
     var nm=norm(raw&&raw.name);return nm&&maps.byAlias.has(nm)?maps.byAlias.get(nm):null;
   }
   function buildDebtState(){
-    var raw=rawDebtRows(),maps=customerMaps(),matchedBase=new Map(),historical=[];
+    var raw=rawDebtRows(),maps=customerMaps(),matched=new Map(),historical=[];
     raw.forEach(function(r,idx){
       var base=Math.max(0,N(r&&r.debt));if(base<=.005)return;
       var c=matchCustomer(r,maps);
       if(c&&S(c.id)){
-        var id=S(c.id);matchedBase.set(id,(matchedBase.get(id)||0)+base);
+        var id=S(c.id),m=matched.get(id);
+        if(!m){m={base:0,oldest:'',rep:'-',count:0,rows:[],invoices:[]};matched.set(id,m)}
+        m.base+=base;
+        m.count+=N(r&&r.count)||1;
+        if(S(r&&r.rep)&&S(r&&r.rep)!=='-')m.rep=S(r.rep);
+        if(S(r&&r.oldest)&&(!m.oldest||S(r.oldest)<m.oldest))m.oldest=S(r.oldest);
+        if(Array.isArray(r&&r.rows))m.rows=m.rows.concat(r.rows);
+        if(Array.isArray(r&&r.invoices))m.invoices=m.invoices.concat(r.invoices);
       }else{
-        historical.push({key:'u:'+(S(r&&r.id)||norm(r&&r.name)||('row_'+idx)),customer:null,name:S(r&&r.name)||'-',phone:'',base:base,debt:base,override:null,raw:[r]});
+        historical.push({
+          key:'u:'+(S(r&&r.id)||norm(r&&r.name)||('row_'+idx)),customer:null,
+          id:S(r&&r.id),name:S(r&&r.name)||'-',phone:'',base:base,debt:base,override:null,
+          oldest:S(r&&r.oldest),rep:S(r&&r.rep)||'-',count:N(r&&r.count)||1,
+          rows:Array.isArray(r&&r.rows)?r.rows.slice():[],
+          invoices:Array.isArray(r&&r.invoices)?r.invoices.slice():[],raw:[r]
+        });
       }
     });
     var rows=[];
     A(db&&db.customers).forEach(function(c){
       var id=S(c&&c.id);if(!id)return;
-      var base=matchedBase.get(id)||0,ov=explicitDebtOverride(c,base),debt=ov===null?base:ov;
+      var m=matched.get(id)||{base:0,oldest:'',rep:'-',count:0,rows:[],invoices:[]};
+      var base=m.base||0,ov=explicitDebtOverride(c,base),debt=ov===null?base:ov;
       c.balance=Math.max(0,debt);
-      if(debt>.005)rows.push({key:'c:'+id,customer:c,name:S(c.customer_name||c.official_name||c.name||c.clinic_name)||'-',phone:S(c.phone),base:base,debt:Math.max(0,debt),override:ov,raw:[]});
+      if(debt>.005)rows.push({
+        key:'c:'+id,customer:c,id:id,
+        name:S(c.customer_name||c.official_name||c.name||c.clinic_name)||'-',phone:S(c.phone),
+        base:base,debt:Math.max(0,debt),override:ov,
+        oldest:m.oldest||'',rep:m.rep||'-',count:m.count||0,
+        rows:m.rows||[],invoices:m.invoices||[],raw:[]
+      });
     });
     historical.forEach(function(x){if(x.debt>.005)rows.push(x)});
-    return {total:rows.reduce(function(a,x){return a+x.debt},0),debtors:rows.length,rows:rows,rawTotal:raw.reduce(function(a,x){return a+Math.max(0,N(x&&x.debt))},0),historicalTotal:historical.reduce(function(a,x){return a+x.debt},0)};
+    return {
+      total:rows.reduce(function(a,x){return a+Math.max(0,N(x.debt))},0),
+      debtors:rows.length,rows:rows,
+      rawTotal:raw.reduce(function(a,x){return a+Math.max(0,N(x&&x.debt))},0),
+      historicalTotal:historical.reduce(function(a,x){return a+Math.max(0,N(x.debt))},0)
+    };
   }
   var debtDirty=true,debtCache={total:0,debtors:0,rows:[],rawTotal:0,historicalTotal:0},debtStamp='';
   function debtSourceStamp(){
@@ -39692,36 +39692,25 @@ table.rep-split-table td:first-child{display:none !important;}
 
   /* One debt row source for Dashboard + Collections + Aging.
      This replaces older report-only totals without adding another render patch. */
-  window.unifiedDebtRowsV484=function(sourceRows){
-    var src=A(sourceRows),st=debtState(),maps=customerMaps(),used=new Set(),out=[];
-    st.rows.forEach(function(u){
-      var hitIndex=-1,hit=null;
-      for(var i=0;i<src.length;i++){
-        if(used.has(i))continue;
-        var r=src[i],matched=null;
-        if(u.customer){matched=matchCustomer({id:r&&r.id,name:r&&r.name},maps);if(matched===u.customer){hitIndex=i;hit=r;break}}
-        else{
-          var ur=A(u.raw)[0]||{};
-          var sameId=S(ur.id)&&S(r&&r.id)===S(ur.id);
-          var sameName=norm(r&&r.name)&&norm(r&&r.name)===norm(u.name);
-          if(sameId||sameName){hitIndex=i;hit=r;break}
-        }
-      }
-      if(hitIndex>=0)used.add(hitIndex);
-      var row=Object.assign({},hit||{});
-      row.id=u.customer?S(u.customer.id):S((A(u.raw)[0]||{}).id||row.id);
-      row.name=S(u.name||row.name)||'-';
-      row.debt=Math.max(0,N(u.debt));
-      if(!row.rep)row.rep='-';
-      if(!row.oldest)row.oldest='';
-      if(!Array.isArray(row.rows))row.rows=[];
-      if(!Array.isArray(row.invoices))row.invoices=[];
-      out.push(row);
-    });
-    return out.filter(function(x){return N(x.debt)>.005});
+  window.customerDebtReportRowsV485=function(force){
+    var st=debtState(force!==false);
+    return st.rows.map(function(x){
+      return {
+        id:S(x.id||(x.customer&&x.customer.id)),
+        name:S(x.name)||'-',
+        debt:Math.max(0,N(x.debt)),
+        oldest:S(x.oldest),
+        rep:S(x.rep)||'-',
+        count:N(x.count),
+        rows:Array.isArray(x.rows)?x.rows.slice():[],
+        invoices:Array.isArray(x.invoices)?x.invoices.slice():[]
+      };
+    }).filter(function(x){return x.debt>.005});
   };
-  window.currentDebtRowsV485=function(){
-    return window.unifiedDebtRowsV484(rawDebtRows());
+
+  window.unifiedDebtRowsV484=function(sourceRows){
+    if(typeof window.customerDebtReportRowsV485==='function')return window.customerDebtReportRowsV485(true);
+    return A(sourceRows).filter(function(x){return N(x&&x.debt)>.005});
   };
   window.customerDebtStateV484=function(force){var st=debtState(!!force);return {total:st.total,debtors:st.debtors,rows:st.rows.slice(),rawTotal:st.rawTotal,historicalTotal:st.historicalTotal}};
 
