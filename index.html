@@ -15928,6 +15928,69 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
     fixed[normCollectorV490('Delta')]='منى';fixed[normCollectorV490('Alex')]='يحي فتحي';
     return fixed[key]||'';
   }
+  /* V491 — exhaust all reliable ownership sources before using "غير محدد". */
+  function distributionWeightsFromCustomerV491(c){
+    if(!c)return [];
+    var l=c.legacy_data&&typeof c.legacy_data==='object'?c.legacy_data:{},txt=s(c.customer_rep_distribution||l.customer_rep_distribution||l.rep_distribution||''),out={};
+    if(!txt)return [];
+    txt.split(/[|؛;]+/).forEach(function(part){
+      part=s(part);if(!part)return;
+      var pctMatch=part.match(/\(([\d.]+)\s*%\)/),pct=pctMatch?Math.max(0,n(pctMatch[1])):0,name='';
+      ['مارينا','شهد','سلمى','ماهينور','نوران','منى','يحي فتحي','سيف','عماد'].some(function(rep){
+        if(normCollectorV490(part).indexOf(normCollectorV490(rep))>=0){name=currentRepNameV490(rep);return true}return false;
+      });
+      if(!name){
+        ['West 1','West 2','East 1','East 2','Heliopolis','هليوبلس','Delta','Alex'].some(function(region){
+          if(normCollectorV490(part).indexOf(normCollectorV490(region))>=0){name=currentRepNameV490(repForRegionCurrentV490(region));return true}return false;
+        });
+      }
+      if(name)out[name]=(out[name]||0)+(pct||100);
+    });
+    var rows=Object.keys(out).map(function(name){return {name:name,pct:out[name]}}),sum=rows.reduce(function(a,x){return a+x.pct},0);
+    if(rows.length&&sum>0&&Math.abs(sum-100)>0.001)rows.forEach(function(x){x.pct=x.pct/sum*100});
+    return rows;
+  }
+  function rowMatchesCustomerV491(row,c){
+    if(!row||!c)return false;
+    if(s(row.customer_id)&&s(c.id)&&s(row.customer_id)===s(c.id))return true;
+    var rn=normCollectorV490(row.customer_name||row.customer||row.client_name),aliases=customerAliasesV490(c);
+    return !!rn&&aliases.indexOf(rn)>=0;
+  }
+  function latestKnownRepForCustomerV491(c){
+    if(!c)return '';
+    var rows=[];
+    (Array.isArray(db&&db.sales)?db.sales:[]).forEach(function(x){if(rowMatchesCustomerV491(x,c))rows.push(x)});
+    (Array.isArray(db&&db.operations)?db.operations:[]).forEach(function(x){if(rowMatchesCustomerV491(x,c))rows.push(x)});
+    rows.sort(function(a,b){return s(b.date||b.invoice_date||b.created_at).localeCompare(s(a.date||a.invoice_date||a.created_at))});
+    for(var i=0;i<rows.length;i++){
+      var x=rows[i],name=currentRepNameV490(x.manual_rep_name||x.selected_rep_name||x.rep_name||x.sales_rep_name||'');
+      if(!name&&x.rep_id){var r=(Array.isArray(db&&db.reps)?db.reps:[]).find(function(rr){return s(rr.id)===s(x.rep_id)});name=currentRepNameV490(r&&r.name)}
+      if(name)return name;
+    }
+    return '';
+  }
+  function latestKnownRepForTransactionV491(row,c){
+    var explicit=currentRepNameV490(row&& (row.collector_name||row.rep_name||row.sales_rep_name||row.manual_rep_name));
+    if(explicit)return explicit;
+    if(c){var byCustomer=latestKnownRepForCustomerV491(c);if(byCustomer)return byCustomer}
+    var rn=normCollectorV490(row&& (row.customer_name||row.customer||row.client_name));
+    if(rn){
+      var sales=(Array.isArray(db&&db.sales)?db.sales:[]).filter(function(x){return normCollectorV490(x.customer_name||x.customer)===rn});
+      sales.sort(function(a,b){return s(b.date||b.invoice_date||b.created_at).localeCompare(s(a.date||a.invoice_date||a.created_at))});
+      for(var j=0;j<sales.length;j++){
+        var nm=currentRepNameV490(sales[j].manual_rep_name||sales[j].selected_rep_name||sales[j].rep_name||sales[j].sales_rep_name||'');
+        if(!nm&&sales[j].rep_id){var rr=(Array.isArray(db&&db.reps)?db.reps:[]).find(function(r){return s(r.id)===s(sales[j].rep_id)});nm=currentRepNameV490(rr&&rr.name)}
+        if(nm)return nm;
+      }
+    }
+    return '';
+  }
+  function customerRegionRepV491(c){
+    if(!c)return '';
+    var l=c.legacy_data&&typeof c.legacy_data==='object'?c.legacy_data:{},vals=[c.region_code,c.customer_area,c.area,l.region_code,l.customer_area,l.area];
+    for(var i=0;i<vals.length;i++){var nm=currentRepNameV490(repForRegionCurrentV490(vals[i]));if(nm)return nm}
+    return '';
+  }
   function repWeightsForCustomerV490(c,fallbackRep){
     var splits=(Array.isArray(db&&db.customerRepSplits)?db.customerRepSplits:[]).filter(function(sp){return splitCustomerMatchV490(sp,c)&&n(sp.percentage)>0}),map={};
     splits.forEach(function(sp){
@@ -15937,8 +16000,17 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
     });
     var rows=Object.keys(map).map(function(name){return {name:name,pct:map[name]}}),assigned=rows.reduce(function(a,x){return a+x.pct},0);
     if(assigned>100.0001){rows.forEach(function(x){x.pct=x.pct/assigned*100});assigned=100}
-    if(assigned<99.999&&splits.length)rows.push({name:'غير محدد',pct:100-assigned});
-    if(!rows.length){var fb=currentRepNameV490(fallbackRep);rows.push({name:fb||'غير محدد',pct:100})}
+
+    /* Old customer rows may have lost direct split linkage after name edits. */
+    if(!rows.length){rows=distributionWeightsFromCustomerV491(c);assigned=rows.reduce(function(a,x){return a+x.pct},0)}
+
+    var fb=currentRepNameV490(fallbackRep)||customerRegionRepV491(c)||latestKnownRepForCustomerV491(c);
+    if(assigned<99.999&&rows.length){
+      var missing=100-assigned;
+      if(fb){var same=rows.find(function(x){return normCollectorV490(x.name)===normCollectorV490(fb)});if(same)same.pct+=missing;else rows.push({name:fb,pct:missing})}
+      else rows.push({name:'غير محدد',pct:missing});
+    }
+    if(!rows.length)rows.push({name:fb||'غير محدد',pct:100});
     return rows;
   }
   function currentDebtRepLabelV490(customerId,customerName,fallbackRep){
@@ -15960,13 +16032,14 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
       weights.forEach(function(w){var r=ensureRow(w.name),share=amount*Math.max(0,n(w.pct))/100;r.target+=share;r.debt+=share;addCustomer(r,d.id||d.name)});
     });
     collectionRows().filter(function(x){return inRange(dateOnly(x.date||x.approved_date||x.created_at),from,to)}).forEach(function(x){
-      var explicit=currentRepNameV490(x.collector_name||x.rep_name),weights=explicit?[{name:explicit,pct:100}]:repWeightsForCustomerV490(customerForCollectorV490(x),'');
+      var c=customerForCollectorV490(x),explicit=currentRepNameV490(x.collector_name||x.rep_name),inferred=explicit||latestKnownRepForTransactionV491(x,c),weights=explicit?[{name:explicit,pct:100}]:repWeightsForCustomerV490(c,inferred);
       weights.forEach(function(w){var r=ensureRow(w.name),share=Math.max(0,n(x.amount))*Math.max(0,n(w.pct))/100;r.collected+=share;addCustomer(r,x.customer_id||x.customer_name)});
     });
     return Object.keys(map).map(function(k){var x=map[k];x.count=Object.keys(x.customers).length;x.rate=x.target>0?x.collected/x.target*100:0;return x}).filter(function(x){return normCollectorV490(x.name)!==normCollectorV490('سيف')&&normCollectorV490(x.name)!==normCollectorV490('عماد')&&(x.target>0.005||x.collected>0.005||x.name!=='غير محدد')}).sort(function(a,b){return b.target-a.target||b.collected-a.collected||a.name.localeCompare(b.name,'ar')});
   }
   window.collectorPerformanceRowsUnifiedV490=collectorPerformanceRowsUnifiedV490;
   window.auditCollectorRosterV490=function(){var rows=collectorPerformanceRowsUnifiedV490();return {rows:rows,has_seif:rows.some(function(x){return normCollectorV490(x.name)===normCollectorV490('سيف')}),has_nouran:rows.some(function(x){return normCollectorV490(x.name)===normCollectorV490('نوران')}),undefined_target:(rows.find(function(x){return x.name==='غير محدد'})||{}).target||0}};
+  window.auditCollectorResolutionV491=function(){var rows=collectorPerformanceRowsUnifiedV490();var u=rows.find(function(x){return x.name==='غير محدد'});return {undefined_target:u?n(u.target):0,undefined_collected:u?n(u.collected):0,undefined_customers:u?u.count:0,rows:rows}};
   function collectorStats(from,to){return collectorPerformanceRowsUnifiedV490(from,to)}
   function monthlyCollections(){
     var map={};
