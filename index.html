@@ -16697,17 +16697,34 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
   }
 
   window.showV249Tab=function(name,btn){
+    /* Always rebuild the selected debt/collection panel from the canonical debt rows.
+       This prevents an old DOM total from surviving after a new sale/collection. */
+    if(typeof window.markCustomerDebtDirtyV485==='function')window.markCustomerDebtDirtyV485();
+    var p=document.getElementById('v249-'+name);
+    if(p){
+      if(name==='summary')p.innerHTML=summaryHTML();
+      else if(name==='aging')p.innerHTML=agingHTML();
+      else if(name==='classify')p.innerHTML=classifyHTML();
+      else if(name==='collectors')p.innerHTML=collectorsHTML();
+      else if(name==='forecast')p.innerHTML=forecastHTML();
+    }
     document.querySelectorAll('#v249-collections-intelligence .v249-panel').forEach(function(x){x.classList.remove('active')});
     document.querySelectorAll('#v249-collections-intelligence .v249-tabs button').forEach(function(x){x.classList.remove('active')});
-    var p=document.getElementById('v249-'+name);if(p)p.classList.add('active');if(btn)btn.classList.add('active');
+    if(p)p.classList.add('active');if(btn)btn.classList.add('active');
   };
 
   var renderCollectionsBase=window.renderCollections;
   if(typeof renderCollectionsBase==='function'){
     window.renderCollections=function(){
       renderCollectionsBase.apply(this,arguments);
+      if(typeof window.markCustomerDebtDirtyV485==='function')window.markCustomerDebtDirtyV485();
       var v=document.getElementById('view-collections');
-      if(v&&!document.getElementById('v249-collections-intelligence'))v.insertAdjacentHTML('beforeend',intelligenceHTML());
+      if(v){
+        var old=document.getElementById('v249-collections-intelligence');
+        var fresh=intelligenceHTML();
+        if(old)old.outerHTML=fresh;
+        else v.insertAdjacentHTML('beforeend',fresh);
+      }
     };
     try{renderCollections=window.renderCollections}catch(e){}
   }
