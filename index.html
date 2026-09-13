@@ -2391,10 +2391,11 @@ addSimple=function(table){
   }
   return addSimpleBeforeCustomersV46(table);
 }
-function importCustomersFromSheetV46(){
+async function importCustomersFromSheetV46(){
   ensureCustomerFieldsV46();
   if(!confirm(lang==='ar'?'سيتم إضافة عملاء الشيت وتوزيعاتهم بدون حذف أو تعديل بيانات العملاء القديمة إلا إذا كان نفس العميل موجود. هل تريد المتابعة؟':'This will add sheet customers and splits without deleting old data. Continue?'))return;
   importSalesRepExcelDataV45(false);
+  let touched=[];
   CUSTOMER_SPLIT_DEFAULTS_V45.forEach(src=>{
     let c=findCustomerBySheetV46(src.customer_name,src.clinic_name);
     if(!c){
@@ -2404,12 +2405,27 @@ function importCustomersFromSheetV46(){
       if(!c.customer_name)c.customer_name=src.customer_name||'';
       if(!c.clinic_name)c.clinic_name=c.name||src.clinic_name||'';
     }
+    if(c&&!touched.some(x=>String(x.id)===String(c.id)))touched.push(c);
   });
   db.customerRepSplits.forEach(s=>{
     let c=findCustomerBySheetV46(s.customer_name,s.clinic_name);
-    if(c){s.customer_id=c.id;c.customer_rep_distribution=customerSplitAutoTextV46(c);}
+    if(c){
+      s.customer_id=c.id;
+      c.customer_rep_distribution=customerSplitAutoTextV46(c);
+      if(!touched.some(x=>String(x.id)===String(c.id)))touched.push(c);
+    }
   });
-  save();render();alert(T('customersImported'));
+  save();
+  try{
+    if(typeof window.persistCustomersBatchV483==='function'&&touched.length){
+      await window.persistCustomersBatchV483(touched);
+    }
+    if(typeof pushRemoteDb==='function')await pushRemoteDb();
+  }catch(e){
+    console.error('Customer sheet import persistence failed',e);
+    return alert(lang==='ar'?'تم التعديل محليًا لكن تعذر حفظ العملاء على Supabase. أعد المحاولة قبل إغلاق الصفحة.':'Local import completed but Supabase customer save failed. Retry before closing the page.');
+  }
+  render();alert(T('customersImported'));
 }
 function addCustomerRepSplitV45(){
   ensureCustomerFieldsV46();
@@ -9592,10 +9608,16 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
     if(!r)return alert(ar?'اختر المندوب':'Select representative');
     if(amount<=0)return alert(ar?'اكتب قيمة صحيحة للتحصيل':'Enter a valid collection amount');
 
-    /* V431: reconcile first, then prevent collecting more than the actual invoice debt. */
+    /* Use the same canonical debt source as Dashboard/Aging, including manual starting-point debt. */
     try{if(typeof window.reconcileCustomerCollectionsV431==='function')window.reconcileCustomerCollectionsV431(c.id,false)}catch(e){}
-    var outstandingV431=0;
-    try{if(typeof window.customerOutstandingV431==='function')outstandingV431=window.customerOutstandingV431(c.id)}catch(e){}
+    var outstandingV431=0,debtFoundV487=false;
+    try{
+      if(typeof window.customerDebtReportRowsV485==='function'){
+        var debtRowV487=(window.customerDebtReportRowsV485(true)||[]).find(function(x){return String(x.id||'')===String(c.id||'')});
+        if(debtRowV487){outstandingV431=Number(debtRowV487.debt)||0;debtFoundV487=true;}
+      }
+      if(!debtFoundV487&&typeof window.customerOutstandingV431==='function')outstandingV431=window.customerOutstandingV431(c.id);
+    }catch(e){}
     if(outstandingV431>0 && amount>outstandingV431+0.0001){
       return alert(ar
         ?'قيمة التحصيل أكبر من المديونية الحالية للعميل ('+(typeof money==='function'?money(outstandingV431):outstandingV431)+').'
@@ -12849,9 +12871,27 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
   }
 
   function overdueCollectionsHTMLV231(){
-    var rows=saleRowsV231().filter(function(r){return r.age>=30})
-      .sort(function(a,b){return b.age-a.age});
-    var total=rows.reduce(function(s,r){return s+r.remaining},0);
+    var debtRows=(typeof window.customerDebtReportRowsV485==='function')?window.customerDebtReportRowsV485(true):[];
+    var rows=[];
+    debtRows.forEach(function(c){
+      (c.rows||[]).forEach(function(rr,idx){
+        var inv=rr&&rr.invoice||{};
+        var date=(rr&&rr.date)||inv.date||'';
+        var age=num(rr&&rr.age)||(date?daysOld(date):0);
+        var remaining=num(inv.remaining!=null?inv.remaining:(rr&&rr.debt));
+        if(age<30||remaining<=0.005)return;
+        rows.push({
+          date:date,
+          invoice:inv.invoice_no||inv.invoice_group_id||inv.key||inv.id||('Debt-'+(idx+1)),
+          customer_id:c.id||'',customer_name:c.name||'-',
+          total:num(inv.total),paid:num(inv.initial_paid)+num(inv.collected),remaining:remaining,age:age
+        });
+      });
+    });
+    /* Fallback only if the canonical source is unavailable. */
+    if(!debtRows.length){rows=saleRowsV231().filter(function(r){return r.age>=30});}
+    rows.sort(function(a,b){return num(b.age)-num(a.age)});
+    var total=rows.reduce(function(s,r){return s+num(r.remaining)},0);
     var customers=new Set(rows.map(function(r){return r.customer_id||r.customer_name})).size;
 
     return '<div class="finance-report-summary-v231">'+
@@ -15841,20 +15881,93 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
     var totalCol=cols.reduce(function(a,x){return a+n(x.amount)},0);
     return {sales:totalSales,collections:totalCol,rate:totalSales?totalCol/totalSales*100:0};
   }
-  function collectorStats(from,to){
-    var map={};
-    collectionRows().filter(function(x){return inRange(dateOnly(x.date),from,to)}).forEach(function(x){
-      var name=s(x.collector_name||x.rep_name);
-      if(!name||name==='-'||/^(undefined|unknown|n\/?a)$/i.test(name))name='غير محدد';
-      if(!map[name])map[name]={name:name,customers:{},collected:0,target:0};
-      map[name].collected+=n(x.amount);
-      if(x.customer_id||x.customer_name)map[name].customers[x.customer_id||x.customer_name]=1;
-      map[name].target+=n(x.target_amount||0);
-    });
-    return Object.keys(map).map(function(k){
-      var x=map[k];x.count=Object.keys(x.customers).length;x.rate=x.target?x.collected/x.target*100:0;return x;
-    });
+  /* V490 — current-roster collector ownership.
+     Collector follow-up is a CURRENT responsibility view, so obsolete rep names
+     are mapped to their current replacements. Debt and unassigned collections
+     use the current customer distribution percentages. */
+  function normCollectorV490(v){
+    return s(v).toLowerCase().replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ');
   }
+  function currentRepNameV490(name){
+    name=s(name);var k=normCollectorV490(name);
+    if(!k||name==='-'||k==='بدون بياع'||k==='غير محدد'||/^(undefined|unknown|n\/?a)$/i.test(name))return '';
+    var evs=(Array.isArray(db&&db.rep_replacements_v452)?db.rep_replacements_v452:[]).filter(function(ev){return ev&&normCollectorV490(ev.old_rep_name)===k&&s(ev.new_rep_name)});
+    if(evs.length)name=s(evs[evs.length-1].new_rep_name);
+    else{
+      var old=(Array.isArray(db&&db.reps)?db.reps:[]).find(function(r){return r&&normCollectorV490(r.name)===k});
+      if(old&&s(old.replaced_by_rep_name_v452))name=s(old.replaced_by_rep_name_v452);
+    }
+    k=normCollectorV490(name);
+    if(k===normCollectorV490('سيف'))name='سلمى';
+    if(k===normCollectorV490('عماد'))name='شهد';
+    return s(name);
+  }
+  window.currentRepNameV490=currentRepNameV490;
+  function customerAliasesV490(c){
+    var vals=[c&&c.customer_name,c&&c.official_name,c&&c.name,c&&c.clinic_name],l=c&&c.legacy_data;
+    if(l&&typeof l==='object')vals=vals.concat([l.customer_name,l.official_name,l.name,l.clinic_name,l.previous_customer_name_v483,l.previous_clinic_name_v483]);
+    return vals.map(normCollectorV490).filter(Boolean).filter(function(v,i,a){return a.indexOf(v)===i});
+  }
+  function customerForCollectorV490(row){
+    var customers=Array.isArray(db&&db.customers)?db.customers:[],id=s(row&&row.customer_id||row&&row.id);
+    if(id){var byId=customers.find(function(c){return s(c&&c.id)===id});if(byId)return byId}
+    var nm=normCollectorV490(row&&row.customer_name||row&&row.name||row&&row.customer);if(!nm)return null;
+    return customers.find(function(c){return customerAliasesV490(c).indexOf(nm)>=0})||null;
+  }
+  function splitCustomerMatchV490(sp,c){
+    if(!sp||!c)return false;
+    if(s(sp.customer_id)&&s(c.id)&&s(sp.customer_id)===s(c.id))return true;
+    var sn=normCollectorV490(sp.customer_name),sc=normCollectorV490(sp.clinic_name),ca=customerAliasesV490(c);
+    return (!!sn&&ca.indexOf(sn)>=0)|| (!!sc&&ca.indexOf(sc)>=0);
+  }
+  function repForRegionCurrentV490(region){
+    var key=normCollectorV490(region),fixed={};
+    fixed[normCollectorV490('West 1')]='مارينا';fixed[normCollectorV490('West 2')]='شهد';
+    fixed[normCollectorV490('East 1')]='سلمى';fixed[normCollectorV490('East 2')]='ماهينور';
+    fixed[normCollectorV490('Heliopolis')]='نوران';fixed[normCollectorV490('هليوبلس')]='نوران';
+    fixed[normCollectorV490('Delta')]='منى';fixed[normCollectorV490('Alex')]='يحي فتحي';
+    return fixed[key]||'';
+  }
+  function repWeightsForCustomerV490(c,fallbackRep){
+    var splits=(Array.isArray(db&&db.customerRepSplits)?db.customerRepSplits:[]).filter(function(sp){return splitCustomerMatchV490(sp,c)&&n(sp.percentage)>0}),map={};
+    splits.forEach(function(sp){
+      var rep=null;try{if(typeof window.repForSplitRegionV414==='function')rep=window.repForSplitRegionV414(sp)}catch(e){}
+      var name=currentRepNameV490(rep&&rep.name||sp.rep_name||repForRegionCurrentV490(sp.region_code)),pct=Math.max(0,n(sp.percentage));
+      if(name)map[name]=(map[name]||0)+pct;
+    });
+    var rows=Object.keys(map).map(function(name){return {name:name,pct:map[name]}}),assigned=rows.reduce(function(a,x){return a+x.pct},0);
+    if(assigned>100.0001){rows.forEach(function(x){x.pct=x.pct/assigned*100});assigned=100}
+    if(assigned<99.999&&splits.length)rows.push({name:'غير محدد',pct:100-assigned});
+    if(!rows.length){var fb=currentRepNameV490(fallbackRep);rows.push({name:fb||'غير محدد',pct:100})}
+    return rows;
+  }
+  function currentDebtRepLabelV490(customerId,customerName,fallbackRep){
+    var c=customerForCollectorV490({customer_id:customerId,customer_name:customerName}),weights=repWeightsForCustomerV490(c,fallbackRep);
+    return weights.map(function(x){return x.name+(weights.length>1?' '+(Math.round(x.pct*100)/100)+'%':'')}).join(' + ');
+  }
+  window.currentDebtRepLabelV490=currentDebtRepLabelV490;
+  function seedCurrentRosterV490(map){
+    (Array.isArray(db&&db.reps)?db.reps:[]).forEach(function(r){if(!r||r.active===false||r.inactive_v452===true)return;var name=currentRepNameV490(r.name);if(name&&name!=='غير محدد'&&!map[name])map[name]={name:name,customers:{},collected:0,target:0,debt:0}});
+    ['مارينا','شهد','سلمى','ماهينور','نوران','منى'].forEach(function(name){if(!map[name])map[name]={name:name,customers:{},collected:0,target:0,debt:0}});
+  }
+  function collectorPerformanceRowsUnifiedV490(from,to){
+    var map={};seedCurrentRosterV490(map);
+    function ensureRow(name){name=currentRepNameV490(name)||'غير محدد';if(!map[name])map[name]={name:name,customers:{},collected:0,target:0,debt:0};return map[name]}
+    function addCustomer(row,key){if(key)row.customers[s(key)]=1}
+    var debts=[];try{debts=typeof window.customerDebtReportRowsV485==='function'?window.customerDebtReportRowsV485(true):[]}catch(e){debts=[]}
+    debts.forEach(function(d){
+      var c=customerForCollectorV490({customer_id:d.id,customer_name:d.name}),weights=repWeightsForCustomerV490(c,d.rep),amount=Math.max(0,n(d.debt));
+      weights.forEach(function(w){var r=ensureRow(w.name),share=amount*Math.max(0,n(w.pct))/100;r.target+=share;r.debt+=share;addCustomer(r,d.id||d.name)});
+    });
+    collectionRows().filter(function(x){return inRange(dateOnly(x.date||x.approved_date||x.created_at),from,to)}).forEach(function(x){
+      var explicit=currentRepNameV490(x.collector_name||x.rep_name),weights=explicit?[{name:explicit,pct:100}]:repWeightsForCustomerV490(customerForCollectorV490(x),'');
+      weights.forEach(function(w){var r=ensureRow(w.name),share=Math.max(0,n(x.amount))*Math.max(0,n(w.pct))/100;r.collected+=share;addCustomer(r,x.customer_id||x.customer_name)});
+    });
+    return Object.keys(map).map(function(k){var x=map[k];x.count=Object.keys(x.customers).length;x.rate=x.target>0?x.collected/x.target*100:0;return x}).filter(function(x){return normCollectorV490(x.name)!==normCollectorV490('سيف')&&normCollectorV490(x.name)!==normCollectorV490('عماد')&&(x.target>0.005||x.collected>0.005||x.name!=='غير محدد')}).sort(function(a,b){return b.target-a.target||b.collected-a.collected||a.name.localeCompare(b.name,'ar')});
+  }
+  window.collectorPerformanceRowsUnifiedV490=collectorPerformanceRowsUnifiedV490;
+  window.auditCollectorRosterV490=function(){var rows=collectorPerformanceRowsUnifiedV490();return {rows:rows,has_seif:rows.some(function(x){return normCollectorV490(x.name)===normCollectorV490('سيف')}),has_nouran:rows.some(function(x){return normCollectorV490(x.name)===normCollectorV490('نوران')}),undefined_target:(rows.find(function(x){return x.name==='غير محدد'})||{}).target||0}};
+  function collectorStats(from,to){return collectorPerformanceRowsUnifiedV490(from,to)}
   function monthlyCollections(){
     var map={};
     collectionRows().forEach(function(x){
@@ -16537,52 +16650,8 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
     return Object.keys(m).sort().slice(-12).map(function(k){return {k:k,v:m[k]}})
   }
   function collectorRows(){
-    var map={};
-    var debts=debtRows();
-
-    function ensureCollector(name){
-      name=s(name);
-      if(!name||name==='-'||/^(undefined|unknown|n\/?a)$/i.test(name))name='غير محدد';
-      if(!map[name]){
-        map[name]={
-          name:name,
-          customers:{},
-          collected:0,
-          target:0,
-          debt:0
-        };
-      }
-      return map[name];
-    }
-
-    cols().forEach(function(x){
-      var name=s(x.collector_name||x.rep_name||'غير محدد');
-      var row=ensureCollector(name);
-      row.collected+=n(x.amount);
-
-      var customerKey=s(x.customer_id||x.customer_name);
-      if(customerKey)row.customers[customerKey]=1;
-    });
-
-    debts.forEach(function(c){
-      var name=s(c.rep||'غير محدد');
-      var row=ensureCollector(name);
-
-      row.debt+=n(c.debt);
-      row.target+=n(c.debt);
-
-      var customerKey=s(c.id||c.name);
-      if(customerKey)row.customers[customerKey]=1;
-    });
-
-    return Object.keys(map).map(function(k){
-      var x=map[k];
-      x.count=Object.keys(x.customers).length;
-      x.rate=x.target>0 ? (x.collected/x.target*100) : 0;
-      return x;
-    }).sort(function(a,b){
-      return b.target-a.target || b.collected-a.collected;
-    });
+    if(typeof window.collectorPerformanceRowsUnifiedV490==='function')return window.collectorPerformanceRowsUnifiedV490();
+    return [];
   }
   function forecast(){
     var arr=Array.isArray(db.finance_receivable_papers)?db.finance_receivable_papers:[];
@@ -39402,6 +39471,7 @@ table.rep-split-table td:first-child{display:none !important;}
   window.__mbV483CustomerMaster=true;
   window.__mbV485DebtNaturalCycle=true;
   window.__mbV486DebtCanonical=true;
+  window.__mbV487QaReleaseCandidate=true;
 
   function A(v){return Array.isArray(v)?v:[]}
   function S(v){return String(v==null?'':v).trim()}
@@ -39482,6 +39552,27 @@ table.rep-split-table td:first-child{display:none !important;}
     catch(e){console.error('V483 ledger read failed',e)}
     return [];
   }
+  function recordMatchesCustomerV487(row,c){
+    if(!row||!c)return false;
+    if(S(row.customer_id)&&S(c.id)&&S(row.customer_id)===S(c.id))return true;
+    var rn=norm(row.customer_name||row.customer||row.name);
+    return !!rn&&aliases(c).indexOf(rn)>=0;
+  }
+  function customerNetMovementV487(c){
+    if(!c)return 0;
+    var ledger=null;
+    try{if(typeof window.invoiceLedgerV437==='function')ledger=window.invoiceLedgerV437()}catch(e){}
+    if(!ledger)return 0;
+    var created=0,collected=0;
+    A(ledger.invoices).forEach(function(inv){
+      if(recordMatchesCustomerV487(inv,c))created+=Math.max(0,N(inv.debt_created));
+    });
+    A(ledger.collections).forEach(function(col){
+      if(recordMatchesCustomerV487(col,c))collected+=Math.max(0,N(col.amount));
+    });
+    return created-collected;
+  }
+  window.customerNetMovementV487=customerNetMovementV487;
   function explicitDebtOverride(c,base){
     var l=legacy(c);
     if(l.debt_manual_override_v484!==undefined && l.debt_manual_override_v484!==null && l.debt_manual_override_v484!==''){
@@ -39492,6 +39583,11 @@ table.rep-split-table td:first-child{display:none !important;}
         Therefore every later approved sale increases debt and every later
         approved collection reduces it through the existing invoice ledger.
       */
+      if(Object.prototype.hasOwnProperty.call(l,'debt_manual_override_net_base_v487')){
+        var netAtEdit=N(l.debt_manual_override_net_base_v487);
+        var netNow=customerNetMovementV487(c);
+        return Math.max(0,desired+(netNow-netAtEdit));
+      }
       if(Object.prototype.hasOwnProperty.call(l,'debt_manual_override_base_v484')){
         var baseAtEdit=Math.max(0,N(l.debt_manual_override_base_v484));
         return Math.max(0,desired+(Math.max(0,N(base))-baseAtEdit));
@@ -39617,7 +39713,8 @@ table.rep-split-table td:first-child{display:none !important;}
         l.debt_manual_override_v484=desired;
         l.debt_manual_override_set_at_v484=new Date().toISOString();
         l.debt_manual_override_base_v484=baseDebtForCustomer(c);
-        l.balance=desired;l.balance_source='manual_starting_point_v485';
+        l.debt_manual_override_net_base_v487=customerNetMovementV487(c);
+        l.balance=desired;l.balance_source='manual_starting_point_v487';
         delete l.debt_adjustment_v482;delete l.debt_adjustment_v481;
         c.legacy_data=l;c.balance=desired;
       }else if(field==='area'){
@@ -39751,7 +39848,7 @@ table.rep-split-table td:first-child{display:none !important;}
         name:S(x.name)||'-',
         debt:Math.max(0,N(x.debt)),
         oldest:S(x.oldest),
-        rep:(function(){var r=S(x.rep);return (!r||r==='-'||/^(undefined|unknown|n\/?a)$/i.test(r))?'غير محدد':r})(),
+        rep:(typeof window.currentDebtRepLabelV490==='function'?window.currentDebtRepLabelV490(S(x.id||(x.customer&&x.customer.id)),S(x.name),S(x.rep)):(function(){var r=S(x.rep);return (!r||r==='-'||/^(undefined|unknown|n\/?a)$/i.test(r))?'غير محدد':r})()),
         count:N(x.count),
         rows:Array.isArray(x.rows)?x.rows.slice():[],
         invoices:Array.isArray(x.invoices)?x.invoices.slice():[]
