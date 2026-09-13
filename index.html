@@ -38837,8 +38837,36 @@ html body .summary-box.v303-auto-clickable:after{
     return A(rows).reduce(function(a,s){try{return a+(typeof window.targetSaleQtyV346==='function'?N(window.targetSaleQtyV346(s)):N(s.qty))}catch(e){return a+N(s.qty)}},0);
   }
   function groupStats(id){
-    var sales=groupSalesRows(id),cols=groupCollections(id);
+    /*
+      V491 TOTALS = VISIBLE CHILDREN ONLY
+      A macro total must be the arithmetic sum of the CURRENT visible rep cards.
+      Do not add historical/replaced reps behind the scenes, otherwise the total
+      can differ from West 1 + West 2 (or the visible East subgroups).
+    */
     var current=currentMembers(id).map(activeRepByName).filter(Boolean);
+    var sales=[];
+    current.forEach(function(rep){
+      try{
+        if(typeof window.repRowsExactV417==='function'){
+          sales=sales.concat(A(window.repRowsExactV417(rep.id)));
+          return;
+        }
+      }catch(e){}
+      A(db&&db.sales).forEach(function(s){
+        if(!approved(s))return;
+        if((S(s.rep_id)&&S(s.rep_id)===S(rep.id))||norm(s.rep_name)===norm(rep.name))sales.push(s);
+      });
+    });
+
+    /* Collections follow the same current roster rule for the macro card. */
+    var cols=A(db&&db.collections).filter(function(c){
+      if(c&&c.approval_status&&norm(c.approval_status)!=='approved')return false;
+      var rn=norm(repName(c));
+      return current.some(function(rep){
+        return (S(c&&c.rep_id)&&S(c.rep_id)===S(rep.id)) || (rn&&rn===norm(rep.name));
+      });
+    });
+
     return {
       salesRows:sales,
       sales:sales.reduce(function(a,s){return a+N(s.total)},0),
