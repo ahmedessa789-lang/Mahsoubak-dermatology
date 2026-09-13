@@ -15844,7 +15844,8 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
   function collectorStats(from,to){
     var map={};
     collectionRows().filter(function(x){return inRange(dateOnly(x.date),from,to)}).forEach(function(x){
-      var name=s(x.collector_name||x.rep_name||'غير محدد');
+      var name=s(x.collector_name||x.rep_name);
+      if(!name||name==='-'||/^(undefined|unknown|n\/?a)$/i.test(name))name='غير محدد';
       if(!map[name])map[name]={name:name,customers:{},collected:0,target:0};
       map[name].collected+=n(x.amount);
       if(x.customer_id||x.customer_name)map[name].customers[x.customer_id||x.customer_name]=1;
@@ -16540,7 +16541,8 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
     var debts=debtRows();
 
     function ensureCollector(name){
-      name=s(name)||'غير محدد';
+      name=s(name);
+      if(!name||name==='-'||/^(undefined|unknown|n\/?a)$/i.test(name))name='غير محدد';
       if(!map[name]){
         map[name]={
           name:name,
@@ -17123,27 +17125,15 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
     return 'أكثر من 90 يوم';
   }
   function debtRowsV255(){
-    var map={};
-    (db.sales||[]).forEach(function(x){
-      var total=n(x.total_including_vat||x.total);
-      var remain=n(x.remaining);
-      if(remain<=0)remain=Math.max(0,total-n(x.paid));
-      if(remain<=0)return;
-
-      var key=x.customer_id||x.customer_name||'unknown';
-      if(!map[key]){
-        map[key]={
-          name:s(x.customer_name||x.customer||'-'),
-          rep:s(x.rep_name||'-'),
-          debt:0,
-          oldest:''
-        };
-      }
-      map[key].debt+=remain;
-      var d=s(x.date||x.created_at).slice(0,10);
-      if(d&&(!map[key].oldest||d<map[key].oldest))map[key].oldest=d;
-    });
-    return Object.keys(map).map(function(k){return map[k]});
+    /* Single source: same rows used by Dashboard / Collections / Aging. */
+    if(typeof window.customerDebtReportRowsV485==='function'){
+      return window.customerDebtReportRowsV485(true).map(function(x){
+        var rep=s(x.rep);
+        if(!rep||rep==='-'||/^(undefined|unknown|n\/?a)$/i.test(rep))rep='غير محدد';
+        return {name:s(x.name)||'-',rep:rep,debt:Math.max(0,n(x.debt)),oldest:s(x.oldest)};
+      }).filter(function(x){return x.debt>0.005});
+    }
+    return [];
   }
   function riskV255(row){
     var age=row.oldest?daysV255(row.oldest,todayV255()):0;
@@ -17288,21 +17278,15 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
     return {label:'منخفض',cls:'v249-low'};
   }
   function rows(){
-    var map={};
-    (db.sales||[]).forEach(function(x){
-      var total=n(x.total_including_vat||x.total);
-      var remain=n(x.remaining);
-      if(remain<=0)remain=Math.max(0,total-n(x.paid));
-      if(remain<=0)return;
-
-      var key=x.customer_id||x.customer_name||'unknown';
-      if(!map[key])map[key]={name:s(x.customer_name||x.customer||'-'),rep:s(x.rep_name||'-'),debt:0,oldest:''};
-      map[key].debt+=remain;
-
-      var dt=s(x.date||x.created_at).slice(0,10);
-      if(dt&&(!map[key].oldest||dt<map[key].oldest))map[key].oldest=dt;
-    });
-    return Object.keys(map).map(function(k){return map[k]}).sort(function(a,b){return b.debt-a.debt});
+    /* Single source: never rebuild debt independently from raw sales here. */
+    if(typeof window.customerDebtReportRowsV485==='function'){
+      return window.customerDebtReportRowsV485(true).map(function(x){
+        var rep=s(x.rep);
+        if(!rep||rep==='-'||/^(undefined|unknown|n\/?a)$/i.test(rep))rep='غير محدد';
+        return {name:s(x.name)||'-',rep:rep,debt:Math.max(0,n(x.debt)),oldest:s(x.oldest)};
+      }).filter(function(x){return x.debt>0.005}).sort(function(a,b){return b.debt-a.debt});
+    }
+    return [];
   }
 
   function build(){
@@ -39549,7 +39533,7 @@ table.rep-split-table td:first-child{display:none !important;}
         historical.push({
           key:'u:'+(S(r&&r.id)||norm(r&&r.name)||('row_'+idx)),customer:null,
           id:S(r&&r.id),name:S(r&&r.name)||'-',phone:'',base:base,debt:base,override:null,
-          oldest:S(r&&r.oldest),rep:S(r&&r.rep)||'-',count:N(r&&r.count)||1,
+          oldest:S(r&&r.oldest),rep:(function(){var q=S(r&&r.rep);return (!q||q==='-'||/^(undefined|unknown|n\/?a)$/i.test(q))?'غير محدد':q})(),count:N(r&&r.count)||1,
           rows:Array.isArray(r&&r.rows)?r.rows.slice():[],
           invoices:Array.isArray(r&&r.invoices)?r.invoices.slice():[],raw:[r]
         });
@@ -39565,7 +39549,7 @@ table.rep-split-table td:first-child{display:none !important;}
         key:'c:'+id,customer:c,id:id,
         name:S(c.customer_name||c.official_name||c.name||c.clinic_name)||'-',phone:S(c.phone),
         base:base,debt:Math.max(0,debt),override:ov,
-        oldest:m.oldest||'',rep:m.rep||'-',count:m.count||0,
+        oldest:m.oldest||'',rep:(function(){var q=S(m.rep);return (!q||q==='-'||/^(undefined|unknown|n\/?a)$/i.test(q))?'غير محدد':q})(),count:m.count||0,
         rows:m.rows||[],invoices:m.invoices||[],raw:[]
       });
     });
@@ -39757,7 +39741,7 @@ table.rep-split-table td:first-child{display:none !important;}
     var customers=[];changedCustomers.forEach(function(id){var c=findCustomer(id);if(c){var t=splitText(c);if(S(c.customer_rep_distribution)!==S(t)){c.customer_rep_distribution=t;changed=true}customers.push(c)}});refreshAllocations();if(changed)await persistMainNow();if(customers.length)await upsertCustomers(customers);
   }
 
-  /* One debt row source for Dashboard + Collections + Aging.
+  /* V486 audited single debt row source for Dashboard + Collections + Aging + legacy Aging filters.
      This replaces older report-only totals without adding another render patch. */
   window.customerDebtReportRowsV485=function(force){
     var st=debtState(force!==false);
@@ -39767,7 +39751,7 @@ table.rep-split-table td:first-child{display:none !important;}
         name:S(x.name)||'-',
         debt:Math.max(0,N(x.debt)),
         oldest:S(x.oldest),
-        rep:S(x.rep)||'-',
+        rep:(function(){var r=S(x.rep);return (!r||r==='-'||/^(undefined|unknown|n\/?a)$/i.test(r))?'غير محدد':r})(),
         count:N(x.count),
         rows:Array.isArray(x.rows)?x.rows.slice():[],
         invoices:Array.isArray(x.invoices)?x.invoices.slice():[]
