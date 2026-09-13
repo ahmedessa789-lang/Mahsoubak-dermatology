@@ -12867,21 +12867,70 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
   }
 
   function outstandingCustomersHTMLV231(){
-    var rows=saleRowsV231();
-    var map={};
-    rows.forEach(function(r){
-      var key=r.customer_id||r.customer_name;
-      if(!map[key])map[key]={name:r.customer_name,total:0,paid:0,remaining:0,invoices:0,oldest:0};
-      map[key].total+=r.total;
-      map[key].paid+=r.paid;
-      map[key].remaining+=r.remaining;
-      map[key].invoices+=1;
-      map[key].oldest=Math.max(map[key].oldest,r.age);
-    });
-    var groups=Object.keys(map).map(function(k){return map[k]}).sort(function(a,b){return b.remaining-a.remaining});
+    /* V231 now uses the SAME canonical customer-debt rows as Dashboard/Aging.
+       Invoice figures remain informational; the displayed remaining balance is
+       the authoritative current debt and may include a manual starting-point adjustment. */
+    var debtRows=(typeof window.customerDebtReportRowsV485==='function')
+      ? window.customerDebtReportRowsV485(true)
+      : [];
+
+    /* Safety fallback only if the canonical source is unavailable. */
+    if(!debtRows.length && typeof saleRowsV231==='function'){
+      var legacy=saleRowsV231(),legacyMap={};
+      legacy.forEach(function(r){
+        var key=r.customer_id||r.customer_name;
+        if(!legacyMap[key])legacyMap[key]={id:r.customer_id||'',name:r.customer_name||'-',debt:0,oldest:'',rep:'-',count:0,rows:[]};
+        legacyMap[key].debt+=num(r.remaining);
+        legacyMap[key].count+=1;
+        legacyMap[key].rows.push({date:r.date,age:r.age,debt:r.remaining,invoice:{total:r.total,initial_paid:r.paid,collected:0,remaining:r.remaining,key:r.invoice}});
+        if(r.date&&(!legacyMap[key].oldest||r.date<legacyMap[key].oldest))legacyMap[key].oldest=r.date;
+      });
+      debtRows=Object.keys(legacyMap).map(function(k){return legacyMap[k]});
+    }
+
+    var groups=debtRows.map(function(d){
+      var seen={},total=0,paid=0,invoices=0,oldest=0,details=[];
+      (d.rows||[]).forEach(function(rr,idx){
+        var inv=rr&&rr.invoice||{};
+        var key=String(inv.key||inv.invoice_no||inv.invoice_group_id||inv.id||((rr&&rr.date)||'')+'_'+idx);
+        if(!seen[key]){
+          seen[key]=1;invoices++;
+          var invTotal=num(inv.total);
+          var invPaid=num(inv.initial_paid)+num(inv.collected);
+          total+=invTotal;paid+=invPaid;
+          details.push({
+            date:(rr&&rr.date)||inv.date||'',
+            invoice:key||'-',
+            total:invTotal,
+            paid:invPaid,
+            remaining:num(inv.remaining!=null?inv.remaining:(rr&&rr.debt)),
+            age:num(rr&&rr.age)
+          });
+        }
+        oldest=Math.max(oldest,num(rr&&rr.age));
+      });
+      var debt=Math.max(0,num(d.debt));
+      /* Historical/manual rows may not expose invoice detail. Keep the canonical
+         debt authoritative and use the source count when invoice rows are absent. */
+      if(!invoices)invoices=num(d.count)||0;
+      return {
+        id:d.id||'',name:d.name||'-',remaining:debt,invoices:invoices,
+        total:total,paid:paid,oldest:oldest,details:details,
+        adjustment:debt-Math.max(0,total-paid)
+      };
+    }).filter(function(g){return g.remaining>0.005})
+      .sort(function(a,b){return b.remaining-a.remaining});
+
     var totalRemaining=groups.reduce(function(s,g){return s+g.remaining},0);
     var totalInvoices=groups.reduce(function(s,g){return s+g.invoices},0);
     var biggest=groups[0]||{name:'—',remaining:0};
+    var detailRows=[];
+    groups.forEach(function(g){
+      g.details.forEach(function(r){detailRows.push({name:g.name,date:r.date,invoice:r.invoice,total:r.total,paid:r.paid,remaining:r.remaining,age:r.age})});
+      if(Math.abs(g.adjustment)>0.005){
+        detailRows.push({name:g.name,date:'',invoice:'تسوية مديونية',total:0,paid:0,remaining:g.adjustment,age:0,adjustment:true});
+      }
+    });
 
     return '<div class="finance-report-summary-v231">'+
       '<div class="card stat"><span>إجمالي المتبقي على العملاء</span><strong>'+money(totalRemaining)+'</strong></div>'+
@@ -12889,13 +12938,14 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
       '<div class="card stat"><span>أعلى عميل مديونية</span><strong>'+esc(biggest.name)+'</strong><div class="hint">'+money(biggest.remaining)+'</div></div>'+
       '</div>'+
       '<div class="card"><div class="section-title"><h3>المتبقي على كل عميل</h3><button class="btn blue" onclick="window.print()">طباعة التقرير</button></div>'+
-      (groups.length?'<table><tr><th>العميل</th><th>عدد الفواتير</th><th>إجمالي الفواتير</th><th>المحصل</th><th>المتبقي</th><th>أقدم مديونية</th></tr>'+
+      '<div class="hint" style="margin-bottom:10px">المتبقي هنا هو نفس المديونية الحالية المستخدمة في Dashboard وأعمار الديون، ويشمل أي تسوية يدوية محفوظة للعميل.</div>'+
+      (groups.length?'<table><tr><th>العميل</th><th>عدد الفواتير</th><th>إجمالي الفواتير</th><th>المحصل</th><th>المتبقي الحالي</th><th>أقدم مديونية</th></tr>'+
         groups.map(function(g){return '<tr><td><b>'+esc(g.name)+'</b></td><td>'+g.invoices+'</td><td>'+money(g.total)+'</td><td>'+money(g.paid)+'</td><td class="balance-v231">'+money(g.remaining)+'</td><td>'+(g.oldest?g.oldest+' يوم':'—')+'</td></tr>'}).join('')+
         '</table>':'<div class="empty">لا توجد مبالغ متبقية على العملاء</div>')+
       '</div>'+
-      '<div class="card"><h3>تفاصيل الفواتير المتبقية</h3>'+
-      (rows.length?'<table><tr><th>التاريخ</th><th>رقم الفاتورة</th><th>العميل</th><th>الإجمالي</th><th>المحصل</th><th>المتبقي</th><th>العمر</th></tr>'+
-        rows.sort(function(a,b){return b.age-a.age}).map(function(r){return '<tr><td>'+esc(r.date||'-')+'</td><td>'+esc(r.invoice)+'</td><td>'+esc(r.customer_name)+'</td><td>'+money(r.total)+'</td><td>'+money(r.paid)+'</td><td class="balance-v231">'+money(r.remaining)+'</td><td>'+r.age+' يوم</td></tr>'}).join('')+
+      '<div class="card"><h3>تفاصيل الفواتير والتسويات المرتبطة بالمديونية</h3>'+
+      (detailRows.length?'<table><tr><th>التاريخ</th><th>رقم الفاتورة / البيان</th><th>العميل</th><th>الإجمالي</th><th>المحصل</th><th>المتبقي</th><th>العمر</th></tr>'+
+        detailRows.sort(function(a,b){return num(b.age)-num(a.age)}).map(function(r){return '<tr><td>'+esc(r.date||'-')+'</td><td>'+esc(r.invoice||'-')+'</td><td>'+esc(r.name)+'</td><td>'+money(r.total)+'</td><td>'+money(r.paid)+'</td><td class="balance-v231">'+money(r.remaining)+'</td><td>'+(r.adjustment?'تسوية':(r.age?r.age+' يوم':'—'))+'</td></tr>'}).join('')+
         '</table>':'<div class="empty">لا توجد فواتير متبقية</div>')+
       '</div>';
   }
