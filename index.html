@@ -40021,3 +40021,238 @@ table.rep-split-table td:first-child{display:none !important;}
 })();
 </script>
 
+
+<script id="v501-customer-region-first-company-analytics-production">
+(function(){
+'use strict';
+
+function A(v){return Array.isArray(v)?v:[]}
+function S(v){return String(v==null?'':v).trim()}
+function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+
+var REGIONS=['East 1','East 2','West 1','West 2','Alexandria','Delta','Heliopolis'];
+window.MAHSOUBAK_CANONICAL_SALES_REGIONS_V501=REGIONS.slice();
+
+function norm(v){
+  return S(v).toLowerCase()
+    .replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه')
+    .replace(/[._\-\/]+/g,' ').replace(/\s+/g,' ').trim();
+}
+function canon(v){
+  var k=norm(v);
+  if(!k)return '';
+  if(k==='east 1'||k==='east1'||k==='ايست 1'||k==='ايست1')return 'East 1';
+  if(k==='east 2'||k==='east2'||k==='ايست 2'||k==='ايست2')return 'East 2';
+  if(k==='west 1'||k==='west1'||k==='wst 1'||k==='wwst 1'||k==='ويست 1'||k==='ويست1')return 'West 1';
+  if(k==='west 2'||k==='west2'||k==='wst 2'||k==='wwst 2'||k==='ويست 2'||k==='ويست2')return 'West 2';
+  if(k==='alex'||k==='alexandria'||k.indexOf('alexandria')>=0||k==='اسكندريه'||k==='الاسكندريه'||k.indexOf('اسكندريه')>=0)return 'Alexandria';
+  if(k==='delta'||k==='delta total'||k==='دلتا'||k==='الدلتا'||k.indexOf('delta')>=0)return 'Delta';
+  if(k==='heliopolis'||k==='helio'||k==='مصر الجديده'||k.indexOf('heliopolis')>=0||k.indexOf('مصر الجديده')>=0)return 'Heliopolis';
+  if(k==='salma'||k==='سلمي'||k==='سلمى')return 'East 1';
+  return '';
+}
+window.canonicalSalesRegionV501=canon;
+
+function customerBySale(sale){
+  if(!sale)return null;
+  var cid=S(sale.customer_id||sale.customerId||sale.customer);
+  var cname=norm(sale.customer_name||sale.customerName||sale.client_name);
+  var rows=A(db&&db.customers), c=null;
+  if(cid)c=rows.find(function(x){return S(x&&x.id)===cid})||null;
+  if(!c&&cname)c=rows.find(function(x){return norm(x&&x.name)===cname})||null;
+  return c;
+}
+
+function customerDirectRegion(c){
+  if(!c)return '';
+  var vals=[c.region_code,c.region_name,c.region,c.area,c.customer_region,c.sales_region,c.territory];
+  for(var i=0;i<vals.length;i++){
+    var r=canon(vals[i]);
+    if(r)return r;
+  }
+  return '';
+}
+
+function customerSplitRegions(c,sale){
+  if(!c&&!sale)return [];
+  var cid=S(c&&c.id||sale&&sale.customer_id);
+  var cname=norm(c&&c.name||sale&&sale.customer_name);
+  var splits=A(db&&db.customerRepSplits).filter(function(x){
+    var xid=S(x&&x.customer_id||x&&x.customerId);
+    var xn=norm(x&&x.customer_name||x&&x.customerName);
+    return (cid&&xid===cid)||(!cid&&cname&&xn===cname);
+  });
+
+  var out=[];
+  splits.forEach(function(x){
+    var vals=[x.region_code,x.region_name,x.region,x.area,x.customer_region,x.territory];
+    var r='';
+    for(var i=0;i<vals.length;i++){r=canon(vals[i]);if(r)break}
+
+    if(!r){
+      var rid=S(x.rep_id||x.repId), rn=norm(x.rep_name||x.repName);
+      var rep=A(db&&db.reps).find(function(rr){
+        return (rid&&S(rr&&rr.id)===rid)||(!rid&&rn&&norm(rr&&rr.name)===rn);
+      });
+      if(rep){
+        var rvals=[rep.region_code,rep.region_name,rep.region,rep.area];
+        for(var j=0;j<rvals.length;j++){r=canon(rvals[j]);if(r)break}
+      }
+    }
+    if(r)out.push({region:r,pct:N(x.percentage||x.percent||x.pct||x.share||0)});
+  });
+  return out;
+}
+
+function repFallbackRegion(sale,a){
+  var rid=S(a&&a.rep_id||sale&&sale.rep_id);
+  var rn=norm(a&&a.rep_name||sale&&sale.rep_name);
+
+  if(rn==='يحي فتحي'||rn==='يحيى فتحي'||rn.indexOf('يحي فتحي')>=0||rn.indexOf('يحيى فتحي')>=0)return 'Alexandria';
+  if(rn==='مني'||rn==='منى'||rn.indexOf('مني')>=0||rn.indexOf('منى')>=0)return 'Delta';
+
+  var rep=A(db&&db.reps).find(function(r){
+    return (rid&&S(r&&r.id)===rid)||(!rid&&rn&&norm(r&&r.name)===rn);
+  });
+  if(rep){
+    var vals=[rep.region_code,rep.region_name,rep.region,rep.area];
+    for(var i=0;i<vals.length;i++){
+      var rr=canon(vals[i]);if(rr)return rr;
+    }
+  }
+  return '';
+}
+
+function approvedSales(){
+  try{if(typeof companyApprovedSalesV302==='function')return A(companyApprovedSalesV302())}catch(e){}
+  return A(db&&db.sales).filter(function(s){return !s.approval_status||s.approval_status==='approved'});
+}
+
+function allocationRows(){
+  try{
+    if(typeof window.salesAllocationRowsV52==='function'){
+      var a=A(window.salesAllocationRowsV52());
+      if(a.length)return a;
+    }
+  }catch(e){}
+  return approvedSales().map(function(s){
+    return {sale_id:s.id,rep_id:s.rep_id,rep_name:s.rep_name,allocated_amount:N(s.total),allocated_qty:N(s.qty),percentage:100};
+  });
+}
+
+function regionForAllocation(a,sale){
+  var vals=[a&&a.customer_region,a&&a.customer_region_name,a&&a.region_code,a&&a.region_name,a&&a.region];
+  for(var i=0;i<vals.length;i++){
+    var r=canon(vals[i]); if(r)return r;
+  }
+
+  var c=customerBySale(sale);
+  var direct=customerDirectRegion(c);
+  if(direct)return direct;
+
+  var splitRegs=customerSplitRegions(c,sale);
+  if(splitRegs.length){
+    splitRegs.sort(function(x,y){return N(y.pct)-N(x.pct)});
+    return splitRegs[0].region;
+  }
+
+  try{
+    if(typeof window.regionNameVerifiedV307==='function'){
+      var vr=canon(window.regionNameVerifiedV307(sale));
+      if(vr)return vr;
+    }
+  }catch(e){}
+
+  return repFallbackRegion(sale,a);
+}
+
+function regionStats(){
+  var sales=approvedSales(), saleMap=new Map();
+  sales.forEach(function(s){saleMap.set(S(s.id),s)});
+
+  var map=new Map();
+  REGIONS.forEach(function(r){map.set(r,{name:r,sales:0,qty:0,count:0,_ids:new Set()})});
+
+  allocationRows().forEach(function(a){
+    var sale=saleMap.get(S(a.sale_id))||null;
+    if(a.sale_id&&!sale)return;
+
+    var r=regionForAllocation(a,sale);
+    if(!r||!map.has(r))return;
+
+    var amt=N(a.allocated_amount);
+    if(!amt&&sale){
+      var pct=N(a.percentage);
+      amt=pct?N(sale.total)*pct/100:N(sale.total);
+    }
+    var qty=N(a.allocated_qty);
+    if(!qty&&sale){
+      var pct2=N(a.percentage);
+      qty=pct2?N(sale.qty)*pct2/100:N(sale.qty);
+    }
+
+    var x=map.get(r);
+    x.sales+=amt;x.qty+=qty;
+    if(S(a.sale_id))x._ids.add(S(a.sale_id));
+  });
+
+  return REGIONS.map(function(r){
+    var x=map.get(r);
+    x.count=x._ids.size;
+    delete x._ids;
+    return x;
+  });
+}
+window.companyCanonicalRegionAnalyticsV501=regionStats;
+
+window.companyTopRegionsV346=function(){
+  return regionStats()
+    .filter(function(r){return r.sales>0||r.qty>0})
+    .sort(function(a,b){return b.sales-a.sales||b.qty-a.qty});
+};
+try{companyTopRegionsV346=window.companyTopRegionsV346}catch(e){}
+
+var baseRegionVerifiedV501=window.regionNameVerifiedV307;
+window.regionNameVerifiedV307=function(s){
+  var c=customerBySale(s);
+  var direct=customerDirectRegion(c);
+  if(direct)return direct;
+
+  var splitRegs=customerSplitRegions(c,s);
+  if(splitRegs.length){
+    splitRegs.sort(function(x,y){return N(y.pct)-N(x.pct)});
+    return splitRegs[0].region;
+  }
+
+  if(typeof baseRegionVerifiedV501==='function'){
+    var old=canon(baseRegionVerifiedV501(s));
+    if(old)return old;
+  }
+
+  return repFallbackRegion(s,null)||'غير محدد';
+};
+try{regionNameVerifiedV307=window.regionNameVerifiedV307}catch(e){}
+
+/* Production-safe diagnostics only: no writes. */
+window.auditRegionLogicV501=function(){
+  function findCustomer(name){
+    var nn=norm(name);
+    return A(db&&db.customers).find(function(c){return norm(c&&c.name)===nn})||null;
+  }
+  var maha=findCustomer('Maha Tarek')||findCustomer('مها طارق');
+  var mahaDirect=customerDirectRegion(maha);
+  var mahaSplits=customerSplitRegions(maha,null);
+  var mahaResolved=mahaDirect||(mahaSplits[0]&&mahaSplits[0].region)||'';
+
+  var result={
+    canonical_regions:REGIONS.slice(),
+    maha_tarek_region:mahaResolved,
+    yehia_fathy_fallback:repFallbackRegion({rep_name:'يحي فتحي'},null),
+    mona_fallback:repFallbackRegion({rep_name:'منى'},null)
+  };
+  console.log('MAHSOUBAK REGION LOGIC V501',result);
+  return result;
+};
+})();
+</script>
+
