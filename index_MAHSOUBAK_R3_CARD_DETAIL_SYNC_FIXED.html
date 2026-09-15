@@ -37101,9 +37101,24 @@ function stockValue(){try{return N(inventoryValue())}catch(e){return 0}}
 function purchaseTotal(){try{return typeof totalPurchases==='function'?N(totalPurchases()):A(db&&db.purchases).reduce(function(a,x){return a+N(x.total)},0)}catch(e){return A(db&&db.purchases).reduce(function(a,x){return a+N(x.total)},0)}}
 function supplierDueTotal(){try{return N(supplierDue())}catch(e){return 0}}
 function operationRows(){try{return typeof warehouseWorkflowRows==='function'?A(warehouseWorkflowRows()):A(db&&db.operations)}catch(e){return A(db&&db.operations)}}
-function repTargetTotal(){return A(db&&db.reps).reduce(function(a,r){return a+N(r.target_qty!=null?r.target_qty:r.target)},0)}
-function repAchievedValue(){try{return typeof totalRepAchievedFiltered==='function'?N(totalRepAchievedFiltered()):0}catch(e){return 0}}
-function repPct(){var t=repTargetTotal(),a=repAchievedValue();return t>0?a/t*100:0}
+function repTargetTotal(){
+  return A(db&&db.reps).reduce(function(a,r){
+    return a+N(r.target_qty!=null?r.target_qty:(r.target!=null?r.target:r.sales_target));
+  },0)
+}
+function repAchievedValue(){
+  try{
+    return A(db&&db.reps).reduce(function(sum,r){
+      var rows=[];
+      try{rows=typeof salesRowsV189==='function'?A(salesRowsV189(r.id)):[]}catch(e){rows=[]}
+      return sum+rows.reduce(function(a,s){return a+N(s.qty)},0);
+    },0);
+  }catch(e){return 0}
+}
+function repPct(){
+  var t=repTargetTotal(),a=repAchievedValue();
+  return t>0?(a/t*100):0;
+}
 function lowStockCount(){return A(db&&db.products).filter(function(p){return N(p.stock)<=N(p.min)}).length}
 
 function snapshot(){
@@ -37147,7 +37162,7 @@ function syncDashboardCards(){
   setTile('stock',M(x.stock),['أصناف: '+x.products,'ناقص: '+x.low]);
   setTile('operations',String(x.requested),['جاهز: '+x.prepared,'تم البيع: '+x.sold]);
   setTile('purchases',M(x.purchases),['مستحقات موردين: '+M(x.supplierDue),'فواتير: '+x.purchaseInvoices]);
-  setTile('reps',x.repsPct.toFixed(1)+'%',['التارجت: '+x.repsTarget.toLocaleString(),'المحقق: '+x.repsAchieved.toLocaleString()]);
+  setTile('reps',x.repsPct.toFixed(1)+'%',['التارجت (كمية): '+x.repsTarget.toLocaleString(),'المحقق (كمية): '+x.repsAchieved.toLocaleString()]);
   setTile('customers',M(x.debt),['عدد العملاء: '+x.customers,'تحصيلات: '+M(x.collections)]);
 }
 
@@ -37165,7 +37180,7 @@ window.expandedDashboardHTML=function(key){
   else if(key==='stock') header=stats([['قيمة المخزون',M(x.stock)],['عدد الأصناف',x.products],['أصناف ناقصة',x.low]]);
   else if(key==='operations') header=stats([['طلبات تجهيز',x.requested],['جاهز',x.prepared],['تم البيع',x.sold]]);
   else if(key==='purchases') header=stats([['إجمالي المشتريات',M(x.purchases)],['مستحقات الموردين',M(x.supplierDue)],['عدد الفواتير',x.purchaseInvoices]]);
-  else if(key==='reps') header=stats([['نسبة التحقيق',x.repsPct.toFixed(1)+'%'],['التارجت',x.repsTarget.toLocaleString()],['المحقق',x.repsAchieved.toLocaleString()]]);
+  else if(key==='reps') header=stats([['نسبة التحقيق',x.repsPct.toFixed(1)+'%'],['التارجت (كمية)',x.repsTarget.toLocaleString()],['المحقق (كمية)',x.repsAchieved.toLocaleString()]]);
   else if(key==='customers') header=stats([['إجمالي المديونية',M(x.debt)],['عدد العملاء',x.customers],['التحصيلات',M(x.collections)]]);
   if(!header)return original;
 
