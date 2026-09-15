@@ -8439,11 +8439,27 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
 
     let rows=[...customerMap.values()].sort((a,b)=>(b.sales+b.collections)-(a.sales+a.collections));
     let salesTotal=sales.reduce((a,s)=>a+n(s.total),0);
-    let repInvoiceSet=new Set(sales.map(s=>String(s.invoice_key||s.invoice_number||s.invoice_no||s.order_id||s.sale_id||s.id||'' )).filter(Boolean));
-    let repInvoiceCount=repInvoiceSet.size;
+    let repInvoiceMap=new Map();
+    sales.forEach(s=>{
+      let ik=String(s.invoice_key||s.invoice_number||s.invoice_no||s.order_id||s.sale_id||s.id||'').trim();
+      if(!ik)ik='ROW_'+String(s.id||Math.random());
+      if(!repInvoiceMap.has(ik)){
+        repInvoiceMap.set(ik,{
+          key:ik,date:s.date||'',customer_name:s.customer_name||'',
+          products:new Set(),total:0,remaining:0
+        });
+      }
+      let g=repInvoiceMap.get(ik);
+      if(s.product_name)g.products.add(String(s.product_name));
+      g.total+=n(s.total);
+      g.remaining+=n(s.remaining);
+    });
+    let repInvoices=[...repInvoiceMap.values()];
+    let repInvoiceCount=repInvoices.length;
     let companySalesTotal=companySalesTotalV302();
     let collectionTotal=collections.reduce((a,c)=>a+n(c.amount),0);
     let remainingTotal=sales.reduce((a,s)=>a+n(s.remaining),0);
+    let settledDisplayTotal=Math.max(0,salesTotal-remainingTotal);
     let target=targetInfoV189(repId,sales);
     let percent=target.target>0?Math.round((target.achieved/target.target)*10000)/100:0;
     let remainingTarget=Math.max(0,target.target-target.achieved);
@@ -8457,9 +8473,9 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
       </div>
       <div class="grid grid4 rep-summary-v175">
         <div class="stat v303-clickable" data-v303-drill="rep-sales" onclick="window.openRepDrillDirectV304('rep-sales');return false;" title="اضغط على الكارت"><span>المبيعات خلال المدة</span><strong>${money(salesTotal)}</strong></div>
-        <div class="stat v303-clickable" data-v303-drill="rep-collections" onclick="window.openRepDrillDirectV304('rep-collections');return false;" title="اضغط على الكارت"><span>التحصيلات خلال المدة</span><strong>${money(collectionTotal)}</strong></div>
+        <div class="stat v303-clickable" onclick="window.openRepPaidSettledDetailsV500(repId);return false;" title="اضغط لعرض العملاء والفواتير المسددة"><span>المدفوع / المسدد</span><strong>${money(settledDisplayTotal)}</strong><small style="display:block;margin-top:4px">${money(salesTotal)} − ${money(remainingTotal)}</small></div>
         <div class="stat v303-clickable" data-v303-drill="rep-remaining" onclick="window.openRepDrillDirectV304('rep-remaining');return false;" title="اضغط على الكارت"><span>المتبقي على العملاء</span><strong>${money(remainingTotal)}</strong></div>
-        <div class="stat v303-clickable" data-v303-drill="rep-invoices" onclick="window.openRepDrillDirectV304('rep-invoices');return false;" title="اضغط على الكارت"><span>عدد الفواتير</span><strong>${repInvoiceCount}</strong></div>
+        <div class="stat v303-clickable" onclick="window.openRepInvoicesGroupedV500(repId);return false;" title="اضغط لعرض نفس الفواتير المحتسبة"><span>عدد الفواتير</span><strong>${repInvoiceCount}</strong></div>
       </div><div class="grid grid4 rep-target-summary-v189">
         <div class="stat v303-clickable" data-v303-drill="target" onclick="window.openRepDrillDirectV304('target');return false;" title="اضغط على الكارت"><span>التارجت (${target.label})</span><strong>${Number(target.target).toLocaleString()}</strong></div>
         <div class="stat v303-clickable" data-v303-drill="target-achieved" onclick="window.openRepDrillDirectV304('target-achieved');return false;" title="اضغط على الكارت"><span>المحقق خلال المدة</span><strong>${Number(target.achieved).toLocaleString()}</strong></div>
@@ -37063,3 +37079,644 @@ window.auditWarehouseSource=function(){
   return result;
 };
 </script>
+<script id="mb-card-detail-sync-only">
+(function(){
+'use strict';
+if(window.__MB_CARD_DETAIL_SYNC_ONLY__)return;
+window.__MB_CARD_DETAIL_SYNC_ONLY__=true;
+
+function A(v){return Array.isArray(v)?v:[]}
+function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+function S(v){return String(v==null?'':v).trim()}
+function M(v){try{return typeof money==='function'?money(v):('EGP '+N(v).toLocaleString())}catch(e){return 'EGP '+N(v).toLocaleString()}}
+function E(v){try{return typeof esc==='function'?esc(v):S(v)}catch(e){return S(v)}}
+
+/* These getters deliberately call the existing R3 business calculations. */
+function salesRows(){return A(db&&db.sales)}
+function salesTotal(){try{return typeof totalSales==='function'?N(totalSales()):salesRows().reduce(function(a,x){return a+N(x.total)},0)}catch(e){return salesRows().reduce(function(a,x){return a+N(x.total)},0)}}
+function collectionsRows(){try{return typeof dashboardCollectionsAllV446==='function'?A(dashboardCollectionsAllV446()):A(db&&db.collections)}catch(e){return A(db&&db.collections)}}
+function collectionsTotal(){return collectionsRows().reduce(function(a,x){return a+N(x.amount)},0)}
+function debtTotal(){try{return N(customerDebt())}catch(e){return 0}}
+function stockValue(){try{return N(inventoryValue())}catch(e){return 0}}
+function purchaseTotal(){try{return typeof totalPurchases==='function'?N(totalPurchases()):A(db&&db.purchases).reduce(function(a,x){return a+N(x.total)},0)}catch(e){return A(db&&db.purchases).reduce(function(a,x){return a+N(x.total)},0)}}
+function supplierDueTotal(){try{return N(supplierDue())}catch(e){return 0}}
+function operationRows(){try{return typeof warehouseWorkflowRows==='function'?A(warehouseWorkflowRows()):A(db&&db.operations)}catch(e){return A(db&&db.operations)}}
+function repTargetTotal(){
+  return A(db&&db.reps).reduce(function(a,r){
+    return a+N(r.target_qty!=null?r.target_qty:(r.target!=null?r.target:r.sales_target));
+  },0)
+}
+function repAchievedValue(){
+  try{
+    return A(db&&db.reps).reduce(function(sum,r){
+      var rows=[];
+      try{rows=typeof salesRowsV189==='function'?A(salesRowsV189(r.id)):[]}catch(e){rows=[]}
+      return sum+rows.reduce(function(a,s){return a+N(s.qty)},0);
+    },0);
+  }catch(e){return 0}
+}
+function repPct(){
+  var t=repTargetTotal(),a=repAchievedValue();
+  return t>0?(a/t*100):0;
+}
+function lowStockCount(){return A(db&&db.products).filter(function(p){return N(p.stock)<=N(p.min)}).length}
+
+function snapshot(){
+  var ops=operationRows();
+  return {
+    sales:salesTotal(),
+    collections:collectionsTotal(),
+    debt:debtTotal(),
+    invoices:(function(){try{return typeof dashboardInvoiceGroupsV446==='function'?A(dashboardInvoiceGroupsV446(salesRows())).length:salesRows().length}catch(e){return salesRows().length}})(),
+    stock:stockValue(),
+    products:A(db&&db.products).length,
+    low:lowStockCount(),
+    requested:ops.filter(function(o){return o.status==='requested'}).length,
+    prepared:ops.filter(function(o){return o.status==='prepared'}).length,
+    sold:ops.filter(function(o){return o.status==='sold'}).length,
+    purchases:purchaseTotal(),
+    supplierDue:supplierDueTotal(),
+    purchaseInvoices:A(db&&db.purchases).length,
+    repsPct:repPct(),
+    repsTarget:repTargetTotal(),
+    repsAchieved:repAchievedValue(),
+    customers:A(db&&db.customers).length
+  };
+}
+window.MBCardSnapshot=snapshot;
+
+function setTile(key,value,lines){
+  var tile=document.querySelector('#view-dashboard .tile-'+key+', #view-dashboard .dash-'+key);
+  if(!tile)return;
+  var val=tile.querySelector('.tile-value,.dash-value');
+  if(val)val.textContent=value;
+  var lineBox=tile.querySelector('.tile-lines');
+  if(lineBox&&Array.isArray(lines)){
+    lineBox.innerHTML=lines.map(function(x){return '<span>'+E(x)+'</span>'}).join('');
+  }
+}
+
+function syncDashboardCards(){
+  var x=snapshot();
+  setTile('sales',M(x.sales),['تحصيلات: '+M(x.collections),'فواتير: '+x.invoices]);
+  setTile('stock',M(x.stock),['أصناف: '+x.products,'ناقص: '+x.low]);
+  setTile('operations',String(x.requested),['جاهز: '+x.prepared,'تم البيع: '+x.sold]);
+  setTile('purchases',M(x.purchases),['مستحقات موردين: '+M(x.supplierDue),'فواتير: '+x.purchaseInvoices]);
+  setTile('reps',x.repsPct.toFixed(1)+'%',['التارجت (كمية): '+x.repsTarget.toLocaleString(),'المحقق (كمية): '+x.repsAchieved.toLocaleString()]);
+  setTile('customers',M(x.debt),['عدد العملاء: '+x.customers,'تحصيلات: '+M(x.collections)]);
+}
+
+/* Detail header numbers use THE SAME snapshot as the cards.
+   Existing detail tables remain unchanged. */
+var oldExpanded = window.expandedDashboardHTML || (typeof expandedDashboardHTML==='function'?expandedDashboardHTML:null);
+function stats(items){
+  return '<div class="dash-expanded-grid">'+items.map(function(i){return '<div class="dash-expanded-stat"><span>'+E(i[0])+'</span><strong>'+i[1]+'</strong></div>'}).join('')+'</div>';
+}
+window.expandedDashboardHTML=function(key){
+  var original = oldExpanded ? oldExpanded.apply(this,arguments) : '';
+  var x=snapshot();
+  var header='';
+  if(key==='sales') header=stats([['إجمالي المبيعات',M(x.sales)],['التحصيلات',M(x.collections)],['مديونية العملاء',M(x.debt)],['عدد الفواتير',x.invoices]]);
+  else if(key==='stock') header=stats([['قيمة المخزون',M(x.stock)],['عدد الأصناف',x.products],['أصناف ناقصة',x.low]]);
+  else if(key==='operations') header=stats([['طلبات تجهيز',x.requested],['جاهز',x.prepared],['تم البيع',x.sold]]);
+  else if(key==='purchases') header=stats([['إجمالي المشتريات',M(x.purchases)],['مستحقات الموردين',M(x.supplierDue)],['عدد الفواتير',x.purchaseInvoices]]);
+  else if(key==='reps') header=stats([['نسبة التحقيق',x.repsPct.toFixed(1)+'%'],['التارجت (كمية)',x.repsTarget.toLocaleString()],['المحقق (كمية)',x.repsAchieved.toLocaleString()]]);
+  else if(key==='customers') header=stats([['إجمالي المديونية',M(x.debt)],['عدد العملاء',x.customers],['التحصيلات',M(x.collections)]]);
+  if(!header)return original;
+
+  /* Remove only the first dashboard summary block from the old details,
+     then replace it with the exact same values shown on the card. */
+  var cleaned=String(original||'');
+  cleaned=cleaned.replace(/<div class="dash-expanded-grid">[\s\S]*?<\/div><\/div>/,'');
+  return header+cleaned;
+};
+try{expandedDashboardHTML=window.expandedDashboardHTML}catch(e){}
+
+/* Final rep summary safeguard: existing R3 sales rows remain untouched.
+   Sales and remaining are the existing correct figures; paid is their difference. */
+function syncOpenRepSummary(){
+  try{
+    var body=document.getElementById('rep_details_body_v175');
+    if(!body)return;
+    var active=document.querySelector('#rep_performance_modal_v175 .rep-card-v175.active[data-rep-id]');
+    if(!active)return;
+    var id=S(active.dataset.repId);
+    if(!id||typeof salesRowsV189!=='function')return;
+    var rows=A(salesRowsV189(id));
+    var sales=rows.reduce(function(a,x){return a+N(x.total)},0);
+    var remaining=rows.reduce(function(a,x){return a+N(x.remaining)},0);
+    var paid=Math.max(0,sales-remaining);
+    var statsEls=body.querySelectorAll('.rep-summary-v175 .stat');
+    if(statsEls.length>=4){
+      var vals=[sales,paid,remaining,null];
+      var labels=['المبيعات خلال المدة','المدفوع / المسدد','المتبقي على العملاء',null];
+      for(var i=0;i<3;i++){
+        var sp=statsEls[i].querySelector('span'),strong=statsEls[i].querySelector('strong');
+        if(sp)sp.textContent=labels[i];
+        if(strong)strong.textContent=M(vals[i]);
+      }
+    }
+  }catch(e){console.error('rep summary sync',e)}
+}
+
+/* Wrap only rendering/opening, not business calculations. */
+var oldRender=window.renderDashboard || (typeof renderDashboard==='function'?renderDashboard:null);
+if(typeof oldRender==='function'){
+  window.renderDashboard=function(){
+    var r=oldRender.apply(this,arguments);
+    setTimeout(syncDashboardCards,0);
+    return r;
+  };
+  try{renderDashboard=window.renderDashboard}catch(e){}
+}
+
+var oldOpenDash=window.openDashboardCard || (typeof openDashboardCard==='function'?openDashboardCard:null);
+if(typeof oldOpenDash==='function'){
+  window.openDashboardCard=function(){
+    syncDashboardCards();
+    return oldOpenDash.apply(this,arguments);
+  };
+  try{openDashboardCard=window.openDashboardCard}catch(e){}
+}
+
+var oldOpenRep=window.openRepDetailsV175;
+if(typeof oldOpenRep==='function'){
+  window.openRepDetailsV175=function(){
+    var r=oldOpenRep.apply(this,arguments);
+    setTimeout(syncOpenRepSummary,0);
+    return r;
+  };
+  try{openRepDetailsV175=window.openRepDetailsV175}catch(e){}
+}
+
+setTimeout(syncDashboardCards,0);
+})();
+</script>
+
+<script id="v500-rep-paid-invoices-drill-sync">
+(function(){
+  function A(v){return Array.isArray(v)?v:[]}
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S(v){return String(v==null?'':v).trim()}
+  function E(v){try{return typeof esc==='function'?esc(v):S(v)}catch(e){return S(v)}}
+  function M(v){try{return typeof money==='function'?money(v):('EGP '+N(v).toLocaleString())}catch(e){return 'EGP '+N(v).toLocaleString()}}
+
+  function rowsFor(repId){
+    try{return typeof salesRowsV189==='function'?A(salesRowsV189(repId)):[]}catch(e){return []}
+  }
+
+  function grouped(repId){
+    var map=new Map();
+    rowsFor(repId).forEach(function(s){
+      var key=S(s.invoice_key||s.invoice_number||s.invoice_no||s.order_id||s.sale_id||s.id);
+      if(!key)key='ROW_'+S(s.id);
+      if(!map.has(key)){
+        map.set(key,{
+          key:key,
+          date:s.date||'',
+          customer_name:s.customer_name||'',
+          products:new Set(),
+          total:0,
+          remaining:0
+        });
+      }
+      var g=map.get(key);
+      if(S(s.product_name))g.products.add(S(s.product_name));
+      g.total+=N(s.total);
+      g.remaining+=N(s.remaining);
+    });
+    return Array.from(map.values()).map(function(g){
+      g.paid=Math.max(0,g.total-g.remaining);
+      g.product_text=Array.from(g.products).join('، ');
+      return g;
+    });
+  }
+
+  function repName(repId){
+    try{
+      if(typeof repDisplayV189==='function')return repDisplayV189(repId);
+      var r=A(db&&db.reps).find(function(x){return S(x.id)===S(repId)});
+      return r&&r.name||repId;
+    }catch(e){return repId}
+  }
+
+  function modal(title,html){
+    var old=document.getElementById('rep_v500_modal');
+    if(old)old.remove();
+
+    var box=document.createElement('div');
+    box.id='rep_v500_modal';
+    box.className='modal show';
+    box.style.zIndex='2147483000';
+    box.innerHTML=
+      '<div class="modal-card" style="max-width:1100px;width:min(96vw,1100px);max-height:90vh;overflow:auto">'+
+        '<div class="section-title"><h2>'+E(title)+'</h2>'+
+          '<button type="button" class="btn secondary" id="rep_v500_close">إغلاق</button></div>'+
+        html+
+      '</div>';
+    document.body.appendChild(box);
+    document.body.classList.add('modal-open');
+
+    box.addEventListener('click',function(e){
+      if(e.target===box)close();
+    });
+    var btn=document.getElementById('rep_v500_close');
+    if(btn)btn.onclick=close;
+
+    function close(){
+      box.remove();
+      if(!document.querySelector('.modal.show'))document.body.classList.remove('modal-open');
+    }
+  }
+
+  window.openRepPaidSettledDetailsV500=function(repId){
+    var arr=grouped(repId).filter(function(g){return g.paid>0.0001});
+    var totalPaid=arr.reduce(function(a,g){return a+g.paid},0);
+
+    var html=
+      '<div class="grid grid4" style="margin-bottom:12px">'+
+        '<div class="stat"><span>إجمالي المدفوع / المسدد</span><strong>'+M(totalPaid)+'</strong></div>'+
+        '<div class="stat"><span>عدد الفواتير التي بها سداد</span><strong>'+arr.length+'</strong></div>'+
+      '</div>'+
+      (arr.length
+        ? '<div class="card"><table><tr>'+
+            '<th>التاريخ</th><th>رقم الفاتورة</th><th>العميل</th><th>المنتج / المنتجات</th>'+
+            '<th>إجمالي الفاتورة</th><th>المسدد</th><th>المتبقي</th><th>الحالة</th>'+
+          '</tr>'+
+          arr.map(function(g){
+            var status=g.remaining<=0.0001?'مسددة بالكامل':'مسددة جزئيًا';
+            return '<tr>'+
+              '<td>'+E(S(g.date).slice(0,10))+'</td>'+
+              '<td><b>'+E(g.key)+'</b></td>'+
+              '<td>'+E(g.customer_name||'-')+'</td>'+
+              '<td>'+E(g.product_text||'-')+'</td>'+
+              '<td>'+M(g.total)+'</td>'+
+              '<td><b>'+M(g.paid)+'</b></td>'+
+              '<td>'+M(g.remaining)+'</td>'+
+              '<td>'+E(status)+'</td>'+
+            '</tr>';
+          }).join('')+
+          '</table></div>'
+        : '<div class="empty">لا توجد فواتير بها مبالغ مسددة لهذا المندوب خلال الفترة.</div>');
+
+    modal('الفواتير المسددة — '+repName(repId),html);
+  };
+
+  window.openRepInvoicesGroupedV500=function(repId){
+    var arr=grouped(repId);
+    var total=arr.reduce(function(a,g){return a+g.total},0);
+    var remaining=arr.reduce(function(a,g){return a+g.remaining},0);
+    var paid=Math.max(0,total-remaining);
+
+    var html=
+      '<div class="grid grid4" style="margin-bottom:12px">'+
+        '<div class="stat"><span>عدد الفواتير</span><strong>'+arr.length+'</strong></div>'+
+        '<div class="stat"><span>إجمالي المبيعات</span><strong>'+M(total)+'</strong></div>'+
+        '<div class="stat"><span>المدفوع / المسدد</span><strong>'+M(paid)+'</strong></div>'+
+        '<div class="stat"><span>المتبقي</span><strong>'+M(remaining)+'</strong></div>'+
+      '</div>'+
+      (arr.length
+        ? '<div class="card"><table><tr>'+
+            '<th>التاريخ</th><th>رقم الفاتورة</th><th>العميل</th><th>المنتج / المنتجات</th>'+
+            '<th>إجمالي الفاتورة</th><th>المسدد</th><th>المتبقي</th>'+
+          '</tr>'+
+          arr.map(function(g){
+            return '<tr>'+
+              '<td>'+E(S(g.date).slice(0,10))+'</td>'+
+              '<td><b>'+E(g.key)+'</b></td>'+
+              '<td>'+E(g.customer_name||'-')+'</td>'+
+              '<td>'+E(g.product_text||'-')+'</td>'+
+              '<td>'+M(g.total)+'</td>'+
+              '<td>'+M(g.paid)+'</td>'+
+              '<td>'+M(g.remaining)+'</td>'+
+            '</tr>';
+          }).join('')+
+          '</table></div>'
+        : '<div class="empty">لا توجد فواتير لهذا المندوب خلال الفترة.</div>');
+
+    modal('فواتير المندوب — '+repName(repId),html);
+  };
+})();
+</script>
+
+<script id="v501-force-rep-paid-invoice-ui">
+(function(){
+  function A(v){return Array.isArray(v)?v:[]}
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S(v){return String(v==null?'':v).trim()}
+  function M(v){try{return typeof money==='function'?money(v):('EGP '+N(v).toLocaleString())}catch(e){return 'EGP '+N(v).toLocaleString()}}
+
+  function currentRepId(){
+    try{
+      if(typeof repReportFilterV189!=='undefined'&&repReportFilterV189&&S(repReportFilterV189.repId))return S(repReportFilterV189.repId);
+    }catch(e){}
+    var a=document.querySelector('#rep_performance_modal_v175 .rep-card-v175.active[data-rep-id]');
+    if(a)return S(a.getAttribute('data-rep-id'));
+    var s=document.getElementById('rep_report_rep_v189');
+    return s?S(s.value):'';
+  }
+
+  function rows(repId){
+    try{return typeof salesRowsV189==='function'?A(salesRowsV189(repId)):[]}catch(e){return []}
+  }
+
+  function groupInvoices(repId){
+    var map=new Map();
+    rows(repId).forEach(function(s){
+      var key=S(s.invoice_key||s.invoice_number||s.invoice_no||s.order_id||s.sale_id||s.id);
+      if(!key)key='ROW_'+S(s.id);
+      if(!map.has(key))map.set(key,{key:key,total:0,remaining:0});
+      var g=map.get(key);
+      g.total+=N(s.total);
+      g.remaining+=N(s.remaining);
+    });
+    return Array.from(map.values());
+  }
+
+  function patchRepSummary(){
+    var body=document.getElementById('rep_details_body_v175');
+    if(!body)return;
+    var repId=currentRepId();
+    if(!repId)return;
+
+    var stats=body.querySelectorAll('.rep-summary-v175 .stat');
+    if(stats.length<4)return;
+
+    var rr=rows(repId);
+    var sales=rr.reduce(function(a,x){return a+N(x.total)},0);
+    var remaining=rr.reduce(function(a,x){return a+N(x.remaining)},0);
+    var settled=Math.max(0,sales-remaining);
+    var invoices=groupInvoices(repId);
+
+    /* 1. Sales card: preserve existing sales value, only normalize label/value */
+    var s0=stats[0], lab0=s0.querySelector('span'), val0=s0.querySelector('strong');
+    if(lab0)lab0.textContent='المبيعات خلال المدة';
+    if(val0)val0.textContent=M(sales);
+
+    /* 2. Paid/settled card: force real clickable action */
+    var s1=stats[1], lab1=s1.querySelector('span'), val1=s1.querySelector('strong');
+    if(lab1)lab1.textContent='المدفوع / المسدد';
+    if(val1)val1.textContent=M(settled);
+    s1.style.cursor='pointer';
+    s1.title='اضغط لعرض العملاء والفواتير المسددة';
+    s1.removeAttribute('data-v303-drill');
+    s1.onclick=function(ev){
+      if(ev){ev.preventDefault();ev.stopPropagation();}
+      if(typeof window.openRepPaidSettledDetailsV500==='function'){
+        window.openRepPaidSettledDetailsV500(repId);
+      }
+      return false;
+    };
+
+    /* 3. Remaining card: same row source */
+    var s2=stats[2], lab2=s2.querySelector('span'), val2=s2.querySelector('strong');
+    if(lab2)lab2.textContent='المتبقي على العملاء';
+    if(val2)val2.textContent=M(remaining);
+
+    /* 4. Invoice card: count exactly the same grouped invoices opened by click */
+    var s3=stats[3], lab3=s3.querySelector('span'), val3=s3.querySelector('strong');
+    if(lab3)lab3.textContent='عدد الفواتير';
+    if(val3)val3.textContent=String(invoices.length);
+    s3.style.cursor='pointer';
+    s3.title='اضغط لعرض نفس الفواتير المحتسبة';
+    s3.removeAttribute('data-v303-drill');
+    s3.onclick=function(ev){
+      if(ev){ev.preventDefault();ev.stopPropagation();}
+      if(typeof window.openRepInvoicesGroupedV500==='function'){
+        window.openRepInvoicesGroupedV500(repId);
+      }
+      return false;
+    };
+  }
+
+  /* Force after every rep-details open, without changing calculations. */
+  var oldOpen=window.openRepDetailsV175;
+  if(typeof oldOpen==='function'){
+    window.openRepDetailsV175=function(){
+      var r=oldOpen.apply(this,arguments);
+      setTimeout(patchRepSummary,0);
+      setTimeout(patchRepSummary,80);
+      return r;
+    };
+    try{openRepDetailsV175=window.openRepDetailsV175}catch(e){}
+  }
+
+  /* Also catch filter refreshes / old rerenders inside the open report. */
+  document.addEventListener('click',function(e){
+    var card=e.target&&e.target.closest&&e.target.closest('#rep_performance_modal_v175 .rep-card-v175[data-rep-id]');
+    if(card){
+      setTimeout(patchRepSummary,0);
+      setTimeout(patchRepSummary,100);
+    }
+  },true);
+
+  var body=document.getElementById('rep_details_body_v175');
+  if(body && typeof MutationObserver!=='undefined'){
+    var obs=new MutationObserver(function(){setTimeout(patchRepSummary,0)});
+    obs.observe(body,{childList:true,subtree:true});
+  }
+
+  setTimeout(patchRepSummary,0);
+})();
+</script>
+
+<script id="v502-direct-paid-invoice-capture">
+(function(){
+  if(window.__V502_DIRECT_PAID_INVOICE_CAPTURE__)return;
+  window.__V502_DIRECT_PAID_INVOICE_CAPTURE__=true;
+
+  function A(v){return Array.isArray(v)?v:[]}
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S(v){return String(v==null?'':v).trim()}
+  function E(v){return S(v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function M(v){try{return typeof money==='function'?money(v):('EGP '+N(v).toLocaleString())}catch(e){return 'EGP '+N(v).toLocaleString()}}
+
+  function currentRepId(){
+    try{
+      if(typeof repReportFilterV189!=='undefined'&&repReportFilterV189&&S(repReportFilterV189.repId))return S(repReportFilterV189.repId);
+    }catch(e){}
+    var active=document.querySelector('#rep_performance_modal_v175 .rep-card-v175.active[data-rep-id]');
+    if(active)return S(active.getAttribute('data-rep-id'));
+    var sel=document.getElementById('rep_report_rep_v189');
+    return sel?S(sel.value):'';
+  }
+
+  function rows(repId){
+    try{return typeof salesRowsV189==='function'?A(salesRowsV189(repId)):[]}catch(e){return []}
+  }
+
+  function groups(repId){
+    var map=new Map();
+    rows(repId).forEach(function(s){
+      var key=S(s.invoice_key||s.invoice_number||s.invoice_no||s.order_id||s.sale_id||s.id);
+      if(!key)key='ROW_'+S(s.id);
+      if(!map.has(key)){
+        map.set(key,{
+          key:key,date:s.date||'',customer:s.customer_name||'',
+          products:new Set(),total:0,remaining:0
+        });
+      }
+      var g=map.get(key);
+      if(S(s.product_name))g.products.add(S(s.product_name));
+      g.total+=N(s.total);
+      g.remaining+=N(s.remaining);
+    });
+    return Array.from(map.values()).map(function(g){
+      g.paid=Math.max(0,g.total-g.remaining);
+      g.productsText=Array.from(g.products).join('، ');
+      return g;
+    });
+  }
+
+  function repName(repId){
+    try{
+      if(typeof repDisplayV189==='function')return repDisplayV189(repId);
+      var r=A(db&&db.reps).find(function(x){return S(x.id)===S(repId)});
+      return r&&r.name||repId;
+    }catch(e){return repId}
+  }
+
+  function openDirect(title,subtitle,html){
+    var old=document.getElementById('v502_direct_modal');
+    if(old)old.remove();
+
+    var m=document.createElement('div');
+    m.id='v502_direct_modal';
+    m.setAttribute('style','position:fixed;inset:0;z-index:2147483647;background:rgba(15,23,42,.82);display:flex;align-items:stretch;justify-content:center;');
+    m.innerHTML=
+      '<div style="width:100%;height:100%;background:#f8fafc;overflow:auto;direction:rtl">'+
+        '<div style="position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 22px;background:#0f172a;color:#fff">'+
+          '<div><h2 style="margin:0;color:#fff">'+E(title)+'</h2><div style="margin-top:5px;color:#cbd5e1">'+E(subtitle||'')+'</div></div>'+
+          '<button id="v502_close" type="button" style="border:0;border-radius:10px;background:#dc2626;color:#fff;padding:10px 18px;font-weight:800;cursor:pointer">إغلاق</button>'+
+        '</div>'+
+        '<div style="padding:20px">'+html+'</div>'+
+      '</div>';
+
+    document.body.appendChild(m);
+    document.body.style.overflow='hidden';
+    document.getElementById('v502_close').onclick=function(){
+      m.remove();document.body.style.overflow='';
+    };
+  }
+
+  function paidHtml(repId){
+    var arr=groups(repId).filter(function(g){return g.paid>0.0001});
+    var total=arr.reduce(function(a,g){return a+g.paid},0);
+    return '<div class="grid grid4" style="margin-bottom:14px">'+
+      '<div class="stat"><span>إجمالي المسدد</span><strong>'+M(total)+'</strong></div>'+
+      '<div class="stat"><span>عدد الفواتير التي بها سداد</span><strong>'+arr.length+'</strong></div>'+
+      '</div>'+
+      (arr.length
+        ? '<div class="card" style="overflow:auto"><table><tr>'+
+          '<th>التاريخ</th><th>رقم الفاتورة</th><th>العميل</th><th>المنتج / المنتجات</th>'+
+          '<th>إجمالي الفاتورة</th><th>المسدد</th><th>المتبقي</th><th>الحالة</th></tr>'+
+          arr.map(function(g){
+            return '<tr><td>'+E(S(g.date).slice(0,10))+'</td><td><b>'+E(g.key)+'</b></td><td>'+E(g.customer||'-')+'</td>'+
+              '<td>'+E(g.productsText||'-')+'</td><td>'+M(g.total)+'</td><td><b>'+M(g.paid)+'</b></td><td>'+M(g.remaining)+'</td>'+
+              '<td>'+(g.remaining<=0.0001?'مسددة بالكامل':'مسددة جزئيًا')+'</td></tr>';
+          }).join('')+
+          '</table></div>'
+        : '<div class="empty">لا توجد فواتير عليها مبالغ مسددة لهذا المندوب خلال الفترة.</div>');
+  }
+
+  function invoicesHtml(repId){
+    var arr=groups(repId);
+    var total=arr.reduce(function(a,g){return a+g.total},0);
+    var remaining=arr.reduce(function(a,g){return a+g.remaining},0);
+    var paid=Math.max(0,total-remaining);
+    return '<div class="grid grid4" style="margin-bottom:14px">'+
+      '<div class="stat"><span>عدد الفواتير</span><strong>'+arr.length+'</strong></div>'+
+      '<div class="stat"><span>إجمالي المبيعات</span><strong>'+M(total)+'</strong></div>'+
+      '<div class="stat"><span>المسدد</span><strong>'+M(paid)+'</strong></div>'+
+      '<div class="stat"><span>المتبقي</span><strong>'+M(remaining)+'</strong></div>'+
+      '</div>'+
+      (arr.length
+        ? '<div class="card" style="overflow:auto"><table><tr>'+
+          '<th>التاريخ</th><th>رقم الفاتورة</th><th>العميل</th><th>المنتج / المنتجات</th>'+
+          '<th>إجمالي الفاتورة</th><th>المسدد</th><th>المتبقي</th></tr>'+
+          arr.map(function(g){
+            return '<tr><td>'+E(S(g.date).slice(0,10))+'</td><td><b>'+E(g.key)+'</b></td><td>'+E(g.customer||'-')+'</td>'+
+              '<td>'+E(g.productsText||'-')+'</td><td>'+M(g.total)+'</td><td>'+M(g.paid)+'</td><td>'+M(g.remaining)+'</td></tr>';
+          }).join('')+
+          '</table></div>'
+        : '<div class="empty">لا توجد فواتير لهذا المندوب خلال الفترة.</div>');
+  }
+
+  function patchVisibleCards(){
+    var body=document.getElementById('rep_details_body_v175');
+    if(!body)return;
+    var repId=currentRepId();if(!repId)return;
+    var stats=body.querySelectorAll('.rep-summary-v175 .stat');
+    if(stats.length<4)return;
+
+    var rr=rows(repId);
+    var sales=rr.reduce(function(a,x){return a+N(x.total)},0);
+    var remaining=rr.reduce(function(a,x){return a+N(x.remaining)},0);
+    var paid=Math.max(0,sales-remaining);
+    var inv=groups(repId);
+
+    var labels=['المبيعات خلال المدة','المدفوع / المسدد','المتبقي على العملاء','عدد الفواتير'];
+    var values=[M(sales),M(paid),M(remaining),String(inv.length)];
+    for(var i=0;i<4;i++){
+      var sp=stats[i].querySelector('span');
+      var strong=stats[i].querySelector('strong');
+      if(sp)sp.textContent=labels[i];
+      if(strong)strong.textContent=values[i];
+    }
+    stats[1].dataset.v502Action='paid';
+    stats[3].dataset.v502Action='invoices';
+    stats[1].style.cursor='pointer';
+    stats[3].style.cursor='pointer';
+    stats[1].title='اضغط لعرض العملاء والفواتير المسددة';
+    stats[3].title='اضغط لعرض الفواتير المحتسبة';
+  }
+
+  /* Capture phase runs before old bubbling/onclick handlers. */
+  document.addEventListener('click',function(ev){
+    var stat=ev.target&&ev.target.closest&&ev.target.closest('#rep_details_body_v175 .rep-summary-v175 .stat[data-v502-action]');
+    if(!stat)return;
+
+    ev.preventDefault();
+    ev.stopPropagation();
+    if(typeof ev.stopImmediatePropagation==='function')ev.stopImmediatePropagation();
+
+    var repId=currentRepId();
+    if(!repId)return false;
+
+    var action=S(stat.dataset.v502Action);
+    if(action==='paid'){
+      openDirect('المدفوع / المسدد — '+repName(repId),'تفاصيل العملاء والفواتير التي بها سداد',paidHtml(repId));
+    }else if(action==='invoices'){
+      openDirect('فواتير المندوب — '+repName(repId),'نفس الفواتير المحتسبة في رقم الكارت',invoicesHtml(repId));
+    }
+    return false;
+  },true);
+
+  /* Keep labels/count correct even if an older renderer redraws the panel. */
+  var target=document.getElementById('rep_details_body_v175');
+  if(target&&typeof MutationObserver!=='undefined'){
+    var busy=false;
+    var obs=new MutationObserver(function(){
+      if(busy)return;
+      busy=true;
+      setTimeout(function(){try{patchVisibleCards()}finally{busy=false}},0);
+    });
+    obs.observe(target,{childList:true,subtree:true});
+  }
+
+  var oldOpen=window.openRepDetailsV175;
+  if(typeof oldOpen==='function'){
+    window.openRepDetailsV175=function(){
+      var r=oldOpen.apply(this,arguments);
+      setTimeout(patchVisibleCards,0);
+      setTimeout(patchVisibleCards,80);
+      setTimeout(patchVisibleCards,250);
+      return r;
+    };
+    try{openRepDetailsV175=window.openRepDetailsV175}catch(e){}
+  }
+
+  setTimeout(patchVisibleCards,0);
+})();
+</script>
+
