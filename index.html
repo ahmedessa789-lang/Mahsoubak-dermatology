@@ -1,5 +1,5 @@
 <!--
-MAHSOUBAK FINAL RELEASE
+MAHSOUBAK FINAL RELEASE R3
 Base: exact current client Production file
 Release principle: preserve client data + preserve useful client features + one consolidated metrics source
 No hardcoded person mappings added
@@ -6441,12 +6441,43 @@ render();
   }
 
   window.openRepDetailsV175=function(repId){
-    let body=document.getElementById('rep_details_body_v175');
-    if(!body)return;
-    body.innerHTML=repDetailsHTMLV175(repId);
-    document.querySelectorAll('.rep-card-v175').forEach(card=>{
-      card.classList.toggle('active',card.dataset.repId===repId);
+    repId=String(repId||'').trim();
+    if(!repId)return;
+
+    if(window.isTotalRepCardV337 && window.isTotalRepCardV337(repId)){
+      var bodyTotal=document.getElementById('rep_details_body_v175');
+      if(bodyTotal && typeof window.directTotalHierarchyHtmlV337==='function'){
+        bodyTotal.innerHTML=window.directTotalHierarchyHtmlV337(repId);
+      }
+      document.querySelectorAll('#rep_performance_modal_v175 .rep-card-v175').forEach(function(card){
+        card.classList.toggle('active',String(card.dataset.repId||'')===repId);
+      });
+      return;
+    }
+
+    var rep=(db.reps||[]).find(function(r){return String(r.id||'')===repId})||
+            (db.reps||[]).find(function(r){return String(r.name||'').trim()===repId});
+    if(!rep)return;
+
+    var resolved=String(rep.id||repId);
+
+    try{
+      if(typeof repReportFilterV189!=='undefined' && repReportFilterV189){
+        repReportFilterV189.repId=resolved;
+      }
+    }catch(e){}
+
+    var sel=document.getElementById('rep_report_rep_v189');
+    if(sel)sel.value=resolved;
+
+    document.querySelectorAll('#rep_performance_modal_v175 .rep-card-v175').forEach(function(card){
+      card.classList.toggle('active',String(card.dataset.repId||'')===resolved);
     });
+
+    var body=document.getElementById('rep_details_body_v175');
+    if(body && typeof buildReportV189==='function'){
+      body.innerHTML=buildReportV189(resolved);
+    }
   };
 
   window.openRepPerformanceV175=function(){
@@ -6472,7 +6503,19 @@ render();
     if(reps[0]){
       setTimeout(()=>openRepDetailsV175(reps[0].id),20);
     }
-  };
+  
+    setTimeout(function(){
+      document.querySelectorAll('#rep_performance_modal_v175 .rep-card-v175[data-rep-id]').forEach(function(card){
+        card.style.cursor='pointer';
+        card.onclick=function(ev){
+          if(ev){ev.preventDefault();ev.stopPropagation();}
+          window.openRepDetailsV175(String(card.dataset.repId||''));
+          return false;
+        };
+      });
+    },0);
+
+};
 
   window.closeRepPerformanceV175=function(){
     let modal=document.getElementById('rep_performance_modal_v175');
@@ -8289,54 +8332,22 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
   }
 
   function salesRowsV189(repId){
-    let allocations=[];
+    /*
+      FINAL RELEASE: this report must use the same central rep source as
+      the performance card. This removes the old local allocation formula
+      that caused card/detail mismatches.
+    */
     try{
-      allocations=typeof salesAllocationRowsV52==='function'?salesAllocationRowsV52():[];
-    }catch(e){
-      console.error('rep report allocation error',e);
-      allocations=[];
-    }
-
-    const saleById=new Map((db.sales||[]).map(s=>[String(s.id||''),s]));
-    const grouped=new Map();
-
-    allocations.forEach(a=>{
-      if(!rowMatchesRepV189(a,repId) || !inRangeV189(a))return;
-      const original=saleById.get(String(a.sale_id||''))||{};
-      if(original.approval_status && original.approval_status!=='approved')return;
-
-      const invoiceKey=String(
-        original.invoice_group_id||original.invoice_number||original.invoice_no||
-        original.order_id||original.sale_order_id||a.sale_id||a.id||''
-      );
-      const key=[invoiceKey,normV189(a.product_name),String(a.rep_id||''),normV189(a.region_code)].join('|');
-
-      if(!grouped.has(key)){
-        grouped.set(key,{
-          id:'alloc_report_'+key,
-          sale_id:a.sale_id||'',
-          invoice_key:invoiceKey,
-          invoice_number:original.invoice_number||original.invoice_no||'',
-          date:a.date||original.date||'',
-          customer_id:original.customer_id||'',
-          customer_name:a.customer_name||original.customer_name||'',
-          rep_id:a.rep_id||'',
-          rep_name:a.rep_name||'',
-          region_code:a.region_code||'',
-          product_name:a.product_name||original.product_name||'',
-          qty:0,total:0,paid:0,remaining:0,
-          approval_status:'approved',
-          _allocated:true
-        });
+      if(window.MahsoubakMetrics && typeof window.MahsoubakMetrics.rowsForRep==='function'){
+        return (window.MahsoubakMetrics.rowsForRep(repId)||[]).filter(inRangeV189);
       }
-      const r=grouped.get(key);
-      r.qty+=n(a.allocated_qty);
-      r.total+=n(a.allocated_amount);
-      r.paid+=n(a.paid);
-      r.remaining+=n(a.remaining);
-    });
-
-    return [...grouped.values()];
+      if(typeof window.repRowsExactV417==='function'){
+        return (window.repRowsExactV417(repId)||[]).filter(inRangeV189);
+      }
+    }catch(e){
+      console.error('rep report central source error',e);
+    }
+    return [];
   }
 
   function collectionRowsV189(repId){
@@ -8428,6 +8439,8 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
 
     let rows=[...customerMap.values()].sort((a,b)=>(b.sales+b.collections)-(a.sales+a.collections));
     let salesTotal=sales.reduce((a,s)=>a+n(s.total),0);
+    let repInvoiceSet=new Set(sales.map(s=>String(s.invoice_key||s.invoice_number||s.invoice_no||s.order_id||s.sale_id||s.id||'' )).filter(Boolean));
+    let repInvoiceCount=repInvoiceSet.size;
     let companySalesTotal=companySalesTotalV302();
     let collectionTotal=collections.reduce((a,c)=>a+n(c.amount),0);
     let remainingTotal=sales.reduce((a,s)=>a+n(s.remaining),0);
@@ -8446,7 +8459,7 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
         <div class="stat v303-clickable" data-v303-drill="rep-sales" onclick="window.openRepDrillDirectV304('rep-sales');return false;" title="اضغط على الكارت"><span>المبيعات خلال المدة</span><strong>${money(salesTotal)}</strong></div>
         <div class="stat v303-clickable" data-v303-drill="rep-collections" onclick="window.openRepDrillDirectV304('rep-collections');return false;" title="اضغط على الكارت"><span>التحصيلات خلال المدة</span><strong>${money(collectionTotal)}</strong></div>
         <div class="stat v303-clickable" data-v303-drill="rep-remaining" onclick="window.openRepDrillDirectV304('rep-remaining');return false;" title="اضغط على الكارت"><span>المتبقي على العملاء</span><strong>${money(remainingTotal)}</strong></div>
-        <div class="stat v303-clickable" data-v303-drill="rep-invoices" onclick="window.openRepDrillDirectV304('rep-invoices');return false;" title="اضغط على الكارت"><span>عدد الفواتير</span><strong>${sales.length}</strong></div>
+        <div class="stat v303-clickable" data-v303-drill="rep-invoices" onclick="window.openRepDrillDirectV304('rep-invoices');return false;" title="اضغط على الكارت"><span>عدد الفواتير</span><strong>${repInvoiceCount}</strong></div>
       </div><div class="grid grid4 rep-target-summary-v189">
         <div class="stat v303-clickable" data-v303-drill="target" onclick="window.openRepDrillDirectV304('target');return false;" title="اضغط على الكارت"><span>التارجت (${target.label})</span><strong>${Number(target.target).toLocaleString()}</strong></div>
         <div class="stat v303-clickable" data-v303-drill="target-achieved" onclick="window.openRepDrillDirectV304('target-achieved');return false;" title="اضغط على الكارت"><span>المحقق خلال المدة</span><strong>${Number(target.achieved).toLocaleString()}</strong></div>
@@ -8539,6 +8552,9 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
     });
   };
 })();
+
+  /* Final direct bridge: all later screens use the exact same local function. */
+  window.salesRowsV189=salesRowsV189;
 </script><style id="v189-rep-reports-by-date-and-rep-style">html body .rep-report-filters-v189{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr)) auto!important;gap:10px!important;align-items:end!important;margin:18px 20px 0!important;padding:14px!important;background:#fff!important;border:1px solid #cbd5e1!important;border-radius:12px!important}html body .rep-report-filters-v189 label{display:grid!important;gap:6px!important}html body .rep-report-filters-v189 label span{font-weight:800!important;color:#334155!important}html body .rep-report-filters-v189 input,html body .rep-report-filters-v189 select{min-height:42px!important;border:1px solid #cbd5e1!important;border-radius:9px!important;padding:8px 10px!important;background:#fff!important;color:#111827!important}html body .rep-target-summary-v189{margin-bottom:16px!important}@media(max-width:800px){html body .rep-report-filters-v189{grid-template-columns:1fr!important}}</style><script id="v190-rep-product-targets">
 (function(){
   function normV190(v){
@@ -29562,97 +29578,7 @@ html body .summary-box.v303-auto-clickable:after{
   }
 })();
 </script>
-<script id="v341-card-context-definitive-fix">
-(function(){
-  function S(v){return String(v==null?'':v).trim()}
 
-  window.repCardContextV341=window.repCardContextV341||{id:''};
-
-  function setCtx(id){
-    id=S(id);
-    if(!id)return;
-    window.repCardContextV341.id=id;
-    try{
-      if(typeof repReportFilterV189!=='undefined'&&repReportFilterV189){
-        repReportFilterV189.repId=id;
-      }
-    }catch(e){}
-    var sel=document.getElementById('rep_report_rep_v189');
-    if(sel){
-      try{
-        if(Array.from(sel.options).some(function(o){return o.value===id}))sel.value=id;
-      }catch(e){}
-    }
-  }
-
-  function inferCtx(){
-    var id='';
-    try{id=S(repReportFilterV189&&repReportFilterV189.repId)}catch(e){}
-    if(id)return id;
-
-    var active=document.querySelector('#rep_performance_modal_v175 .rep-card-v175.active[data-rep-id]');
-    if(active&&S(active.dataset.repId))return S(active.dataset.repId);
-
-    var sel=document.getElementById('rep_report_rep_v189');
-    if(sel&&S(sel.value))return S(sel.value);
-
-    if(S(window.repCardContextV341.id))return S(window.repCardContextV341.id);
-    if(window.repDrillContextV333&&S(window.repDrillContextV333.id))return S(window.repDrillContextV333.id);
-
-    return '';
-  }
-
-  /* Always remember the exact report card/group that was opened. */
-  var openBase341=window.openRepDetailsV175;
-  if(typeof openBase341==='function'){
-    window.openRepDetailsV175=function(repId){
-      setCtx(repId);
-      return openBase341.apply(this,arguments);
-    };
-    try{openRepDetailsV175=window.openRepDetailsV175}catch(e){}
-  }
-
-  var regionalBase341=window.openRegionalTotalV321;
-  if(typeof regionalBase341==='function'){
-    window.openRegionalTotalV321=function(id){
-      setCtx(id);
-      return regionalBase341.apply(this,arguments);
-    };
-    try{openRegionalTotalV321=window.openRegionalTotalV321}catch(e){}
-  }
-
-  /*
-    Definitive drill wrapper:
-    before ANY rep-card drill, restore the active report context.
-  */
-  var drillBase341=window.openRepDrillDirectV304;
-  if(typeof drillBase341==='function'){
-    window.openRepDrillDirectV304=function(kind){
-      if(kind!=='company-sales'){
-        var id=inferCtx();
-        if(id)setCtx(id);
-      }
-      return drillBase341.apply(this,arguments);
-    };
-  }
-
-  /* Capture clicks before old handlers execute. */
-  document.addEventListener('click',function(e){
-    var drill=e.target.closest('[data-v303-drill]');
-    if(!drill)return;
-    if(drill.getAttribute('data-v303-drill')==='company-sales')return;
-
-    var id=inferCtx();
-    if(id)setCtx(id);
-  },true);
-
-  /* Also remember direct clicks on rep/group cards. */
-  document.addEventListener('click',function(e){
-    var card=e.target.closest('#rep_performance_modal_v175 .rep-card-v175[data-rep-id]');
-    if(card&&S(card.dataset.repId))setCtx(card.dataset.repId);
-  },true);
-})();
-</script>
 <style id="v342-cards-direct-click-only-style">
 /* No separate "عرض التفاصيل" affordance inside rep-report cards. The card itself is the action. */
 #rep_performance_modal_v175 .v303-clickable,
@@ -29664,90 +29590,7 @@ html body .summary-box.v303-auto-clickable:after{
 #rep_performance_modal_v175 .v303-clickable small.v342-remove,
 #rep_performance_modal_v175 .v303-clickable .v342-remove{display:none!important}
 </style>
-<script id="v342-cards-direct-click-only">
-(function(){
-  function S(v){return String(v==null?'':v).trim()}
 
-  function stripDetailsText(root){
-    root=root||document;
-    root.querySelectorAll('#rep_performance_modal_v175 *').forEach(function(el){
-      if(el.children.length===0 && S(el.textContent)==='عرض التفاصيل'){
-        el.remove();
-      }
-    });
-    root.querySelectorAll('#rep_performance_modal_v175 [title]').forEach(function(el){
-      var t=S(el.getAttribute('title'));
-      if(t.indexOf('اضغط لعرض التفاصيل')>=0 || t.indexOf('عرض التفاصيل')>=0){
-        el.setAttribute('title','اضغط على الكارت لفتح التفاصيل');
-      }
-    });
-  }
-
-  function bindDirectCards(){
-    var modal=document.getElementById('rep_performance_modal_v175');
-    if(!modal)return;
-
-    /* Summary/stat cards: whole card opens its drill. */
-    modal.querySelectorAll('[data-v303-drill]').forEach(function(card){
-      var kind=S(card.getAttribute('data-v303-drill'));
-      if(!kind)return;
-      card.style.cursor='pointer';
-      card.onclick=function(ev){
-        if(ev){ev.preventDefault();ev.stopPropagation()}
-        if(typeof window.openRepDrillDirectV304==='function'){
-          window.openRepDrillDirectV304(kind);
-        }
-        return false;
-      };
-    });
-
-    /* Rep/group cards already carry the rep id; clicking anywhere opens them. */
-    modal.querySelectorAll('.rep-card-v175[data-rep-id]').forEach(function(card){
-      var id=S(card.dataset.repId);
-      if(!id)return;
-      card.style.cursor='pointer';
-      card.onclick=function(ev){
-        if(ev){ev.preventDefault();ev.stopPropagation()}
-        if(typeof window.openRepDetailsV175==='function'){
-          window.openRepDetailsV175(id);
-        }
-        return false;
-      };
-    });
-
-    stripDetailsText(modal);
-  }
-
-  var perfBase342=window.openRepPerformanceV175;
-  if(typeof perfBase342==='function'){
-    window.openRepPerformanceV175=function(){
-      var r=perfBase342.apply(this,arguments);
-      setTimeout(bindDirectCards,80);
-      setTimeout(bindDirectCards,250);
-      return r;
-    };
-    try{openRepPerformanceV175=window.openRepPerformanceV175}catch(e){}
-  }
-
-  var repBase342=window.openRepDetailsV175;
-  if(typeof repBase342==='function'){
-    window.openRepDetailsV175=function(){
-      var r=repBase342.apply(this,arguments);
-      setTimeout(bindDirectCards,0);
-      setTimeout(bindDirectCards,120);
-      return r;
-    };
-    try{openRepDetailsV175=window.openRepDetailsV175}catch(e){}
-  }
-
-  var obs=new MutationObserver(function(){
-    bindDirectCards();
-  });
-  obs.observe(document.body,{childList:true,subtree:true});
-
-  setTimeout(bindDirectCards,700);
-})();
-</script>
 <script id="v343-remove-legacy-static-rep-sections">
 (function(){
   var HEADS=[
@@ -37113,413 +36956,11 @@ table.rep-split-table td:first-child{display:none !important;}
 })();
 </script>
 
-<script id="v355-rep-card-drill-data">
-(function(){
-  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
-  function S(v){return String(v==null?'':v).trim()}
-  function E(v){return S(v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
-  function M(v){try{return money(v)}catch(e){return 'EGP '+N(v).toLocaleString()}}
 
-  window.currentRepDrillRepV355='';
 
-  function isTotal(id){
-    return id==='west_total_v186'||id==='east_total_v186'||id==='delta_total_v321'||id==='alex_total_v321';
-  }
 
-  function remember(id){
-    id=S(id);
-    if(!id)return;
-    window.currentRepDrillRepV355=id;
-    try{
-      if(typeof repReportFilterV189!=='undefined'&&repReportFilterV189)repReportFilterV189.repId=id;
-    }catch(e){}
-  }
 
-  function currentRep(){
-    var id=S(window.currentRepDrillRepV355);
-    if(id&&!isTotal(id))return id;
 
-    try{
-      id=S(repReportFilterV189&&repReportFilterV189.repId);
-      if(id&&!isTotal(id))return id;
-    }catch(e){}
-
-    var active=document.querySelector('#rep_performance_modal_v175 .rep-card-v175.active[data-rep-id]');
-    if(active){
-      id=S(active.dataset.repId);
-      if(id&&!isTotal(id))return id;
-    }
-    return '';
-  }
-
-  function repName(id){
-    var r=(db.reps||[]).find(function(x){return String(x.id)===String(id)});
-    return r?S(r.name):'';
-  }
-
-  function salesRows(id){
-    try{if(typeof salesRowsV189==='function')return salesRowsV189(id)||[]}catch(e){}
-    return [];
-  }
-  function collectionRows(id){
-    try{if(typeof collectionRowsV189==='function')return collectionRowsV189(id)||[]}catch(e){}
-    return [];
-  }
-  function targetInfo(id,sales){
-    try{if(typeof targetInfoV189==='function')return targetInfoV189(id,sales)}catch(e){}
-    var r=(db.reps||[]).find(function(x){return String(x.id)===String(id)})||{};
-    var target=N(r.target_qty!=null?r.target_qty:(r.target_value!=null?r.target_value:r.target));
-    var achieved=(sales||[]).reduce(function(a,s){
-      return a+(typeof window.targetSaleQtyV346==='function'?window.targetSaleQtyV346(s):N(s.qty));
-    },0);
-    return {label:'الكمية',target:target,achieved:achieved};
-  }
-
-  function invoiceKey(s){return S(s.invoice_number||s.invoice_no||s.invoice_key||s.invoice_group_id||s.order_id||s.id)||'-'}
-
-  function modal(){
-    var m=document.getElementById('v355_rep_drill_modal');
-    if(m)return m;
-    m=document.createElement('div');m.id='v355_rep_drill_modal';
-    m.innerHTML='<div class="v355-panel"><div class="v355-head"><div><h2 id="v355_title"></h2><p id="v355_sub"></p></div>'+
-      '<button class="btn danger" onclick="closeRepDrillV355()">إغلاق</button></div><div class="v355-body" id="v355_body"></div></div>';
-    document.body.appendChild(m);return m;
-  }
-  window.closeRepDrillV355=function(){
-    var m=document.getElementById('v355_rep_drill_modal');if(m)m.classList.remove('show');
-    document.body.style.overflow='';
-  };
-  function show(title,sub,html){
-    var m=modal();
-    document.getElementById('v355_title').textContent=title;
-    document.getElementById('v355_sub').textContent=sub||'';
-    document.getElementById('v355_body').innerHTML=html||'';
-    m.classList.add('show');document.body.style.overflow='hidden';
-  }
-
-  function salesTable(rows){
-    if(!rows.length)return '<div class="empty">لا توجد بيانات لهذا المندوب في الفترة المحددة.</div>';
-    return '<div class="v355-table"><table><tr><th>التاريخ</th><th>الفاتورة</th><th>العميل</th><th>المنتج</th><th>الكمية</th><th>قيمة المبيعات</th><th>المتبقي</th></tr>'+
-      rows.map(function(s){
-        return '<tr><td>'+E(S(s.date).slice(0,10))+'</td><td>'+E(invoiceKey(s))+'</td><td>'+E(s.customer_name||'-')+'</td>'+
-          '<td>'+E(s.product_name||'-')+'</td><td>'+N(s.qty).toLocaleString()+'</td><td>'+M(s.total)+'</td><td>'+M(s.remaining)+'</td></tr>';
-      }).join('')+'</table></div>';
-  }
-
-  function collectionTable(rows){
-    if(!rows.length)return '<div class="empty">لا توجد تحصيلات لهذا المندوب في الفترة المحددة.</div>';
-    return '<div class="v355-table"><table><tr><th>التاريخ</th><th>العميل</th><th>المبلغ</th><th>الطريقة</th><th>ملاحظات</th></tr>'+
-      rows.map(function(c){
-        return '<tr><td>'+E(S(c.date).slice(0,10))+'</td><td>'+E(c.customer_name||c.party||'-')+'</td>'+
-          '<td>'+M(c.amount)+'</td><td>'+E(c.method||c.payment_method||'-')+'</td><td>'+E(c.notes||c.details||'-')+'</td></tr>';
-      }).join('')+'</table></div>';
-  }
-
-  function targetSummary(id,sales){
-    var t=targetInfo(id,sales),remaining=Math.max(0,N(t.target)-N(t.achieved)),pct=N(t.target)>0?N(t.achieved)/N(t.target)*100:0;
-    return '<div class="v355-summary">'+
-      '<div class="stat"><span>التارجت</span><strong>'+N(t.target).toLocaleString()+'</strong></div>'+
-      '<div class="stat"><span>المحقق من البيع فقط</span><strong>'+N(t.achieved).toLocaleString()+'</strong><small>البونص غير محسوب</small></div>'+
-      '<div class="stat"><span>المتبقي</span><strong>'+remaining.toLocaleString()+'</strong></div>'+
-      '<div class="stat"><span>نسبة التحقيق</span><strong>'+pct.toFixed(1)+'%</strong></div>'+
-    '</div>';
-  }
-
-  function openRepKind(kind){
-    var id=currentRep();
-    if(!id)return false;
-
-    var name=repName(id)||'المندوب';
-    var sales=salesRows(id),collections=collectionRows(id);
-    var t=targetInfo(id,sales);
-    var salesTotal=sales.reduce(function(a,s){return a+N(s.total)},0);
-    var collectionTotal=collections.reduce(function(a,c){return a+N(c.amount)},0);
-    var remainingTotal=sales.reduce(function(a,s){return a+N(s.remaining)},0);
-    var qty=sales.reduce(function(a,s){return a+(typeof window.targetSaleQtyV346==='function'?window.targetSaleQtyV346(s):N(s.qty))},0);
-
-    if(kind==='rep-sales'){
-      show('مبيعات '+name,'تفاصيل مبيعات المندوب في الفترة المحددة',
-        '<div class="v355-summary"><div class="stat"><span>إجمالي المبيعات</span><strong>'+M(salesTotal)+'</strong></div>'+
-        '<div class="stat"><span>كمية البيع</span><strong>'+qty.toLocaleString()+'</strong></div>'+
-        '<div class="stat"><span>عدد السطور</span><strong>'+sales.length+'</strong></div></div>'+salesTable(sales));
-      return true;
-    }
-    if(kind==='rep-collections'){
-      show('تحصيلات '+name,'تفاصيل التحصيلات الخاصة بالمندوب',
-        '<div class="v355-summary"><div class="stat"><span>إجمالي التحصيلات</span><strong>'+M(collectionTotal)+'</strong></div>'+
-        '<div class="stat"><span>عدد التحصيلات</span><strong>'+collections.length+'</strong></div></div>'+collectionTable(collections));
-      return true;
-    }
-    if(kind==='rep-remaining'){
-      show('المتبقي على عملاء '+name,'تفاصيل المبيعات التي عليها أرصدة متبقية',
-        '<div class="v355-summary"><div class="stat"><span>إجمالي المتبقي</span><strong>'+M(remainingTotal)+'</strong></div></div>'+
-        salesTable(sales.filter(function(s){return N(s.remaining)>0})));
-      return true;
-    }
-    if(kind==='rep-invoices'){
-      var keys=new Set(sales.map(invoiceKey));
-      show('فواتير '+name,'الفواتير الخاصة بالمندوب',
-        '<div class="v355-summary"><div class="stat"><span>عدد الفواتير</span><strong>'+keys.size+'</strong></div>'+
-        '<div class="stat"><span>إجمالي المبيعات</span><strong>'+M(salesTotal)+'</strong></div></div>'+salesTable(sales));
-      return true;
-    }
-    if(kind==='target'||kind==='target-achieved'||kind==='target-remaining'||kind==='target-percent'){
-      show('تارجت '+name,'التارجت مقابل البيع المحقق للمندوب',targetSummary(id,sales)+salesTable(sales));
-      return true;
-    }
-    return false;
-  }
-
-  /* Remember every normal rep opened. */
-  var openBase=window.openRepDetailsV175;
-  if(typeof openBase==='function'){
-    window.openRepDetailsV175=function(repId){
-      if(repId&&!isTotal(repId))remember(repId);
-      return openBase.apply(this,arguments);
-    };
-    try{openRepDetailsV175=window.openRepDetailsV175}catch(e){}
-  }
-
-  /* Final drill override for rep cards. */
-  var drillBase=window.openRepDrillDirectV304;
-  window.openRepDrillDirectV304=function(kind){
-    if(kind==='company-sales')return typeof drillBase==='function'?drillBase.apply(this,arguments):undefined;
-    if(openRepKind(kind))return;
-    return typeof drillBase==='function'?drillBase.apply(this,arguments):undefined;
-  };
-
-  /* Capture current rep before any old click wrapper runs. */
-  document.addEventListener('click',function(e){
-    var active=document.querySelector('#rep_performance_modal_v175 .rep-card-v175.active[data-rep-id]');
-    if(active&&!isTotal(active.dataset.repId))remember(active.dataset.repId);
-  },true);
-
-  document.addEventListener('keydown',function(e){if(e.key==='Escape')window.closeRepDrillV355()});
-})();
-</script>
-
-<script id="v356-rep-drill-identity-data-definitive">
-(function(){
-  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
-  function S(v){return String(v==null?'':v).trim()}
-  function norm(v){
-    return S(v).toLowerCase().replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ');
-  }
-
-  function isTotal(v){
-    v=S(v);
-    return v==='west_total_v186'||v==='east_total_v186'||v==='delta_total_v321'||v==='alex_total_v321';
-  }
-
-  window.resolveRepIdV356=function(ref){
-    ref=S(ref);
-    if(!ref||isTotal(ref))return ref;
-    var byId=(db.reps||[]).find(function(r){return String(r.id)===ref});
-    if(byId)return String(byId.id);
-    var byName=(db.reps||[]).find(function(r){return norm(r.name)===norm(ref)});
-    return byName?String(byName.id):ref;
-  };
-
-  window.resolveRepNameV356=function(ref){
-    var id=window.resolveRepIdV356(ref);
-    var r=(db.reps||[]).find(function(x){return String(x.id)===String(id)});
-    return r?S(r.name):S(ref);
-  };
-
-  function inPeriod(s){
-    try{if(typeof inRangeV189==='function')return inRangeV189(s)}catch(e){}
-    var d=S(s.date).slice(0,10),from='',to='';
-    try{
-      from=S(repReportFilterV189&&repReportFilterV189.from);
-      to=S(repReportFilterV189&&repReportFilterV189.to);
-    }catch(e){}
-    if(from&&d<from)return false;
-    if(to&&d>to)return false;
-    return true;
-  }
-
-  function matchesRep(s,id,name){
-    if(S(s.rep_id)&&S(s.rep_id)===S(id))return true;
-    if(norm(s.rep_name)&&norm(s.rep_name)===norm(name))return true;
-    try{
-      if(typeof repNameV189==='function'&&norm(repNameV189(s))===norm(name))return true;
-    }catch(e){}
-    return false;
-  }
-
-  var baseSalesRowsV356=(typeof salesRowsV189==='function'?salesRowsV189:null);
-  var baseCollectionRowsV356=(typeof collectionRowsV189==='function'?collectionRowsV189:null);
-
-  window.repSalesRowsDefinitiveV356=function(ref){
-    var id=window.resolveRepIdV356(ref),name=window.resolveRepNameV356(ref);
-    var rows=[];
-    try{
-      if(typeof baseSalesRowsV356==='function')rows=baseSalesRowsV356(id)||[];
-    }catch(e){rows=[]}
-
-    if(rows.length)return rows;
-
-    /* Fallback only when allocation report is empty:
-       use approved real sales for the same rep and period. */
-    return (db.sales||[]).filter(function(s){
-      if(s.approval_status&&s.approval_status!=='approved')return false;
-      if(!inPeriod(s))return false;
-      return matchesRep(s,id,name);
-    }).map(function(s){
-      var c=(db.customers||[]).find(function(x){return String(x.id)===String(s.customer_id)})||{};
-      return Object.assign({},s,{
-        invoice_key:s.invoice_group_id||s.invoice_number||s.invoice_no||s.order_id||s.id,
-        invoice_number:s.invoice_number||s.invoice_no||'',
-        customer_name:s.customer_name||c.customer_name||c.name||'',
-        rep_id:id,
-        rep_name:name
-      });
-    });
-  };
-
-  window.repCollectionRowsDefinitiveV356=function(ref){
-    var id=window.resolveRepIdV356(ref),name=window.resolveRepNameV356(ref);
-    var rows=[];
-    try{
-      if(typeof baseCollectionRowsV356==='function')rows=baseCollectionRowsV356(id)||[];
-    }catch(e){rows=[]}
-    if(rows.length)return rows;
-    return (db.collections||[]).filter(function(c){
-      if(c.approval_status&&c.approval_status!=='approved')return false;
-      if(!inPeriod(c))return false;
-      return matchesRep(c,id,name);
-    });
-  };
-
-  /* Patch V355's public click route by forcing its stored context to a real rep ID. */
-  var oldOpen=window.openRepDetailsV175;
-  if(typeof oldOpen==='function'){
-    window.openRepDetailsV175=function(repRef){
-      var resolved=isTotal(repRef)?repRef:window.resolveRepIdV356(repRef);
-      if(!isTotal(resolved)){
-        window.currentRepDrillRepV355=resolved;
-        try{
-          if(typeof repReportFilterV189!=='undefined'&&repReportFilterV189)repReportFilterV189.repId=resolved;
-        }catch(e){}
-      }
-      return oldOpen.call(this,resolved);
-    };
-    try{openRepDetailsV175=window.openRepDetailsV175}catch(e){}
-  }
-
-  /* Replace the V355 data functions at call-time by shadowing the source helpers it consumes. */
-  var drillOld=window.openRepDrillDirectV304;
-  if(typeof drillOld==='function'){
-    window.openRepDrillDirectV304=function(kind){
-      if(kind==='company-sales')return drillOld.apply(this,arguments);
-
-      var ref=S(window.currentRepDrillRepV355);
-      if(!ref){
-        try{ref=S(repReportFilterV189&&repReportFilterV189.repId)}catch(e){}
-      }
-      if(ref&&!isTotal(ref)){
-        var resolved=window.resolveRepIdV356(ref);
-        window.currentRepDrillRepV355=resolved;
-        try{
-          if(typeof repReportFilterV189!=='undefined'&&repReportFilterV189)repReportFilterV189.repId=resolved;
-        }catch(e){}
-
-        /* Temporarily make V189 functions return definitive rows to V355. */
-        var salesOrig=window.salesRowsV189 || (typeof salesRowsV189==='function'?salesRowsV189:null);
-        var collOrig=window.collectionRowsV189 || (typeof collectionRowsV189==='function'?collectionRowsV189:null);
-        try{
-          window.salesRowsV189=function(){return window.repSalesRowsDefinitiveV356(resolved)};
-          window.collectionRowsV189=function(){return window.repCollectionRowsDefinitiveV356(resolved)};
-          try{salesRowsV189=window.salesRowsV189}catch(e){}
-          try{collectionRowsV189=window.collectionRowsV189}catch(e){}
-          return drillOld.apply(this,arguments);
-        }finally{
-          if(salesOrig){window.salesRowsV189=salesOrig;try{salesRowsV189=salesOrig}catch(e){}}
-          if(collOrig){window.collectionRowsV189=collOrig;try{collectionRowsV189=collOrig}catch(e){}}
-        }
-      }
-      return drillOld.apply(this,arguments);
-    };
-  }
-})();
-</script>
-
-<script id="v418-rep-total-sales-card-click">
-(function(){
-  function A(v){return Array.isArray(v)?v:[]}
-  function S(v){return String(v==null?'':v).trim()}
-  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
-  function E(v){
-    try{if(typeof esc==='function')return esc(v)}catch(e){}
-    return S(v).replace(/[&<>'"]/g,function(c){
-      return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]
-    });
-  }
-  function M(v){
-    try{if(typeof money==='function')return money(v)}catch(e){}
-    return 'EGP '+N(v).toLocaleString();
-  }
-
-  window.openRepTotalSalesV418=function(repId){
-    var rep=A(db&&db.reps).find(function(r){
-      return String(r.id)===String(repId);
-    })||null;
-    if(!rep)return;
-
-    var rows=[];
-    try{
-      if(typeof window.repRowsExactV417==='function'){
-        rows=window.repRowsExactV417(rep.id)||[];
-      }else if(typeof window.salesRowsV189==='function'){
-        rows=window.salesRowsV189(rep.id)||[];
-      }
-    }catch(e){rows=[]}
-
-    var total=rows.reduce(function(a,s){return a+N(s.total)},0);
-    var qty=rows.reduce(function(a,s){return a+N(s.qty)},0);
-    var invoices=new Set(rows.map(function(s){
-      return S(s.invoice_key||s.invoice_no||s.invoice_group_id||s.order_id||s.sale_id||s.id)
-    }));
-
-    var html=
-      '<div class="grid grid3" style="margin-bottom:14px">'+
-        '<div class="stat"><span>إجمالي المبيعات</span><strong>'+M(total)+'</strong></div>'+
-        '<div class="stat"><span>الكمية الموزعة</span><strong>'+N(qty).toLocaleString()+'</strong></div>'+
-        '<div class="stat"><span>عدد الفواتير</span><strong>'+invoices.size+'</strong></div>'+
-      '</div>'+
-      '<div class="card"><h3>تفاصيل مبيعات '+E(rep.name||'')+'</h3>'+
-        (rows.length
-          ? '<table><tr><th>التاريخ</th><th>الفاتورة</th><th>العميل</th><th>المنتج</th><th>المنطقة</th><th>نسبة التوزيع</th><th>الكمية</th><th>قيمة المبيعات</th></tr>'+
-            rows.map(function(s){
-              return '<tr>'+
-                '<td>'+E(s.date||'')+'</td>'+
-                '<td>'+E(s.invoice_no||s.invoice_key||'')+'</td>'+
-                '<td>'+E(s.customer_name||'')+'</td>'+
-                '<td>'+E(s.product_name||'')+'</td>'+
-                '<td>'+E(s.region_code||s.region_name||'')+'</td>'+
-                '<td>'+N(s.percentage!=null?s.percentage:100).toFixed(2)+'%</td>'+
-                '<td>'+N(s.qty).toLocaleString()+'</td>'+
-                '<td>'+M(s.total)+'</td>'+
-              '</tr>';
-            }).join('')+
-            '</table>'
-          : '<div class="empty">لا توجد مبيعات لهذا المندوب في الفترة المحددة.</div>')+
-      '</div>';
-
-    if(typeof window.openCompanyAnalyticsModalV306==='function'){
-      window.openCompanyAnalyticsModalV306(
-        'إجمالي مبيعات '+(rep.name||''),
-        'تفاصيل المبيعات الموزعة حسب نسب العملاء',
-        html
-      );
-      return;
-    }
-
-    var body=document.getElementById('rep_details_body_v175');
-    if(body)body.insertAdjacentHTML('beforeend',html);
-  };
-})();
-</script>
 
 <script id="mb-safe-consolidated-metrics">
 (function(){
