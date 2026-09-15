@@ -37505,3 +37505,203 @@ setTimeout(syncDashboardCards,0);
 })();
 </script>
 
+<script id="v502-direct-paid-invoice-capture">
+(function(){
+  if(window.__V502_DIRECT_PAID_INVOICE_CAPTURE__)return;
+  window.__V502_DIRECT_PAID_INVOICE_CAPTURE__=true;
+
+  function A(v){return Array.isArray(v)?v:[]}
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S(v){return String(v==null?'':v).trim()}
+  function E(v){return S(v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function M(v){try{return typeof money==='function'?money(v):('EGP '+N(v).toLocaleString())}catch(e){return 'EGP '+N(v).toLocaleString()}}
+
+  function currentRepId(){
+    try{
+      if(typeof repReportFilterV189!=='undefined'&&repReportFilterV189&&S(repReportFilterV189.repId))return S(repReportFilterV189.repId);
+    }catch(e){}
+    var active=document.querySelector('#rep_performance_modal_v175 .rep-card-v175.active[data-rep-id]');
+    if(active)return S(active.getAttribute('data-rep-id'));
+    var sel=document.getElementById('rep_report_rep_v189');
+    return sel?S(sel.value):'';
+  }
+
+  function rows(repId){
+    try{return typeof salesRowsV189==='function'?A(salesRowsV189(repId)):[]}catch(e){return []}
+  }
+
+  function groups(repId){
+    var map=new Map();
+    rows(repId).forEach(function(s){
+      var key=S(s.invoice_key||s.invoice_number||s.invoice_no||s.order_id||s.sale_id||s.id);
+      if(!key)key='ROW_'+S(s.id);
+      if(!map.has(key)){
+        map.set(key,{
+          key:key,date:s.date||'',customer:s.customer_name||'',
+          products:new Set(),total:0,remaining:0
+        });
+      }
+      var g=map.get(key);
+      if(S(s.product_name))g.products.add(S(s.product_name));
+      g.total+=N(s.total);
+      g.remaining+=N(s.remaining);
+    });
+    return Array.from(map.values()).map(function(g){
+      g.paid=Math.max(0,g.total-g.remaining);
+      g.productsText=Array.from(g.products).join('، ');
+      return g;
+    });
+  }
+
+  function repName(repId){
+    try{
+      if(typeof repDisplayV189==='function')return repDisplayV189(repId);
+      var r=A(db&&db.reps).find(function(x){return S(x.id)===S(repId)});
+      return r&&r.name||repId;
+    }catch(e){return repId}
+  }
+
+  function openDirect(title,subtitle,html){
+    var old=document.getElementById('v502_direct_modal');
+    if(old)old.remove();
+
+    var m=document.createElement('div');
+    m.id='v502_direct_modal';
+    m.setAttribute('style','position:fixed;inset:0;z-index:2147483647;background:rgba(15,23,42,.82);display:flex;align-items:stretch;justify-content:center;');
+    m.innerHTML=
+      '<div style="width:100%;height:100%;background:#f8fafc;overflow:auto;direction:rtl">'+
+        '<div style="position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 22px;background:#0f172a;color:#fff">'+
+          '<div><h2 style="margin:0;color:#fff">'+E(title)+'</h2><div style="margin-top:5px;color:#cbd5e1">'+E(subtitle||'')+'</div></div>'+
+          '<button id="v502_close" type="button" style="border:0;border-radius:10px;background:#dc2626;color:#fff;padding:10px 18px;font-weight:800;cursor:pointer">إغلاق</button>'+
+        '</div>'+
+        '<div style="padding:20px">'+html+'</div>'+
+      '</div>';
+
+    document.body.appendChild(m);
+    document.body.style.overflow='hidden';
+    document.getElementById('v502_close').onclick=function(){
+      m.remove();document.body.style.overflow='';
+    };
+  }
+
+  function paidHtml(repId){
+    var arr=groups(repId).filter(function(g){return g.paid>0.0001});
+    var total=arr.reduce(function(a,g){return a+g.paid},0);
+    return '<div class="grid grid4" style="margin-bottom:14px">'+
+      '<div class="stat"><span>إجمالي المسدد</span><strong>'+M(total)+'</strong></div>'+
+      '<div class="stat"><span>عدد الفواتير التي بها سداد</span><strong>'+arr.length+'</strong></div>'+
+      '</div>'+
+      (arr.length
+        ? '<div class="card" style="overflow:auto"><table><tr>'+
+          '<th>التاريخ</th><th>رقم الفاتورة</th><th>العميل</th><th>المنتج / المنتجات</th>'+
+          '<th>إجمالي الفاتورة</th><th>المسدد</th><th>المتبقي</th><th>الحالة</th></tr>'+
+          arr.map(function(g){
+            return '<tr><td>'+E(S(g.date).slice(0,10))+'</td><td><b>'+E(g.key)+'</b></td><td>'+E(g.customer||'-')+'</td>'+
+              '<td>'+E(g.productsText||'-')+'</td><td>'+M(g.total)+'</td><td><b>'+M(g.paid)+'</b></td><td>'+M(g.remaining)+'</td>'+
+              '<td>'+(g.remaining<=0.0001?'مسددة بالكامل':'مسددة جزئيًا')+'</td></tr>';
+          }).join('')+
+          '</table></div>'
+        : '<div class="empty">لا توجد فواتير عليها مبالغ مسددة لهذا المندوب خلال الفترة.</div>');
+  }
+
+  function invoicesHtml(repId){
+    var arr=groups(repId);
+    var total=arr.reduce(function(a,g){return a+g.total},0);
+    var remaining=arr.reduce(function(a,g){return a+g.remaining},0);
+    var paid=Math.max(0,total-remaining);
+    return '<div class="grid grid4" style="margin-bottom:14px">'+
+      '<div class="stat"><span>عدد الفواتير</span><strong>'+arr.length+'</strong></div>'+
+      '<div class="stat"><span>إجمالي المبيعات</span><strong>'+M(total)+'</strong></div>'+
+      '<div class="stat"><span>المسدد</span><strong>'+M(paid)+'</strong></div>'+
+      '<div class="stat"><span>المتبقي</span><strong>'+M(remaining)+'</strong></div>'+
+      '</div>'+
+      (arr.length
+        ? '<div class="card" style="overflow:auto"><table><tr>'+
+          '<th>التاريخ</th><th>رقم الفاتورة</th><th>العميل</th><th>المنتج / المنتجات</th>'+
+          '<th>إجمالي الفاتورة</th><th>المسدد</th><th>المتبقي</th></tr>'+
+          arr.map(function(g){
+            return '<tr><td>'+E(S(g.date).slice(0,10))+'</td><td><b>'+E(g.key)+'</b></td><td>'+E(g.customer||'-')+'</td>'+
+              '<td>'+E(g.productsText||'-')+'</td><td>'+M(g.total)+'</td><td>'+M(g.paid)+'</td><td>'+M(g.remaining)+'</td></tr>';
+          }).join('')+
+          '</table></div>'
+        : '<div class="empty">لا توجد فواتير لهذا المندوب خلال الفترة.</div>');
+  }
+
+  function patchVisibleCards(){
+    var body=document.getElementById('rep_details_body_v175');
+    if(!body)return;
+    var repId=currentRepId();if(!repId)return;
+    var stats=body.querySelectorAll('.rep-summary-v175 .stat');
+    if(stats.length<4)return;
+
+    var rr=rows(repId);
+    var sales=rr.reduce(function(a,x){return a+N(x.total)},0);
+    var remaining=rr.reduce(function(a,x){return a+N(x.remaining)},0);
+    var paid=Math.max(0,sales-remaining);
+    var inv=groups(repId);
+
+    var labels=['المبيعات خلال المدة','المدفوع / المسدد','المتبقي على العملاء','عدد الفواتير'];
+    var values=[M(sales),M(paid),M(remaining),String(inv.length)];
+    for(var i=0;i<4;i++){
+      var sp=stats[i].querySelector('span');
+      var strong=stats[i].querySelector('strong');
+      if(sp)sp.textContent=labels[i];
+      if(strong)strong.textContent=values[i];
+    }
+    stats[1].dataset.v502Action='paid';
+    stats[3].dataset.v502Action='invoices';
+    stats[1].style.cursor='pointer';
+    stats[3].style.cursor='pointer';
+    stats[1].title='اضغط لعرض العملاء والفواتير المسددة';
+    stats[3].title='اضغط لعرض الفواتير المحتسبة';
+  }
+
+  /* Capture phase runs before old bubbling/onclick handlers. */
+  document.addEventListener('click',function(ev){
+    var stat=ev.target&&ev.target.closest&&ev.target.closest('#rep_details_body_v175 .rep-summary-v175 .stat[data-v502-action]');
+    if(!stat)return;
+
+    ev.preventDefault();
+    ev.stopPropagation();
+    if(typeof ev.stopImmediatePropagation==='function')ev.stopImmediatePropagation();
+
+    var repId=currentRepId();
+    if(!repId)return false;
+
+    var action=S(stat.dataset.v502Action);
+    if(action==='paid'){
+      openDirect('المدفوع / المسدد — '+repName(repId),'تفاصيل العملاء والفواتير التي بها سداد',paidHtml(repId));
+    }else if(action==='invoices'){
+      openDirect('فواتير المندوب — '+repName(repId),'نفس الفواتير المحتسبة في رقم الكارت',invoicesHtml(repId));
+    }
+    return false;
+  },true);
+
+  /* Keep labels/count correct even if an older renderer redraws the panel. */
+  var target=document.getElementById('rep_details_body_v175');
+  if(target&&typeof MutationObserver!=='undefined'){
+    var busy=false;
+    var obs=new MutationObserver(function(){
+      if(busy)return;
+      busy=true;
+      setTimeout(function(){try{patchVisibleCards()}finally{busy=false}},0);
+    });
+    obs.observe(target,{childList:true,subtree:true});
+  }
+
+  var oldOpen=window.openRepDetailsV175;
+  if(typeof oldOpen==='function'){
+    window.openRepDetailsV175=function(){
+      var r=oldOpen.apply(this,arguments);
+      setTimeout(patchVisibleCards,0);
+      setTimeout(patchVisibleCards,80);
+      setTimeout(patchVisibleCards,250);
+      return r;
+    };
+    try{openRepDetailsV175=window.openRepDetailsV175}catch(e){}
+  }
+
+  setTimeout(patchVisibleCards,0);
+})();
+</script>
+
