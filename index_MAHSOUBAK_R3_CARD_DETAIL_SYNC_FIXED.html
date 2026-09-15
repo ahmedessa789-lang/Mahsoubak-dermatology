@@ -8439,8 +8439,23 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
 
     let rows=[...customerMap.values()].sort((a,b)=>(b.sales+b.collections)-(a.sales+a.collections));
     let salesTotal=sales.reduce((a,s)=>a+n(s.total),0);
-    let repInvoiceSet=new Set(sales.map(s=>String(s.invoice_key||s.invoice_number||s.invoice_no||s.order_id||s.sale_id||s.id||'' )).filter(Boolean));
-    let repInvoiceCount=repInvoiceSet.size;
+    let repInvoiceMap=new Map();
+    sales.forEach(s=>{
+      let ik=String(s.invoice_key||s.invoice_number||s.invoice_no||s.order_id||s.sale_id||s.id||'').trim();
+      if(!ik)ik='ROW_'+String(s.id||Math.random());
+      if(!repInvoiceMap.has(ik)){
+        repInvoiceMap.set(ik,{
+          key:ik,date:s.date||'',customer_name:s.customer_name||'',
+          products:new Set(),total:0,remaining:0
+        });
+      }
+      let g=repInvoiceMap.get(ik);
+      if(s.product_name)g.products.add(String(s.product_name));
+      g.total+=n(s.total);
+      g.remaining+=n(s.remaining);
+    });
+    let repInvoices=[...repInvoiceMap.values()];
+    let repInvoiceCount=repInvoices.length;
     let companySalesTotal=companySalesTotalV302();
     let collectionTotal=collections.reduce((a,c)=>a+n(c.amount),0);
     let remainingTotal=sales.reduce((a,s)=>a+n(s.remaining),0);
@@ -8458,9 +8473,9 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
       </div>
       <div class="grid grid4 rep-summary-v175">
         <div class="stat v303-clickable" data-v303-drill="rep-sales" onclick="window.openRepDrillDirectV304('rep-sales');return false;" title="اضغط على الكارت"><span>المبيعات خلال المدة</span><strong>${money(salesTotal)}</strong></div>
-        <div class="stat"><span>المدفوع / المسدد</span><strong>${money(settledDisplayTotal)}</strong><small style="display:block;margin-top:4px">${money(salesTotal)} − ${money(remainingTotal)}</small></div>
+        <div class="stat v303-clickable" onclick="window.openRepPaidSettledDetailsV500(repId);return false;" title="اضغط لعرض العملاء والفواتير المسددة"><span>المدفوع / المسدد</span><strong>${money(settledDisplayTotal)}</strong><small style="display:block;margin-top:4px">${money(salesTotal)} − ${money(remainingTotal)}</small></div>
         <div class="stat v303-clickable" data-v303-drill="rep-remaining" onclick="window.openRepDrillDirectV304('rep-remaining');return false;" title="اضغط على الكارت"><span>المتبقي على العملاء</span><strong>${money(remainingTotal)}</strong></div>
-        <div class="stat v303-clickable" data-v303-drill="rep-invoices" onclick="window.openRepDrillDirectV304('rep-invoices');return false;" title="اضغط على الكارت"><span>عدد الفواتير</span><strong>${repInvoiceCount}</strong></div>
+        <div class="stat v303-clickable" onclick="window.openRepInvoicesGroupedV500(repId);return false;" title="اضغط لعرض نفس الفواتير المحتسبة"><span>عدد الفواتير</span><strong>${repInvoiceCount}</strong></div>
       </div><div class="grid grid4 rep-target-summary-v189">
         <div class="stat v303-clickable" data-v303-drill="target" onclick="window.openRepDrillDirectV304('target');return false;" title="اضغط على الكارت"><span>التارجت (${target.label})</span><strong>${Number(target.target).toLocaleString()}</strong></div>
         <div class="stat v303-clickable" data-v303-drill="target-achieved" onclick="window.openRepDrillDirectV304('target-achieved');return false;" title="اضغط على الكارت"><span>المحقق خلال المدة</span><strong>${Number(target.achieved).toLocaleString()}</strong></div>
@@ -37133,7 +37148,7 @@ function syncDashboardCards(){
   setTile('operations',String(x.requested),['جاهز: '+x.prepared,'تم البيع: '+x.sold]);
   setTile('purchases',M(x.purchases),['مستحقات موردين: '+M(x.supplierDue),'فواتير: '+x.purchaseInvoices]);
   setTile('reps',x.repsPct.toFixed(1)+'%',['التارجت: '+x.repsTarget.toLocaleString(),'المحقق: '+x.repsAchieved.toLocaleString()]);
-  setTile('customers',String(x.customers),['مديونية: '+M(x.debt),'تحصيلات: '+M(x.collections)]);
+  setTile('customers',M(x.debt),['عدد العملاء: '+x.customers,'تحصيلات: '+M(x.collections)]);
 }
 
 /* Detail header numbers use THE SAME snapshot as the cards.
@@ -37151,7 +37166,7 @@ window.expandedDashboardHTML=function(key){
   else if(key==='operations') header=stats([['طلبات تجهيز',x.requested],['جاهز',x.prepared],['تم البيع',x.sold]]);
   else if(key==='purchases') header=stats([['إجمالي المشتريات',M(x.purchases)],['مستحقات الموردين',M(x.supplierDue)],['عدد الفواتير',x.purchaseInvoices]]);
   else if(key==='reps') header=stats([['نسبة التحقيق',x.repsPct.toFixed(1)+'%'],['التارجت',x.repsTarget.toLocaleString()],['المحقق',x.repsAchieved.toLocaleString()]]);
-  else if(key==='customers') header=stats([['عدد العملاء',x.customers],['إجمالي المديونية',M(x.debt)],['التحصيلات',M(x.collections)]]);
+  else if(key==='customers') header=stats([['إجمالي المديونية',M(x.debt)],['عدد العملاء',x.customers],['التحصيلات',M(x.collections)]]);
   if(!header)return original;
 
   /* Remove only the first dashboard summary block from the old details,
@@ -37222,3 +37237,150 @@ if(typeof oldOpenRep==='function'){
 setTimeout(syncDashboardCards,0);
 })();
 </script>
+
+<script id="v500-rep-paid-invoices-drill-sync">
+(function(){
+  function A(v){return Array.isArray(v)?v:[]}
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S(v){return String(v==null?'':v).trim()}
+  function E(v){try{return typeof esc==='function'?esc(v):S(v)}catch(e){return S(v)}}
+  function M(v){try{return typeof money==='function'?money(v):('EGP '+N(v).toLocaleString())}catch(e){return 'EGP '+N(v).toLocaleString()}}
+
+  function rowsFor(repId){
+    try{return typeof salesRowsV189==='function'?A(salesRowsV189(repId)):[]}catch(e){return []}
+  }
+
+  function grouped(repId){
+    var map=new Map();
+    rowsFor(repId).forEach(function(s){
+      var key=S(s.invoice_key||s.invoice_number||s.invoice_no||s.order_id||s.sale_id||s.id);
+      if(!key)key='ROW_'+S(s.id);
+      if(!map.has(key)){
+        map.set(key,{
+          key:key,
+          date:s.date||'',
+          customer_name:s.customer_name||'',
+          products:new Set(),
+          total:0,
+          remaining:0
+        });
+      }
+      var g=map.get(key);
+      if(S(s.product_name))g.products.add(S(s.product_name));
+      g.total+=N(s.total);
+      g.remaining+=N(s.remaining);
+    });
+    return Array.from(map.values()).map(function(g){
+      g.paid=Math.max(0,g.total-g.remaining);
+      g.product_text=Array.from(g.products).join('، ');
+      return g;
+    });
+  }
+
+  function repName(repId){
+    try{
+      if(typeof repDisplayV189==='function')return repDisplayV189(repId);
+      var r=A(db&&db.reps).find(function(x){return S(x.id)===S(repId)});
+      return r&&r.name||repId;
+    }catch(e){return repId}
+  }
+
+  function modal(title,html){
+    var old=document.getElementById('rep_v500_modal');
+    if(old)old.remove();
+
+    var box=document.createElement('div');
+    box.id='rep_v500_modal';
+    box.className='modal show';
+    box.style.zIndex='2147483000';
+    box.innerHTML=
+      '<div class="modal-card" style="max-width:1100px;width:min(96vw,1100px);max-height:90vh;overflow:auto">'+
+        '<div class="section-title"><h2>'+E(title)+'</h2>'+
+          '<button type="button" class="btn secondary" id="rep_v500_close">إغلاق</button></div>'+
+        html+
+      '</div>';
+    document.body.appendChild(box);
+    document.body.classList.add('modal-open');
+
+    box.addEventListener('click',function(e){
+      if(e.target===box)close();
+    });
+    var btn=document.getElementById('rep_v500_close');
+    if(btn)btn.onclick=close;
+
+    function close(){
+      box.remove();
+      if(!document.querySelector('.modal.show'))document.body.classList.remove('modal-open');
+    }
+  }
+
+  window.openRepPaidSettledDetailsV500=function(repId){
+    var arr=grouped(repId).filter(function(g){return g.paid>0.0001});
+    var totalPaid=arr.reduce(function(a,g){return a+g.paid},0);
+
+    var html=
+      '<div class="grid grid4" style="margin-bottom:12px">'+
+        '<div class="stat"><span>إجمالي المدفوع / المسدد</span><strong>'+M(totalPaid)+'</strong></div>'+
+        '<div class="stat"><span>عدد الفواتير التي بها سداد</span><strong>'+arr.length+'</strong></div>'+
+      '</div>'+
+      (arr.length
+        ? '<div class="card"><table><tr>'+
+            '<th>التاريخ</th><th>رقم الفاتورة</th><th>العميل</th><th>المنتج / المنتجات</th>'+
+            '<th>إجمالي الفاتورة</th><th>المسدد</th><th>المتبقي</th><th>الحالة</th>'+
+          '</tr>'+
+          arr.map(function(g){
+            var status=g.remaining<=0.0001?'مسددة بالكامل':'مسددة جزئيًا';
+            return '<tr>'+
+              '<td>'+E(S(g.date).slice(0,10))+'</td>'+
+              '<td><b>'+E(g.key)+'</b></td>'+
+              '<td>'+E(g.customer_name||'-')+'</td>'+
+              '<td>'+E(g.product_text||'-')+'</td>'+
+              '<td>'+M(g.total)+'</td>'+
+              '<td><b>'+M(g.paid)+'</b></td>'+
+              '<td>'+M(g.remaining)+'</td>'+
+              '<td>'+E(status)+'</td>'+
+            '</tr>';
+          }).join('')+
+          '</table></div>'
+        : '<div class="empty">لا توجد فواتير بها مبالغ مسددة لهذا المندوب خلال الفترة.</div>');
+
+    modal('الفواتير المسددة — '+repName(repId),html);
+  };
+
+  window.openRepInvoicesGroupedV500=function(repId){
+    var arr=grouped(repId);
+    var total=arr.reduce(function(a,g){return a+g.total},0);
+    var remaining=arr.reduce(function(a,g){return a+g.remaining},0);
+    var paid=Math.max(0,total-remaining);
+
+    var html=
+      '<div class="grid grid4" style="margin-bottom:12px">'+
+        '<div class="stat"><span>عدد الفواتير</span><strong>'+arr.length+'</strong></div>'+
+        '<div class="stat"><span>إجمالي المبيعات</span><strong>'+M(total)+'</strong></div>'+
+        '<div class="stat"><span>المدفوع / المسدد</span><strong>'+M(paid)+'</strong></div>'+
+        '<div class="stat"><span>المتبقي</span><strong>'+M(remaining)+'</strong></div>'+
+      '</div>'+
+      (arr.length
+        ? '<div class="card"><table><tr>'+
+            '<th>التاريخ</th><th>رقم الفاتورة</th><th>العميل</th><th>المنتج / المنتجات</th>'+
+            '<th>إجمالي الفاتورة</th><th>المسدد</th><th>المتبقي</th>'+
+          '</tr>'+
+          arr.map(function(g){
+            return '<tr>'+
+              '<td>'+E(S(g.date).slice(0,10))+'</td>'+
+              '<td><b>'+E(g.key)+'</b></td>'+
+              '<td>'+E(g.customer_name||'-')+'</td>'+
+              '<td>'+E(g.product_text||'-')+'</td>'+
+              '<td>'+M(g.total)+'</td>'+
+              '<td>'+M(g.paid)+'</td>'+
+              '<td>'+M(g.remaining)+'</td>'+
+            '</tr>';
+          }).join('')+
+          '</table></div>'
+        : '<div class="empty">لا توجد فواتير لهذا المندوب خلال الفترة.</div>');
+
+    modal('فواتير المندوب — '+repName(repId),html);
+  };
+})();
+</script>
+
