@@ -37384,3 +37384,124 @@ setTimeout(syncDashboardCards,0);
 })();
 </script>
 
+<script id="v501-force-rep-paid-invoice-ui">
+(function(){
+  function A(v){return Array.isArray(v)?v:[]}
+  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
+  function S(v){return String(v==null?'':v).trim()}
+  function M(v){try{return typeof money==='function'?money(v):('EGP '+N(v).toLocaleString())}catch(e){return 'EGP '+N(v).toLocaleString()}}
+
+  function currentRepId(){
+    try{
+      if(typeof repReportFilterV189!=='undefined'&&repReportFilterV189&&S(repReportFilterV189.repId))return S(repReportFilterV189.repId);
+    }catch(e){}
+    var a=document.querySelector('#rep_performance_modal_v175 .rep-card-v175.active[data-rep-id]');
+    if(a)return S(a.getAttribute('data-rep-id'));
+    var s=document.getElementById('rep_report_rep_v189');
+    return s?S(s.value):'';
+  }
+
+  function rows(repId){
+    try{return typeof salesRowsV189==='function'?A(salesRowsV189(repId)):[]}catch(e){return []}
+  }
+
+  function groupInvoices(repId){
+    var map=new Map();
+    rows(repId).forEach(function(s){
+      var key=S(s.invoice_key||s.invoice_number||s.invoice_no||s.order_id||s.sale_id||s.id);
+      if(!key)key='ROW_'+S(s.id);
+      if(!map.has(key))map.set(key,{key:key,total:0,remaining:0});
+      var g=map.get(key);
+      g.total+=N(s.total);
+      g.remaining+=N(s.remaining);
+    });
+    return Array.from(map.values());
+  }
+
+  function patchRepSummary(){
+    var body=document.getElementById('rep_details_body_v175');
+    if(!body)return;
+    var repId=currentRepId();
+    if(!repId)return;
+
+    var stats=body.querySelectorAll('.rep-summary-v175 .stat');
+    if(stats.length<4)return;
+
+    var rr=rows(repId);
+    var sales=rr.reduce(function(a,x){return a+N(x.total)},0);
+    var remaining=rr.reduce(function(a,x){return a+N(x.remaining)},0);
+    var settled=Math.max(0,sales-remaining);
+    var invoices=groupInvoices(repId);
+
+    /* 1. Sales card: preserve existing sales value, only normalize label/value */
+    var s0=stats[0], lab0=s0.querySelector('span'), val0=s0.querySelector('strong');
+    if(lab0)lab0.textContent='المبيعات خلال المدة';
+    if(val0)val0.textContent=M(sales);
+
+    /* 2. Paid/settled card: force real clickable action */
+    var s1=stats[1], lab1=s1.querySelector('span'), val1=s1.querySelector('strong');
+    if(lab1)lab1.textContent='المدفوع / المسدد';
+    if(val1)val1.textContent=M(settled);
+    s1.style.cursor='pointer';
+    s1.title='اضغط لعرض العملاء والفواتير المسددة';
+    s1.removeAttribute('data-v303-drill');
+    s1.onclick=function(ev){
+      if(ev){ev.preventDefault();ev.stopPropagation();}
+      if(typeof window.openRepPaidSettledDetailsV500==='function'){
+        window.openRepPaidSettledDetailsV500(repId);
+      }
+      return false;
+    };
+
+    /* 3. Remaining card: same row source */
+    var s2=stats[2], lab2=s2.querySelector('span'), val2=s2.querySelector('strong');
+    if(lab2)lab2.textContent='المتبقي على العملاء';
+    if(val2)val2.textContent=M(remaining);
+
+    /* 4. Invoice card: count exactly the same grouped invoices opened by click */
+    var s3=stats[3], lab3=s3.querySelector('span'), val3=s3.querySelector('strong');
+    if(lab3)lab3.textContent='عدد الفواتير';
+    if(val3)val3.textContent=String(invoices.length);
+    s3.style.cursor='pointer';
+    s3.title='اضغط لعرض نفس الفواتير المحتسبة';
+    s3.removeAttribute('data-v303-drill');
+    s3.onclick=function(ev){
+      if(ev){ev.preventDefault();ev.stopPropagation();}
+      if(typeof window.openRepInvoicesGroupedV500==='function'){
+        window.openRepInvoicesGroupedV500(repId);
+      }
+      return false;
+    };
+  }
+
+  /* Force after every rep-details open, without changing calculations. */
+  var oldOpen=window.openRepDetailsV175;
+  if(typeof oldOpen==='function'){
+    window.openRepDetailsV175=function(){
+      var r=oldOpen.apply(this,arguments);
+      setTimeout(patchRepSummary,0);
+      setTimeout(patchRepSummary,80);
+      return r;
+    };
+    try{openRepDetailsV175=window.openRepDetailsV175}catch(e){}
+  }
+
+  /* Also catch filter refreshes / old rerenders inside the open report. */
+  document.addEventListener('click',function(e){
+    var card=e.target&&e.target.closest&&e.target.closest('#rep_performance_modal_v175 .rep-card-v175[data-rep-id]');
+    if(card){
+      setTimeout(patchRepSummary,0);
+      setTimeout(patchRepSummary,100);
+    }
+  },true);
+
+  var body=document.getElementById('rep_details_body_v175');
+  if(body && typeof MutationObserver!=='undefined'){
+    var obs=new MutationObserver(function(){setTimeout(patchRepSummary,0)});
+    obs.observe(body,{childList:true,subtree:true});
+  }
+
+  setTimeout(patchRepSummary,0);
+})();
+</script>
+
