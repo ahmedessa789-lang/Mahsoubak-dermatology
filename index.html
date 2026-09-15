@@ -37970,8 +37970,14 @@ setTimeout(syncDashboardCards,0);
 
   var TOTALS={
     all_reps_total_v504:{name:'All Reps Total',keys:null},
-    delta_total_v321:{name:'Delta Total',keys:['delta','دلتا']},
-    alex_total_v321:{name:'Alexandria Total',keys:['alex','اسكندريه','الاسكندريه']}
+    delta_total_v321:{
+      name:'Delta Total',
+      keys:['delta','دلتا','طنطا','المنصورة','بنها','شبين الكوم','المنوفية','مدينة السادات','السادات']
+    },
+    alex_total_v321:{
+      name:'Alexandria Total',
+      keys:['alex','alexandria','اسكندرية','إسكندرية','الاسكندرية','الإسكندرية','رشيد']
+    }
   };
 
   function activeReps(){
@@ -37993,17 +37999,35 @@ setTimeout(syncDashboardCards,0);
     ))
   }
   function rowRegion(s){
+    try{
+      if(typeof window.regionNameVerifiedV307==='function'){
+        var verified=S(window.regionNameVerifiedV307(s));
+        if(verified){
+          var vv=norm(verified);
+          if(['غير محدد','غير محددة','undefined','unknown','n/a','-'].indexOf(vv)<0){
+            return verified;
+          }
+        }
+      }
+    }catch(e){}
     var x=S(
-      s.region_code||s.region_name||s.customer_region||
+      s.region_code||s.region_name||s.customer_region_v327||s.customer_region||
       s.customer_area||s.area||s.zone||s.city
     );
     if(x)return x;
     try{
       var c=A(db&&db.customers).find(function(c){
         return (s.customer_id&&S(c.id)===S(s.customer_id)) ||
-               (s.customer_name&&norm(c.name)===norm(s.customer_name))
+               (s.customer_name&&[
+                 c.name,c.customer_name,c.official_name,c.clinic_name
+               ].some(function(v){return norm(v)===norm(s.customer_name)}))
       });
-      if(c)return S(c.region_code||c.region_name||c.region||c.area||c.zone||c.city)
+      if(c){
+        return S(
+          c.sales_group||c.region_group||c.region_code||c.region_name||
+          c.region||c.customer_region||c.customer_area||c.area||c.zone||c.city
+        )
+      }
     }catch(e){}
     return ''
   }
@@ -38011,7 +38035,11 @@ setTimeout(syncDashboardCards,0);
     if(id==='all_reps_total_v504')return true;
     var g=TOTALS[id]; if(!g)return false;
     var n=norm(rowRegion(s));
-    return (g.keys||[]).some(function(k){return n.indexOf(norm(k))>=0})
+    if(!n)return false;
+    return (g.keys||[]).some(function(k){
+      var kk=norm(k);
+      return n===kk || n.indexOf(kk)>=0 || kk.indexOf(n)>=0;
+    })
   }
 
   function repName(r){return S(r&&r.name)||'-'}
