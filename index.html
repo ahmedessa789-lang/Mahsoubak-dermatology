@@ -8478,6 +8478,96 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
     openRepDrillModalV189('فواتير — '+repDisplayV189(repId),html);
   };
 
+
+  function invoiceGroupsV189Unified(rows){
+    let map=new Map();
+    (rows||[]).forEach(function(s){
+      let key=String(s.invoice_key||s.invoice_number||s.invoice_no||s.order_id||s.sale_id||s.id||'').trim();
+      if(!key)key='ROW_'+String(s.id||map.size+1);
+      if(!map.has(key))map.set(key,{key:key,date:s.date||'',customer:s.customer_name||'',products:new Set(),total:0,remaining:0});
+      let g=map.get(key);
+      if(s.product_name)g.products.add(String(s.product_name));
+      g.total+=n(s.total); g.remaining+=n(s.remaining);
+    });
+    return [...map.values()].map(function(g){
+      g.paid=Math.max(0,g.total-g.remaining);
+      g.productsText=[...g.products].join('، ');
+      return g;
+    });
+  }
+
+  function salesDetailTableV189Unified(rows){
+    if(!rows.length)return '<div class="empty">لا توجد بيانات</div>';
+    return `<div class="card"><table><tr><th>التاريخ</th><th>الفاتورة</th><th>العميل</th><th>المنتج</th><th>المنطقة</th><th>الكمية</th><th>المبيعات</th><th>المسدد</th><th>المتبقي</th></tr>
+      ${rows.map(s=>`<tr><td>${esc(String(s.date||'').slice(0,10))}</td><td>${esc(String(s.invoice_key||s.invoice_no||s.invoice_number||s.order_id||s.id||'-'))}</td><td>${esc(s.customer_name||'-')}</td><td>${esc(s.product_name||'-')}</td><td>${esc(regionLabelV189(s))}</td><td>${Number(n(s.qty)).toLocaleString()}</td><td>${money(n(s.total))}</td><td>${money(Math.max(0,n(s.total)-n(s.remaining)))}</td><td>${money(n(s.remaining))}</td></tr>`).join('')}
+    </table></div>`;
+  }
+
+  function openRepDrillModalV189Unified(title,html){
+    let old=document.getElementById('v189_single_source_drill'); if(old)old.remove();
+    let modal=document.createElement('div');
+    modal.id='v189_single_source_drill';
+    modal.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(15,23,42,.82);display:flex;direction:rtl';
+    modal.innerHTML=`<div style="width:100%;height:100%;overflow:auto;background:#f8fafc">
+      <div style="position:sticky;top:0;z-index:3;display:flex;justify-content:space-between;align-items:center;padding:16px 22px;background:#0f172a;color:#fff">
+        <h2 style="margin:0;color:#fff">${esc(title)}</h2>
+        <button type="button" class="btn danger" id="v189_drill_close">إغلاق</button>
+      </div><div style="padding:20px">${html}</div></div>`;
+    document.body.appendChild(modal);
+    document.body.style.overflow='hidden';
+    document.getElementById('v189_drill_close').onclick=function(){modal.remove();document.body.style.overflow=''};
+  }
+
+  function openUnifiedRepDrillV189(repId,kind){
+    let sales=salesRowsV189(repId);
+    let collections=collectionRowsV189(repId);
+    let invoices=invoiceGroupsV189Unified(sales);
+    let salesTotal=sales.reduce((a,s)=>a+n(s.total),0);
+    let remainingTotal=sales.reduce((a,s)=>a+n(s.remaining),0);
+    let paidTotal=Math.max(0,salesTotal-remainingTotal);
+    let target=targetInfoV189(repId,sales);
+    let remainingTarget=Math.max(0,target.target-target.achieved);
+    let percent=target.target>0?(target.achieved/target.target*100):0;
+    let title='التفاصيل',html='';
+
+    if(kind==='company-sales'){
+      let all=companyApprovedSalesV302();
+      let total=all.reduce((a,s)=>a+n(s.total),0);
+      title='إجمالي مبيعات الشركة خلال المدة';
+      html=`<div class="grid grid4"><div class="stat"><span>إجمالي المبيعات</span><strong>${money(total)}</strong></div><div class="stat"><span>عدد الصفوف</span><strong>${all.length}</strong></div></div>`+salesDetailTableV189Unified(all);
+    }else if(kind==='sales'){
+      title='تفاصيل المبيعات — '+repDisplayV189(repId);
+      html=`<div class="grid grid4"><div class="stat"><span>إجمالي المبيعات</span><strong>${money(salesTotal)}</strong></div><div class="stat"><span>عدد الصفوف</span><strong>${sales.length}</strong></div></div>`+salesDetailTableV189Unified(sales);
+    }else if(kind==='paid'){
+      let arr=invoices.filter(x=>x.paid>0.0001);
+      title='المدفوع / المسدد — '+repDisplayV189(repId);
+      html=`<div class="grid grid4"><div class="stat"><span>إجمالي المسدد</span><strong>${money(paidTotal)}</strong></div><div class="stat"><span>عدد الفواتير التي بها سداد</span><strong>${arr.length}</strong></div></div>`+
+        (arr.length?`<div class="card"><table><tr><th>التاريخ</th><th>الفاتورة</th><th>العميل</th><th>المنتجات</th><th>الإجمالي</th><th>المسدد</th><th>المتبقي</th><th>الحالة</th></tr>${arr.map(x=>`<tr><td>${esc(String(x.date||'').slice(0,10))}</td><td>${esc(x.key)}</td><td>${esc(x.customer||'-')}</td><td>${esc(x.productsText||'-')}</td><td>${money(x.total)}</td><td><b>${money(x.paid)}</b></td><td>${money(x.remaining)}</td><td>${x.remaining<=0.0001?'مسددة بالكامل':'مسددة جزئيًا'}</td></tr>`).join('')}</table></div>`:`<div class="empty">لا توجد فواتير عليها سداد</div>`);
+    }else if(kind==='remaining'){
+      let arr=invoices.filter(x=>x.remaining>0.0001);
+      title='المتبقي على العملاء — '+repDisplayV189(repId);
+      html=`<div class="grid grid4"><div class="stat"><span>إجمالي المتبقي</span><strong>${money(remainingTotal)}</strong></div><div class="stat"><span>عدد الفواتير المفتوحة</span><strong>${arr.length}</strong></div></div>`+
+        (arr.length?`<div class="card"><table><tr><th>التاريخ</th><th>الفاتورة</th><th>العميل</th><th>المنتجات</th><th>الإجمالي</th><th>المسدد</th><th>المتبقي</th></tr>${arr.map(x=>`<tr><td>${esc(String(x.date||'').slice(0,10))}</td><td>${esc(x.key)}</td><td>${esc(x.customer||'-')}</td><td>${esc(x.productsText||'-')}</td><td>${money(x.total)}</td><td>${money(x.paid)}</td><td><b>${money(x.remaining)}</b></td></tr>`).join('')}</table></div>`:`<div class="empty">لا توجد مبالغ متبقية</div>`);
+    }else if(kind==='invoices'){
+      title='الفواتير — '+repDisplayV189(repId);
+      html=`<div class="grid grid4"><div class="stat"><span>عدد الفواتير</span><strong>${invoices.length}</strong></div><div class="stat"><span>إجمالي المبيعات</span><strong>${money(salesTotal)}</strong></div></div>`+
+        (invoices.length?`<div class="card"><table><tr><th>التاريخ</th><th>الفاتورة</th><th>العميل</th><th>المنتجات</th><th>الإجمالي</th><th>المسدد</th><th>المتبقي</th></tr>${invoices.map(x=>`<tr><td>${esc(String(x.date||'').slice(0,10))}</td><td>${esc(x.key)}</td><td>${esc(x.customer||'-')}</td><td>${esc(x.productsText||'-')}</td><td>${money(x.total)}</td><td>${money(x.paid)}</td><td>${money(x.remaining)}</td></tr>`).join('')}</table></div>`:`<div class="empty">لا توجد فواتير</div>`);
+    }else{
+      title='تفاصيل التارجت — '+repDisplayV189(repId);
+      html=`<div class="grid grid4">
+        <div class="stat"><span>التارجت</span><strong>${Number(target.target).toLocaleString()}</strong></div>
+        <div class="stat"><span>المحقق</span><strong>${Number(target.achieved).toLocaleString()}</strong></div>
+        <div class="stat"><span>المتبقي</span><strong>${Number(remainingTarget).toLocaleString()}</strong></div>
+        <div class="stat"><span>نسبة التحقيق</span><strong>${percent.toFixed(1)}%</strong></div>
+      </div>`+salesDetailTableV189Unified(sales);
+    }
+
+    openRepDrillModalV189Unified(title,html);
+  }
+
+  window.openRepPaidSettledDetailsV500=function(repId){openUnifiedRepDrillV189(repId,'paid')};
+  window.openRepInvoicesGroupedV500=function(repId){openUnifiedRepDrillV189(repId,'invoices')};
+
   function buildReportV189(repId){
     let sales=salesRowsV189(repId);
     let collections=collectionRowsV189(repId);
@@ -8534,21 +8624,21 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
 
     return `
       <div class="rep-detail-head-v175"><div><h2>${esc(repDisplayV189(repId))}</h2><p>${repReportFilterV189.from||'البداية'} → ${repReportFilterV189.to||'النهاية'}</p></div><button type="button" class="btn blue" onclick="printFilteredRepV189()">طباعة التقرير</button></div>
-      <div class="v302-company-sales-banner v303-clickable" data-v303-drill="company-sales" onclick="window.openRepDrillDirectV304('company-sales');return false;" title="اضغط على الكارت">
+      <div class="v302-company-sales-banner" onclick="openUnifiedRepDrillV189(repId,'company-sales');return false;" title="اضغط لعرض نفس المبيعات المحتسبة" style="cursor:pointer">
         <span>إجمالي مبيعات الشركة كلها خلال المدة</span>
         <strong>${money(companySalesTotal)}</strong>
         <small>يشمل جميع المندوبين — ويتغير تلقائيًا حسب تاريخ من / إلى</small>
       </div>
       <div class="grid grid4 rep-summary-v175">
-        <div class="stat v303-clickable" data-v303-drill="rep-sales" onclick="window.openRepDrillDirectV304('rep-sales');return false;" title="اضغط على الكارت"><span>المبيعات خلال المدة</span><strong>${money(salesTotal)}</strong></div>
-        <div class="stat v303-clickable" onclick="window.openRepPaidSettledDetailsV500(repId);return false;" title="اضغط لعرض العملاء والفواتير المسددة"><span>المدفوع / المسدد</span><strong>${money(settledDisplayTotal)}</strong><small style="display:block;margin-top:4px">${money(salesTotal)} − ${money(remainingTotal)}</small></div>
-        <div class="stat v303-clickable" data-v303-drill="rep-remaining" onclick="window.openRepDrillDirectV304('rep-remaining');return false;" title="اضغط على الكارت"><span>المتبقي على العملاء</span><strong>${money(remainingTotal)}</strong></div>
-        <div class="stat v303-clickable" onclick="window.openRepInvoicesGroupedV500(repId);return false;" title="اضغط لعرض نفس الفواتير المحتسبة"><span>عدد الفواتير</span><strong>${repInvoiceCount}</strong></div>
+        <div class="stat" onclick="openUnifiedRepDrillV189(repId,'sales');return false;" title="اضغط لعرض نفس المبيعات المحتسبة" style="cursor:pointer"><span>المبيعات خلال المدة</span><strong>${money(salesTotal)}</strong></div>
+        <div class="stat" onclick="openUnifiedRepDrillV189(repId,'paid');return false;" title="اضغط لعرض نفس العملاء والفواتير التي كوّنت قيمة المسدد" style="cursor:pointer"><span>المدفوع / المسدد</span><strong>${money(settledDisplayTotal)}</strong><small style="display:block;margin-top:4px">${money(salesTotal)} − ${money(remainingTotal)}</small></div>
+        <div class="stat" onclick="openUnifiedRepDrillV189(repId,'remaining');return false;" title="اضغط لعرض نفس الفواتير المتبقي عليها" style="cursor:pointer"><span>المتبقي على العملاء</span><strong>${money(remainingTotal)}</strong></div>
+        <div class="stat" onclick="openUnifiedRepDrillV189(repId,'invoices');return false;" title="اضغط لعرض نفس الفواتير المحتسبة" style="cursor:pointer"><span>عدد الفواتير</span><strong>${repInvoiceCount}</strong></div>
       </div><div class="grid grid4 rep-target-summary-v189">
-        <div class="stat v303-clickable" data-v303-drill="target" onclick="window.openRepDrillDirectV304('target');return false;" title="اضغط على الكارت"><span>التارجت (${target.label})</span><strong>${Number(target.target).toLocaleString()}</strong></div>
-        <div class="stat v303-clickable" data-v303-drill="target-achieved" onclick="window.openRepDrillDirectV304('target-achieved');return false;" title="اضغط على الكارت"><span>المحقق خلال المدة</span><strong>${Number(target.achieved).toLocaleString()}</strong></div>
-        <div class="stat v303-clickable" data-v303-drill="target-remaining" onclick="window.openRepDrillDirectV304('target-remaining');return false;" title="اضغط على الكارت"><span>المتبقي من التارجت</span><strong>${Number(remainingTarget).toLocaleString()}</strong></div>
-        <div class="stat"><span>نسبة التحقيق</span><strong>${percent}%</strong></div>
+        <div class="stat" onclick="openUnifiedRepDrillV189(repId,'target');return false;" title="اضغط لعرض تفاصيل التارجت" style="cursor:pointer"><span>التارجت (${target.label})</span><strong>${Number(target.target).toLocaleString()}</strong></div>
+        <div class="stat" onclick="openUnifiedRepDrillV189(repId,'achieved');return false;" title="اضغط لعرض الصفوف التي كوّنت المحقق" style="cursor:pointer"><span>المحقق خلال المدة</span><strong>${Number(target.achieved).toLocaleString()}</strong></div>
+        <div class="stat" onclick="openUnifiedRepDrillV189(repId,'target-remaining');return false;" title="اضغط لعرض تفاصيل المتبقي من التارجت" style="cursor:pointer"><span>المتبقي من التارجت</span><strong>${Number(remainingTarget).toLocaleString()}</strong></div>
+        <div class="stat" onclick="openUnifiedRepDrillV189(repId,'percent');return false;" title="اضغط لعرض معادلة نسبة التحقيق" style="cursor:pointer"><span>نسبة التحقيق</span><strong>${percent}%</strong></div>
       </div>
       ${detailSectionsV189(repId,sales,collections)}`;
   }
