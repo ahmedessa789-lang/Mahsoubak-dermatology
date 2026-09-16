@@ -8568,6 +8568,28 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
   window.openRepPaidSettledDetailsV500=function(repId){window.openUnifiedRepDrillV189(repId,'paid')};
   window.openRepInvoicesGroupedV500=function(repId){window.openUnifiedRepDrillV189(repId,'invoices')};
 
+
+  if(!window.__v189SingleSourceDrillBound){
+    window.__v189SingleSourceDrillBound=true;
+    document.addEventListener('click',function(e){
+      var card=e.target&&e.target.closest?e.target.closest('.v189-drill-card'):null;
+      if(!card)return;
+      var host=document.getElementById('rep_details_body_v175');
+      if(!host || !host.contains(card))return;
+      e.preventDefault();
+      e.stopPropagation();
+      if(typeof e.stopImmediatePropagation==='function')e.stopImmediatePropagation();
+      var repId=String(card.getAttribute('data-v189-rep-id')||'');
+      var kind=String(card.getAttribute('data-v189-drill')||'');
+      if(!repId||!kind)return;
+      if(typeof window.openUnifiedRepDrillV189==='function'){
+        window.openUnifiedRepDrillV189(repId,kind);
+      }else{
+        console.error('V189 drill handler unavailable',repId,kind);
+      }
+    },true);
+  }
+
   function buildReportV189(repId){
     let sales=salesRowsV189(repId);
     let collections=collectionRowsV189(repId);
@@ -8624,21 +8646,21 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
 
     return `
       <div class="rep-detail-head-v175"><div><h2>${esc(repDisplayV189(repId))}</h2><p>${repReportFilterV189.from||'البداية'} → ${repReportFilterV189.to||'النهاية'}</p></div><button type="button" class="btn blue" onclick="printFilteredRepV189()">طباعة التقرير</button></div>
-      <div class="v302-company-sales-banner" onclick='window.openUnifiedRepDrillV189(${JSON.stringify(String(repId))},"company-sales");return false;' title="اضغط لعرض نفس المبيعات المحتسبة" style="cursor:pointer">
+      <div class="v302-company-sales-banner v189-drill-card" data-v189-rep-id="${esc(String(repId))}" data-v189-drill="company-sales" title="اضغط لعرض نفس المبيعات المحتسبة" style="cursor:pointer">
         <span>إجمالي مبيعات الشركة كلها خلال المدة</span>
         <strong>${money(companySalesTotal)}</strong>
         <small>يشمل جميع المندوبين — ويتغير تلقائيًا حسب تاريخ من / إلى</small>
       </div>
       <div class="grid grid4 rep-summary-v175">
-        <div class="stat" onclick='window.openUnifiedRepDrillV189(${JSON.stringify(String(repId))},"sales");return false;' title="اضغط لعرض نفس المبيعات المحتسبة" style="cursor:pointer"><span>المبيعات خلال المدة</span><strong>${money(salesTotal)}</strong></div>
-        <div class="stat" onclick='window.openUnifiedRepDrillV189(${JSON.stringify(String(repId))},"paid");return false;' title="اضغط لعرض نفس العملاء والفواتير التي كوّنت قيمة المسدد" style="cursor:pointer"><span>المدفوع / المسدد</span><strong>${money(settledDisplayTotal)}</strong><small style="display:block;margin-top:4px">${money(salesTotal)} − ${money(remainingTotal)}</small></div>
-        <div class="stat" onclick='window.openUnifiedRepDrillV189(${JSON.stringify(String(repId))},"remaining");return false;' title="اضغط لعرض نفس الفواتير المتبقي عليها" style="cursor:pointer"><span>المتبقي على العملاء</span><strong>${money(remainingTotal)}</strong></div>
-        <div class="stat" onclick='window.openUnifiedRepDrillV189(${JSON.stringify(String(repId))},"invoices");return false;' title="اضغط لعرض نفس الفواتير المحتسبة" style="cursor:pointer"><span>عدد الفواتير</span><strong>${repInvoiceCount}</strong></div>
+        <div class="stat v189-drill-card" data-v189-rep-id="${esc(String(repId))}" data-v189-drill="sales" title="اضغط لعرض نفس المبيعات المحتسبة" style="cursor:pointer"><span>المبيعات خلال المدة</span><strong>${money(salesTotal)}</strong></div>
+        <div class="stat v189-drill-card" data-v189-rep-id="${esc(String(repId))}" data-v189-drill="paid" title="اضغط لعرض نفس العملاء والفواتير التي كوّنت قيمة المسدد" style="cursor:pointer"><span>المدفوع / المسدد</span><strong>${money(settledDisplayTotal)}</strong><small style="display:block;margin-top:4px">${money(salesTotal)} − ${money(remainingTotal)}</small></div>
+        <div class="stat v189-drill-card" data-v189-rep-id="${esc(String(repId))}" data-v189-drill="remaining" title="اضغط لعرض نفس الفواتير المتبقي عليها" style="cursor:pointer"><span>المتبقي على العملاء</span><strong>${money(remainingTotal)}</strong></div>
+        <div class="stat v189-drill-card" data-v189-rep-id="${esc(String(repId))}" data-v189-drill="invoices" title="اضغط لعرض نفس الفواتير المحتسبة" style="cursor:pointer"><span>عدد الفواتير</span><strong>${repInvoiceCount}</strong></div>
       </div><div class="grid grid4 rep-target-summary-v189">
-        <div class="stat" onclick='window.openUnifiedRepDrillV189(${JSON.stringify(String(repId))},"target");return false;' title="اضغط لعرض تفاصيل التارجت" style="cursor:pointer"><span>التارجت (${target.label})</span><strong>${Number(target.target).toLocaleString()}</strong></div>
-        <div class="stat" onclick='window.openUnifiedRepDrillV189(${JSON.stringify(String(repId))},"achieved");return false;' title="اضغط لعرض الصفوف التي كوّنت المحقق" style="cursor:pointer"><span>المحقق خلال المدة</span><strong>${Number(target.achieved).toLocaleString()}</strong></div>
-        <div class="stat" onclick='window.openUnifiedRepDrillV189(${JSON.stringify(String(repId))},"target-remaining");return false;' title="اضغط لعرض تفاصيل المتبقي من التارجت" style="cursor:pointer"><span>المتبقي من التارجت</span><strong>${Number(remainingTarget).toLocaleString()}</strong></div>
-        <div class="stat" onclick='window.openUnifiedRepDrillV189(${JSON.stringify(String(repId))},"percent");return false;' title="اضغط لعرض معادلة نسبة التحقيق" style="cursor:pointer"><span>نسبة التحقيق</span><strong>${percent}%</strong></div>
+        <div class="stat v189-drill-card" data-v189-rep-id="${esc(String(repId))}" data-v189-drill="target" title="اضغط لعرض تفاصيل التارجت" style="cursor:pointer"><span>التارجت (${target.label})</span><strong>${Number(target.target).toLocaleString()}</strong></div>
+        <div class="stat v189-drill-card" data-v189-rep-id="${esc(String(repId))}" data-v189-drill="achieved" title="اضغط لعرض الصفوف التي كوّنت المحقق" style="cursor:pointer"><span>المحقق خلال المدة</span><strong>${Number(target.achieved).toLocaleString()}</strong></div>
+        <div class="stat v189-drill-card" data-v189-rep-id="${esc(String(repId))}" data-v189-drill="target-remaining" title="اضغط لعرض تفاصيل المتبقي من التارجت" style="cursor:pointer"><span>المتبقي من التارجت</span><strong>${Number(remainingTarget).toLocaleString()}</strong></div>
+        <div class="stat v189-drill-card" data-v189-rep-id="${esc(String(repId))}" data-v189-drill="percent" title="اضغط لعرض معادلة نسبة التحقيق" style="cursor:pointer"><span>نسبة التحقيق</span><strong>${percent}%</strong></div>
       </div>
       ${detailSectionsV189(repId,sales,collections)}`;
   }
