@@ -8518,7 +8518,7 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
     document.getElementById('v189_drill_close').onclick=function(){modal.remove();document.body.style.overflow=''};
   }
 
-  function openUnifiedRepDrillV189(repId,kind){
+  window.openUnifiedRepDrillV189=function(repId,kind){
     let sales=salesRowsV189(repId);
     let collections=collectionRowsV189(repId);
     let invoices=invoiceGroupsV189Unified(sales);
@@ -8563,10 +8563,10 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
     }
 
     openRepDrillModalV189Unified(title,html);
-  }
+  };
 
-  window.openRepPaidSettledDetailsV500=function(repId){openUnifiedRepDrillV189(repId,'paid')};
-  window.openRepInvoicesGroupedV500=function(repId){openUnifiedRepDrillV189(repId,'invoices')};
+  window.openRepPaidSettledDetailsV500=function(repId){window.openUnifiedRepDrillV189(repId,'paid')};
+  window.openRepInvoicesGroupedV500=function(repId){window.openUnifiedRepDrillV189(repId,'invoices')};
 
   function buildReportV189(repId){
     let sales=salesRowsV189(repId);
@@ -8624,21 +8624,21 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
 
     return `
       <div class="rep-detail-head-v175"><div><h2>${esc(repDisplayV189(repId))}</h2><p>${repReportFilterV189.from||'البداية'} → ${repReportFilterV189.to||'النهاية'}</p></div><button type="button" class="btn blue" onclick="printFilteredRepV189()">طباعة التقرير</button></div>
-      <div class="v302-company-sales-banner" onclick="openUnifiedRepDrillV189(repId,'company-sales');return false;" title="اضغط لعرض نفس المبيعات المحتسبة" style="cursor:pointer">
+      <div class="v302-company-sales-banner" onclick='window.openUnifiedRepDrillV189(${JSON.stringify(String(repId))},"company-sales");return false;' title="اضغط لعرض نفس المبيعات المحتسبة" style="cursor:pointer">
         <span>إجمالي مبيعات الشركة كلها خلال المدة</span>
         <strong>${money(companySalesTotal)}</strong>
         <small>يشمل جميع المندوبين — ويتغير تلقائيًا حسب تاريخ من / إلى</small>
       </div>
       <div class="grid grid4 rep-summary-v175">
-        <div class="stat" onclick="openUnifiedRepDrillV189(repId,'sales');return false;" title="اضغط لعرض نفس المبيعات المحتسبة" style="cursor:pointer"><span>المبيعات خلال المدة</span><strong>${money(salesTotal)}</strong></div>
-        <div class="stat" onclick="openUnifiedRepDrillV189(repId,'paid');return false;" title="اضغط لعرض نفس العملاء والفواتير التي كوّنت قيمة المسدد" style="cursor:pointer"><span>المدفوع / المسدد</span><strong>${money(settledDisplayTotal)}</strong><small style="display:block;margin-top:4px">${money(salesTotal)} − ${money(remainingTotal)}</small></div>
-        <div class="stat" onclick="openUnifiedRepDrillV189(repId,'remaining');return false;" title="اضغط لعرض نفس الفواتير المتبقي عليها" style="cursor:pointer"><span>المتبقي على العملاء</span><strong>${money(remainingTotal)}</strong></div>
-        <div class="stat" onclick="openUnifiedRepDrillV189(repId,'invoices');return false;" title="اضغط لعرض نفس الفواتير المحتسبة" style="cursor:pointer"><span>عدد الفواتير</span><strong>${repInvoiceCount}</strong></div>
+        <div class="stat" onclick='window.openUnifiedRepDrillV189(${JSON.stringify(String(repId))},"sales");return false;' title="اضغط لعرض نفس المبيعات المحتسبة" style="cursor:pointer"><span>المبيعات خلال المدة</span><strong>${money(salesTotal)}</strong></div>
+        <div class="stat" onclick='window.openUnifiedRepDrillV189(${JSON.stringify(String(repId))},"paid");return false;' title="اضغط لعرض نفس العملاء والفواتير التي كوّنت قيمة المسدد" style="cursor:pointer"><span>المدفوع / المسدد</span><strong>${money(settledDisplayTotal)}</strong><small style="display:block;margin-top:4px">${money(salesTotal)} − ${money(remainingTotal)}</small></div>
+        <div class="stat" onclick='window.openUnifiedRepDrillV189(${JSON.stringify(String(repId))},"remaining");return false;' title="اضغط لعرض نفس الفواتير المتبقي عليها" style="cursor:pointer"><span>المتبقي على العملاء</span><strong>${money(remainingTotal)}</strong></div>
+        <div class="stat" onclick='window.openUnifiedRepDrillV189(${JSON.stringify(String(repId))},"invoices");return false;' title="اضغط لعرض نفس الفواتير المحتسبة" style="cursor:pointer"><span>عدد الفواتير</span><strong>${repInvoiceCount}</strong></div>
       </div><div class="grid grid4 rep-target-summary-v189">
-        <div class="stat" onclick="openUnifiedRepDrillV189(repId,'target');return false;" title="اضغط لعرض تفاصيل التارجت" style="cursor:pointer"><span>التارجت (${target.label})</span><strong>${Number(target.target).toLocaleString()}</strong></div>
-        <div class="stat" onclick="openUnifiedRepDrillV189(repId,'achieved');return false;" title="اضغط لعرض الصفوف التي كوّنت المحقق" style="cursor:pointer"><span>المحقق خلال المدة</span><strong>${Number(target.achieved).toLocaleString()}</strong></div>
-        <div class="stat" onclick="openUnifiedRepDrillV189(repId,'target-remaining');return false;" title="اضغط لعرض تفاصيل المتبقي من التارجت" style="cursor:pointer"><span>المتبقي من التارجت</span><strong>${Number(remainingTarget).toLocaleString()}</strong></div>
-        <div class="stat" onclick="openUnifiedRepDrillV189(repId,'percent');return false;" title="اضغط لعرض معادلة نسبة التحقيق" style="cursor:pointer"><span>نسبة التحقيق</span><strong>${percent}%</strong></div>
+        <div class="stat" onclick='window.openUnifiedRepDrillV189(${JSON.stringify(String(repId))},"target");return false;' title="اضغط لعرض تفاصيل التارجت" style="cursor:pointer"><span>التارجت (${target.label})</span><strong>${Number(target.target).toLocaleString()}</strong></div>
+        <div class="stat" onclick='window.openUnifiedRepDrillV189(${JSON.stringify(String(repId))},"achieved");return false;' title="اضغط لعرض الصفوف التي كوّنت المحقق" style="cursor:pointer"><span>المحقق خلال المدة</span><strong>${Number(target.achieved).toLocaleString()}</strong></div>
+        <div class="stat" onclick='window.openUnifiedRepDrillV189(${JSON.stringify(String(repId))},"target-remaining");return false;' title="اضغط لعرض تفاصيل المتبقي من التارجت" style="cursor:pointer"><span>المتبقي من التارجت</span><strong>${Number(remainingTarget).toLocaleString()}</strong></div>
+        <div class="stat" onclick='window.openUnifiedRepDrillV189(${JSON.stringify(String(repId))},"percent");return false;' title="اضغط لعرض معادلة نسبة التحقيق" style="cursor:pointer"><span>نسبة التحقيق</span><strong>${percent}%</strong></div>
       </div>
       ${detailSectionsV189(repId,sales,collections)}`;
   }
