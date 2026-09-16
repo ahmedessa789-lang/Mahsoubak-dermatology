@@ -37986,6 +37986,79 @@ setTimeout(syncDashboardCards,0);
     })
   }
 
+  function repById(id){
+    return A(window.db&&db.reps).find(function(r){return S(r&&r.id)===S(id)})||null
+  }
+
+  function activeRepByName(name){
+    var k=norm(name);
+    return activeReps().find(function(r){return norm(r&&r.name)===k})||null
+  }
+
+  function groupMetaMatch(rep,id){
+    if(!rep)return false;
+    var source=norm(rep.source_key);
+    var group=norm(rep.group_name||rep.group||rep.sales_group);
+    var region=norm(rep.region_code||rep.region_name);
+    if(id==='delta_total_v321'){
+      return source==='rep_delta' || group==='delta' || group==='delta total' || region==='delta';
+    }
+    if(id==='alex_total_v321'){
+      return source==='rep_alex' || group==='alex' || group==='alex total' ||
+             group==='alexandria' || group==='alexandria total' ||
+             region==='alex' || region==='alexandria';
+    }
+    return false;
+  }
+
+  function replacementName(name){
+    var current=S(name);
+    var guard=0;
+    while(current && guard<20){
+      guard++;
+      var events=A(db&&db.rep_replacements_v452).filter(function(ev){
+        return ev&&norm(ev.old_rep_name)===norm(current)&&S(ev.new_rep_name)
+      });
+      if(!events.length)break;
+      var next=S(events[events.length-1].new_rep_name);
+      if(!next || norm(next)===norm(current))break;
+      current=next;
+    }
+    return current;
+  }
+
+  function groupCurrentReps(id){
+    if(id==='all_reps_total_v504')return activeReps();
+
+    var bases=A(db&&db.reps).filter(function(r){return groupMetaMatch(r,id)});
+    var out=[],seen=new Set();
+
+    bases.forEach(function(base){
+      var currentName=replacementName(base.name);
+      var r=activeRepByName(currentName);
+
+      if(!r && base.active!==false && base.inactive_v452!==true)r=base;
+
+      if(!r){
+        var events=A(db&&db.rep_replacements_v452).filter(function(ev){
+          return ev && (
+            S(ev.old_rep_id)===S(base.id) ||
+            norm(ev.old_rep_name)===norm(base.name)
+          )
+        });
+        for(var i=events.length-1;i>=0&&!r;i--){
+          r=repById(events[i].new_rep_id)||activeRepByName(events[i].new_rep_name)
+        }
+      }
+
+      if(r&&!seen.has(S(r.id))){
+        seen.add(S(r.id));out.push(r)
+      }
+    });
+
+    return out;
+  }
+
   function repRows(repId){
     try{return typeof salesRowsV189==='function'?A(salesRowsV189(repId)):[]}catch(e){return []}
   }
@@ -38051,25 +38124,31 @@ setTimeout(syncDashboardCards,0);
   }
 
   function groupData(id){
-    var reps=activeReps();
+    var reps=groupCurrentReps(id);
     var rows=[], byRep=[];
+
     reps.forEach(function(r){
-      var rr=repRows(r.id).filter(function(s){return matches(id,s)});
-      if(rr.length || id==='all_reps_total_v504'){
-        var sales=rr.reduce(function(a,s){return a+N(s.total)},0);
-        var remaining=rr.reduce(function(a,s){return a+N(s.remaining)},0);
-        var qty=rr.reduce(function(a,s){return a+N(s.qty)},0);
-        var invoices=new Set(rr.map(invoiceKey).filter(function(x){return x&&x!=='-'}));
-        byRep.push({
-          rep:r, rows:rr, sales:sales, remaining:remaining,
-          paid:Math.max(0,sales-remaining), qty:qty,
-          invoices:invoices.size, target:targetQty(r)
-        });
-        rows=rows.concat(rr.map(function(s){
-          if(!s.rep_name)s.rep_name=repName(r);
-          return s;
-        }));
-      }
+      var rr=repRows(r.id);
+
+      /* All totals now follow the same roster principle as the working
+         West/East totals: first resolve the CURRENT rep, then use that rep's
+         canonical report rows. Region is used only for analysis inside the total,
+         not to decide whether the rep has sales. */
+      var sales=rr.reduce(function(a,s){return a+N(s.total)},0);
+      var remaining=rr.reduce(function(a,s){return a+N(s.remaining)},0);
+      var qty=rr.reduce(function(a,s){return a+N(s.qty)},0);
+      var invoices=new Set(rr.map(invoiceKey).filter(function(x){return x&&x!=='-'}));
+
+      byRep.push({
+        rep:r, rows:rr, sales:sales, remaining:remaining,
+        paid:Math.max(0,sales-remaining), qty:qty,
+        invoices:invoices.size, target:targetQty(r)
+      });
+
+      rows=rows.concat(rr.map(function(s){
+        if(!s.rep_name)s.rep_name=repName(r);
+        return s;
+      }));
     });
 
     var sales=rows.reduce(function(a,s){return a+N(s.total)},0);
@@ -38077,6 +38156,7 @@ setTimeout(syncDashboardCards,0);
     var qty=rows.reduce(function(a,s){return a+N(s.qty)},0);
     var invoiceSet=new Set(rows.map(invoiceKey).filter(function(x){return x&&x!=='-'}));
     var target=byRep.reduce(function(a,x){return a+x.target},0);
+
     return {
       rows:rows, byRep:byRep, sales:sales, remaining:remaining,
       paid:Math.max(0,sales-remaining), qty:qty,
@@ -38250,8 +38330,10 @@ setTimeout(syncDashboardCards,0);
 
   function cardHtml(id){
     var g=TOTALS[id],d=groupData(id);
+    var names=d.byRep.map(function(x){return repName(x.rep)}).filter(Boolean).join(' + ');
     return '<button type="button" class="rep-card-v175 v504-total-card" data-v504-total="'+E(id)+'" data-rep-id="'+E(id)+'">'+
       '<b>'+E(g.name)+'</b>'+
+      (names?'<span>'+E(names)+'</span>':'')+
       '<span>مبيعات: '+M(d.sales)+'</span>'+
       '<span>المحقق: '+N(d.qty).toLocaleString()+' / '+N(d.target).toLocaleString()+'</span>'+
       '<span>تحقيق: '+N(d.pct).toFixed(1)+'%</span>'+
