@@ -6487,7 +6487,19 @@ render();
     let old=document.getElementById('rep_performance_modal_v175');
     if(old)old.remove();
 
-    let reps=(db.reps||[]).filter(r=>r&&r.inactive_v452!==true&&r.active!==false);
+    let rawReps=(db.reps||[]).filter(r=>r&&r.inactive_v452!==true&&r.active!==false);
+    let repMapV175=new Map();
+    rawReps.forEach(function(r){
+      let current=String(r.name||'').trim();
+      try{if(typeof window.currentRepNameV490==='function')current=String(window.currentRepNameV490(current)||current).trim()}catch(e){}
+      let key=current.toLowerCase().replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ');
+      if(!key)return;
+      let existing=repMapV175.get(key);
+      let exact=String(r.name||'').trim()===current;
+      let clone=Object.assign({},r,{name:current});
+      if(!existing || exact)repMapV175.set(key,clone);
+    });
+    let reps=Array.from(repMapV175.values());
     let modal=document.createElement('div');
     modal.id='rep_performance_modal_v175';
     modal.className='rep-performance-modal-v175';
@@ -6647,7 +6659,7 @@ render();
     setTimeout(refreshRepReportV176,600);
   });
 })();
-</script><style id="v176-rep-report-visible-style">html body .rep-performance-tile-v176{display:grid!important;grid-template-columns:auto 1fr auto!important;align-items:center!important;gap:16px!important;border-right:6px solid #2563eb!important;background:linear-gradient(135deg,#ffffff,#eff6ff)!important;margin-bottom:18px!important}html body .rep-tile-icon-v176{width:60px!important;height:60px!important;display:flex!important;align-items:center!important;justify-content:center!important;border-radius:16px!important;background:#dbeafe!important;font-size:30px!important}html body .rep-tile-copy-v176 h3{margin:0 0 6px!important;padding:0!important;border:0!important;color:#0f172a!important}html body .rep-tile-copy-v176 p{margin:0!important;color:#64748b!important}html body #rep_report_nav_v176{background:#e0f2fe!important;color:#0f172a!important;font-weight:900!important;border:1px solid #7dd3fc!important}html body #rep_report_nav_v176:hover{background:#bae6fd!important}@media(max-width:700px){html body .rep-performance-tile-v176{grid-template-columns:1fr!important}}</style><script id="v177-rep-report-updates-from-orders">
+</script><style id="v176-rep-report-visible-style">html body .rep-performance-tile-v176{display:grid!important;grid-template-columns:auto 1fr auto!important;align-items:center!important;gap:16px!important;border-right:6px solid #2563eb!important;background:linear-gradient(135deg,#ffffff,#eff6ff)!important;margin-bottom:18px!important}html body .rep-tile-icon-v176{width:60px!important;height:60px!important;display:flex!important;align-items:center!important;justify-content:center!important;border-radius:16px!important;background:#dbeafe!important;font-size:30px!important}html body .rep-tile-copy-v176 h3{margin:0 0 6px!important;padding:0!important;border:0!important;color:#0f172a!important}html body .rep-tile-copy-v176 p{margin:0!important;color:#64748b!important}html body #rep_report_nav_v176{background:#e0f2fe!important;color:#0f172a!important;font-weight:900!important;border:1px solid #7dd3fc!important}html body #rep_report_nav_v176:hover{background:#bae6fd!important}@media(max-width:700px){html body .rep-performance-tile-v176{grid-template-columns:1fr!important}}</style><script id="v177-rep-report-updates-from-orders" type="application/x-mahsoubak-disabled">
 (function(){
   function normV177(v){return String(v||'').trim().toLowerCase()}
 
@@ -7049,15 +7061,7 @@ render();
       </div>`;
   }
 
-  window.openRepDetailsV175=function(repId){
-    let body=document.getElementById('rep_details_body_v175');
-    if(!body)return;
-    body.innerHTML=repReportHTMLV178(repId);
-    document.querySelectorAll('.rep-card-v175').forEach(card=>{
-      card.classList.toggle('active',card.dataset.repId===repId);
-    });
-  };
-
+  /* rep detail override removed by single-source cleanup */
   window.printRepDetailsV178=function(repId){
     let rep=(db.reps||[]).find(r=>r.id===repId);
     if(!rep)return;
@@ -7255,15 +7259,7 @@ render();
       </div>`;
   }
 
-  window.openRepDetailsV175=function(repId){
-    let body=document.getElementById('rep_details_body_v175');
-    if(!body)return;
-    body.innerHTML=reportHTMLV179(repId);
-    document.querySelectorAll('.rep-card-v175').forEach(card=>{
-      card.classList.toggle('active',card.dataset.repId===repId);
-    });
-  };
-
+  /* rep detail override removed by single-source cleanup */
   window.printRepDetailsV179=function(repId){
     let rep=(db.reps||[]).find(r=>r.id===repId);
     if(!rep)return;
@@ -7724,7 +7720,7 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
 @media(max-width:1100px){html body .rep-replace-grid-v452{grid-template-columns:repeat(2,minmax(220px,1fr))!important}}
 @media(max-width:700px){html body .rep-replace-grid-v452{grid-template-columns:1fr!important}}
 </style>
-<script id="v186-west-east-total-reps">
+<script id="v186-west-east-total-reps" type="application/x-mahsoubak-disabled">
 (function(){
   const REP_GROUPS_V186 = [
     {
@@ -8221,38 +8217,7 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
     };
   }
 
-  const openRepDetailsBaseV188=window.openRepDetailsV175;
-  window.openRepDetailsV175=function(repId){
-    let result=openRepDetailsBaseV188.apply(this,arguments);
-
-    setTimeout(function(){
-      let rep=(db.reps||[]).find(r=>r.id===repId);
-      if(!rep)return;
-
-      let body=document.getElementById('rep_details_body_v175');
-      if(!body)return;
-
-      let summary=body.querySelector('.rep-summary-v175');
-      if(!summary)return;
-
-      let target=targetValueV188(rep);
-      let achieved=achievedValueV188(rep);
-      let percent=achievementPercentV188(rep);
-      let remaining=Math.max(0,target-achieved);
-
-      let old=body.querySelector('.rep-target-summary-v188');
-      if(old)old.remove();
-
-      let block=document.createElement('div');
-      block.className='grid grid4 rep-target-summary-v188';
-      block.innerHTML=`
-        <div class="stat target-card-v188"><span>التارجت (${targetLabelV188(rep)})</span><strong>${formatTargetV188(target)}</strong></div><div class="stat achieved-card-v188"><span>المحقق من التارجت</span><strong>${formatTargetV188(achieved)}</strong></div><div class="stat remaining-card-v188"><span>المتبقي من التارجت</span><strong>${formatTargetV188(remaining)}</strong></div><div class="stat percent-card-v188"><span>نسبة التحقيق</span><strong>${percent}%</strong><div class="rep-progress-v188"><div style="width:${Math.min(percent,100)}%"></div></div></div>
-      `;
-      summary.insertAdjacentElement('afterend',block);
-    },40);
-
-    return result;
-  };
+  /* rep detail target wrapper removed; V189 renders target from the same source */
 
   const renderBaseV188=window.render;
   if(typeof renderBaseV188==='function'){
@@ -8271,8 +8236,11 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
 </script><style id="v188-rep-target-count-qty-achievement-style">html body .rep-row-v185{grid-template-columns:1fr auto minmax(360px,auto) auto!important}html body .rep-target-box-v188{display:grid!important;gap:8px!important;min-width:360px!important}html body .rep-target-controls-v188{display:grid!important;grid-template-columns:1fr 110px auto!important;gap:7px!important;align-items:center!important}html body .rep-target-controls-v188 select,html body .rep-target-controls-v188 input{min-height:38px!important;border:1px solid #cbd5e1!important;border-radius:8px!important;background:#fff!important;color:#111827!important;padding:7px 9px!important}html body .rep-target-results-v188{display:flex!important;flex-wrap:wrap!important;gap:7px!important}html body .rep-target-results-v188 span{padding:5px 8px!important;background:#ecfdf5!important;color:#065f46!important;border-radius:999px!important;font-size:12px!important;font-weight:800!important}html body .rep-target-summary-v188{margin-bottom:16px!important}html body .target-card-v188{border-color:#2563eb!important}html body .achieved-card-v188{border-color:#16a34a!important}html body .remaining-card-v188{border-color:#f59e0b!important}html body .percent-card-v188{border-color:#7c3aed!important}html body .rep-progress-v188{width:100%!important;height:9px!important;margin-top:8px!important;border-radius:999px!important;overflow:hidden!important;background:#e5e7eb!important}html body .rep-progress-v188 div{height:100%!important;background:#16a34a!important;border-radius:999px!important}@media(max-width:1200px){html body .rep-row-v185{grid-template-columns:1fr!important}html body .rep-target-box-v188{min-width:0!important}}@media(max-width:600px){html body .rep-target-controls-v188{grid-template-columns:1fr!important}}</style><script id="v189-rep-reports-by-date-and-rep">
 (function(){
   const GROUPS_V189 = {
-    west_total_v186:{name:'west total',members:['مارينا','عماد']},
-    east_total_v186:{name:'east total',members:['سلمى','ماهينور','نوران']}
+    all_reps_total_v189:{name:'All Reps Total',all:true},
+    west_total_v186:{name:'West Total',sourceKeys:['rep_west_1','rep_west_2'],regionKeys:['West 1','West 2'],fallback:['مارينا','شهد','عماد']},
+    east_total_v186:{name:'East Total',sourceKeys:['rep_east_1','rep_east_2','rep_heliopolis','rep_salma'],regionKeys:['East 1','East 2','Heliopolis','Salma'],fallback:['سلمى','ماهينور','نوران','سيف']},
+    delta_total_v321:{name:'Delta Total',sourceKeys:['rep_delta'],regionKeys:['Delta'],fallback:['منى']},
+    alex_total_v321:{name:'Alexandria Total',sourceKeys:['rep_alex'],regionKeys:['Alex','Alexandria'],fallback:['يحي فتحي','يحيى فتحي']}
   };
 
   let repReportFilterV189={
@@ -8284,6 +8252,47 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
   function normV189(v){
     return String(v||'').trim().toLowerCase()
       .replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/[أإآ]/g,'ا').replace(/\s+/g,' ');
+  }
+
+
+  function currentRepNameV189(v){
+    let x=String(v||'').trim();
+    try{if(typeof window.currentRepNameV490==='function')x=String(window.currentRepNameV490(x)||x).trim()}catch(e){}
+    return x;
+  }
+
+  function activeCurrentRepsV189(){
+    let raw=(db.reps||[]).filter(r=>r&&r.inactive_v452!==true&&r.active!==false);
+    let map=new Map();
+    raw.forEach(function(r){
+      let name=currentRepNameV189(r.name);
+      let key=normV189(name);
+      if(!key)return;
+      let exact=normV189(r.name)===key;
+      let prev=map.get(key);
+      if(!prev||exact)map.set(key,Object.assign({},r,{name:name}));
+    });
+    return [...map.values()];
+  }
+
+  function groupMemberRepsV189(repId){
+    let g=GROUPS_V189[repId];
+    if(!g)return [];
+    let current=activeCurrentRepsV189();
+    if(g.all)return current;
+
+    let names=new Set((g.fallback||[]).map(currentRepNameV189).map(normV189));
+    (db.reps||[]).forEach(function(r){
+      if(!r)return;
+      let source=String(r.source_key||'').trim();
+      let region=String(r.region_code||r.region_name||'').trim();
+      let group=String(r.group_name||r.group||'').trim();
+      let match=(g.sourceKeys||[]).some(x=>normV189(x)===normV189(source)) ||
+                (g.regionKeys||[]).some(x=>normV189(x)===normV189(region)) ||
+                normV189(group)===normV189(g.name);
+      if(match)names.add(normV189(currentRepNameV189(r.name)));
+    });
+    return current.filter(r=>names.has(normV189(currentRepNameV189(r.name))));
   }
 
   function dateOnlyV189(v){
@@ -8307,19 +8316,9 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
   }
 
   function memberNamesV189(repId){
-    if(GROUPS_V189[repId]){
-      let names=[...(GROUPS_V189[repId].members||[])];
-      /* Keep historical predecessor names for old dates and add the current
-         replacement name for new dates, so total/group reports stay continuous. */
-      (db.rep_replacements_v452||[]).forEach(ev=>{
-        if(names.map(normV189).includes(normV189(ev.old_rep_name||'')) && ev.new_rep_name){
-          if(!names.map(normV189).includes(normV189(ev.new_rep_name)))names.push(ev.new_rep_name);
-        }
-      });
-      return names;
-    }
-    let rep=(db.reps||[]).find(r=>r.id===repId);
-    return rep?[rep.name]:[];
+    if(GROUPS_V189[repId])return groupMemberRepsV189(repId).map(r=>currentRepNameV189(r.name));
+    let rep=(db.reps||[]).find(r=>String(r.id)===String(repId));
+    return rep?[currentRepNameV189(rep.name)]:[];
   }
 
   function rowMatchesRepV189(row,repId){
@@ -8335,21 +8334,24 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
   }
 
   function salesRowsV189(repId){
-    /*
-      FINAL RELEASE: this report must use the same central rep source as
-      the performance card. This removes the old local allocation formula
-      that caused card/detail mismatches.
-    */
     try{
+      if(GROUPS_V189[repId]){
+        let out=[];
+        groupMemberRepsV189(repId).forEach(function(r){
+          let rr=[];
+          if(window.MahsoubakMetrics&&typeof window.MahsoubakMetrics.rowsForRep==='function')rr=window.MahsoubakMetrics.rowsForRep(r.id)||[];
+          else if(typeof window.mahsoubakRowsForRep==='function')rr=window.mahsoubakRowsForRep(r.id)||[];
+          out=out.concat(rr.filter(inRangeV189));
+        });
+        return out;
+      }
       if(window.MahsoubakMetrics && typeof window.MahsoubakMetrics.rowsForRep==='function'){
         return (window.MahsoubakMetrics.rowsForRep(repId)||[]).filter(inRangeV189);
       }
-      if(typeof window.repRowsExactV417==='function'){
-        return (window.repRowsExactV417(repId)||[]).filter(inRangeV189);
+      if(typeof window.mahsoubakRowsForRep==='function'){
+        return (window.mahsoubakRowsForRep(repId)||[]).filter(inRangeV189);
       }
-    }catch(e){
-      console.error('rep report central source error',e);
-    }
+    }catch(e){console.error('rep report central source error',e)}
     return [];
   }
 
@@ -8363,27 +8365,17 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
 
   function repDisplayV189(repId){
     if(GROUPS_V189[repId])return GROUPS_V189[repId].name;
-    return (db.reps||[]).find(r=>r.id===repId)?.name||'';
+    let r=(db.reps||[]).find(x=>String(x.id)===String(repId));
+    return currentRepNameV189(r&&r.name||'');
   }
 
   function targetInfoV189(repId,sales){
-    if(GROUPS_V189[repId]){
-      let reps=(db.reps||[]).filter(r=>
-        GROUPS_V189[repId].members.map(normV189).includes(normV189(r.name))
-      );
-      let target=reps.reduce((sum,r)=>sum+n(r.target_value||r.target||0),0);
-      let achieved=sales.reduce((sum,s)=>sum+(typeof window.targetSaleQtyV346==='function'?window.targetSaleQtyV346(s):n(s.qty)),0);
-      return {label:'الكمية',target,achieved};
-    }
-
-    let rep=(db.reps||[]).find(r=>r.id===repId);
-    if(!rep)return {label:'الكمية',target:0,achieved:0};
-
-    let mode=rep.target_mode||rep.target_type||'qty';
-    let target=n(rep.target_value||rep.target||0);
-    let achieved=mode==='count'?new Set(sales.map(s=>s.invoice_key||s.invoice_number||s.order_id||s.sale_id||s.id)).size:sales.reduce((sum,s)=>sum+(typeof window.targetSaleQtyV346==='function'?window.targetSaleQtyV346(s):n(s.qty)),0);
-
-    return {label:mode==='count'?'عدد الفواتير':'الكمية',target,achieved};
+    let reps=GROUPS_V189[repId]?groupMemberRepsV189(repId):[(db.reps||[]).find(r=>String(r.id)===String(repId))].filter(Boolean);
+    let target=reps.reduce(function(sum,r){
+      return sum+n(r.target_qty!=null?r.target_qty:(r.target_value!=null?r.target_value:(r.target!=null?r.target:r.sales_target)));
+    },0);
+    let achieved=sales.reduce((sum,s)=>sum+(typeof window.targetSaleQtyV346==='function'?window.targetSaleQtyV346(s):n(s.qty)),0);
+    return {label:'الكمية',target,achieved};
   }
 
   function companyApprovedSalesV302(){
@@ -8410,10 +8402,83 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
     return companyApprovedSalesV302().reduce(function(sum,s){return sum+n(s.total)},0);
   }
 
+
+  function invoiceGroupsV189(rows){
+    let map=new Map();
+    (rows||[]).forEach(function(s){
+      let key=String(s.invoice_key||s.invoice_number||s.invoice_no||s.order_id||s.sale_id||s.id||'').trim();
+      if(!key)key='ROW_'+String(s.id||map.size+1);
+      if(!map.has(key))map.set(key,{key:key,date:s.date||'',customer:s.customer_name||'',products:new Set(),total:0,remaining:0});
+      let g=map.get(key);
+      if(s.product_name)g.products.add(String(s.product_name));
+      g.total+=n(s.total);g.remaining+=n(s.remaining);
+    });
+    return [...map.values()].map(function(g){g.paid=Math.max(0,g.total-g.remaining);g.productsText=[...g.products].join('، ');return g});
+  }
+
+  function customerForSaleV189(s){
+    return (db.customers||[]).find(c=>String(c.id||'')===String(s.customer_id||''))||{};
+  }
+
+  function regionLabelV189(s){
+    let c=customerForSaleV189(s);
+    let vals=[
+      c.customer_region_v327,c.customer_region,c.area,c.city,c.region_name,c.region_code,
+      s.customer_region_v327,s.customer_region,s.area,s.city,s.region_name,s.region_code
+    ].map(x=>String(x||'').trim()).filter(Boolean);
+    return vals[0]||'غير محدد';
+  }
+
+  function detailSectionsV189(repId,sales,collections){
+    let regionMap=new Map();
+    sales.forEach(function(s){
+      let k=regionLabelV189(s);
+      if(!regionMap.has(k))regionMap.set(k,{name:k,qty:0,sales:0,remaining:0,invoices:new Set()});
+      let x=regionMap.get(k);x.qty+=n(s.qty);x.sales+=n(s.total);x.remaining+=n(s.remaining);
+      x.invoices.add(String(s.invoice_key||s.invoice_no||s.invoice_number||s.order_id||s.id||''));
+    });
+    let regions=[...regionMap.values()].sort((a,b)=>b.sales-a.sales);
+    let inv=invoiceGroupsV189(sales);
+    return `
+      <div class="card"><h3>تحليل المناطق من نفس مبيعات التقرير</h3>
+        ${regions.length?`<table><tr><th>المنطقة</th><th>الكمية</th><th>المبيعات</th><th>المسدد</th><th>المتبقي</th><th>الفواتير</th></tr>
+        ${regions.map(x=>`<tr><td><b>${esc(x.name)}</b></td><td>${Number(x.qty).toLocaleString()}</td><td>${money(x.sales)}</td><td>${money(Math.max(0,x.sales-x.remaining))}</td><td>${money(x.remaining)}</td><td>${x.invoices.size}</td></tr>`).join('')}</table>`:`<div class="empty">لا توجد مناطق</div>`}
+      </div>
+      <div class="card"><h3>الفواتير — نفس الفواتير المحتسبة في الكارت</h3>
+        ${inv.length?`<table><tr><th>التاريخ</th><th>الفاتورة</th><th>العميل</th><th>المنتجات</th><th>الإجمالي</th><th>المسدد</th><th>المتبقي</th></tr>
+        ${inv.map(x=>`<tr><td>${esc(String(x.date||'').slice(0,10))}</td><td><b>${esc(x.key)}</b></td><td>${esc(x.customer||'-')}</td><td>${esc(x.productsText||'-')}</td><td>${money(x.total)}</td><td>${money(x.paid)}</td><td>${money(x.remaining)}</td></tr>`).join('')}</table>`:`<div class="empty">لا توجد فواتير</div>`}
+      </div>
+      <div class="card"><h3>تفاصيل المبيعات من نفس المصدر</h3>
+        ${sales.length?`<table><tr><th>التاريخ</th><th>الفاتورة</th><th>العميل</th><th>المنتج</th><th>المنطقة</th><th>الكمية</th><th>المبيعات</th><th>المسدد</th><th>المتبقي</th></tr>
+        ${sales.map(s=>`<tr><td>${esc(String(s.date||'').slice(0,10))}</td><td>${esc(String(s.invoice_key||s.invoice_no||s.invoice_number||s.order_id||s.id||'-'))}</td><td>${esc(s.customer_name||'-')}</td><td>${esc(s.product_name||'-')}</td><td>${esc(regionLabelV189(s))}</td><td>${Number(n(s.qty)).toLocaleString()}</td><td>${money(n(s.total))}</td><td>${money(Math.max(0,n(s.total)-n(s.remaining)))}</td><td>${money(n(s.remaining))}</td></tr>`).join('')}</table>`:`<div class="empty">لا توجد مبيعات</div>`}
+      </div>`;
+  }
+
+  function openRepDrillModalV189(title,html){
+    let old=document.getElementById('v189_single_source_drill');if(old)old.remove();
+    let m=document.createElement('div');m.id='v189_single_source_drill';
+    m.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(15,23,42,.82);display:flex;direction:rtl';
+    m.innerHTML=`<div style="width:100%;height:100%;overflow:auto;background:#f8fafc"><div style="position:sticky;top:0;z-index:3;display:flex;justify-content:space-between;align-items:center;padding:16px 22px;background:#0f172a;color:#fff"><h2 style="margin:0;color:#fff">${esc(title)}</h2><button type="button" class="btn danger" id="v189_drill_close">إغلاق</button></div><div style="padding:20px">${html}</div></div>`;
+    document.body.appendChild(m);document.body.style.overflow='hidden';
+    document.getElementById('v189_drill_close').onclick=function(){m.remove();document.body.style.overflow=''};
+  }
+
+  window.openRepPaidSettledDetailsV500=function(repId){
+    let arr=invoiceGroupsV189(salesRowsV189(repId)).filter(x=>x.paid>0.0001);
+    let total=arr.reduce((a,x)=>a+x.paid,0);
+    let html=`<div class="grid grid4"><div class="stat"><span>إجمالي المسدد</span><strong>${money(total)}</strong></div><div class="stat"><span>عدد الفواتير التي بها سداد</span><strong>${arr.length}</strong></div></div>`+
+      (arr.length?`<div class="card"><table><tr><th>التاريخ</th><th>الفاتورة</th><th>العميل</th><th>المنتجات</th><th>الإجمالي</th><th>المسدد</th><th>المتبقي</th><th>الحالة</th></tr>${arr.map(x=>`<tr><td>${esc(String(x.date||'').slice(0,10))}</td><td>${esc(x.key)}</td><td>${esc(x.customer||'-')}</td><td>${esc(x.productsText||'-')}</td><td>${money(x.total)}</td><td><b>${money(x.paid)}</b></td><td>${money(x.remaining)}</td><td>${x.remaining<=0.0001?'مسددة بالكامل':'مسددة جزئيًا'}</td></tr>`).join('')}</table></div>`:`<div class="empty">لا توجد فواتير عليها سداد</div>`);
+    openRepDrillModalV189('المدفوع / المسدد — '+repDisplayV189(repId),html);
+  };
+
+  window.openRepInvoicesGroupedV500=function(repId){
+    let arr=invoiceGroupsV189(salesRowsV189(repId));
+    let html=`<div class="grid grid4"><div class="stat"><span>عدد الفواتير</span><strong>${arr.length}</strong></div></div>`+
+      (arr.length?`<div class="card"><table><tr><th>التاريخ</th><th>الفاتورة</th><th>العميل</th><th>المنتجات</th><th>الإجمالي</th><th>المسدد</th><th>المتبقي</th></tr>${arr.map(x=>`<tr><td>${esc(String(x.date||'').slice(0,10))}</td><td>${esc(x.key)}</td><td>${esc(x.customer||'-')}</td><td>${esc(x.productsText||'-')}</td><td>${money(x.total)}</td><td>${money(x.paid)}</td><td>${money(x.remaining)}</td></tr>`).join('')}</table></div>`:`<div class="empty">لا توجد فواتير</div>`);
+    openRepDrillModalV189('فواتير — '+repDisplayV189(repId),html);
+  };
+
   function buildReportV189(repId){
-    if(window.directTotalHierarchyHtmlV337 && window.isTotalRepCardV337(repId)){
-      return window.directTotalHierarchyHtmlV337(repId);
-    }
     let sales=salesRowsV189(repId);
     let collections=collectionRowsV189(repId);
     let customerMap=new Map();
@@ -8483,8 +8548,9 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
         <div class="stat v303-clickable" data-v303-drill="target" onclick="window.openRepDrillDirectV304('target');return false;" title="اضغط على الكارت"><span>التارجت (${target.label})</span><strong>${Number(target.target).toLocaleString()}</strong></div>
         <div class="stat v303-clickable" data-v303-drill="target-achieved" onclick="window.openRepDrillDirectV304('target-achieved');return false;" title="اضغط على الكارت"><span>المحقق خلال المدة</span><strong>${Number(target.achieved).toLocaleString()}</strong></div>
         <div class="stat v303-clickable" data-v303-drill="target-remaining" onclick="window.openRepDrillDirectV304('target-remaining');return false;" title="اضغط على الكارت"><span>المتبقي من التارجت</span><strong>${Number(remainingTarget).toLocaleString()}</strong></div>
-        <div class="stat v303-clickable" data-v303-drill="target-percent" onclick="window.openRepDrillDirectV304('target-percent');return false;" title="اضغط على الكارت"><span>نسبة التحقيق</span><strong>${percent}%</strong></div>
-      </div>`;
+        <div class="stat"><span>نسبة التحقيق</span><strong>${percent}%</strong></div>
+      </div>
+      ${detailSectionsV189(repId,sales,collections)}`;
   }
 
   window.applyRepReportFilterV189=function(){
@@ -8497,9 +8563,7 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
 
     repReportFilterV189={from,to,repId};
     let body=document.getElementById('rep_details_body_v175');
-    if(body)body.innerHTML=(window.isTotalRepCardV337&&window.isTotalRepCardV337(repId))
-      ? window.directTotalHierarchyHtmlV337(repId)
-      : buildReportV189(repId);
+    if(body)body.innerHTML=buildReportV189(repId);
 
     document.querySelectorAll('.rep-card-v175').forEach(card=>{
       card.classList.toggle('active',card.dataset.repId===repId);
@@ -8526,6 +8590,20 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
     w.document.close();
   };
 
+
+  function groupCardHtmlV189(id){
+    let sales=salesRowsV189(id),target=targetInfoV189(id,sales);
+    let total=sales.reduce((a,s)=>a+n(s.total),0);
+    let pct=target.target>0?target.achieved/target.target*100:0;
+    return `<button type="button" class="rep-card-v175 v189-group-card" data-rep-id="${id}" onclick="openRepDetailsV175('${id}')"><b>${esc(repDisplayV189(id))}</b><span>مبيعات: ${money(total)}</span><span>المحقق: ${Number(target.achieved).toLocaleString()} / ${Number(target.target).toLocaleString()}</span><span>تحقيق: ${pct.toFixed(1)}%</span></button>`;
+  }
+
+  function injectGroupCardsV189(){
+    let list=document.querySelector('#rep_performance_modal_v175 .rep-list-v175');if(!list)return;
+    Object.keys(GROUPS_V189).forEach(id=>{let old=list.querySelector('.v189-group-card[data-rep-id="'+id+'"]');if(old)old.remove()});
+    list.insertAdjacentHTML('afterbegin',Object.keys(GROUPS_V189).map(groupCardHtmlV189).join(''));
+  }
+
   const openRepPerformanceBaseV189=window.openRepPerformanceV175;
   window.openRepPerformanceV175=function(){
     openRepPerformanceBaseV189.apply(this,arguments);
@@ -8547,6 +8625,7 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
         <label><span>من</span><input id="rep_report_from_v189" type="date"></label><label><span>إلى</span><input id="rep_report_to_v189" type="date"></label><label><span>المندوب</span><select id="rep_report_rep_v189">${options}</select></label><button type="button" class="btn ok" onclick="applyRepReportFilterV189()">تطبيق</button>
       `;
       layout.insertAdjacentElement('beforebegin',filters);
+      injectGroupCardsV189();
 
       let first=document.getElementById('rep_report_rep_v189')?.value||'';
       repReportFilterV189.repId=first;
@@ -8562,18 +8641,13 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
     let select=document.getElementById('rep_report_rep_v189');
     if(select)select.value=repId;
     let body=document.getElementById('rep_details_body_v175');
-    if(body)body.innerHTML=(window.isTotalRepCardV337&&window.isTotalRepCardV337(repId))
-      ? window.directTotalHierarchyHtmlV337(repId)
-      : buildReportV189(repId);
+    if(body)body.innerHTML=buildReportV189(repId);
 
     document.querySelectorAll('.rep-card-v175').forEach(card=>{
       card.classList.toggle('active',card.dataset.repId===repId);
     });
   };
 })();
-
-  /* Final direct bridge: all later screens use the exact same local function. */
-  window.salesRowsV189=salesRowsV189;
 </script><style id="v189-rep-reports-by-date-and-rep-style">html body .rep-report-filters-v189{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr)) auto!important;gap:10px!important;align-items:end!important;margin:18px 20px 0!important;padding:14px!important;background:#fff!important;border:1px solid #cbd5e1!important;border-radius:12px!important}html body .rep-report-filters-v189 label{display:grid!important;gap:6px!important}html body .rep-report-filters-v189 label span{font-weight:800!important;color:#334155!important}html body .rep-report-filters-v189 input,html body .rep-report-filters-v189 select{min-height:42px!important;border:1px solid #cbd5e1!important;border-radius:9px!important;padding:8px 10px!important;background:#fff!important;color:#111827!important}html body .rep-target-summary-v189{margin-bottom:16px!important}@media(max-width:800px){html body .rep-report-filters-v189{grid-template-columns:1fr!important}}</style><script id="v190-rep-product-targets">
 (function(){
   function normV190(v){
@@ -26575,22 +26649,7 @@ html body .summary-box.v303-auto-clickable:after{
       '</div></div>';
   }
 
-  var openRepBaseV325=window.openRepDetailsV175;
-  if(typeof openRepBaseV325==='function'){
-    window.openRepDetailsV175=function(repId){
-      var r=openRepBaseV325.apply(this,arguments);
-      setTimeout(function(){
-        if(repId==='delta_total_v321'||repId==='alex_total_v321')return;
-        var body=document.getElementById('rep_details_body_v175');
-        if(!body)return;
-        var old=document.getElementById('v325_rep_money_card');if(old)old.remove();
-        var wrap=document.createElement('div');wrap.id='v325_rep_money_card';wrap.innerHTML=repMoneyCard(repId);
-        body.insertAdjacentElement('afterbegin',wrap);
-      },120);
-      return r;
-    };
-    try{openRepDetailsV175=window.openRepDetailsV175}catch(e){}
-  }
+  /* rep money-card wrapper removed; report has one target source */
 
   function companyTargetBlock(){
     var c=window.companyTargetSummaryV325();
@@ -28009,7 +28068,7 @@ html body .summary-box.v303-auto-clickable:after{
 .v333-drill-table{overflow:auto}
 .v333-drill-table table{min-width:950px!important}
 </style>
-<script id="v333-area-fallback-card-fix">
+<script id="v333-area-fallback-card-fix" type="application/x-mahsoubak-disabled">
 (function(){
   function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
   function S(v){return String(v==null?'':v).trim()}
@@ -28591,7 +28650,7 @@ html body .summary-box.v303-auto-clickable:after{
 .v335-summary .stat{background:#fff!important}
 @media(max-width:900px){.v335-group-grid,.v335-area-grid{grid-template-columns:1fr}.v335-summary{grid-template-columns:1fr 1fr}}
 </style>
-<script id="v335-hierarchical-area-drilldown">
+<script id="v335-hierarchical-area-drilldown" type="application/x-mahsoubak-disabled">
 (function(){
   function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
   function S(v){return String(v==null?'':v).trim()}
@@ -28862,7 +28921,7 @@ html body .summary-box.v303-auto-clickable:after{
 .v336-total-head h2{margin:0}
 .v336-total-note{color:#64748b;font-size:12px;margin-top:4px}
 </style>
-<script id="v336-total-direct-hierarchy">
+<script id="v336-total-direct-hierarchy" type="application/x-mahsoubak-disabled">
 (function(){
   function S(v){return String(v==null?'':v).trim()}
   function E(v){return typeof esc==='function'?esc(v):S(v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
@@ -28960,7 +29019,7 @@ html body .summary-box.v303-auto-clickable:after{
   observer.observe(document.body,{childList:true,subtree:true});
 })();
 </script>
-<script id="v337-total-source-cleanup">
+<script id="v337-total-source-cleanup" type="application/x-mahsoubak-disabled">
 (function(){
   function S(v){return String(v==null?'':v).trim()}
   function E(v){return typeof esc==='function'?esc(v):S(v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
@@ -29019,7 +29078,7 @@ html body .summary-box.v303-auto-clickable:after{
 .v338-subtitle{font-size:12px;color:#64748b;margin-top:5px}
 .v338-rep-label{display:inline-flex;margin-top:7px;padding:4px 8px;border-radius:999px;background:#eef2ff;color:#3730a3;font-size:11px;font-weight:900}
 </style>
-<script id="v338-final-area-hierarchy">
+<script id="v338-final-area-hierarchy" type="application/x-mahsoubak-disabled">
 (function(){
   function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
   function S(v){return String(v==null?'':v).trim()}
@@ -29530,7 +29589,7 @@ html body .summary-box.v303-auto-clickable:after{
 .v340-none{color:#64748b;font-weight:700}
 @media(max-width:800px){.v340-activity-grid{grid-template-columns:1fr}}
 </style>
-<script id="v340-area-activity-summary-visible">
+<script id="v340-area-activity-summary-visible" type="application/x-mahsoubak-disabled">
 (function(){
   function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
   function S(v){return String(v==null?'':v).trim()}
@@ -29628,7 +29687,7 @@ html body .summary-box.v303-auto-clickable:after{
 #rep_performance_modal_v175 .v303-clickable .v342-remove{display:none!important}
 </style>
 
-<script id="v343-remove-legacy-static-rep-sections">
+<script id="v343-remove-legacy-static-rep-sections" type="application/x-mahsoubak-disabled">
 (function(){
   var HEADS=[
     'المبيعات والتحصيل لكل عميل',
@@ -30309,30 +30368,7 @@ html body .summary-box.v303-auto-clickable:after{
       '</div>';
   }
 
-  var openRepBase=window.openRepDetailsV175;
-  if(typeof openRepBase==='function'){
-    window.openRepDetailsV175=function(repId){
-      if(TOTALS[repId]){
-        try{
-          if(typeof repReportFilterV189!=='undefined'&&repReportFilterV189)repReportFilterV189.repId=repId;
-        }catch(e){}
-
-        var body=document.getElementById('rep_details_body_v175');
-        if(!body){
-          try{openRepBase.apply(this,arguments)}catch(e){}
-          body=document.getElementById('rep_details_body_v175');
-        }
-        if(body)body.innerHTML=totalHtml(repId);
-
-        document.querySelectorAll('#rep_performance_modal_v175 .rep-card-v175').forEach(function(card){
-          card.classList.toggle('active',card.dataset.repId===repId);
-        });
-        return;
-      }
-      return openRepBase.apply(this,arguments);
-    };
-    try{openRepDetailsV175=window.openRepDetailsV175}catch(e){}
-  }
+  /* legacy total report wrapper removed by single-source cleanup */
 })();
 </script>
 <style id="v355-rep-card-drill-data-style">
@@ -34414,7 +34450,7 @@ html body .summary-box.v303-auto-clickable:after{
 
 
 
-<script id="v453-rep-report-current-roster-fix">
+<script id="v453-rep-report-current-roster-fix" type="application/x-mahsoubak-disabled">
 (function(){
   function A(v){return Array.isArray(v)?v:[]}
   function S(v){return String(v==null?'':v).trim()}
@@ -34918,7 +34954,7 @@ html body .summary-box.v303-auto-clickable:after{
 @media(max-width:700px){.v456-smart-grid,.v456-current-roster{grid-template-columns:1fr}}
 </style>
 
-<script id="v456-specific-rep-replacements">
+<script id="v456-specific-rep-replacements" type="application/x-mahsoubak-disabled">
 (function(){
   'use strict';
 
@@ -35432,7 +35468,7 @@ html body .summary-box.v303-auto-clickable:after{
 .v459-east-open{display:block;margin-top:12px;color:#4338ca;font-weight:900;font-size:12px}
 @media(max-width:900px){.v459-east-grid{grid-template-columns:1fr}}
 </style>
-<script id="v459-east-total-neighborhoods">
+<script id="v459-east-total-neighborhoods" type="application/x-mahsoubak-disabled">
 (function(){
   'use strict';
   function A(v){return Array.isArray(v)?v:[]}
@@ -35533,7 +35569,7 @@ html body .summary-box.v303-auto-clickable:after{
 .v457-roster-note{font-size:12px;color:#64748b;font-weight:800;margin-top:4px}
 .v457-current-badge{display:inline-flex;padding:4px 9px;border-radius:999px;background:#ecfdf5;color:#166534;border:1px solid #a7f3d0;font-size:11px;font-weight:900;margin-inline-start:7px}
 </style>
-<script id="v457-rep-group-current-roster-consistency">
+<script id="v457-rep-group-current-roster-consistency" type="application/x-mahsoubak-disabled">
 (function(){
   'use strict';
   function A(v){return Array.isArray(v)?v:[]}
@@ -35753,7 +35789,7 @@ html body .summary-box.v303-auto-clickable:after{
 .v465-west-card h4{margin:0 0 8px;font-size:21px}.v465-west-card .v459-east-rep{background:#e0f2fe;color:#075985}
 @media(max-width:800px){.v465-west-grid{grid-template-columns:1fr}}
 </style>
-<script id="v465-west-hierarchy-salma-dedupe">
+<script id="v465-west-hierarchy-salma-dedupe" type="application/x-mahsoubak-disabled">
 (function(){
   'use strict';
   var busy=false;
@@ -35930,7 +35966,7 @@ html body .summary-box.v303-auto-clickable:after{
 })();
 </script>
 
-<script id="v468-canonical-salma-record">
+<script id="v468-canonical-salma-record" type="application/x-mahsoubak-disabled">
 (function(){
   'use strict';
   function A(v){return Array.isArray(v)?v:[]}
@@ -37028,7 +37064,7 @@ window.rangeRepsTable=function(){var reps=A(db&&db.reps).filter(function(r){retu
 function sync(){var m=get();document.querySelectorAll('#rep_performance_modal_v175 .rep-card-v175[data-rep-id]').forEach(function(card){var id=S(card.dataset.repId),r=A(db&&db.reps).find(function(x){return S(x&&x.id)===id});if(!r)return;var cardRows=[];try{cardRows=typeof repSalesV175==='function'?A(repSalesV175(r.id)):repRows(r.id)}catch(e){cardRows=repRows(r.id)}var total=cardRows.reduce(function(a,x){return a+N(x.total)},0),node=Array.from(card.querySelectorAll('span,small,div')).find(function(el){var t=S(el.textContent);return /^مبيعات\s*:/i.test(t)||/^sales\s*:/i.test(t)});if(node)node.textContent=((typeof lang!=='undefined'&&lang==='ar')?'مبيعات: ':'Sales: ')+((typeof money==='function')?money(total):total)});document.querySelectorAll('.stat,.v248-card,.v249-kpi,.exec-stat,.metric-card,.summary-card,.kpi-card').forEach(function(card){var tx=norm(card.textContent),strong=card.querySelector('strong');if(!strong)return;if(tx.indexOf('اجمالي المديونيات')>=0||tx.indexOf('اجمالي مديونيات الشركه')>=0||tx.indexOf('total outstanding debt')>=0)strong.textContent=(typeof money==='function'?money(m.debt.value):m.debt.value)})}
 var queued=false;function refresh(){if(queued)return;queued=true;requestAnimationFrame(function(){queued=false;try{sync()}catch(e){console.error('MB metric sync',e)}})}window.refreshMahsoubakMetrics=refresh;
 var br=window.render;if(typeof br==='function'){window.render=function(){var x=br.apply(this,arguments);refresh();return x};try{render=window.render}catch(e){}}
-var bo=window.openRepPerformanceV175;if(typeof bo==='function'){window.openRepPerformanceV175=function(){var x=bo.apply(this,arguments);refresh();return x};try{openRepPerformanceV175=window.openRepPerformanceV175}catch(e){}}
+/* rep performance wrapper removed; V189 is sole controller */
 function reveal(){refresh();document.documentElement.classList.remove('mb-safe-loading');var b=document.getElementById('mb_safe_boot');if(b)b.remove()}
 var bootStarted=Date.now(),timer=setInterval(function(){
   var online=true;try{online=typeof onlineBackendEnabled==='function'?onlineBackendEnabled():true}catch(e){}
@@ -37116,24 +37152,26 @@ function stockValue(){try{return N(inventoryValue())}catch(e){return 0}}
 function purchaseTotal(){try{return typeof totalPurchases==='function'?N(totalPurchases()):A(db&&db.purchases).reduce(function(a,x){return a+N(x.total)},0)}catch(e){return A(db&&db.purchases).reduce(function(a,x){return a+N(x.total)},0)}}
 function supplierDueTotal(){try{return N(supplierDue())}catch(e){return 0}}
 function operationRows(){try{return typeof warehouseWorkflowRows==='function'?A(warehouseWorkflowRows()):A(db&&db.operations)}catch(e){return A(db&&db.operations)}}
+function currentActiveRepsForDash(){
+  var raw=A(db&&db.reps).filter(function(r){return r&&r.active!==false&&r.inactive_v452!==true}),map=new Map();
+  raw.forEach(function(r){
+    var name=S(r.name);try{if(typeof window.currentRepNameV490==='function')name=S(window.currentRepNameV490(name)||name)}catch(e){}
+    var k=norm(name);if(!k)return;
+    var prev=map.get(k),exact=norm(r.name)===k;
+    if(!prev||exact)map.set(k,r);
+  });
+  return Array.from(map.values());
+}
 function repTargetTotal(){
-  return A(db&&db.reps).reduce(function(a,r){
-    return a+N(r.target_qty!=null?r.target_qty:(r.target!=null?r.target:r.sales_target));
-  },0)
+  return currentActiveRepsForDash().reduce(function(a,r){return a+N(r.target_qty!=null?r.target_qty:(r.target_value!=null?r.target_value:(r.target!=null?r.target:r.sales_target)))},0)
 }
 function repAchievedValue(){
-  try{
-    return A(db&&db.reps).reduce(function(sum,r){
-      var rows=[];
-      try{rows=typeof salesRowsV189==='function'?A(salesRowsV189(r.id)):[]}catch(e){rows=[]}
-      return sum+rows.reduce(function(a,s){return a+N(s.qty)},0);
-    },0);
-  }catch(e){return 0}
+  return currentActiveRepsForDash().reduce(function(sum,r){
+    var rows=[];try{rows=window.MahsoubakMetrics&&typeof window.MahsoubakMetrics.rowsForRep==='function'?A(window.MahsoubakMetrics.rowsForRep(r.id)):A(salesRowsV189(r.id))}catch(e){}
+    return sum+rows.reduce(function(a,s){return a+N(s.qty)},0)
+  },0)
 }
-function repPct(){
-  var t=repTargetTotal(),a=repAchievedValue();
-  return t>0?(a/t*100):0;
-}
+function repPct(){var t=repTargetTotal(),a=repAchievedValue();return t>0?a/t*100:0}
 function lowStockCount(){return A(db&&db.products).filter(function(p){return N(p.stock)<=N(p.min)}).length}
 
 function snapshot(){
@@ -37207,34 +37245,9 @@ window.expandedDashboardHTML=function(key){
 };
 try{expandedDashboardHTML=window.expandedDashboardHTML}catch(e){}
 
-/* Final rep summary safeguard: existing R3 sales rows remain untouched.
-   Sales and remaining are the existing correct figures; paid is their difference. */
-function syncOpenRepSummary(){
-  try{
-    var body=document.getElementById('rep_details_body_v175');
-    if(!body)return;
-    var active=document.querySelector('#rep_performance_modal_v175 .rep-card-v175.active[data-rep-id]');
-    if(!active)return;
-    var id=S(active.dataset.repId);
-    if(!id||typeof salesRowsV189!=='function')return;
-    var rows=A(salesRowsV189(id));
-    var sales=rows.reduce(function(a,x){return a+N(x.total)},0);
-    var remaining=rows.reduce(function(a,x){return a+N(x.remaining)},0);
-    var paid=Math.max(0,sales-remaining);
-    var statsEls=body.querySelectorAll('.rep-summary-v175 .stat');
-    if(statsEls.length>=4){
-      var vals=[sales,paid,remaining,null];
-      var labels=['المبيعات خلال المدة','المدفوع / المسدد','المتبقي على العملاء',null];
-      for(var i=0;i<3;i++){
-        var sp=statsEls[i].querySelector('span'),strong=statsEls[i].querySelector('strong');
-        if(sp)sp.textContent=labels[i];
-        if(strong)strong.textContent=M(vals[i]);
-      }
-    }
-  }catch(e){console.error('rep summary sync',e)}
-}
+/* Rep-detail synchronization removed: V189 owns rep cards and details. */
 
-/* Wrap only rendering/opening, not business calculations. */
+/* Wrap only dashboard rendering/opening, not business calculations. */
 var oldRender=window.renderDashboard || (typeof renderDashboard==='function'?renderDashboard:null);
 if(typeof oldRender==='function'){
   window.renderDashboard=function(){
@@ -37254,21 +37267,11 @@ if(typeof oldOpenDash==='function'){
   try{openDashboardCard=window.openDashboardCard}catch(e){}
 }
 
-var oldOpenRep=window.openRepDetailsV175;
-if(typeof oldOpenRep==='function'){
-  window.openRepDetailsV175=function(){
-    var r=oldOpenRep.apply(this,arguments);
-    setTimeout(syncOpenRepSummary,0);
-    return r;
-  };
-  try{openRepDetailsV175=window.openRepDetailsV175}catch(e){}
-}
-
 setTimeout(syncDashboardCards,0);
 })();
 </script>
 
-<script id="v500-rep-paid-invoices-drill-sync">
+<script id="v500-rep-paid-invoices-drill-sync" type="application/x-mahsoubak-disabled">
 (function(){
   function A(v){return Array.isArray(v)?v:[]}
   function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
@@ -37414,7 +37417,7 @@ setTimeout(syncDashboardCards,0);
 })();
 </script>
 
-<script id="v501-force-rep-paid-invoice-ui">
+<script id="v501-force-rep-paid-invoice-ui" type="application/x-mahsoubak-disabled">
 (function(){
   function A(v){return Array.isArray(v)?v:[]}
   function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
@@ -37535,7 +37538,7 @@ setTimeout(syncDashboardCards,0);
 })();
 </script>
 
-<script id="v502-direct-paid-invoice-capture">
+<script id="v502-direct-paid-invoice-capture" type="application/x-mahsoubak-disabled">
 (function(){
   if(window.__V502_DIRECT_PAID_INVOICE_CAPTURE__)return;
   window.__V502_DIRECT_PAID_INVOICE_CAPTURE__=true;
@@ -37735,7 +37738,7 @@ setTimeout(syncDashboardCards,0);
 })();
 </script>
 
-<script id="v503-complete-rep-report-from-original">
+<script id="v503-complete-rep-report-from-original" type="application/x-mahsoubak-disabled">
 (function(){
   if(window.__V503_COMPLETE_REP_REPORT__)return;
   window.__V503_COMPLETE_REP_REPORT__=true;
