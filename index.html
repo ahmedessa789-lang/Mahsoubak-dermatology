@@ -29061,9 +29061,9 @@ html body .summary-box.v303-auto-clickable:after{
 
   function areaCandidatesV338(c,s){
     return [
-      c.customer_region_v327,c.customer_region,c.customer_area,c.zone,c.district,c.city,c.region_name,c.region,
+      c.customer_region_v327,c.customer_region,c.customer_area,c.zone,c.district,c.city,c.region_code,c.region_name,c.region,
       c.address,c.customer_address,
-      s.customer_region_v327,s.customer_region,s.customer_area,s.zone,s.district,s.city,s.region_name,s.region,
+      s.customer_region_v327,s.customer_region,s.customer_area,s.zone,s.district,s.city,s.region_code,s.region_name,s.region,
       s.address,s.customer_address,s.order_address
     ].map(S).filter(Boolean);
   }
@@ -29091,8 +29091,7 @@ html body .summary-box.v303-auto-clickable:after{
       subgroups:[
         {id:'East 1',label:'East 1',rep:'سلمى',areas:['التجمع','الرحاب','مدينتي','الشروق']},
         {id:'East 2',label:'East 2',rep:'ماهينور',areas:['التجمع','الرحاب','مدينتي']},
-        {id:'Heliopolis',label:'Heliopolis',rep:'نوران',areas:['مصر الجديدة','مدينة نصر','العبور']},
-        {id:'Salma',label:'سلمى',rep:'سلمى',areas:['التجمع','مصر الجديدة','مدينة نصر','العبور']}
+        {id:'Heliopolis',label:'Heliopolis',rep:'نوران',areas:['مصر الجديدة','مدينة نصر','العبور']}
       ]
     },
     delta_total_v321:{
@@ -29141,8 +29140,21 @@ html body .summary-box.v303-auto-clickable:after{
   }
 
   function salesForRepName(name){
-    var n=norm(name);
-    return approvedSales().filter(function(s){return norm(repName(s))===n});
+    var wanted=norm(name);
+    var rep=(db.reps||[]).find(function(r){
+      var rn=norm(r&&r.name);
+      var current=rn;
+      try{if(typeof window.currentRepNameV490==='function')current=norm(window.currentRepNameV490(r&&r.name))}catch(e){}
+      return rn===wanted||current===wanted;
+    })||null;
+    if(rep && typeof window.salesRowsV189==='function'){
+      try{return window.salesRowsV189(rep.id)||[]}catch(e){}
+    }
+    return approvedSales().filter(function(s){
+      var n=norm(repName(s));
+      try{if(typeof window.currentRepNameV490==='function')n=norm(window.currentRepNameV490(repName(s)))}catch(e){}
+      return n===wanted;
+    });
   }
 
   function subgroupSales(totalId,subId){
@@ -29159,9 +29171,15 @@ html body .summary-box.v303-auto-clickable:after{
 
   function areaSales(totalId,subId,area){
     var rows=subId?subgroupSales(totalId,subId):directGroupSales(totalId);
+    var g=FINAL_GROUPS_V338[totalId];
     return rows.filter(function(s){
       var c=customerForSale(s);
-      return areaMatchesV338(c,s,area);
+      if(areaMatchesV338(c,s,area))return true;
+      if(!subId && g && g.direct && Array.isArray(g.areas) && g.areas[0]===area){
+        var matchedOther=g.areas.some(function(a){return areaMatchesV338(c,s,a)});
+        return !matchedOther;
+      }
+      return false;
     });
   }
 
@@ -36941,7 +36959,7 @@ function cleanRegion(v){var x=S(v);if(!x||/^(undefined|unknown|n\/a|-|غير م�
 function region(s){var c=customerFor(s),vals=[s&&s.region_name,s&&s.region_code,c&&c.sales_group,c&&c.region_group,c&&c.region_code,c&&c.region_name,c&&c.region,c&&c.customer_region,c&&c.customer_area,c&&c.area];for(var i=0;i<vals.length;i++){var r=cleanRegion(vals[i]);if(r)return r}var o=linkedOrder(s),rp=repByRef(o&&(o.rep_id||o.rep_name)||s&&(s.rep_id||s.rep_name));return cleanRegion(rp&&(rp.region_code||rp.region_name||rp.region||rp.area))}
 function owner(s){var o=linkedOrder(s);if(o&&(S(o.rep_id)||S(o.rep_name))){var r=repByRef(o.rep_id||o.rep_name);return {rep:r,id:S(r&&r.id||o.rep_id),name:S(r&&r.name||o.rep_name)}}if(s&&(S(s.rep_id)||S(s.rep_name))){var rr=repByRef(s.rep_id||s.rep_name);return {rep:rr,id:S(rr&&rr.id||s.rep_id),name:S(rr&&rr.name||s.rep_name)}}return null}
 function alloc(){var out=[];reportSales().forEach(function(s){var own=owner(s),o=linkedOrder(s);if(own&&(s._reporting_order_only||o)){out.push({sale:s,sale_id:S(s.id),rep_id:own.id,rep_name:own.name,region_code:region(s),percentage:100,qty:N(s.qty),total:N(s.total),paid:N(s.paid),remaining:N(s.remaining),source:s._reporting_order_only?'approved_order_rep':'linked_order_rep'});return}var c=customerFor(s),ms=[];splits(c,s).forEach(function(sp){var p=pct(sp),r=repByRef(sp.rep_id||sp.rep_name);if(p>0&&r)ms.push({sale:s,sale_id:S(s.id),rep_id:S(r.id),rep_name:S(r.name),region_code:cleanRegion(sp.region_code)||region(s),percentage:p,qty:N(s.qty)*p/100,total:N(s.total)*p/100,paid:N(s.paid)*p/100,remaining:N(s.remaining)*p/100,source:'customer_split'})});if(ms.length){ms.forEach(function(x){out.push(x)});return}if(own)out.push({sale:s,sale_id:S(s.id),rep_id:own.id,rep_name:own.name,region_code:region(s),percentage:100,qty:N(s.qty),total:N(s.total),paid:N(s.paid),remaining:N(s.remaining),source:'stored_sale_rep'})});return out}
-function repRows(ref){var r=repByRef(ref);if(!r)return [];return alloc().filter(function(a){return S(a.rep_id)===S(r.id)||norm(a.rep_name)===norm(r.name)}).map(function(a){return Object.assign({},a.sale,{sale_id:S(a.sale&&a.sale.id),invoice_key:invoiceKey(a.sale),rep_id:S(r.id),rep_name:S(r.name),region_code:a.region_code,region_name:a.region_code,percentage:N(a.percentage),qty:N(a.qty),total:N(a.total),paid:N(a.paid),remaining:N(a.remaining),_mb_safe:true})})}
+function repRows(ref){var r=repByRef(ref);if(!r)return [];function currentName(v){try{if(typeof window.currentRepNameV490==='function')return S(window.currentRepNameV490(v))}catch(e){}return S(v)}var wanted=norm(currentName(r.name));return alloc().filter(function(a){var byId=S(a.rep_id)===S(r.id);var byCurrent=norm(currentName(a.rep_name))===wanted;return byId||byCurrent}).map(function(a){return Object.assign({},a.sale,{sale_id:S(a.sale&&a.sale.id),invoice_key:invoiceKey(a.sale),rep_id:S(r.id),rep_name:S(r.name),region_code:a.region_code,region_name:a.region_code,percentage:N(a.percentage),qty:N(a.qty),total:N(a.total),paid:N(a.paid),remaining:N(a.remaining),_mb_safe:true})})}
 function debt(){try{if(typeof window.customerDebt==='function')return N(window.customerDebt())}catch(e){}return A(db&&db.customers).reduce(function(a,c){return a+Math.max(0,N(c.balance))},0)}
 function invCount(rows){var st=new Set();A(rows).forEach(function(x){var k=invoiceKey(x);if(k)st.add(k)});return st.size}
 function get(){var rs=reportSales(),cols=A(db&&db.collections),purs=A(db&&db.purchases),products=A(db&&db.products),ops=typeof warehouseWorkflowRows==='function'?warehouseWorkflowRows():A(db&&db.operations);var inventory=0;try{inventory=typeof inventoryValue==='function'?N(inventoryValue()):0}catch(e){}return {sales:{value:rs.reduce(function(a,x){return a+N(x.total)},0),invoices:invCount(rs),pending:pendingOrders().length},debt:{value:debt()},collections:{value:cols.reduce(function(a,x){return a+N(x.amount)},0),count:cols.length},purchases:{value:purs.reduce(function(a,x){return a+N(x.total)},0),invoices:invCount(purs)},inventory:{value:inventory,items:products.length},operations:{value:ops.length,requested:ops.filter(function(x){return x.status==='requested'}).length,prepared:ops.filter(function(x){return x.status==='prepared'}).length,sold:ops.filter(function(x){return x.status==='sold'}).length,cancelled:ops.filter(function(x){return x.status==='cancelled'}).length}}}
