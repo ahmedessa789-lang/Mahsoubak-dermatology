@@ -8511,201 +8511,347 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
   }
 
 
+
   function currentRepNameCompanyV189(v){
     let x=String(v||'').trim();
     try{if(typeof window.currentRepNameV490==='function')x=String(window.currentRepNameV490(x)||x).trim()}catch(e){}
     return x;
   }
-
   function normCompanyV189(v){
     return String(v||'').trim().toLowerCase()
       .replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه')
       .replace(/[ًٌٍَُِّْـ]/g,'').replace(/\s+/g,' ');
   }
-
   function companySalesRowsV189(){
-    /* Same company source used by the report period. */
-    try{
-      if(typeof companyApprovedSalesV302==='function'){
-        return (companyApprovedSalesV302()||[]).filter(inRangeV189);
-      }
-    }catch(e){}
-    try{
-      return salesRowsV189('all_reps_total_v189');
-    }catch(e){}
+    try{if(typeof companyApprovedSalesV302==='function')return (companyApprovedSalesV302()||[]).filter(inRangeV189)}catch(e){}
+    try{return salesRowsV189('all_reps_total_v189')}catch(e){}
     return [];
   }
-
-  function groupNameForSaleV189(s){
-    var rep=currentRepNameCompanyV189(s&&s.rep_name||'');
-    var nr=normCompanyV189(rep);
-    var groups=['west_total_v186','east_total_v186','delta_total_v321','alex_total_v321'];
-    for(var i=0;i<groups.length;i++){
-      var id=groups[i],members=[];
-      try{members=groupMemberRepsV189(id)||[]}catch(e){}
-      if(members.some(function(r){return normCompanyV189(currentRepNameCompanyV189(r&&r.name))===nr})){
-        return GROUPS_V189[id]&&GROUPS_V189[id].name||id;
-      }
-    }
-    /* Fallback to explicit region keys on the sale/customer. */
-    var r=normCompanyV189(regionLabelV189(s));
-    if(r.indexOf('delta')>=0||r.indexOf('دلتا')>=0)return 'Delta Total';
-    if(r.indexOf('alex')>=0||r.indexOf('اسكند')>=0)return 'Alexandria Total';
-    if(r.indexOf('west')>=0||r.indexOf('غرب')>=0)return 'West Total';
-    if(r.indexOf('east')>=0||r.indexOf('شرق')>=0||r.indexOf('heliopolis')>=0)return 'East Total';
-    return 'غير محدد';
-  }
-
   function companyTargetSummaryV189(rows){
-    var qtyTarget=0,qtyAchieved=0,moneyTarget=0,total=0;
-    try{
-      var t=targetInfoV189('all_reps_total_v189',rows);
-      qtyTarget=n(t.target);qtyAchieved=n(t.achieved);
-    }catch(e){
-      qtyAchieved=(rows||[]).reduce(function(a,s){return a+n(s.qty)},0);
-    }
+    var t={target:0,achieved:0},moneyTarget=0,total=0;
+    try{t=targetInfoV189('all_reps_total_v189',rows)||t}catch(e){}
     try{moneyTarget=n(db&&db.money_targets_v325&&db.money_targets_v325.company)}catch(e){}
     total=(rows||[]).reduce(function(a,s){return a+n(s.total)},0);
     return {
-      qtyTarget:qtyTarget,
-      qtyAchieved:qtyAchieved,
-      qtyRemaining:Math.max(0,qtyTarget-qtyAchieved),
-      qtyPct:qtyTarget>0?qtyAchieved/qtyTarget*100:0,
-      moneyTarget:moneyTarget,
-      moneyAchieved:total,
+      qtyTarget:n(t.target),qtyAchieved:n(t.achieved),
+      qtyRemaining:Math.max(0,n(t.target)-n(t.achieved)),
+      qtyPct:n(t.target)>0?n(t.achieved)/n(t.target)*100:0,
+      moneyTarget:moneyTarget,moneyAchieved:total,
       moneyRemaining:Math.max(0,moneyTarget-total),
       moneyPct:moneyTarget>0?total/moneyTarget*100:0
     };
   }
 
-  function aggregateCompanyRegionsV189(rows){
-    var map=new Map();
+  /* Exact region/area labels from the older production UI the user asked to restore.
+     This is presentation-only: no DB writes and no ownership mutation. */
+  var COMPANY_UI_GROUPS_V189={
+    'West Total':{
+      id:'west_total_v186',
+      subgroups:[
+        {id:'West 1',label:'West 1',areas:['زايد','حدائق الأهرام','فيصل','الهرم','الدقي','المهندسين','المعادي','الزمالك','المنيل','أكتوبر']},
+        {id:'West 2',label:'West 2',areas:['زايد','حدائق الأهرام','فيصل','الهرم','الدقي','المهندسين','المعادي','الزمالك','المنيل','أكتوبر']}
+      ]
+    },
+    'East Total':{
+      id:'east_total_v186',
+      subgroups:[
+        {id:'East 1',label:'East 1',areas:['التجمع','الرحاب','مدينتي','الشروق']},
+        {id:'East 2',label:'East 2',areas:['التجمع','الرحاب','مدينتي']},
+        {id:'Heliopolis',label:'Heliopolis',areas:['مصر الجديدة','مدينة نصر','العبور']},
+        {id:'Salma',label:'سلمى',areas:['التجمع','مصر الجديدة','مدينة نصر','العبور']}
+      ]
+    },
+    'Delta Total':{id:'delta_total_v321',direct:true,areas:['طنطا','المنصورة','بنها','شبين الكوم','المنوفية','مدينة السادات']},
+    'Alexandria Total':{id:'alex_total_v321',direct:true,areas:['إسكندرية','رشيد']}
+  };
+
+  function currentGroupMembersCompanyV189(groupName){
+    var cfg=COMPANY_UI_GROUPS_V189[groupName],members=[];
+    if(cfg){
+      try{members=groupMemberRepsV189(cfg.id)||[]}catch(e){}
+    }
+    return members;
+  }
+
+  function saleRepCompanyV189(s){return currentRepNameCompanyV189(s&&s.rep_name||'')}
+  function memberOwnsSaleCompanyV189(s,members){
+    var rep=normCompanyV189(saleRepCompanyV189(s));
+    return (members||[]).some(function(r){return normCompanyV189(currentRepNameCompanyV189(r&&r.name))===rep});
+  }
+
+  function groupRowsCompanyV189(groupName){
+    var all=companySalesRowsV189(),members=currentGroupMembersCompanyV189(groupName);
+    return all.filter(function(s){return memberOwnsSaleCompanyV189(s,members)});
+  }
+
+  function subgroupMembersCompanyV189(groupName,subId){
+    var cfg=COMPANY_UI_GROUPS_V189[groupName];
+    if(!cfg||cfg.direct)return currentGroupMembersCompanyV189(groupName);
+    var members=currentGroupMembersCompanyV189(groupName);
+    var explicit=members.filter(function(r){
+      var source=normCompanyV189(r&&r.source_key||'');
+      var region=normCompanyV189(r&& (r.region_code||r.region_name)||'');
+      return source===normCompanyV189('rep_'+String(subId).replace(/\s+/g,'_').toLowerCase()) || region===normCompanyV189(subId);
+    });
+    if(explicit.length)return explicit;
+
+    /* Fallback to current roster order by the exact current group definition. */
+    if(groupName==='West Total'){
+      if(subId==='West 1')return members.slice(0,1);
+      if(subId==='West 2')return members.slice(1,2);
+    }
+    if(groupName==='East Total'){
+      var labels={'East 1':0,'East 2':1,'Heliopolis':2,'Salma':3};
+      var ix=labels[subId];return ix==null?[]:(members[ix]?[members[ix]]:[]);
+    }
+    return members;
+  }
+
+  function subgroupRowsCompanyV189(groupName,subId){
+    var all=companySalesRowsV189(),members=subgroupMembersCompanyV189(groupName,subId);
+    return all.filter(function(s){return memberOwnsSaleCompanyV189(s,members)});
+  }
+
+  function customerForCompanySaleV189(s){
+    return (db.customers||[]).find(function(c){return String(c.id||'')===String(s&&s.customer_id||'')})||{};
+  }
+  function areaTextCompanyV189(s){
+    var c=customerForCompanySaleV189(s);
+    return String(c.customer_region_v327||c.customer_region||c.area||c.city||
+      s.customer_region_v327||s.customer_region||s.area||s.city||'').trim();
+  }
+  function areaMatchCompanyV189(s,area){
+    try{if(typeof window.areaMatchesV339==='function')return window.areaMatchesV339(customerForCompanySaleV189(s),s,area)}catch(e){}
+    return normCompanyV189(areaTextCompanyV189(s))===normCompanyV189(area);
+  }
+  function areaRowsCompanyV189(groupName,subId,area){
+    var rows=subId?subgroupRowsCompanyV189(groupName,subId):groupRowsCompanyV189(groupName);
+    return rows.filter(function(s){return areaMatchCompanyV189(s,area)});
+  }
+
+  function statsCompanyV189(rows){
+    var inv=new Set(),qty=0,value=0,remaining=0;
     (rows||[]).forEach(function(s){
-      var group=groupNameForSaleV189(s);
-      var area=regionLabelV189(s)||'غير محدد';
-      var gkey=group;
-      if(!map.has(gkey))map.set(gkey,{name:group,sales:0,qty:0,remaining:0,invoices:new Set(),areas:new Map(),reps:new Map()});
-      var g=map.get(gkey);
-      g.sales+=n(s.total);g.qty+=n(s.qty);g.remaining+=n(s.remaining);
-      g.invoices.add(String(s.invoice_key||s.invoice_no||s.invoice_number||s.order_id||s.id||''));
-
-      if(!g.areas.has(area))g.areas.set(area,{name:area,sales:0,qty:0,remaining:0,invoices:new Set()});
-      var a=g.areas.get(area);
-      a.sales+=n(s.total);a.qty+=n(s.qty);a.remaining+=n(s.remaining);
-      a.invoices.add(String(s.invoice_key||s.invoice_no||s.invoice_number||s.order_id||s.id||''));
-
-      var rep=currentRepNameCompanyV189(s.rep_name||'غير محدد');
-      if(!g.reps.has(rep))g.reps.set(rep,{name:rep,sales:0,qty:0,remaining:0,invoices:new Set()});
-      var rp=g.reps.get(rep);
-      rp.sales+=n(s.total);rp.qty+=n(s.qty);rp.remaining+=n(s.remaining);
-      rp.invoices.add(String(s.invoice_key||s.invoice_no||s.invoice_number||s.order_id||s.id||''));
+      qty+=n(s.qty);value+=n(s.total);remaining+=n(s.remaining);
+      inv.add(String(s.invoice_key||s.invoice_number||s.invoice_no||s.order_id||s.sale_id||s.id||''));
     });
-
-    var order=['West Total','East Total','Delta Total','Alexandria Total','غير محدد'];
-    return Array.from(map.values()).sort(function(a,b){
-      var ia=order.indexOf(a.name),ib=order.indexOf(b.name);
-      ia=ia<0?99:ia;ib=ib<0?99:ib;
-      return ia-ib || b.sales-a.sales;
-    });
+    return {qty:qty,value:value,remaining:remaining,invoices:inv.size};
   }
 
-  function aggregateCompanyProductsV189(rows){
-    var map=new Map();
-    (rows||[]).forEach(function(s){
-      var key=String(s.product_name||s.product||s.product_id||'غير محدد').trim()||'غير محدد';
-      if(!map.has(key))map.set(key,{name:key,sales:0,qty:0,invoices:new Set()});
-      var x=map.get(key);
-      x.sales+=n(s.total);x.qty+=n(s.qty);
-      x.invoices.add(String(s.invoice_key||s.invoice_no||s.invoice_number||s.order_id||s.id||''));
-    });
-    return Array.from(map.values()).sort(function(a,b){return b.sales-a.sales||b.qty-a.qty});
+  function targetForMembersCompanyV189(members,rows){
+    var target=(members||[]).reduce(function(sum,r){
+      return sum+n(r.target_qty!=null?r.target_qty:(r.target_value!=null?r.target_value:(r.target!=null?r.target:r.sales_target)));
+    },0);
+    var achieved=(rows||[]).reduce(function(sum,s){return sum+n(s.qty)},0);
+    return {target:target,achieved:achieved,remaining:Math.max(0,target-achieved),pct:target>0?achieved/target*100:0};
   }
 
-  function companyAreaRowsHtmlV189(group){
-    var areas=Array.from(group.areas.values()).sort(function(a,b){return b.sales-a.sales||b.qty-a.qty});
-    if(!areas.length)return '<div class="empty">لا توجد أحياء/مناطق داخلية</div>';
-    var active=areas.filter(function(x){return x.sales>0||x.qty>0});
-    var focus=active[0]||null,low=active.length>1?active[active.length-1]:null;
-
-    return '<div class="card" style="margin-top:12px">'+
-      '<div class="section-title"><div><h3>الأحياء / المناطق الداخلية — '+esc(group.name)+'</h3>'+
-      '<div class="hint">الأكثر نشاطًا: <b>'+esc(focus?focus.name:'—')+'</b> | الأقل بيعًا: <b>'+esc(low?low.name:'—')+'</b></div></div></div>'+
-      '<table><tr><th>الحي / المنطقة</th><th>المبيعات</th><th>الكمية</th><th>المسدد</th><th>المتبقي</th><th>الفواتير</th></tr>'+
-      areas.map(function(x){
-        return '<tr><td><b>'+esc(x.name)+'</b></td><td>'+money(x.sales)+'</td><td>'+Number(x.qty).toLocaleString()+'</td>'+
-          '<td>'+money(Math.max(0,x.sales-x.remaining))+'</td><td>'+money(x.remaining)+'</td><td>'+x.invoices.size+'</td></tr>';
-      }).join('')+'</table></div>';
-  }
-
-  function companyGroupHtmlV189(group){
-    var reps=Array.from(group.reps.values()).sort(function(a,b){return b.sales-a.sales});
-    return '<div class="card" style="margin-bottom:14px">'+
-      '<div class="section-title"><div><h2>'+esc(group.name)+'</h2>'+
-      '<div class="hint">'+reps.map(function(r){return esc(r.name)}).join('، ')+'</div></div></div>'+
-      '<div class="grid grid4">'+
-        '<div class="stat"><span>المبيعات</span><strong>'+money(group.sales)+'</strong></div>'+
-        '<div class="stat"><span>الكمية</span><strong>'+Number(group.qty).toLocaleString()+'</strong></div>'+
-        '<div class="stat"><span>الفواتير</span><strong>'+group.invoices.size+'</strong></div>'+
-        '<div class="stat"><span>المتبقي</span><strong>'+money(group.remaining)+'</strong></div>'+
+  function companyBannerOldShapeV189(){
+    var rows=companySalesRowsV189(),total=rows.reduce(function(a,s){return a+n(s.total)},0);
+    var t=companyTargetSummaryV189(rows);
+    return '<div class="v302-company-sales-banner v349-company-sales-banner">'+
+      '<span>إجمالي مبيعات الشركة كلها خلال المدة</span><strong>'+money(total)+'</strong>'+
+      '<div class="v349-company-qty-grid v350-company-all-targets">'+
+        '<div><span>تارجت الشركة بالكمية</span><b>'+Number(t.qtyTarget).toLocaleString()+' وحدة</b></div>'+
+        '<div><span>المبيعات المحققة بالكمية</span><b>'+Number(t.qtyAchieved).toLocaleString()+' وحدة</b><small>بيع فقط بدون بونص</small></div>'+
+        '<div><span>نسبة تحقيق التارجت بالكمية</span><b>'+t.qtyPct.toFixed(1)+'%</b></div>'+
+        '<div><span>تارجت الشركة بالفلوس</span><b>'+money(t.moneyTarget)+'</b></div>'+
+        '<div><span>نسبة تحقيق التارجت المالي</span><b>'+t.moneyPct.toFixed(1)+'%</b></div>'+
       '</div>'+
-      (reps.length?'<table><tr><th>المندوب</th><th>المبيعات</th><th>الكمية</th><th>الفواتير</th><th>المتبقي</th></tr>'+
-        reps.map(function(r){return '<tr><td><b>'+esc(r.name)+'</b></td><td>'+money(r.sales)+'</td><td>'+Number(r.qty).toLocaleString()+'</td><td>'+r.invoices.size+'</td><td>'+money(r.remaining)+'</td></tr>'}).join('')+
-        '</table>':'')+
-      companyAreaRowsHtmlV189(group)+
+      '<small>يشمل جميع المناديب — ويتغير تلقائيًا حسب الفترة المحددة</small></div>';
+  }
+
+  function groupTargetSummaryOldShapeV189(groupName){
+    var members=currentGroupMembersCompanyV189(groupName),rows=groupRowsCompanyV189(groupName);
+    var s=statsCompanyV189(rows),t=targetForMembersCompanyV189(members,rows);
+    return '<div class="v350-total-summary">'+
+      '<div class="stat"><span>إجمالي المبيعات</span><strong>'+money(s.value)+'</strong></div>'+
+      '<div class="stat"><span>تارجت المنطقة بالكمية</span><strong>'+Number(t.target).toLocaleString()+' وحدة</strong><small>مجموع تارجت المناديب</small></div>'+
+      '<div class="stat"><span>المحقق بالكمية</span><strong>'+Number(t.achieved).toLocaleString()+' وحدة</strong><small>بيع فقط بدون بونص</small></div>'+
+      '<div class="stat"><span>نسبة تحقيق التارجت</span><strong>'+t.pct.toFixed(1)+'%</strong>'+
+        '<div class="v350-ach-bar"><span style="width:'+Math.min(100,Math.max(0,t.pct))+'%"></span></div></div>'+
     '</div>';
   }
 
-  function companySalesAnalyticsHtmlCleanV189(){
-    var sales=companySalesRowsV189();
-    var invoices=invoiceGroupsV189Unified(sales);
-    var total=sales.reduce(function(a,s){return a+n(s.total)},0);
-    var remaining=sales.reduce(function(a,s){return a+n(s.remaining)},0);
-    var qty=sales.reduce(function(a,s){return a+n(s.qty)},0);
-    var target=companyTargetSummaryV189(sales);
-    var groups=aggregateCompanyRegionsV189(sales);
-    var products=aggregateCompanyProductsV189(sales);
-    var topProducts=products.slice(0,10);
-    var bottomProducts=products.filter(function(x){return x.sales>0||x.qty>0}).slice().sort(function(a,b){return a.sales-b.sales||a.qty-b.qty}).slice(0,10);
-    var activeGroups=groups.filter(function(x){return x.sales>0||x.qty>0});
-    var topGroup=activeGroups.slice().sort(function(a,b){return b.sales-a.sales})[0]||null;
-    var lowGroup=activeGroups.length>1?activeGroups.slice().sort(function(a,b){return a.sales-b.sales})[0]:null;
+  function companyGroupCardOldShapeV189(groupName){
+    var cfg=COMPANY_UI_GROUPS_V189[groupName],rows=groupRowsCompanyV189(groupName),st=statsCompanyV189(rows);
+    return '<div class="v335-group-card" onclick="window.openCompanyGroupAreasCleanV189('+JSON.stringify(groupName)+');return false;">'+
+      '<h4>'+esc(groupName)+'</h4>'+
+      '<span class="v335-state '+(st.value>0?'v335-active':'v335-inactive')+'">'+(st.value>0?'نشط':'غير نشط')+'</span>'+
+      '<div class="v335-meta">'+
+        '<div><span>المبيعات</span><b>'+money(st.value)+'</b></div>'+
+        '<div><span>الكمية</span><b>'+Number(st.qty).toLocaleString()+'</b></div>'+
+        '<div><span>الفواتير</span><b>'+st.invoices+'</b></div>'+
+      '</div></div>';
+  }
 
-    return '<div class="grid grid4">'+
-      '<div class="stat"><span>إجمالي مبيعات الشركة</span><strong>'+money(total)+'</strong></div>'+
-      '<div class="stat"><span>إجمالي الكمية</span><strong>'+Number(qty).toLocaleString()+' وحدة</strong></div>'+
-      '<div class="stat"><span>عدد الفواتير</span><strong>'+invoices.length+'</strong></div>'+
-      '<div class="stat"><span>المتبقي</span><strong>'+money(remaining)+'</strong></div>'+
-    '</div>'+
-    '<div class="card"><h2>تارجت الشركة</h2><div class="grid grid4">'+
-      '<div class="stat"><span>تارجت الكمية</span><strong>'+Number(target.qtyTarget).toLocaleString()+'</strong></div>'+
-      '<div class="stat"><span>المحقق بالكمية</span><strong>'+Number(target.qtyAchieved).toLocaleString()+'</strong></div>'+
-      '<div class="stat"><span>المتبقي من تارجت الكمية</span><strong>'+Number(target.qtyRemaining).toLocaleString()+'</strong></div>'+
-      '<div class="stat"><span>نسبة تحقيق الكمية</span><strong>'+target.qtyPct.toFixed(1)+'%</strong></div>'+
-      '<div class="stat"><span>التارجت المالي</span><strong>'+money(target.moneyTarget)+'</strong></div>'+
-      '<div class="stat"><span>المحقق المالي</span><strong>'+money(target.moneyAchieved)+'</strong></div>'+
-      '<div class="stat"><span>المتبقي من التارجت المالي</span><strong>'+money(target.moneyRemaining)+'</strong></div>'+
-      '<div class="stat"><span>نسبة تحقيق المالي</span><strong>'+target.moneyPct.toFixed(1)+'%</strong></div>'+
-    '</div></div>'+
-    '<div class="card"><h2>ملخص أداء المناطق</h2><div class="grid grid4">'+
-      '<div class="stat"><span>المناطق النشطة</span><strong>'+activeGroups.length+'</strong></div>'+
-      '<div class="stat"><span>الأعلى أداءً</span><strong>'+esc(topGroup?topGroup.name:'—')+'</strong></div>'+
-      '<div class="stat"><span>الأقل بيعًا</span><strong>'+esc(lowGroup?lowGroup.name:'—')+'</strong></div>'+
-      '<div class="stat"><span>المسدد</span><strong>'+money(Math.max(0,total-remaining))+'</strong></div>'+
-    '</div></div>'+
-    groups.map(companyGroupHtmlV189).join('')+
-    '<div class="card"><h2>المنتجات الأعلى مبيعًا</h2>'+
-      (topProducts.length?'<table><tr><th>المنتج</th><th>المبيعات</th><th>الكمية</th><th>الفواتير</th></tr>'+
-       topProducts.map(function(p){return '<tr><td><b>'+esc(p.name)+'</b></td><td>'+money(p.sales)+'</td><td>'+Number(p.qty).toLocaleString()+'</td><td>'+p.invoices.size+'</td></tr>'}).join('')+'</table>':'<div class="empty">لا توجد بيانات</div>')+
-    '</div>'+
-    '<div class="card"><h2>المنتجات الأقل مبيعًا</h2>'+
-      (bottomProducts.length?'<table><tr><th>المنتج</th><th>المبيعات</th><th>الكمية</th><th>الفواتير</th></tr>'+
-       bottomProducts.map(function(p){return '<tr><td><b>'+esc(p.name)+'</b></td><td>'+money(p.sales)+'</td><td>'+Number(p.qty).toLocaleString()+'</td><td>'+p.invoices.size+'</td></tr>'}).join('')+'</table>':'<div class="empty">لا توجد بيانات</div>')+
-    '</div>'+
-    '<div class="card"><h2>تفاصيل الفواتير</h2>'+
-      (invoices.length?'<table><tr><th>التاريخ</th><th>الفاتورة</th><th>العميل</th><th>المنتجات</th><th>الإجمالي</th><th>المسدد</th><th>المتبقي</th></tr>'+
-       invoices.map(function(x){return '<tr><td>'+esc(String(x.date||'').slice(0,10))+'</td><td>'+esc(x.key)+'</td><td>'+esc(x.customer||'-')+'</td><td>'+esc(x.productsText||'-')+'</td><td>'+money(x.total)+'</td><td>'+money(x.paid)+'</td><td>'+money(x.remaining)+'</td></tr>'}).join('')+'</table>':'<div class="empty">لا توجد فواتير</div>')+
-    '</div>'+
-    '<div class="card"><h2>تفاصيل معاملات المبيعات</h2>'+salesDetailTableV189Unified(sales)+'</div>';
+  function ensureCompanyAreaModalV189(){
+    var m=document.getElementById('v335_area_modal');
+    if(m)return m;
+    m=document.createElement('div');m.id='v335_area_modal';
+    m.innerHTML='<div class="v335-modal-panel">'+
+      '<div class="v335-modal-head"><div><h2 id="v335_title"></h2><p id="v335_sub"></p></div>'+
+      '<div style="display:flex;gap:8px"><button type="button" class="btn v335-back" id="v335_back_btn" style="display:none">رجوع</button>'+
+      '<button type="button" class="btn danger" onclick="window.closeCompanyAreaModalCleanV189()">إغلاق</button></div></div>'+
+      '<div class="v335-modal-body" id="v335_body"></div></div>';
+    document.body.appendChild(m);return m;
+  }
+  window.closeCompanyAreaModalCleanV189=function(){
+    var m=document.getElementById('v335_area_modal');if(m)m.classList.remove('show');
+    document.body.style.overflow='';
+  };
+  function showCompanyAreaModalV189(title,sub,html,backFn){
+    var m=ensureCompanyAreaModalV189();
+    document.getElementById('v335_title').textContent=title||'التفاصيل';
+    document.getElementById('v335_sub').textContent=sub||'';
+    document.getElementById('v335_body').innerHTML=html||'';
+    var b=document.getElementById('v335_back_btn');
+    if(backFn){b.style.display='inline-block';b.onclick=backFn}else{b.style.display='none';b.onclick=null}
+    m.classList.add('show');document.body.style.overflow='hidden';
+  }
+
+  function areaCardsOldShapeV189(groupName,subId,label,members,areas){
+    var rowsBase=subId?subgroupRowsCompanyV189(groupName,subId):groupRowsCompanyV189(groupName);
+    var data=(areas||[]).map(function(area){
+      var rows=rowsBase.filter(function(s){return areaMatchCompanyV189(s,area)});
+      return {area:area,rows:rows,stats:statsCompanyV189(rows)};
+    });
+    var active=data.filter(function(x){return x.stats.value>0||x.stats.qty>0})
+      .sort(function(a,b){return b.stats.value-a.stats.value||b.stats.qty-a.stats.qty});
+    var focus=active[0]||null,low=active.length>1?active[active.length-1]:null;
+    var target=targetForMembersCompanyV189(members,rowsBase);
+    var repNames=(members||[]).map(function(r){return currentRepNameCompanyV189(r.name)}).filter(Boolean).join('، ')||'—';
+
+    var targetSummary='<div class="v348-target-summary">'+
+      '<div class="stat"><span>المندوب</span><strong>'+esc(repNames)+'</strong></div>'+
+      '<div class="stat"><span>تارجت المندوب بالكمية</span><strong>'+Number(target.target).toLocaleString()+' وحدة</strong></div>'+
+      '<div class="stat"><span>المحقق من البيع فقط</span><strong>'+Number(target.achieved).toLocaleString()+' وحدة</strong><small>البونص غير محسوب</small></div>'+
+      '<div class="stat"><span>المتبقي من التارجت</span><strong>'+Number(target.remaining).toLocaleString()+' وحدة</strong></div>'+
+      '<div class="stat"><span>نسبة تحقيق التارجت</span><strong>'+target.pct.toFixed(1)+'%</strong>'+
+        '<div class="v348-ach-bar"><span style="width:'+Math.min(100,Math.max(0,target.pct))+'%"></span></div></div>'+
+    '</div>';
+
+    var summary=targetSummary+'<div class="v335-summary">'+
+      '<div class="stat"><span>عدد الأحياء</span><strong>'+data.length+'</strong></div>'+
+      '<div class="stat"><span>الأحياء النشطة</span><strong>'+active.length+'</strong></div>'+
+      '<div class="stat"><span>الأحياء غير النشطة</span><strong>'+(data.length-active.length)+'</strong></div>'+
+      '<div class="stat"><span>الأكثر نشاطًا</span><strong>'+esc(focus?focus.area:'—')+'</strong></div>'+
+      '<div class="stat"><span>الأقل بيعًا</span><strong>'+esc(low?low.area:'لا توجد منطقة أخرى نشطة للمقارنة')+'</strong></div>'+
+    '</div>';
+
+    var cards='<div class="v335-area-grid">'+data.map(function(x){
+      var cls=x===focus?'v335-focus':(x===low&&x.stats.value>0?'v335-low':(x.stats.value>0?'v335-active':'v335-inactive'));
+      var tag=x===focus?'الأكثر نشاطًا':(x===low&&x.stats.value>0?'الأقل بيعًا':(x.stats.value>0?'نشط':'غير نشط'));
+      return '<div class="v335-area-card" onclick="window.openCompanyAreaDetailsCleanV189('+JSON.stringify(groupName)+','+JSON.stringify(subId||'')+','+JSON.stringify(x.area)+');return false;">'+
+        '<h4>'+esc(x.area)+'</h4><span class="v335-state '+cls+'">'+tag+'</span>'+
+        '<div class="v335-meta">'+
+          '<div><span>المبيعات</span><b>'+money(x.stats.value)+'</b></div>'+
+          '<div><span>الكمية</span><b>'+Number(x.stats.qty).toLocaleString()+'</b></div>'+
+          '<div><span>الفواتير</span><b>'+x.stats.invoices+'</b></div>'+
+        '</div></div>';
+    }).join('')+'</div>';
+
+    showCompanyAreaModalV189(label,'المندوب: '+repNames+' — تحليل الأحياء الداخلية',summary+cards,null);
+  }
+
+  window.openCompanyGroupAreasCleanV189=function(groupName){
+    var cfg=COMPANY_UI_GROUPS_V189[groupName];if(!cfg)return;
+    if(cfg.direct){
+      areaCardsOldShapeV189(groupName,'',groupName,currentGroupMembersCompanyV189(groupName),cfg.areas);
+      return;
+    }
+    var html=companyBannerOldShapeV189()+
+      '<div class="v335-root">'+
+        '<div class="v336-total-head"><div><h2>'+esc(groupName)+'</h2>'+
+        '<div class="v338-subtitle">إجمالي أداء مناديب المنطقة ثم تفاصيل كل مندوب ومناطقه.</div></div></div>'+
+        groupTargetSummaryOldShapeV189(groupName)+
+        '<div class="v335-group-grid">'+cfg.subgroups.map(function(sg){
+          var members=subgroupMembersCompanyV189(groupName,sg.id);
+          var rows=subgroupRowsCompanyV189(groupName,sg.id),st=statsCompanyV189(rows);
+          var repNames=members.map(function(r){return currentRepNameCompanyV189(r.name)}).join('، ')||'—';
+          return '<div class="v335-group-card" onclick="window.openCompanySubgroupAreasCleanV189('+JSON.stringify(groupName)+','+JSON.stringify(sg.id)+');return false;">'+
+            '<h4>'+esc(sg.label)+'</h4>'+
+            '<span class="v338-rep-label">المندوب: '+esc(repNames)+'</span>'+
+            '<div class="v335-meta">'+
+              '<div><span>المبيعات</span><b>'+money(st.value)+'</b></div>'+
+              '<div><span>الكمية</span><b>'+Number(st.qty).toLocaleString()+'</b></div>'+
+              '<div><span>الفواتير</span><b>'+st.invoices+'</b></div>'+
+            '</div></div>';
+        }).join('')+'</div></div>';
+    showCompanyAreaModalV189(groupName,'اختر المنطقة لعرض الأحياء ثم تفاصيل المبيعات والمنتجات والكميات والأسعار.',html,null);
+  };
+
+  window.openCompanySubgroupAreasCleanV189=function(groupName,subId){
+    var cfg=COMPANY_UI_GROUPS_V189[groupName];if(!cfg||!cfg.subgroups)return;
+    var sg=cfg.subgroups.find(function(x){return x.id===subId});if(!sg)return;
+    areaCardsOldShapeV189(groupName,subId,sg.label,subgroupMembersCompanyV189(groupName,subId),sg.areas);
+  };
+
+  window.openCompanyAreaDetailsCleanV189=function(groupName,subId,area){
+    var rows=areaRowsCompanyV189(groupName,subId,area),st=statsCompanyV189(rows);
+    var pmap=new Map();
+    rows.forEach(function(s){
+      var key=String(s.product_id||s.product_name||'-');
+      if(!pmap.has(key))pmap.set(key,{name:String(s.product_name||'-'),qty:0,value:0});
+      var p=pmap.get(key);p.qty+=n(s.qty);p.value+=n(s.total);
+    });
+    var products=Array.from(pmap.values()).sort(function(a,b){return b.value-a.value});
+    var summary='<div class="v335-summary">'+
+      '<div class="stat"><span>إجمالي المبيعات</span><strong>'+money(st.value)+'</strong></div>'+
+      '<div class="stat"><span>إجمالي الكمية</span><strong>'+Number(st.qty).toLocaleString()+'</strong></div>'+
+      '<div class="stat"><span>عدد الفواتير</span><strong>'+st.invoices+'</strong></div>'+
+      '<div class="stat"><span>عدد المنتجات</span><strong>'+products.length+'</strong></div>'+
+      '<div class="stat"><span>المتبقي</span><strong>'+money(st.remaining)+'</strong></div>'+
+    '</div>';
+    var prod='<div class="card"><h3>ملخص المنتجات داخل '+esc(area)+'</h3>'+
+      (products.length?'<div class="v335-table"><table><tr><th>المنتج</th><th>الكمية</th><th>قيمة المبيعات</th></tr>'+
+       products.map(function(p){return '<tr><td><b>'+esc(p.name)+'</b></td><td>'+Number(p.qty).toLocaleString()+'</td><td>'+money(p.value)+'</td></tr>'}).join('')+'</table></div>':'<div class="empty">لا توجد مبيعات.</div>')+
+      '</div>';
+    var details='<div class="card"><h3>تفاصيل المبيعات</h3>'+
+      (rows.length?'<div class="v335-table"><table><tr><th>التاريخ</th><th>الفاتورة</th><th>العميل</th><th>المندوب</th><th>المنتج</th><th>الكمية</th><th>سعر الوحدة</th><th>الإجمالي</th><th>المتبقي</th></tr>'+
+       rows.map(function(s){
+         var q=n(s.qty),tot=n(s.total),price=n(s.price)||(q?tot/q:0);
+         return '<tr><td>'+esc(String(s.date||'').slice(0,10))+'</td><td>'+esc(String(s.invoice_key||s.invoice_no||s.invoice_number||s.order_id||s.id||'-'))+'</td>'+
+           '<td>'+esc(s.customer_name||'-')+'</td><td>'+esc(currentRepNameCompanyV189(s.rep_name||'-'))+'</td><td><b>'+esc(s.product_name||'-')+'</b></td>'+
+           '<td>'+Number(q).toLocaleString()+'</td><td>'+money(price)+'</td><td>'+money(tot)+'</td><td>'+money(s.remaining)+'</td></tr>';
+       }).join('')+'</table></div>':'<div class="empty">لا توجد مبيعات في هذه المنطقة.</div>')+
+      '</div>';
+
+    var back=function(){window.openCompanyGroupAreasCleanV189(groupName)};
+    showCompanyAreaModalV189(area,'تفاصيل المبيعات والمنتجات والكميات والأسعار',summary+prod+details,back);
+  };
+
+  function companySalesAnalyticsHtmlCleanV189(){
+    var rows=companySalesRowsV189(),inv=invoiceGroupsV189Unified(rows);
+    var groups=['West Total','East Total','Delta Total','Alexandria Total'];
+    var products=[];
+    {
+      var pm=new Map();
+      rows.forEach(function(s){
+        var k=String(s.product_name||s.product_id||'غير محدد');
+        if(!pm.has(k))pm.set(k,{name:k,sales:0,qty:0,invoices:new Set()});
+        var x=pm.get(k);x.sales+=n(s.total);x.qty+=n(s.qty);x.invoices.add(String(s.invoice_key||s.invoice_no||s.order_id||s.id||''));
+      });
+      products=Array.from(pm.values()).sort(function(a,b){return b.sales-a.sales});
+    }
+    var top=products.slice(0,10),bottom=products.filter(function(x){return x.sales>0||x.qty>0}).slice().sort(function(a,b){return a.sales-b.sales}).slice(0,10);
+
+    return companyBannerOldShapeV189()+
+      '<div class="v335-root">'+
+        '<div class="v336-total-head"><div><h2>تحليل مبيعات الشركة حسب المناطق</h2>'+
+        '<div class="v338-subtitle">اضغط على West / East / Delta / Alexandria لعرض التقسيم ثم الأحياء الداخلية.</div></div></div>'+
+        '<div class="v335-group-grid">'+groups.map(companyGroupCardOldShapeV189).join('')+'</div>'+
+      '</div>'+
+      '<div class="v306-grid2" style="margin-top:16px">'+
+        '<div class="v306-card"><h3>المنتجات الأعلى مبيعًا</h3>'+
+          (top.length?'<table><tr><th>المنتج</th><th>المبيعات</th><th>الكمية</th></tr>'+top.map(function(p){return '<tr><td><b>'+esc(p.name)+'</b></td><td>'+money(p.sales)+'</td><td>'+Number(p.qty).toLocaleString()+'</td></tr>'}).join('')+'</table>':'<div class="empty">لا توجد بيانات</div>')+
+        '</div>'+
+        '<div class="v306-card"><h3>المنتجات الأقل مبيعًا</h3>'+
+          (bottom.length?'<table><tr><th>المنتج</th><th>المبيعات</th><th>الكمية</th></tr>'+bottom.map(function(p){return '<tr><td><b>'+esc(p.name)+'</b></td><td>'+money(p.sales)+'</td><td>'+Number(p.qty).toLocaleString()+'</td></tr>'}).join('')+'</table>':'<div class="empty">لا توجد بيانات</div>')+
+        '</div>'+
+      '</div>'+
+      '<div class="v306-card" style="margin-top:16px"><div class="v306-section-title"><h3>تفاصيل معاملات المبيعات</h3><span class="v306-chip">'+inv.length+' معاملة / '+rows.length+' سطر بيع</span></div>'+
+        salesDetailTableV189Unified(rows)+'</div>';
   }
 
   window.openUnifiedRepDrillV189=function(repId,kind){
