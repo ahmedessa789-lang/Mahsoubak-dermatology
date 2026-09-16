@@ -302,11 +302,11 @@ ${compactDashboardBox('purchases',lang==='ar'?'المشتريات':'Purchasing',
 ${compactDashboardBox('reps',lang==='ar'?'البياعين':'Sales reps',avgRepPercentFiltered()+'%',[(lang==='ar'?'التارجت':'Target')+': '+money(totalRepTarget()),(lang==='ar'?'تحقيق الفترة':'Period achieved')+': '+money(totalRepAchievedFiltered())])}
 ${compactDashboardBox('customers',lang==='ar'?'العملاء':'Customers',db.customers.length,[(lang==='ar'?'مديونية':'Debt')+': '+money(debt),(lang==='ar'?'تحصيلات':'Collections')+': '+fc.length])}
 </div><div class="clean-dashboard-sections no-print"><details class="erp-details"><summary>${lang==='ar'?'تقارير الفترة والطباعة':'Period reports and export'}</summary><div class="details-body">${dashboardRangeControls()}</div></details><details class="erp-details"><summary>${lang==='ar'?'تفاصيل تشغيلية: البياعين / المخزون / المديونيات / الصلاحية':'Operational details: reps / stock / debts / expiry'}</summary><div class="details-body insight-grid clean-insights"><div class="insight-card insight-reps"><div class="section-title"><h3>${T('reps')}</h3><button class="btn small secondary" onclick="show('reps')">${T('reps')}</button></div>${repTargetTable()}</div><div class="insight-card insight-stock"><div class="section-title"><h3>${T('stockAvailability')}</h3><button class="btn small secondary" onclick="show('products')">${T('products')}</button></div>${stockAvailabilityTable()}</div><div class="insight-card insight-debt"><div class="section-title"><h3>${T('customerDebt')}</h3><button class="btn small secondary" onclick="show('customers')">${T('customers')}</button></div>${customerDebtTable()}</div><div class="insight-card insight-expiry"><div class="section-title"><h3>${T('expiryAlert')}</h3><button class="btn small secondary" onclick="show('products')">${T('products')}</button></div>${expiryTable()}</div></div></details></div>`}
-function compactDashboardBox(key,title,value,lines){let hint=lang==='ar'?'فتح التفاصيل':'Open details';return `<div class="module-tile tile-${key}" onclick="openDashboardCard('${key}')"><div class="tile-icon">${icons[key]||'📌'}</div><div class="tile-body"><div class="tile-title">${title}</div><div class="tile-value">${value}</div><div class="tile-lines">${lines.map(x=>`<span>${x}</span>`).join('')}</div></div><div class="tile-open">${hint}</div></div>`}
+function compactDashboardBox(key,title,value,lines){let hint=lang==='ar'?'فتح التفاصيل':'Open details';return `<div class="module-tile tile-${key}" onclick="window.openDashboardCard('${key}');return false;"><div class="tile-icon">${icons[key]||'📌'}</div><div class="tile-body"><div class="tile-title">${title}</div><div class="tile-value">${value}</div><div class="tile-lines">${lines.map(x=>`<span>${x}</span>`).join('')}</div></div><div class="tile-open">${hint}</div></div>`}
 function expiryTable(){let arr=db.products.map(p=>({p,st:expiryStatus(p)})).filter(x=>x.st.cls==='warn'||x.st.cls==='low');if(!arr.length)return `<div class="empty">${T('empty')}</div>`;return `<table><tr><th>${T('product')}</th><th>${T('expiry')}</th><th>${T('status')}</th></tr>${arr.map(x=>`<tr><td>${esc(x.p.name)}</td><td>${esc(x.p.expiry)}</td><td><span class="badge ${x.st.cls}">${x.st.label} ${x.st.days!==null?Math.abs(x.st.days)+' '+T('daysLeft'):''}</span></td></tr>`).join('')}</table>`}
 function repChart(){if(!db.reps.length)return `<div class="empty">${T('empty')}</div>`;return db.reps.map(r=>{let a=repAchievement(r.id),pct=n(r.target)?Math.min(100,Math.round(a/n(r.target)*100)):0;return `<div style="margin-bottom:12px"><b>${esc(r.name)}</b><span class="hint">${money(a)} / ${money(r.target)}</span><div class="chartbar"><span style="width:${pct}%"></span></div></div>`}).join('')}
 function customerDebtTable(){let arr=db.customers.filter(c=>n(c.balance)>0);if(!arr.length)return `<div class="empty">${T('empty')}</div>`;return `<table><tr><th>${T('customer')}</th><th>${T('phone')}</th><th>${T('balance')}</th></tr>${arr.map(c=>`<tr><td>${esc(c.name)}</td><td>${esc(c.phone)}</td><td>${money(c.balance)}</td></tr>`).join('')}</table>`}
-function dashboardBox(key,title,label,value,bars,metrics){let hint=lang==='ar'?'اضغط للتفاصيل':'Click for details';return `<div class="dash-card dash-${key}" onclick="openDashboardCard('${key}')"><div class="dash-head"><div><div class="dash-title">${title}</div><div class="dash-sub">${label}</div></div><div class="dash-value">${value}</div></div>${miniBars(bars)}<div class="metric-list">${metrics.map(m=>`<div class="metric-row"><span>${m[0]}</span><b>${m[1]}</b><div class="mini-progress"><span style="width:${metricWidth(m[1])}%"></span></div></div>`).join('')}</div><div class="open-hint">${hint}</div></div>`}
+function dashboardBox(key,title,label,value,bars,metrics){let hint=lang==='ar'?'اضغط للتفاصيل':'Click for details';return `<div class="dash-card dash-${key}" onclick="window.openDashboardCard('${key}');return false;"><div class="dash-head"><div><div class="dash-title">${title}</div><div class="dash-sub">${label}</div></div><div class="dash-value">${value}</div></div>${miniBars(bars)}<div class="metric-list">${metrics.map(m=>`<div class="metric-row"><span>${m[0]}</span><b>${m[1]}</b><div class="mini-progress"><span style="width:${metricWidth(m[1])}%"></span></div></div>`).join('')}</div><div class="open-hint">${hint}</div></div>`}
 function miniBars(arr){return `<div class="mini-bars">${arr.map(x=>{let pct=Math.max(7,Math.min(100,Math.round(n(x.v)/Math.max(n(x.max),1)*100)));return `<div class="mini-col"><i style="height:${pct}%"></i><small>${esc(x.l)}</small></div>`}).join('')}</div>`}
 function metricWidth(v){let num=String(v).replace(/[^0-9.]/g,'');return Math.max(8,Math.min(100,n(num)%101||55))}
 function expiryCount(){let r={ok:0,warn:0,low:0};db.products.forEach(p=>{let s=expiryStatus(p).cls;r[s]=(r[s]||0)+1});return r}
@@ -316,14 +316,17 @@ function avgRepPercent(){let t=totalRepTarget();return t?Math.round(totalRepAchi
 function repBarData(){let max=Math.max(...db.reps.map(r=>n(r.target)),1);let arr=db.reps.slice(0,4).map(r=>({l:r.name.split(' ')[0]||T('rep'),v:repAchievement(r.id),max:Math.max(n(r.target),max,1)}));return arr.length?arr:[{l:T('reps'),v:0,max:1},{l:T('target'),v:0,max:1},{l:T('sales'),v:0,max:1}]}
 function repBarDataFiltered(){let max=Math.max(...db.reps.map(r=>n(r.target)),1);let arr=db.reps.slice(0,4).map(r=>({l:r.name.split(' ')[0]||T('rep'),v:repAchievementFiltered(r.id),max:Math.max(n(r.target),max,1)}));return arr.length?arr:[{l:T('reps'),v:0,max:1},{l:T('target'),v:0,max:1},{l:T('sales'),v:0,max:1}]}
 
-function openDashboardCard(key){
+window.openDashboardCard=function(key){
   const modal=document.getElementById('dashModal');
   const box=document.getElementById('dashModalContent');
+  if(!modal||!box)return false;
   box.innerHTML=expandedDashboardHTML(key);
   modal.classList.add('show');
   document.body.classList.add('modal-open');
-}
-function closeDashboardModal(e){document.getElementById('dashModal').classList.remove('show');document.body.classList.remove('modal-open')}
+  return true;
+};
+try{openDashboardCard=window.openDashboardCard}catch(e){}
+window.closeDashboardModal=function(e){var m=document.getElementById('dashModal');if(m)m.classList.remove('show');document.body.classList.remove('modal-open')};try{closeDashboardModal=window.closeDashboardModal}catch(e){}
 function expandedStats(items){return `<div class="dash-expanded-grid">${items.map(i=>`<div class="dash-expanded-stat"><span>${i[0]}</span><strong>${i[1]}</strong></div>`).join('')}</div>`}
 function bigBars(items){let max=Math.max(...items.map(i=>n(i.v)),1);return `<div class="big-bars">${items.map(i=>{let pct=Math.max(8,Math.min(100,Math.round(n(i.v)/max*100)));return `<div class="big-col"><i style="height:${pct}%"></i><b>${esc(i.l)}</b><small>${i.display||money(i.v)}</small></div>`}).join('')}</div>`}
 function modalHeader(title,sub){return `<div class="dash-panel-head"><div><h2>${title}</h2><p>${sub}</p></div><div class="actions"><button class="dash-close" onclick="window.print()">${lang==='ar'?'طباعة':'Print'}</button><button class="dash-close" onclick="closeDashboardModal()">${lang==='ar'?'إغلاق':'Close'}</button></div></div>`}
@@ -882,7 +885,7 @@ function candleBars(arr){
 function dashboardBox(key,title,label,value,bars,metrics){
   let hint=lang==='ar'?'فتح شاشة التفاصيل':'Open details';
   let tr=exchangeTrend(bars);
-  return `<div class="dash-card dash-${key}" onclick="openDashboardCard('${key}')"><div class="exchange-head"><div><span class="exchange-code">${exchangeCode(key)}</span><div class="dash-title" style="margin-top:10px">${title}</div><div class="dash-sub">${label}</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:9px"><div class="dash-value">${value}</div><span class="exchange-trend ${tr.dir}">${tr.icon} ${tr.txt}</span></div></div>
+  return `<div class="dash-card dash-${key}" onclick="window.openDashboardCard('${key}');return false;"><div class="exchange-head"><div><span class="exchange-code">${exchangeCode(key)}</span><div class="dash-title" style="margin-top:10px">${title}</div><div class="dash-sub">${label}</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:9px"><div class="dash-value">${value}</div><span class="exchange-trend ${tr.dir}">${tr.icon} ${tr.txt}</span></div></div>
     ${candleBars(bars)}
     <div class="metric-list">${metrics.map(m=>`<div class="metric-row"><span>${m[0]}</span><b>${m[1]}</b><div class="mini-progress"><span style="width:${metricWidth(m[1])}%"></span></div></div>`).join('')}</div><div class="open-hint">${hint}</div></div>`;
 }
@@ -8463,20 +8466,9 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
     document.getElementById('v189_drill_close').onclick=function(){m.remove();document.body.style.overflow=''};
   }
 
-  window.openRepPaidSettledDetailsV500=function(repId){
-    let arr=invoiceGroupsV189(salesRowsV189(repId)).filter(x=>x.paid>0.0001);
-    let total=arr.reduce((a,x)=>a+x.paid,0);
-    let html=`<div class="grid grid4"><div class="stat"><span>إجمالي المسدد</span><strong>${money(total)}</strong></div><div class="stat"><span>عدد الفواتير التي بها سداد</span><strong>${arr.length}</strong></div></div>`+
-      (arr.length?`<div class="card"><table><tr><th>التاريخ</th><th>الفاتورة</th><th>العميل</th><th>المنتجات</th><th>الإجمالي</th><th>المسدد</th><th>المتبقي</th><th>الحالة</th></tr>${arr.map(x=>`<tr><td>${esc(String(x.date||'').slice(0,10))}</td><td>${esc(x.key)}</td><td>${esc(x.customer||'-')}</td><td>${esc(x.productsText||'-')}</td><td>${money(x.total)}</td><td><b>${money(x.paid)}</b></td><td>${money(x.remaining)}</td><td>${x.remaining<=0.0001?'مسددة بالكامل':'مسددة جزئيًا'}</td></tr>`).join('')}</table></div>`:`<div class="empty">لا توجد فواتير عليها سداد</div>`);
-    openRepDrillModalV189('المدفوع / المسدد — '+repDisplayV189(repId),html);
-  };
+  window.openRepPaidSettledDetailsV500=function(repId){return window.openUnifiedRepDrillV189(repId,'paid')};
 
-  window.openRepInvoicesGroupedV500=function(repId){
-    let arr=invoiceGroupsV189(salesRowsV189(repId));
-    let html=`<div class="grid grid4"><div class="stat"><span>عدد الفواتير</span><strong>${arr.length}</strong></div></div>`+
-      (arr.length?`<div class="card"><table><tr><th>التاريخ</th><th>الفاتورة</th><th>العميل</th><th>المنتجات</th><th>الإجمالي</th><th>المسدد</th><th>المتبقي</th></tr>${arr.map(x=>`<tr><td>${esc(String(x.date||'').slice(0,10))}</td><td>${esc(x.key)}</td><td>${esc(x.customer||'-')}</td><td>${esc(x.productsText||'-')}</td><td>${money(x.total)}</td><td>${money(x.paid)}</td><td>${money(x.remaining)}</td></tr>`).join('')}</table></div>`:`<div class="empty">لا توجد فواتير</div>`);
-    openRepDrillModalV189('فواتير — '+repDisplayV189(repId),html);
-  };
+  window.openRepInvoicesGroupedV500=function(repId){return window.openUnifiedRepDrillV189(repId,'invoices')};
 
 
   function invoiceGroupsV189Unified(rows){
@@ -8568,29 +8560,7 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
   window.openRepPaidSettledDetailsV500=function(repId){window.openUnifiedRepDrillV189(repId,'paid')};
   window.openRepInvoicesGroupedV500=function(repId){window.openUnifiedRepDrillV189(repId,'invoices')};
 
-
-  if(!window.__v189SingleSourceDrillBound){
-    window.__v189SingleSourceDrillBound=true;
-    document.addEventListener('click',function(e){
-      var card=e.target&&e.target.closest?e.target.closest('.v189-drill-card'):null;
-      if(!card)return;
-      var host=document.getElementById('rep_details_body_v175');
-      if(!host || !host.contains(card))return;
-      e.preventDefault();
-      e.stopPropagation();
-      if(typeof e.stopImmediatePropagation==='function')e.stopImmediatePropagation();
-      var repId=String(card.getAttribute('data-v189-rep-id')||'');
-      var kind=String(card.getAttribute('data-v189-drill')||'');
-      if(!repId||!kind)return;
-      if(typeof window.openUnifiedRepDrillV189==='function'){
-        window.openUnifiedRepDrillV189(repId,kind);
-      }else{
-        console.error('V189 drill handler unavailable',repId,kind);
-      }
-    },true);
-  }
-
-  function buildReportV189(repId){
+function buildReportV189(repId){
     let sales=salesRowsV189(repId);
     let collections=collectionRowsV189(repId);
     let customerMap=new Map();
@@ -8646,21 +8616,21 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
 
     return `
       <div class="rep-detail-head-v175"><div><h2>${esc(repDisplayV189(repId))}</h2><p>${repReportFilterV189.from||'البداية'} → ${repReportFilterV189.to||'النهاية'}</p></div><button type="button" class="btn blue" onclick="printFilteredRepV189()">طباعة التقرير</button></div>
-      <div class="v302-company-sales-banner v189-drill-card" data-v189-rep-id="${esc(String(repId))}" data-v189-drill="company-sales" title="اضغط لعرض نفس المبيعات المحتسبة" style="cursor:pointer">
+      <div class="v302-company-sales-banner " title="اضغط لعرض نفس المبيعات المحتسبة" style="cursor:pointer" onclick='window.openUnifiedRepDrillV189(${JSON.stringify(String(repId))},"company-sales");return false;'>
         <span>إجمالي مبيعات الشركة كلها خلال المدة</span>
         <strong>${money(companySalesTotal)}</strong>
         <small>يشمل جميع المندوبين — ويتغير تلقائيًا حسب تاريخ من / إلى</small>
       </div>
       <div class="grid grid4 rep-summary-v175">
-        <div class="stat v189-drill-card" data-v189-rep-id="${esc(String(repId))}" data-v189-drill="sales" title="اضغط لعرض نفس المبيعات المحتسبة" style="cursor:pointer"><span>المبيعات خلال المدة</span><strong>${money(salesTotal)}</strong></div>
-        <div class="stat v189-drill-card" data-v189-rep-id="${esc(String(repId))}" data-v189-drill="paid" title="اضغط لعرض نفس العملاء والفواتير التي كوّنت قيمة المسدد" style="cursor:pointer"><span>المدفوع / المسدد</span><strong>${money(settledDisplayTotal)}</strong><small style="display:block;margin-top:4px">${money(salesTotal)} − ${money(remainingTotal)}</small></div>
-        <div class="stat v189-drill-card" data-v189-rep-id="${esc(String(repId))}" data-v189-drill="remaining" title="اضغط لعرض نفس الفواتير المتبقي عليها" style="cursor:pointer"><span>المتبقي على العملاء</span><strong>${money(remainingTotal)}</strong></div>
-        <div class="stat v189-drill-card" data-v189-rep-id="${esc(String(repId))}" data-v189-drill="invoices" title="اضغط لعرض نفس الفواتير المحتسبة" style="cursor:pointer"><span>عدد الفواتير</span><strong>${repInvoiceCount}</strong></div>
+        <div class="stat " title="اضغط لعرض نفس المبيعات المحتسبة" style="cursor:pointer" onclick='window.openUnifiedRepDrillV189(${JSON.stringify(String(repId))},"sales");return false;'><span>المبيعات خلال المدة</span><strong>${money(salesTotal)}</strong></div>
+        <div class="stat " title="اضغط لعرض نفس العملاء والفواتير التي كوّنت قيمة المسدد" style="cursor:pointer" onclick='window.openUnifiedRepDrillV189(${JSON.stringify(String(repId))},"paid");return false;'><span>المدفوع / المسدد</span><strong>${money(settledDisplayTotal)}</strong><small style="display:block;margin-top:4px">${money(salesTotal)} − ${money(remainingTotal)}</small></div>
+        <div class="stat " title="اضغط لعرض نفس الفواتير المتبقي عليها" style="cursor:pointer" onclick='window.openUnifiedRepDrillV189(${JSON.stringify(String(repId))},"remaining");return false;'><span>المتبقي على العملاء</span><strong>${money(remainingTotal)}</strong></div>
+        <div class="stat " title="اضغط لعرض نفس الفواتير المحتسبة" style="cursor:pointer" onclick='window.openUnifiedRepDrillV189(${JSON.stringify(String(repId))},"invoices");return false;'><span>عدد الفواتير</span><strong>${repInvoiceCount}</strong></div>
       </div><div class="grid grid4 rep-target-summary-v189">
-        <div class="stat v189-drill-card" data-v189-rep-id="${esc(String(repId))}" data-v189-drill="target" title="اضغط لعرض تفاصيل التارجت" style="cursor:pointer"><span>التارجت (${target.label})</span><strong>${Number(target.target).toLocaleString()}</strong></div>
-        <div class="stat v189-drill-card" data-v189-rep-id="${esc(String(repId))}" data-v189-drill="achieved" title="اضغط لعرض الصفوف التي كوّنت المحقق" style="cursor:pointer"><span>المحقق خلال المدة</span><strong>${Number(target.achieved).toLocaleString()}</strong></div>
-        <div class="stat v189-drill-card" data-v189-rep-id="${esc(String(repId))}" data-v189-drill="target-remaining" title="اضغط لعرض تفاصيل المتبقي من التارجت" style="cursor:pointer"><span>المتبقي من التارجت</span><strong>${Number(remainingTarget).toLocaleString()}</strong></div>
-        <div class="stat v189-drill-card" data-v189-rep-id="${esc(String(repId))}" data-v189-drill="percent" title="اضغط لعرض معادلة نسبة التحقيق" style="cursor:pointer"><span>نسبة التحقيق</span><strong>${percent}%</strong></div>
+        <div class="stat " title="اضغط لعرض تفاصيل التارجت" style="cursor:pointer" onclick='window.openUnifiedRepDrillV189(${JSON.stringify(String(repId))},"target");return false;'><span>التارجت (${target.label})</span><strong>${Number(target.target).toLocaleString()}</strong></div>
+        <div class="stat " title="اضغط لعرض الصفوف التي كوّنت المحقق" style="cursor:pointer" onclick='window.openUnifiedRepDrillV189(${JSON.stringify(String(repId))},"achieved");return false;'><span>المحقق خلال المدة</span><strong>${Number(target.achieved).toLocaleString()}</strong></div>
+        <div class="stat " title="اضغط لعرض تفاصيل المتبقي من التارجت" style="cursor:pointer" onclick='window.openUnifiedRepDrillV189(${JSON.stringify(String(repId))},"target-remaining");return false;'><span>المتبقي من التارجت</span><strong>${Number(remainingTarget).toLocaleString()}</strong></div>
+        <div class="stat " title="اضغط لعرض معادلة نسبة التحقيق" style="cursor:pointer" onclick='window.openUnifiedRepDrillV189(${JSON.stringify(String(repId))},"percent");return false;'><span>نسبة التحقيق</span><strong>${percent}%</strong></div>
       </div>
       ${detailSectionsV189(repId,sales,collections)}`;
   }
@@ -37242,256 +37212,7 @@ window.auditWarehouseSource=function(){
   return result;
 };
 </script>
-<script id="mb-card-detail-sync-only">
-(function(){
-'use strict';
-if(window.__MB_CARD_DETAIL_SYNC_ONLY__)return;
-window.__MB_CARD_DETAIL_SYNC_ONLY__=true;
 
-function A(v){return Array.isArray(v)?v:[]}
-function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
-function S(v){return String(v==null?'':v).trim()}
-function M(v){try{return typeof money==='function'?money(v):('EGP '+N(v).toLocaleString())}catch(e){return 'EGP '+N(v).toLocaleString()}}
-function E(v){try{return typeof esc==='function'?esc(v):S(v)}catch(e){return S(v)}}
-
-/* These getters deliberately call the existing R3 business calculations. */
-function salesRows(){return A(db&&db.sales)}
-function salesTotal(){try{return typeof totalSales==='function'?N(totalSales()):salesRows().reduce(function(a,x){return a+N(x.total)},0)}catch(e){return salesRows().reduce(function(a,x){return a+N(x.total)},0)}}
-function collectionsRows(){try{return typeof dashboardCollectionsAllV446==='function'?A(dashboardCollectionsAllV446()):A(db&&db.collections)}catch(e){return A(db&&db.collections)}}
-function collectionsTotal(){return collectionsRows().reduce(function(a,x){return a+N(x.amount)},0)}
-function debtTotal(){try{return N(customerDebt())}catch(e){return 0}}
-function stockValue(){try{return N(inventoryValue())}catch(e){return 0}}
-function purchaseTotal(){try{return typeof totalPurchases==='function'?N(totalPurchases()):A(db&&db.purchases).reduce(function(a,x){return a+N(x.total)},0)}catch(e){return A(db&&db.purchases).reduce(function(a,x){return a+N(x.total)},0)}}
-function supplierDueTotal(){try{return N(supplierDue())}catch(e){return 0}}
-function operationRows(){try{return typeof warehouseWorkflowRows==='function'?A(warehouseWorkflowRows()):A(db&&db.operations)}catch(e){return A(db&&db.operations)}}
-function currentActiveRepsForDash(){
-  var raw=A(db&&db.reps).filter(function(r){return r&&r.active!==false&&r.inactive_v452!==true}),map=new Map();
-  raw.forEach(function(r){
-    var name=S(r.name);try{if(typeof window.currentRepNameV490==='function')name=S(window.currentRepNameV490(name)||name)}catch(e){}
-    var k=norm(name);if(!k)return;
-    var prev=map.get(k),exact=norm(r.name)===k;
-    if(!prev||exact)map.set(k,r);
-  });
-  return Array.from(map.values());
-}
-function repTargetTotal(){
-  return currentActiveRepsForDash().reduce(function(a,r){return a+N(r.target_qty!=null?r.target_qty:(r.target_value!=null?r.target_value:(r.target!=null?r.target:r.sales_target)))},0)
-}
-function repAchievedValue(){
-  return currentActiveRepsForDash().reduce(function(sum,r){
-    var rows=[];try{rows=window.MahsoubakMetrics&&typeof window.MahsoubakMetrics.rowsForRep==='function'?A(window.MahsoubakMetrics.rowsForRep(r.id)):A(salesRowsV189(r.id))}catch(e){}
-    return sum+rows.reduce(function(a,s){return a+N(s.qty)},0)
-  },0)
-}
-function repPct(){var t=repTargetTotal(),a=repAchievedValue();return t>0?a/t*100:0}
-function lowStockCount(){return A(db&&db.products).filter(function(p){return N(p.stock)<=N(p.min)}).length}
-
-function snapshot(){
-  var ops=operationRows();
-  return {
-    sales:salesTotal(),
-    collections:collectionsTotal(),
-    debt:debtTotal(),
-    invoices:(function(){try{return typeof dashboardInvoiceGroupsV446==='function'?A(dashboardInvoiceGroupsV446(salesRows())).length:salesRows().length}catch(e){return salesRows().length}})(),
-    stock:stockValue(),
-    products:A(db&&db.products).length,
-    low:lowStockCount(),
-    requested:ops.filter(function(o){return o.status==='requested'}).length,
-    prepared:ops.filter(function(o){return o.status==='prepared'}).length,
-    sold:ops.filter(function(o){return o.status==='sold'}).length,
-    purchases:purchaseTotal(),
-    supplierDue:supplierDueTotal(),
-    purchaseInvoices:A(db&&db.purchases).length,
-    repsPct:repPct(),
-    repsTarget:repTargetTotal(),
-    repsAchieved:repAchievedValue(),
-    customers:A(db&&db.customers).length
-  };
-}
-window.MBCardSnapshot=snapshot;
-
-function setTile(key,value,lines){
-  var tile=document.querySelector('#view-dashboard .tile-'+key+', #view-dashboard .dash-'+key);
-  if(!tile)return;
-  var val=tile.querySelector('.tile-value,.dash-value');
-  if(val)val.textContent=value;
-  var lineBox=tile.querySelector('.tile-lines');
-  if(lineBox&&Array.isArray(lines)){
-    lineBox.innerHTML=lines.map(function(x){return '<span>'+E(x)+'</span>'}).join('');
-  }
-}
-
-function syncDashboardCards(){
-  var x=snapshot();
-  setTile('sales',M(x.sales),['تحصيلات: '+M(x.collections),'فواتير: '+x.invoices]);
-  setTile('stock',M(x.stock),['أصناف: '+x.products,'ناقص: '+x.low]);
-  setTile('operations',String(x.requested),['جاهز: '+x.prepared,'تم البيع: '+x.sold]);
-  setTile('purchases',M(x.purchases),['مستحقات موردين: '+M(x.supplierDue),'فواتير: '+x.purchaseInvoices]);
-  setTile('reps',x.repsPct.toFixed(1)+'%',['التارجت (كمية): '+x.repsTarget.toLocaleString(),'المحقق (كمية): '+x.repsAchieved.toLocaleString()]);
-  setTile('customers',M(x.debt),['عدد العملاء: '+x.customers,'تحصيلات: '+M(x.collections)]);
-}
-
-/* Detail header numbers use THE SAME snapshot as the cards.
-   Existing detail tables remain unchanged. */
-var oldExpanded = window.expandedDashboardHTML || (typeof expandedDashboardHTML==='function'?expandedDashboardHTML:null);
-
-function stats(items){
-  return '<div class="dash-expanded-grid">'+items.map(function(i){return '<div class="dash-expanded-stat"><span>'+E(i[0])+'</span><strong>'+i[1]+'</strong></div>'}).join('')+'</div>';
-}
-function table(headers,rows){
-  if(!rows.length)return '<div class="empty">لا توجد بيانات</div>';
-  return '<table><tr>'+headers.map(function(h){return '<th>'+E(h)+'</th>'}).join('')+'</tr>'+
-    rows.map(function(r){return '<tr>'+r.map(function(c){return '<td>'+c+'</td>'}).join('')+'</tr>'}).join('')+'</table>';
-}
-function dashHead(title,sub){
-  return '<div class="dash-panel-head"><div><h2>'+E(title)+'</h2><p>'+E(sub||'')+'</p></div><div class="actions"><button class="dash-close" onclick="window.print()">طباعة</button><button class="dash-close" onclick="closeDashboardModal()">إغلاق</button></div></div>';
-}
-function invoiceKeyDash(s){return S(s&& (s.invoice_key||s.invoice_number||s.invoice_no||s.invoice_group_id||s.order_id||s.id))}
-function invoiceGroupsDash(rows){
-  var map=new Map();
-  A(rows).forEach(function(s){
-    var k=invoiceKeyDash(s)||('ROW_'+S(s&&s.id));
-    if(!map.has(k))map.set(k,{key:k,date:s.date||'',customer:s.customer_name||'',rep:s.rep_name||'',products:new Set(),total:0,remaining:0});
-    var g=map.get(k);if(S(s.product_name))g.products.add(S(s.product_name));g.total+=N(s.total);g.remaining+=N(s.remaining);
-  });
-  return Array.from(map.values()).map(function(g){g.paid=Math.max(0,g.total-g.remaining);g.productsText=Array.from(g.products).join('، ');return g});
-}
-function canonicalDebtRowsDash(){
-  try{
-    if(typeof window.customerDebtReportRowsV485==='function'){
-      return A(window.customerDebtReportRowsV485(true)).map(function(r){
-        return {id:r.id||'',name:r.name||r.customer_name||'-',phone:r.phone||'',debt:N(r.debt),rows:A(r.rows)};
-      });
-    }
-  }catch(e){}
-  return A(db&&db.customers).map(function(c){return{id:c.id||'',name:c.name||c.customer_name||'-',phone:c.phone||'',debt:N(c.balance),rows:[]}});
-}
-function expiryRowsDash(){
-  return A(db&&db.products).map(function(p){
-    var st;try{st=typeof expiryStatus==='function'?expiryStatus(p):null}catch(e){}
-    return {p:p,st:st||{cls:'',label:'',days:null}};
-  }).filter(function(x){return x.st.cls==='warn'||x.st.cls==='low'});
-}
-function rowsForCurrentRepDash(r){
-  try{
-    if(window.MahsoubakMetrics&&typeof window.MahsoubakMetrics.rowsForRep==='function')return A(window.MahsoubakMetrics.rowsForRep(r.id));
-    if(typeof window.salesRowsV189==='function')return A(window.salesRowsV189(r.id));
-  }catch(e){}
-  return [];
-}
-
-window.expandedDashboardHTML=function(key){
-  var x=snapshot(), html='';
-  if(key==='sales'){
-    var sr=salesRows(), ig=invoiceGroupsDash(sr), cr=collectionsRows();
-    html=dashHead('تفاصيل المبيعات','نفس مصدر كارت المبيعات')+
-      stats([['إجمالي المبيعات',M(x.sales)],['التحصيلات',M(x.collections)],['مديونية العملاء',M(x.debt)],['عدد الفواتير',String(x.invoices)]])+
-      '<div class="card"><h3>الفواتير المحتسبة</h3>'+
-      table(['التاريخ','الفاتورة','العميل','المندوب','المنتجات','الإجمالي','المسدد','المتبقي'],ig.map(function(g){return [E(g.date),E(g.key),E(g.customer),E(g.rep),E(g.productsText||'-'),M(g.total),M(g.paid),M(g.remaining)]}))+'</div>'+
-      '<div class="card"><h3>صفوف المبيعات</h3>'+
-      table(['التاريخ','العميل','المندوب','المنتج','الكمية','الإجمالي','المتبقي'],sr.map(function(s){return[E(s.date||''),E(s.customer_name||'-'),E(s.rep_name||'-'),E(s.product_name||'-'),String(N(s.qty)),M(s.total),M(s.remaining)]}))+'</div>'+
-      '<div class="card"><h3>التحصيلات</h3>'+
-      table(['التاريخ','العميل','المندوب','القيمة'],cr.map(function(c){return[E(c.date||''),E(c.customer_name||'-'),E(c.rep_name||'-'),M(c.amount)]}))+'</div>';
-    return html;
-  }
-  if(key==='stock'){
-    var pr=A(db&&db.products);
-    return dashHead('تفاصيل المخزون','نفس مصدر كارت قيمة المخزون')+
-      stats([['قيمة المخزون',M(x.stock)],['عدد الأصناف',String(x.products)],['أصناف ناقصة',String(x.low)]])+
-      '<div class="card">'+table(['الصنف','البراند','المخزون','الحد الأدنى','سعر الشراء','قيمة المخزون','الصلاحية'],pr.map(function(p){return[E(p.name||'-'),E(p.brand||'-'),String(N(p.stock)),String(N(p.min)),M(p.purchase_price||p.cost),M(N(p.stock)*N(p.purchase_price||p.cost)),E(p.expiry||'-')]}))+'</div>';
-  }
-  if(key==='expiry'){
-    var er=expiryRowsDash();
-    return dashHead('تنبيه الصلاحية','نفس الأصناف المحتسبة في تنبيه الشاشة الرئيسية')+
-      stats([['عدد تنبيهات الصلاحية',String(er.length)],['أصناف ناقصة',String(x.low)]])+
-      '<div class="card">'+table(['الصنف','الصلاحية','الحالة','الأيام'],er.map(function(z){return[E(z.p.name||'-'),E(z.p.expiry||'-'),E(z.st.label||'-'),z.st.days==null?'-':String(z.st.days)]}))+'</div>';
-  }
-  if(key==='operations'){
-    var ops=operationRows();
-    return dashHead('تفاصيل العمليات','نفس مصدر كارت العمليات')+
-      stats([['طلبات تجهيز',String(x.requested)],['جاهز',String(x.prepared)],['تم البيع',String(x.sold)]])+
-      '<div class="card">'+table(['التاريخ','العميل','المنتج','المندوب','الكمية','الإجمالي','الحالة'],ops.map(function(o){return[E(o.date||''),E(o.customer_name||'-'),E(o.product_name||'-'),E(o.rep_name||'-'),String(N(o.qty)),M(o.total),E(o.status||'-')]}))+'</div>';
-  }
-  if(key==='purchases'){
-    var pp=A(db&&db.purchases);
-    return dashHead('تفاصيل المشتريات','نفس مصدر كارت المشتريات')+
-      stats([['إجمالي المشتريات',M(x.purchases)],['مستحقات الموردين',M(x.supplierDue)],['عدد الفواتير',String(x.purchaseInvoices)]])+
-      '<div class="card">'+table(['التاريخ','المورد','المنتج','الكمية','الإجمالي','المتبقي'],pp.map(function(p){return[E(p.date||''),E(p.supplier_name||'-'),E(p.product_name||'-'),String(N(p.qty)),M(p.total),M(p.remaining)]}))+'</div>';
-  }
-  if(key==='reps'){
-    var reps=currentActiveRepsForDash();
-    var rr=reps.map(function(r){
-      var rows=rowsForCurrentRepDash(r),ach=rows.reduce(function(a,s){return a+N(s.qty)},0);
-      var target=N(r.target_qty!=null?r.target_qty:(r.target_value!=null?r.target_value:(r.target!=null?r.target:r.sales_target)));
-      var sales=rows.reduce(function(a,s){return a+N(s.total)},0);
-      return {name:r.name||'-',target:target,achieved:ach,remaining:Math.max(0,target-ach),pct:target>0?ach/target*100:0,sales:sales};
-    });
-    return dashHead('تفاصيل البياعين','نفس المندوبين الحاليين ونفس مصدر كارت نسبة التحقيق')+
-      stats([['نسبة التحقيق',x.repsPct.toFixed(1)+'%'],['التارجت (كمية)',x.repsTarget.toLocaleString()],['المحقق (كمية)',x.repsAchieved.toLocaleString()]])+
-      '<div class="card">'+table(['المندوب','التارجت','المحقق','المتبقي','النسبة','المبيعات'],rr.map(function(r){return[E(r.name),r.target.toLocaleString(),r.achieved.toLocaleString(),r.remaining.toLocaleString(),r.pct.toFixed(1)+'%',M(r.sales)]}))+'</div>';
-  }
-  if(key==='customers'){
-    var dr=canonicalDebtRowsDash().filter(function(r){return N(r.debt)>0.0001});
-    return dashHead('تفاصيل مديونيات العملاء','نفس المصدر المحاسبي المستخدم في كارت المديونية')+
-      stats([['إجمالي المديونية',M(x.debt)],['عدد العملاء',String(x.customers)],['التحصيلات',M(x.collections)]])+
-      '<div class="card">'+table(['العميل','التليفون','المديونية'],dr.map(function(r){return[E(r.name),E(r.phone||'-'),M(r.debt)]}))+'</div>';
-  }
-  return oldExpanded?oldExpanded.apply(this,arguments):'';
-};
-try{expandedDashboardHTML=window.expandedDashboardHTML}catch(e){}
-
-/* Stamp every visible dashboard card with a stable detail key. */
-function bindDashboardCardKeys(){
-  var root=document.getElementById('view-dashboard');if(!root)return;
-  ['sales','stock','operations','purchases','reps','customers'].forEach(function(key){
-    var tile=root.querySelector('.tile-'+key+',.dash-'+key);
-    if(tile){tile.setAttribute('data-mb-dashboard-key',key);tile.style.cursor='pointer';tile.removeAttribute('onclick')}
-  });
-  var exec=A(root.querySelectorAll('.executive-strip .exec-stat'));
-  var keys=['sales','stock','customers','expiry'];
-  exec.forEach(function(card,i){if(keys[i]){card.setAttribute('data-mb-dashboard-key',keys[i]);card.style.cursor='pointer'}});
-}
-
-/* One delegated dashboard click handler survives every render. */
-if(!window.__MB_DASHBOARD_DELEGATED_CLICK__){
-  window.__MB_DASHBOARD_DELEGATED_CLICK__=true;
-  document.addEventListener('click',function(e){
-    var card=e.target&&e.target.closest?e.target.closest('#view-dashboard [data-mb-dashboard-key]'):null;
-    if(!card)return;
-    e.preventDefault();e.stopPropagation();
-    if(typeof e.stopImmediatePropagation==='function')e.stopImmediatePropagation();
-    var key=S(card.getAttribute('data-mb-dashboard-key'));
-    if(!key)return;
-    syncDashboardCards();
-    if(typeof window.openDashboardCard==='function')window.openDashboardCard(key);
-  },true);
-}
-/* Rep-detail synchronization removed: V189 owns rep cards and details. */
-
-/* Wrap only dashboard rendering/opening, not business calculations. */
-var oldRender=window.renderDashboard || (typeof renderDashboard==='function'?renderDashboard:null);
-if(typeof oldRender==='function'){
-  window.renderDashboard=function(){
-    var r=oldRender.apply(this,arguments);
-    setTimeout(function(){syncDashboardCards();bindDashboardCardKeys()},0);
-    return r;
-  };
-  try{renderDashboard=window.renderDashboard}catch(e){}
-}
-
-var oldOpenDash=window.openDashboardCard || (typeof openDashboardCard==='function'?openDashboardCard:null);
-if(typeof oldOpenDash==='function'){
-  window.openDashboardCard=function(){
-    syncDashboardCards();
-    bindDashboardCardKeys();
-    return oldOpenDash.apply(this,arguments);
-  };
-  try{openDashboardCard=window.openDashboardCard}catch(e){}
-}
-
-setTimeout(function(){syncDashboardCards();bindDashboardCardKeys()},0);
-})();
-</script>
 
 <script id="v500-rep-paid-invoices-drill-sync" type="application/x-mahsoubak-disabled">
 (function(){
