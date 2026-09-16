@@ -29444,6 +29444,81 @@ html body .summary-box.v303-auto-clickable:after{
     });
   };
 
+
+
+  /* V505_INTEGRATED_DIRECT_TOTAL_CARDS_START */
+  function ensureDirectTotalCardsV505(){
+    var list=document.querySelector('#rep_performance_modal_v175 .rep-list-v175');
+    if(!list)return;
+
+    [
+      {id:'delta_total_v321',title:'Delta Total'},
+      {id:'alex_total_v321',title:'Alexandria Total'}
+    ].forEach(function(cfg){
+      var g=FINAL_GROUPS_V338[cfg.id];
+      if(!g||!g.direct)return;
+
+      /* One card only: delete duplicates created by older patches. */
+      var cards=Array.from(list.querySelectorAll('.rep-card-v175[data-rep-id="'+cfg.id+'"]'));
+      cards.slice(1).forEach(function(x){x.remove()});
+
+      var rows=directGroupSales(cfg.id);
+      var st=stats(rows);
+      var repTarget=(db.reps||[]).find(function(r){return norm(r.name)===norm(g.rep)})||null;
+      var tq=repTarget
+        ? (typeof window.repQtyTargetV346==='function'
+            ? window.repQtyTargetV346(repTarget)
+            : N(repTarget.target_qty!=null?repTarget.target_qty:(repTarget.target!=null?repTarget.target:repTarget.sales_target)))
+        : 0;
+      var aq=rows.reduce(function(a,s){
+        return a+(typeof window.targetSaleQtyV346==='function'?window.targetSaleQtyV346(s):N(s.qty));
+      },0);
+      var pct=tq>0?aq/tq*100:0;
+
+      var card=cards[0];
+      if(!card){
+        card=document.createElement('button');
+        card.type='button';
+        card.className='rep-card-v175';
+        card.dataset.repId=cfg.id;
+        list.appendChild(card);
+      }
+      card.innerHTML=
+        '<b>'+E(cfg.title)+'</b>'+ 
+        '<span>'+E(g.rep)+'</span>'+ 
+        '<span>مبيعات: '+M(st.value)+'</span>'+ 
+        '<span>المحقق: '+N(aq).toLocaleString()+' / '+N(tq).toLocaleString()+'</span>'+ 
+        '<span>تحقيق: '+pct.toFixed(1)+'%</span>';
+      card.onclick=function(ev){
+        if(ev){ev.preventDefault();ev.stopPropagation()}
+        window.openRepDetailsV175(cfg.id);
+        return false;
+      };
+    });
+  }
+
+  function ensureDirectTotalSelectOptionsV505(){
+    var sel=document.getElementById('rep_report_rep_v189');
+    if(!sel)return;
+    [
+      {id:'delta_total_v321',label:'Delta Total'},
+      {id:'alex_total_v321',label:'Alexandria Total'}
+    ].forEach(function(x){
+      var opt=Array.from(sel.options||[]).find(function(o){return S(o.value)===x.id});
+      if(!opt){
+        opt=document.createElement('option');
+        opt.value=x.id; sel.appendChild(opt);
+      }
+      opt.textContent=x.label;
+    });
+  }
+
+  function refreshDirectTotalsV505(){
+    ensureDirectTotalCardsV505();
+    ensureDirectTotalSelectOptionsV505();
+  }
+  /* V505_INTEGRATED_DIRECT_TOTAL_CARDS_END */
+
   /* Definitive final handling for West/East/Delta total cards. */
   var baseOpen=window.openRepDetailsV175;
   window.openRepDetailsV175=function(repId){
@@ -29477,21 +29552,18 @@ html body .summary-box.v303-auto-clickable:after{
   };
   try{openRepDetailsV175=window.openRepDetailsV175}catch(e){}
 
-  /* Make sure Delta Total card, if present, opens the new direct-area view. */
+  /* Render Delta/Alex directly inside the original V338 hierarchy — no overlay layer. */
   var perfBase=window.openRepPerformanceV175;
   if(typeof perfBase==='function'){
     window.openRepPerformanceV175=function(){
       var r=perfBase.apply(this,arguments);
-      setTimeout(function(){
-        var delta=document.querySelector('.rep-card-v175[data-rep-id="delta_total_v321"]');
-        if(delta)delta.onclick=function(){window.openRepDetailsV175('delta_total_v321')};
-        var alex=document.querySelector('.rep-card-v175[data-rep-id="alex_total_v321"]');
-        if(alex)alex.onclick=function(){window.openRepDetailsV175('alex_total_v321')};
-      },220);
+      setTimeout(refreshDirectTotalsV505,20);
+      setTimeout(refreshDirectTotalsV505,220);
       return r;
     };
     try{openRepPerformanceV175=window.openRepPerformanceV175}catch(e){}
   }
+  setTimeout(refreshDirectTotalsV505,0);
 })();
 </script>
 <style id="v340-area-activity-summary-style">
@@ -37923,489 +37995,6 @@ setTimeout(syncDashboardCards,0);
   },true);
 
   setTimeout(renderOriginalMissingSections,0);
-})();
-</script>
-
-<style id="v504-rep-totals-restore-style">
-.v504-total-card{border:1px solid #cbd5e1!important;background:#f8fafc!important}
-.v504-total-card b{color:#0f172a!important}
-.v504-total-card[data-v504-total="delta_total_v321"]{background:#eff6ff!important;border-color:#93c5fd!important}
-.v504-total-card[data-v504-total="alex_total_v321"]{background:#f0fdfa!important;border-color:#5eead4!important}
-.v504-total-card[data-v504-total="all_reps_total_v504"]{background:#fff7ed!important;border-color:#fdba74!important}
-.v504-section{margin-top:14px}
-.v504-summary{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:10px}
-.v504-table{overflow:auto}
-.v504-table table{min-width:1000px!important}
-.v504-subtle{font-size:12px;color:#64748b;margin-top:4px}
-@media(max-width:850px){.v504-summary{grid-template-columns:1fr 1fr}}
-</style>
-
-
-<script id="v504-rep-totals-restore">
-(function(){
-  if(window.__V504_REP_TOTALS_RESTORE__)return;
-  window.__V504_REP_TOTALS_RESTORE__=true;
-
-  function A(v){return Array.isArray(v)?v:[]}
-  function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
-  function S(v){return String(v==null?'':v).trim()}
-  function E(v){
-    try{if(typeof esc==='function')return esc(v)}catch(e){}
-    return S(v).replace(/[&<>'"]/g,function(c){
-      return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]
-    })
-  }
-  function M(v){
-    try{if(typeof money==='function')return money(v)}catch(e){}
-    return 'EGP '+N(v).toLocaleString()
-  }
-  function norm(v){
-    return S(v).toLowerCase()
-      .replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه')
-      .replace(/[._\-]+/g,' ').replace(/\s+/g,' ').trim()
-      .replace(/\balexandria\b/g,'alex')
-      .replace(/\balex total\b/g,'alex')
-      .replace(/\bdelta total\b/g,'delta')
-  }
-
-  var TOTALS={
-    all_reps_total_v504:{name:'All Reps Total',keys:null},
-    delta_total_v321:{
-      name:'Delta Total',
-      keys:['delta','دلتا','طنطا','المنصورة','بنها','شبين الكوم','المنوفية','مدينة السادات','السادات']
-    },
-    alex_total_v321:{
-      name:'Alexandria Total',
-      keys:['alex','alexandria','اسكندرية','إسكندرية','الاسكندرية','الإسكندرية','رشيد']
-    }
-  };
-
-  function activeReps(){
-    return A(window.db&&db.reps).filter(function(r){
-      return r&&r.inactive_v452!==true&&r.active!==false
-    })
-  }
-
-  function repById(id){
-    return A(window.db&&db.reps).find(function(r){return S(r&&r.id)===S(id)})||null
-  }
-
-  function activeRepByName(name){
-    var k=norm(name);
-    return activeReps().find(function(r){return norm(r&&r.name)===k})||null
-  }
-
-  function groupMetaMatch(rep,id){
-    if(!rep)return false;
-    var source=norm(rep.source_key);
-    var group=norm(rep.group_name||rep.group||rep.sales_group);
-    var region=norm(rep.region_code||rep.region_name);
-    if(id==='delta_total_v321'){
-      return source==='rep_delta' || group==='delta' || group==='delta total' || region==='delta';
-    }
-    if(id==='alex_total_v321'){
-      return source==='rep_alex' || group==='alex' || group==='alex total' ||
-             group==='alexandria' || group==='alexandria total' ||
-             region==='alex' || region==='alexandria';
-    }
-    return false;
-  }
-
-  function replacementName(name){
-    var current=S(name);
-    var guard=0;
-    while(current && guard<20){
-      guard++;
-      var events=A(db&&db.rep_replacements_v452).filter(function(ev){
-        return ev&&norm(ev.old_rep_name)===norm(current)&&S(ev.new_rep_name)
-      });
-      if(!events.length)break;
-      var next=S(events[events.length-1].new_rep_name);
-      if(!next || norm(next)===norm(current))break;
-      current=next;
-    }
-    return current;
-  }
-
-  function groupCurrentReps(id){
-    if(id==='all_reps_total_v504')return activeReps();
-
-    var bases=A(db&&db.reps).filter(function(r){return groupMetaMatch(r,id)});
-    var out=[],seen=new Set();
-
-    bases.forEach(function(base){
-      var currentName=replacementName(base.name);
-      var r=activeRepByName(currentName);
-
-      if(!r && base.active!==false && base.inactive_v452!==true)r=base;
-
-      if(!r){
-        var events=A(db&&db.rep_replacements_v452).filter(function(ev){
-          return ev && (
-            S(ev.old_rep_id)===S(base.id) ||
-            norm(ev.old_rep_name)===norm(base.name)
-          )
-        });
-        for(var i=events.length-1;i>=0&&!r;i--){
-          r=repById(events[i].new_rep_id)||activeRepByName(events[i].new_rep_name)
-        }
-      }
-
-      if(r&&!seen.has(S(r.id))){
-        seen.add(S(r.id));out.push(r)
-      }
-    });
-
-    return out;
-  }
-
-  function repRows(repId){
-    try{return typeof salesRowsV189==='function'?A(salesRowsV189(repId)):[]}catch(e){return []}
-  }
-  function repCols(repId){
-    try{return typeof collectionRowsV189==='function'?A(collectionRowsV189(repId)):[]}catch(e){return []}
-  }
-  function targetQty(r){
-    return N(r&&(
-      r.target_qty!=null?r.target_qty:
-      (r.target!=null?r.target:r.sales_target)
-    ))
-  }
-  function rowRegion(s){
-    try{
-      if(typeof window.regionNameVerifiedV307==='function'){
-        var verified=S(window.regionNameVerifiedV307(s));
-        if(verified){
-          var vv=norm(verified);
-          if(['غير محدد','غير محددة','undefined','unknown','n/a','-'].indexOf(vv)<0){
-            return verified;
-          }
-        }
-      }
-    }catch(e){}
-    var x=S(
-      s.region_code||s.region_name||s.customer_region_v327||s.customer_region||
-      s.customer_area||s.area||s.zone||s.city
-    );
-    if(x)return x;
-    try{
-      var c=A(db&&db.customers).find(function(c){
-        return (s.customer_id&&S(c.id)===S(s.customer_id)) ||
-               (s.customer_name&&[
-                 c.name,c.customer_name,c.official_name,c.clinic_name
-               ].some(function(v){return norm(v)===norm(s.customer_name)}))
-      });
-      if(c){
-        return S(
-          c.sales_group||c.region_group||c.region_code||c.region_name||
-          c.region||c.customer_region||c.customer_area||c.area||c.zone||c.city
-        )
-      }
-    }catch(e){}
-    return ''
-  }
-  function matches(id,s){
-    if(id==='all_reps_total_v504')return true;
-    var g=TOTALS[id]; if(!g)return false;
-    var n=norm(rowRegion(s));
-    if(!n)return false;
-    return (g.keys||[]).some(function(k){
-      var kk=norm(k);
-      return n===kk || n.indexOf(kk)>=0 || kk.indexOf(n)>=0;
-    })
-  }
-
-  function repName(r){return S(r&&r.name)||'-'}
-  function invoiceKey(s){
-    return S(
-      s.invoice_key||s.invoice_number||s.invoice_no||
-      s.invoice_group_id||s.order_id||s.sale_id||s.id
-    )||'-'
-  }
-
-  function groupData(id){
-    var reps=groupCurrentReps(id);
-    var rows=[], byRep=[];
-
-    reps.forEach(function(r){
-      var rr=repRows(r.id);
-
-      /* All totals now follow the same roster principle as the working
-         West/East totals: first resolve the CURRENT rep, then use that rep's
-         canonical report rows. Region is used only for analysis inside the total,
-         not to decide whether the rep has sales. */
-      var sales=rr.reduce(function(a,s){return a+N(s.total)},0);
-      var remaining=rr.reduce(function(a,s){return a+N(s.remaining)},0);
-      var qty=rr.reduce(function(a,s){return a+N(s.qty)},0);
-      var invoices=new Set(rr.map(invoiceKey).filter(function(x){return x&&x!=='-'}));
-
-      byRep.push({
-        rep:r, rows:rr, sales:sales, remaining:remaining,
-        paid:Math.max(0,sales-remaining), qty:qty,
-        invoices:invoices.size, target:targetQty(r)
-      });
-
-      rows=rows.concat(rr.map(function(s){
-        if(!s.rep_name)s.rep_name=repName(r);
-        return s;
-      }));
-    });
-
-    var sales=rows.reduce(function(a,s){return a+N(s.total)},0);
-    var remaining=rows.reduce(function(a,s){return a+N(s.remaining)},0);
-    var qty=rows.reduce(function(a,s){return a+N(s.qty)},0);
-    var invoiceSet=new Set(rows.map(invoiceKey).filter(function(x){return x&&x!=='-'}));
-    var target=byRep.reduce(function(a,x){return a+x.target},0);
-
-    return {
-      rows:rows, byRep:byRep, sales:sales, remaining:remaining,
-      paid:Math.max(0,sales-remaining), qty:qty,
-      invoices:invoiceSet.size, target:target,
-      pct:target>0?qty/target*100:0
-    }
-  }
-
-  function groupedInvoices(rows){
-    var mp=new Map();
-    rows.forEach(function(s){
-      var key=invoiceKey(s);
-      if(!mp.has(key))mp.set(key,{
-        key:key,date:s.date||'',rep:s.rep_name||'',customer:s.customer_name||'',
-        products:new Set(),total:0,remaining:0
-      });
-      var x=mp.get(key);
-      if(S(s.product_name))x.products.add(S(s.product_name));
-      x.total+=N(s.total);
-      x.remaining+=N(s.remaining);
-      if(!x.rep&&s.rep_name)x.rep=s.rep_name;
-      if(!x.customer&&s.customer_name)x.customer=s.customer_name;
-    });
-    return Array.from(mp.values()).map(function(x){
-      x.paid=Math.max(0,x.total-x.remaining);
-      x.productsText=Array.from(x.products).join('، ');
-      return x
-    })
-  }
-
-  function relevantCollections(id,data){
-    if(id==='all_reps_total_v504'){
-      var out=[];
-      data.byRep.forEach(function(x){out=out.concat(repCols(x.rep.id))});
-      return out
-    }
-    var customerKeys=new Set();
-    data.rows.forEach(function(s){
-      var k=S(s.customer_id||s.customer_name);
-      if(k)customerKeys.add(k)
-    });
-    var out=[];
-    data.byRep.forEach(function(x){
-      repCols(x.rep.id).forEach(function(c){
-        var k=S(c.customer_id||c.customer_name);
-        if(customerKeys.has(k))out.push(c)
-      })
-    });
-    return out
-  }
-
-  function summaryHtml(d){
-    return '<div class="v504-summary">'+
-      '<div class="stat"><span>إجمالي المبيعات</span><strong>'+M(d.sales)+'</strong></div>'+
-      '<div class="stat"><span>المسدد من نفس الفواتير</span><strong>'+M(d.paid)+'</strong></div>'+
-      '<div class="stat"><span>المتبقي على العملاء</span><strong>'+M(d.remaining)+'</strong></div>'+
-      '<div class="stat"><span>عدد الفواتير</span><strong>'+d.invoices+'</strong></div>'+
-      '<div class="stat"><span>تارجت المنطقة/المجموعة بالكمية</span><strong>'+N(d.target).toLocaleString()+'</strong></div>'+
-      '<div class="stat"><span>المحقق بالكمية</span><strong>'+N(d.qty).toLocaleString()+'</strong></div>'+
-      '<div class="stat"><span>نسبة تحقيق التارجت</span><strong>'+N(d.pct).toFixed(1)+'%</strong></div>'+
-      '<div class="stat"><span>عدد البياعين داخل الحساب</span><strong>'+d.byRep.length+'</strong></div>'+
-    '</div>'
-  }
-
-  function targetTable(d){
-    if(!d.byRep.length)return '<div class="empty">لا يوجد بياعين داخل هذه المجموعة.</div>';
-    return '<div class="v504-table"><table>'+
-      '<tr><th>البياع</th><th>التارجت كمية</th><th>المحقق كمية</th><th>المتبقي</th><th>نسبة التحقيق</th><th>المبيعات</th><th>المسدد</th><th>المتبقي المالي</th><th>الفواتير</th></tr>'+
-      d.byRep.map(function(x){
-        var rem=Math.max(0,x.target-x.qty);
-        var pct=x.target>0?x.qty/x.target*100:0;
-        return '<tr><td><b>'+E(repName(x.rep))+'</b></td>'+
-          '<td>'+N(x.target).toLocaleString()+'</td>'+
-          '<td>'+N(x.qty).toLocaleString()+'</td>'+
-          '<td>'+N(rem).toLocaleString()+'</td>'+
-          '<td>'+N(pct).toFixed(1)+'%</td>'+
-          '<td>'+M(x.sales)+'</td>'+
-          '<td>'+M(x.paid)+'</td>'+
-          '<td>'+M(x.remaining)+'</td>'+
-          '<td>'+x.invoices+'</td></tr>'
-      }).join('')+
-    '</table></div>'
-  }
-
-  function regionTable(rows){
-    var mp=new Map();
-    rows.forEach(function(s){
-      var region=rowRegion(s)||'غير محدد';
-      if(!mp.has(region))mp.set(region,{region:region,qty:0,sales:0,remaining:0,invoices:new Set()});
-      var x=mp.get(region);
-      x.qty+=N(s.qty); x.sales+=N(s.total); x.remaining+=N(s.remaining);
-      x.invoices.add(invoiceKey(s))
-    });
-    var arr=Array.from(mp.values()).sort(function(a,b){return b.sales-a.sales});
-    if(!arr.length)return '<div class="empty">لا توجد مناطق داخل الفترة الحالية.</div>';
-    return '<div class="v504-table"><table>'+
-      '<tr><th>المنطقة</th><th>الكمية</th><th>المبيعات</th><th>المسدد</th><th>المتبقي</th><th>الفواتير</th></tr>'+
-      arr.map(function(x){
-        return '<tr><td><b>'+E(x.region)+'</b></td>'+
-          '<td>'+N(x.qty).toLocaleString()+'</td>'+
-          '<td>'+M(x.sales)+'</td>'+
-          '<td>'+M(Math.max(0,x.sales-x.remaining))+'</td>'+
-          '<td>'+M(x.remaining)+'</td>'+
-          '<td>'+x.invoices.size+'</td></tr>'
-      }).join('')+
-    '</table></div>'
-  }
-
-  function salesTable(rows){
-    if(!rows.length)return '<div class="empty">لا توجد مبيعات في الفترة المحددة.</div>';
-    return '<div class="v504-table"><table>'+
-      '<tr><th>التاريخ</th><th>الفاتورة</th><th>البياع</th><th>العميل</th><th>المنتج</th><th>المنطقة</th><th>الكمية</th><th>المبيعات</th><th>المسدد</th><th>المتبقي</th></tr>'+
-      rows.map(function(s){
-        var total=N(s.total),rem=N(s.remaining);
-        return '<tr><td>'+E(S(s.date).slice(0,10))+'</td>'+
-          '<td>'+E(invoiceKey(s))+'</td>'+
-          '<td>'+E(s.rep_name||'-')+'</td>'+
-          '<td>'+E(s.customer_name||'-')+'</td>'+
-          '<td>'+E(s.product_name||'-')+'</td>'+
-          '<td>'+E(rowRegion(s)||'غير محدد')+'</td>'+
-          '<td>'+N(s.qty).toLocaleString()+'</td>'+
-          '<td>'+M(total)+'</td>'+
-          '<td>'+M(Math.max(0,total-rem))+'</td>'+
-          '<td>'+M(rem)+'</td></tr>'
-      }).join('')+
-    '</table></div>'
-  }
-
-  function invoicesTable(rows){
-    var arr=groupedInvoices(rows);
-    if(!arr.length)return '<div class="empty">لا توجد فواتير في الفترة المحددة.</div>';
-    return '<div class="v504-table"><table>'+
-      '<tr><th>التاريخ</th><th>رقم الفاتورة</th><th>البياع</th><th>العميل</th><th>المنتجات</th><th>إجمالي الفاتورة</th><th>المسدد</th><th>المتبقي</th></tr>'+
-      arr.map(function(x){
-        return '<tr><td>'+E(S(x.date).slice(0,10))+'</td>'+
-          '<td><b>'+E(x.key)+'</b></td><td>'+E(x.rep||'-')+'</td>'+
-          '<td>'+E(x.customer||'-')+'</td><td>'+E(x.productsText||'-')+'</td>'+
-          '<td>'+M(x.total)+'</td><td>'+M(x.paid)+'</td><td>'+M(x.remaining)+'</td></tr>'
-      }).join('')+
-    '</table></div>'
-  }
-
-  function collectionsTable(cols){
-    if(!cols.length)return '<div class="empty">لا توجد تحصيلات مسجلة في الفترة المحددة.</div>';
-    var total=cols.reduce(function(a,c){return a+N(c.amount)},0);
-    return '<div class="v504-summary" style="margin-bottom:10px"><div class="stat"><span>إجمالي التحصيلات المسجلة</span><strong>'+M(total)+'</strong></div>'+
-      '<div class="stat"><span>عدد معاملات التحصيل</span><strong>'+cols.length+'</strong></div></div>'+
-      '<div class="v504-table"><table>'+
-      '<tr><th>التاريخ</th><th>البياع</th><th>العميل</th><th>المبلغ</th><th>الطريقة</th></tr>'+
-      cols.map(function(c){
-        return '<tr><td>'+E(S(c.date).slice(0,10))+'</td>'+
-          '<td>'+E(c.rep_name||'-')+'</td><td>'+E(c.customer_name||'-')+'</td>'+
-          '<td>'+M(c.amount)+'</td><td>'+E(c.method||'-')+'</td></tr>'
-      }).join('')+
-      '</table></div>'
-  }
-
-  function totalHtml(id){
-    var g=TOTALS[id],d=groupData(id);
-    if(!g)return '';
-    var cols=relevantCollections(id,d);
-    return '<div class="rep-detail-head-v175"><div><h2>'+E(g.name)+'</h2>'+
-      '<div class="v504-subtle">نفس فترة تقرير المندوبين الحالية — بدون تغيير مصدر المبيعات</div></div></div>'+
-      summaryHtml(d)+
-      '<div class="card v504-section"><h3>جدول التارجت لكل بياع</h3>'+targetTable(d)+'</div>'+
-      '<div class="card v504-section"><h3>تحليل المناطق</h3>'+regionTable(d.rows)+'</div>'+
-      '<div class="card v504-section"><h3>الفواتير</h3>'+invoicesTable(d.rows)+'</div>'+
-      '<div class="card v504-section"><h3>تفاصيل المبيعات</h3>'+salesTable(d.rows)+'</div>'+
-      '<div class="card v504-section"><h3>تفاصيل التحصيلات المسجلة</h3>'+collectionsTable(cols)+'</div>'
-  }
-
-  function cardHtml(id){
-    var g=TOTALS[id],d=groupData(id);
-    var names=d.byRep.map(function(x){return repName(x.rep)}).filter(Boolean).join(' + ');
-    return '<button type="button" class="rep-card-v175 v504-total-card" data-v504-total="'+E(id)+'" data-rep-id="'+E(id)+'">'+
-      '<b>'+E(g.name)+'</b>'+
-      (names?'<span>'+E(names)+'</span>':'')+
-      '<span>مبيعات: '+M(d.sales)+'</span>'+
-      '<span>المحقق: '+N(d.qty).toLocaleString()+' / '+N(d.target).toLocaleString()+'</span>'+
-      '<span>تحقيق: '+N(d.pct).toFixed(1)+'%</span>'+
-    '</button>'
-  }
-
-  function injectCards(){
-    var list=document.querySelector('#rep_performance_modal_v175 .rep-list-v175');
-    if(!list)return;
-    ['all_reps_total_v504','delta_total_v321','alex_total_v321'].forEach(function(id){
-      var old=list.querySelector('[data-v504-total="'+id+'"]');
-      if(old)old.remove()
-    });
-    list.insertAdjacentHTML('afterbegin',
-      cardHtml('all_reps_total_v504')+
-      cardHtml('delta_total_v321')+
-      cardHtml('alex_total_v321')
-    )
-  }
-
-  function openTotal(id){
-    var body=document.getElementById('rep_details_body_v175');
-    if(!body || !TOTALS[id])return;
-    try{
-      if(typeof repReportFilterV189!=='undefined'&&repReportFilterV189)repReportFilterV189.repId=id
-    }catch(e){}
-    body.innerHTML=totalHtml(id);
-    document.querySelectorAll('#rep_performance_modal_v175 .rep-card-v175').forEach(function(c){
-      c.classList.toggle('active',S(c.dataset.v504Total||c.dataset.repId)===id)
-    })
-  }
-  window.openRepTotalV504=openTotal;
-
-  /* Capture before legacy click handlers. */
-  document.addEventListener('click',function(e){
-    var card=e.target&&e.target.closest&&e.target.closest('#rep_performance_modal_v175 [data-v504-total]');
-    if(!card)return;
-    e.preventDefault(); e.stopPropagation();
-    if(typeof e.stopImmediatePropagation==='function')e.stopImmediatePropagation();
-    openTotal(S(card.dataset.v504Total));
-    return false
-  },true);
-
-  /* Reinject after the report modal is built. */
-  var perfBase=window.openRepPerformanceV175;
-  if(typeof perfBase==='function'){
-    window.openRepPerformanceV175=function(){
-      var r=perfBase.apply(this,arguments);
-      setTimeout(injectCards,20);
-      setTimeout(injectCards,120);
-      return r
-    };
-    try{openRepPerformanceV175=window.openRepPerformanceV175}catch(e){}
-  }
-
-  /* Refresh the special total if a date filter is changed while one is open. */
-  var applyBase=window.applyRepReportFilterV189;
-  if(typeof applyBase==='function'){
-    window.applyRepReportFilterV189=function(){
-      var current='';
-      try{current=S(repReportFilterV189&&repReportFilterV189.repId)}catch(e){}
-      var r=applyBase.apply(this,arguments);
-      setTimeout(function(){
-        injectCards();
-        if(TOTALS[current])openTotal(current)
-      },60);
-      return r
-    };
-    try{applyRepReportFilterV189=window.applyRepReportFilterV189}catch(e){}
-  }
-
-  setTimeout(injectCards,0);
 })();
 </script>
 
