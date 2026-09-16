@@ -8268,7 +8268,7 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
   const GROUPS_V189 = {
     all_reps_total_v189:{name:'All Reps Total',all:true},
     west_total_v186:{name:'West Total',sourceKeys:['rep_west_1','rep_west_2'],regionKeys:['West 1','West 2'],fallback:['مارينا','شهد','عماد']},
-    east_total_v186:{name:'East Total',sourceKeys:['rep_east_1','rep_east_2','rep_heliopolis','rep_salma'],regionKeys:['East 1','East 2','Heliopolis','Salma'],fallback:['سلمى','ماهينور','نوران','سيف']},
+    east_total_v186:{name:'East Total',sourceKeys:['rep_east_1','rep_east_2','rep_heliopolis','rep_salma'],regionKeys:['East 1','East 2','Heliopolis','Salma'],fallback:['سلمى','ماهينور','نوران']},
     delta_total_v321:{name:'Delta Total',sourceKeys:['rep_delta'],regionKeys:['Delta'],fallback:['منى']},
     alex_total_v321:{name:'Alexandria Total',sourceKeys:['rep_alex'],regionKeys:['Alex','Alexandria'],fallback:['يحي فتحي','يحيى فتحي']}
   };
@@ -8288,6 +8288,7 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
   function currentRepNameV189(v){
     let x=String(v||'').trim();
     try{if(typeof window.currentRepNameV490==='function')x=String(window.currentRepNameV490(x)||x).trim()}catch(e){}
+    try{if(window.MAHSOUBAK_TERRITORY_MASTER)x=window.MAHSOUBAK_TERRITORY_MASTER.canonicalRep(x)||x}catch(e){}
     return x;
   }
 
@@ -8452,11 +8453,11 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
 
   function regionLabelV189(s){
     let c=customerForSaleV189(s);
-    let vals=[
-      c.customer_region_v327,c.customer_region,c.area,c.city,c.region_name,c.region_code,
-      s.customer_region_v327,s.customer_region,s.area,s.city,s.region_name,s.region_code
-    ].map(x=>String(x||'').trim()).filter(Boolean);
-    return vals[0]||'غير محدد';
+    let vals=[c.customer_region_v327,c.customer_region,s.customer_region_v327,s.customer_region,c.city,s.city]
+      .map(x=>String(x||'').trim()).filter(Boolean);
+    let area=vals[0]||'غير محدد';
+    try{if(window.MAHSOUBAK_TERRITORY_MASTER)area=window.MAHSOUBAK_TERRITORY_MASTER.canonicalArea(area)||area}catch(e){}
+    return area;
   }
 
   function detailSectionsV189(repId,sales,collections){
@@ -26435,7 +26436,9 @@ html body .summary-box.v303-auto-clickable:after{
     var exp=dailyExpenses(date);
     var lots=currentClosingLots();
     var closingQty=lots.reduce(function(a,l){return a+N(l.qty)},0);
-    var perUnit=closingQty>0?exp.total/closingQty:0;
+    var generalPerUnit=closingQty>0?exp.general/closingQty:0;
+    var marketingPerUnit=closingQty>0?exp.marketing/closingQty:0;
+    var totalPerUnit=generalPerUnit+marketingPerUnit;
 
     var record={
       id:'daily_expense_'+date,
@@ -26444,7 +26447,9 @@ html body .summary-box.v303-auto-clickable:after{
       marketing_expense:exp.marketing,
       total_expense:exp.total,
       closing_stock_qty:closingQty,
-      expense_per_unit:perUnit,
+      general_admin_per_unit:generalPerUnit,
+      marketing_per_unit:marketingPerUnit,
+      expense_per_unit:totalPerUnit,
       calculated_at:new Date().toISOString(),
       lots:lots.map(function(l){
         return {
@@ -26453,8 +26458,12 @@ html body .summary-box.v303-auto-clickable:after{
           product_name:l.product_name||'',
           lot_number:l.lot_number||l.lot||'',
           closing_qty:N(l.qty),
-          expense_per_unit:perUnit,
-          allocated_amount:N(l.qty)*perUnit
+          general_admin_per_unit:generalPerUnit,
+          marketing_per_unit:marketingPerUnit,
+          expense_per_unit:totalPerUnit,
+          allocated_general_admin:N(l.qty)*generalPerUnit,
+          allocated_marketing:N(l.qty)*marketingPerUnit,
+          allocated_amount:N(l.qty)*totalPerUnit
         };
       })
     };
@@ -26465,16 +26474,42 @@ html body .summary-box.v303-auto-clickable:after{
     return record;
   };
 
-  window.lotAccumulatedDailyExpenseV322=function(lot){
-    ensure();
+  function lotLineForDayV322(day,lot){
     var lid=S(lot&&lot.id),pid=S(lot&&lot.product_id),lotNo=S(lot&&(lot.lot_number||lot.lot)).toLowerCase();
+    return (day.lots||[]).find(function(x){
+      if(lid&&S(x.lot_id)===lid)return true;
+      return pid&&S(x.product_id)===pid&&lotNo&&S(x.lot_number).toLowerCase()===lotNo;
+    })||null;
+  }
+
+  window.lotAccumulatedGeneralAdminV322=function(lot){
+    ensure();
     return db.daily_inventory_expense_allocations_v322.reduce(function(sum,day){
-      var line=(day.lots||[]).find(function(x){
-        if(lid&&S(x.lot_id)===lid)return true;
-        return pid&&S(x.product_id)===pid&&lotNo&&S(x.lot_number).toLowerCase()===lotNo;
-      });
-      return sum+(line?N(line.expense_per_unit):0);
+      var line=lotLineForDayV322(day,lot);
+      if(!line)return sum;
+      /* Backward compatibility for records saved before the split:
+         reconstruct GA/unit from the day's stored GA total and closing qty. */
+      var ga=(line.general_admin_per_unit!=null)
+        ?N(line.general_admin_per_unit)
+        :(N(day.closing_stock_qty)>0?N(day.general_admin_expense)/N(day.closing_stock_qty):0);
+      return sum+ga;
     },0);
+  };
+
+  window.lotAccumulatedMarketingV322=function(lot){
+    ensure();
+    return db.daily_inventory_expense_allocations_v322.reduce(function(sum,day){
+      var line=lotLineForDayV322(day,lot);
+      if(!line)return sum;
+      var mk=(line.marketing_per_unit!=null)
+        ?N(line.marketing_per_unit)
+        :(N(day.closing_stock_qty)>0?N(day.marketing_expense)/N(day.closing_stock_qty):0);
+      return sum+mk;
+    },0);
+  };
+
+  window.lotAccumulatedDailyExpenseV322=function(lot){
+    return window.lotAccumulatedGeneralAdminV322(lot)+window.lotAccumulatedMarketingV322(lot);
   };
 
   function productForLot(lot){
@@ -26483,10 +26518,6 @@ html body .summary-box.v303-auto-clickable:after{
   function originalCost(lot,p){
     var x=N(lot.unit_cost||lot.purchase_cost||lot.cost||lot.purchase_price);
     return x>0?x:N(p.purchase||p.purchase_price||p.cost);
-  }
-  function slowRate(days){
-    if(typeof window.inventoryAgingRuleV318==='function')return N(window.inventoryAgingRuleV318(days).rate);
-    if(days<=120)return 0;if(days<=150)return 2;if(days<=180)return 5;if(days<=210)return 8;return 12;
   }
   function lotAge(lot){
     var d=new Date(lot.received_date||lot.purchase_date||lot.entry_date||lot.created_at||lot.date||'');
@@ -26497,9 +26528,10 @@ html body .summary-box.v303-auto-clickable:after{
   window.inventoryCostRowsV322=function(){
     ensure();
     return db.inventory_lots.map(function(lot){
-      var p=productForLot(lot),base=originalCost(lot,p),days=lotAge(lot),rate=slowRate(days);
-      var slow=base*rate/100;
-      var daily=window.lotAccumulatedDailyExpenseV322(lot);
+      var p=productForLot(lot),base=originalCost(lot,p),days=lotAge(lot);
+      var generalCarry=window.lotAccumulatedGeneralAdminV322(lot);
+      var marketingCarry=window.lotAccumulatedMarketingV322(lot);
+      var totalDaily=generalCarry+marketingCarry;
       return {
         lot:lot,
         product:p,
@@ -26508,10 +26540,11 @@ html body .summary-box.v303-auto-clickable:after{
         qty:N(lot.qty),
         days:days,
         original_cost:base,
-        daily_expense_cost:daily,
-        slow_rate:rate,
-        slow_moving_cost:slow,
-        final_adjusted_cost:base+daily+slow
+        general_admin_carry_cost:generalCarry,
+        marketing_allocated_cost:marketingCarry,
+        daily_expense_cost:totalDaily,
+        slow_moving_cost:generalCarry,
+        final_adjusted_cost:base+totalDaily
       };
     });
   };
@@ -26529,22 +26562,22 @@ html body .summary-box.v303-auto-clickable:after{
       '<div class="stat"><span>تحميل اليوم / وحدة</span><strong>'+M(todayRec.expense_per_unit)+'</strong></div>'+
       '<div class="stat"><span>قيمة المخزون بالتكلفة المعدلة</span><strong>'+M(invValue)+'</strong></div>'+
       '</div>'+
-      '<div class="v322-cost-table"><table><tr><th>المنتج</th><th>LOT</th><th>الكمية الحالية</th><th>Original Cost</th><th>Accumulated Daily Expenses / Unit</th><th>Slow Moving %</th><th>Slow Moving Cost</th><th>Final Adjusted Cost / Unit</th></tr>'+
+      '<div class="v322-cost-table"><table><tr><th>المنتج</th><th>LOT</th><th>الكمية الحالية</th><th>Original Cost</th><th>مصاريف إدارية وعمومية متراكمة / وحدة</th><th>مصاريف تسويق متراكمة / وحدة</th><th>إجمالي المصاريف المتراكمة / وحدة</th><th>Final Adjusted Cost / Unit</th></tr>'+
       rows.map(function(r){return '<tr>'+
         '<td><b>'+E(r.product_name||'-')+'</b></td><td>'+E(r.lot_number||'-')+'</td><td>'+N(r.qty).toLocaleString()+'</td>'+
-        '<td>'+M(r.original_cost)+'</td><td><b>'+M(r.daily_expense_cost)+'</b></td><td>'+r.slow_rate+'%</td>'+
-        '<td>'+M(r.slow_moving_cost)+'</td><td><b>'+M(r.final_adjusted_cost)+'</b></td></tr>'}).join('')+
+        '<td>'+M(r.original_cost)+'</td><td><b>'+M(r.general_admin_carry_cost)+'</b></td><td>'+M(r.marketing_allocated_cost)+'</td>'+
+        '<td>'+M(r.daily_expense_cost)+'</td><td><b>'+M(r.final_adjusted_cost)+'</b></td></tr>'}).join('')+
       '</table></div>'+
-      '<div class="v322-note">المعادلة اليومية: (مصروفات التسويق + المصروفات الإدارية والعمومية) ÷ كمية Closing Stock. '+
-      'يتم حفظ تحميل كل يوم على الـLOTs الموجودة في المخزن في ذلك اليوم، ولا يتم تغيير Purchase Cost الأصلي. '+
-      'التكلفة النهائية = Original Cost + Accumulated Daily Expense Allocation + Slow Moving Cost.</div>';
+      '<div class="v322-note">تحميل البضاعة البطيئة = تراكم نصيب الوحدة من المصروفات الإدارية والعمومية خلال الأيام التي ظلت فيها الـLOT موجودة في المخزون. '+
+      'مصاريف التسويق تظهر منفصلة ضمن التحميل اليومي. لا توجد أي نسبة ثابتة للـSlow Moving. '+
+      'التكلفة النهائية = Original Cost + المصروفات الإدارية/العمومية المتراكمة + مصاريف التسويق المتراكمة.</div>';
   }
 
   window.installDailyExpenseCostCardV322=function(){
     var view=document.getElementById('view-products');if(!view)return;
     var old=document.getElementById('daily_expense_cost_card_v322');if(old)old.remove();
     var card=document.createElement('div');card.className='card';card.id='daily_expense_cost_card_v322';
-    card.innerHTML='<div class="section-title"><div><h3>Daily Expense Allocation on Inventory Cost</h3><div class="hint">تحميل المصروفات اليومية على تكلفة كل وحدة موجودة في المخزون</div></div></div>'+reportHtml();
+    card.innerHTML='<div class="section-title"><div><h3>Inventory Carrying Cost & Daily Expense Allocation</h3><div class="hint">تكلفة البضاعة المركونة والمصاريف اليومية المتراكمة لكل وحدة</div></div></div>'+reportHtml();
     view.appendChild(card);
   };
 
@@ -28607,10 +28640,19 @@ html body .summary-box.v303-auto-clickable:after{
   }
 
   function customerGroup(c,s){
-    var raw=S(
-      c.area||c.sales_group||c.region_group||
-      s.customer_group||s.area_group||''
-    );
+    try{
+      var master=window.MAHSOUBAK_TERRITORY_MASTER;
+      if(master){
+        var rep=S((s&&s.rep_name)||'');
+        if(!rep&&s&&s.rep_id){
+          var rr=(db.reps||[]).find(function(x){return String(x.id)===String(s.rep_id)});
+          rep=rr?S(rr.name):'';
+        }
+        var t=master.resolve(rep,customerInnerArea(c,s),Object.assign({},c||{},s||{}));
+        if(t)return t.label;
+      }
+    }catch(e){}
+    var raw=S(c.area||c.sales_group||c.region_group||s.customer_group||s.area_group||'');
     var n=norm(raw);
     if(n==='west 1'||n==='west1')return 'West 1';
     if(n==='west 2'||n==='west2')return 'West 2';
@@ -28620,11 +28662,9 @@ html body .summary-box.v303-auto-clickable:after{
   }
 
   function customerInnerArea(c,s){
-    return S(
-      c.customer_region_v327||c.customer_region||
-      s.customer_region_v327||s.customer_region||
-      ''
-    )||'غير محدد';
+    var a=S(c.customer_region_v327||c.customer_region||s.customer_region_v327||s.customer_region||'')||'غير محدد';
+    try{if(a!=='غير محدد'&&window.MAHSOUBAK_TERRITORY_MASTER)a=window.MAHSOUBAK_TERRITORY_MASTER.canonicalArea(a)||a}catch(e){}
+    return a;
   }
 
   function approvedSales(){
@@ -28639,19 +28679,14 @@ html body .summary-box.v303-auto-clickable:after{
 
   function allAreasByGroup(){
     var map=new Map();
-    CORE_GROUPS_V332.forEach(function(g){map.set(g,new Set())});
-
-    (db.customers||[]).forEach(function(c){
-      var g=customerGroup(c,{});
-      var a=customerInnerArea(c,{});
-      if(map.has(g)&&a&&a!=='غير محدد')map.get(g).add(a);
+    CORE_GROUPS_V332.forEach(function(g){
+      var set=new Set();
+      try{
+        var t=window.MAHSOUBAK_TERRITORY_MASTER&&window.MAHSOUBAK_TERRITORY_MASTER.byLabel(g);
+        if(t)(t.areas||[]).forEach(function(a){set.add(a)});
+      }catch(e){}
+      map.set(g,set);
     });
-
-    approvedSales().forEach(function(s){
-      var c=customerForSale(s),g=customerGroup(c,s),a=customerInnerArea(c,s);
-      if(map.has(g)&&a&&a!=='غير محدد')map.get(g).add(a);
-    });
-
     return map;
   }
 
@@ -29135,19 +29170,27 @@ html body .summary-box.v303-auto-clickable:after{
   }
 
   function customerGroup(c,s){
-    return normalizeGroup(
-      c.area||c.sales_group||c.region_group||
-      s.customer_group||s.area_group||''
-    );
+    try{
+      var master=window.MAHSOUBAK_TERRITORY_MASTER;
+      if(master){
+        var rep=S((s&&s.rep_name)||'');
+        if(!rep&&s&&s.rep_id){
+          var rr=(db.reps||[]).find(function(x){return String(x.id)===String(s.rep_id)});
+          rep=rr?S(rr.name):'';
+        }
+        var t=master.resolve(rep,customerArea(c,s),Object.assign({},c||{},s||{}));
+        if(t&&['West 1','West 2','East 1','East 2'].indexOf(t.label)>=0)return t.label;
+      }
+    }catch(e){}
+    return normalizeGroup(c.area||c.sales_group||c.region_group||s.customer_group||s.area_group||'');
   }
 
   /* Definitive inner Area: Customer Region only.
      Never use full address as an Area. */
   function customerArea(c,s){
-    return S(
-      c.customer_region_v327||c.customer_region||
-      s.customer_region_v327||s.customer_region||''
-    );
+    var a=S(c.customer_region_v327||c.customer_region||s.customer_region_v327||s.customer_region||'');
+    try{if(window.MAHSOUBAK_TERRITORY_MASTER)a=window.MAHSOUBAK_TERRITORY_MASTER.canonicalArea(a)||a}catch(e){}
+    return a;
   }
 
   function approvedSales(){
@@ -29162,48 +29205,31 @@ html body .summary-box.v303-auto-clickable:after{
 
   function assignedGroups(rep,sales){
     var set=new Set();
-
-    /* Explicit region assignments take priority if they contain core group names. */
-    var arr=rep&&(rep.assigned_regions_v324||rep.regions||rep.sales_regions||[]);
-    if(!Array.isArray(arr))arr=S(arr)?S(arr).split(/[,،;]/):[];
-    arr.forEach(function(x){
-      var g=normalizeGroup(x);
-      if(g)set.add(g);
-    });
-
-    /* Actual sales/customer group history also establishes scope. */
+    try{
+      var master=window.MAHSOUBAK_TERRITORY_MASTER;
+      if(master&&rep){
+        master.territoriesForRep(rep.name).forEach(function(t){
+          if(['West 1','West 2','East 1','East 2'].indexOf(t.label)>=0)set.add(t.label);
+        });
+      }
+    }catch(e){}
     (sales||[]).forEach(function(s){
       var g=customerGroup(customerForSale(s),s);
       if(g)set.add(g);
     });
-
-    /* Fallback to the established West/East rep grouping only if still empty. */
-    if(!set.size && rep){
-      var n=norm(rep.name);
-      var west=['مارينا','عماد'].map(norm);
-      var east=['سلمى','ماهينور','نوران'].map(norm);
-      if(west.indexOf(n)>=0){set.add('West 1');set.add('West 2')}
-      if(east.indexOf(n)>=0){set.add('East 1');set.add('East 2')}
-    }
-
     return Array.from(set);
   }
 
   function allAreasForGroups(groups){
     var map=new Map();
-    groups.forEach(function(g){map.set(g,new Set())});
-
-    (db.customers||[]).forEach(function(c){
-      var g=customerGroup(c,{});
-      var a=customerArea(c,{});
-      if(map.has(g)&&a)map.get(g).add(a);
+    groups.forEach(function(g){
+      var set=new Set();
+      try{
+        var t=window.MAHSOUBAK_TERRITORY_MASTER&&window.MAHSOUBAK_TERRITORY_MASTER.byLabel(g);
+        if(t)(t.areas||[]).forEach(function(a){set.add(a)});
+      }catch(e){}
+      map.set(g,set);
     });
-
-    approvedSales().forEach(function(s){
-      var c=customerForSale(s),g=customerGroup(c,s),a=customerArea(c,s);
-      if(map.has(g)&&a)map.get(g).add(a);
-    });
-
     return map;
   }
 
@@ -30479,44 +30505,37 @@ html body .summary-box.v303-auto-clickable:after{
   }
 
   function areas(){
-    var arr=[];
     try{
-      var g=window.FINAL_GROUPS_V338||{};
-      Object.keys(g).forEach(function(totalId){
-        var x=g[totalId];
-        if(Array.isArray(x.subgroups)){
-          x.subgroups.forEach(function(sg){
-            arr.push({name:S(sg.label||sg.id),rep:S(sg.rep)});
-          });
-        }else if(x&&x.direct&&x.rep){
-          arr.push({name:S(x.name||totalId),rep:S(x.rep)});
-        }
-      });
+      var master=window.MAHSOUBAK_TERRITORY_MASTER;
+      if(master)return master.all().map(function(t){return {name:t.label,rep:t.rep,id:t.id}});
     }catch(e){}
-
-    /* fallback if the final hierarchy object is unavailable */
-    if(!arr.length){
-      arr=[
-        {name:'West 1',rep:'مارينا'},
-        {name:'West 2',rep:'عماد'},
-        {name:'East 1',rep:'سيف'},
-        {name:'East 2',rep:'ماهينور'},
-        {name:'Heliopolis',rep:'نوران'},
-        {name:'سلمى',rep:'سلمى'},
-        {name:'Delta Total',rep:'منى'},
-        {name:'Alex Total',rep:'يحي فتحي'}
-      ];
-    }
-    return arr;
+    return [];
   }
 
   window.macroAreaSalesV347=function(){
     var sales=approvedSales();
+    var master=window.MAHSOUBAK_TERRITORY_MASTER;
+
     return areas().map(function(a){
-      var rn=norm(a.rep);
-      var value=sales.filter(function(s){return norm(repName(s))===rn})
-        .reduce(function(sum,s){return sum+N(s.total)},0);
-      return {name:a.name,rep:a.rep,value:value};
+      var value=sales.filter(function(s){
+        var c=(db.customers||[]).find(function(x){return String(x.id||'')===String(s.customer_id||'')})||{};
+        var rep=repName(s);
+        var area=S(
+          c.customer_region_v327||c.customer_region||
+          s.customer_region_v327||s.customer_region||
+          c.city||s.city||''
+        );
+
+        if(master){
+          var t=master.resolve(rep,area,Object.assign({},c||{},s||{}));
+          return !!(t && String(t.id)===String(a.id));
+        }
+
+        /* Safe fallback if master is unavailable: use rep only, preserving old behavior. */
+        return norm(rep)===norm(a.rep);
+      }).reduce(function(sum,s){return sum+N(s.total)},0);
+
+      return {name:a.name,rep:a.rep,id:a.id,value:value};
     }).sort(function(a,b){return b.value-a.value});
   };
 
@@ -30969,7 +30988,7 @@ html body .summary-box.v303-auto-clickable:after{
     east_total_v186:{
       name:'East Total',
       reps:[
-        {name:'سيف',sub:'East 1'},
+        {name:'سلمى',sub:'East 1'},
         {name:'ماهينور',sub:'East 2'},
         {name:'نوران',sub:'Heliopolis'},
         {name:'سلمى',sub:'Salma'}
@@ -31041,31 +31060,6 @@ html body .summary-box.v303-auto-clickable:after{
       "onclick=\"window.openRepDrillDirectV304('company-sales');return false;\">"+
       '<span>إجمالي مبيعات الشركة كلها خلال المدة</span><strong>'+M(total)+'</strong></div>';
   }
-  function totalHtml(id){
-    var g=TOTALS[id],x=groupSummary(id);if(!g||!x)return '';
-    return companyBanner()+
-      '<div class="v335-root">'+
-        '<div class="v336-total-head"><div><h2>'+E(g.name)+'</h2>'+
-        '<div class="v338-subtitle">إجمالي أداء مناديب المنطقة</div></div></div>'+
-        '<div class="v354-total-summary">'+
-          '<div class="stat"><span>إجمالي المبيعات</span><strong>'+M(x.sales)+'</strong></div>'+
-          '<div class="stat"><span>تارجت المنطقة بالكمية</span><strong>'+N(x.target).toLocaleString()+' وحدة</strong><small>مجموع تارجت المناديب</small></div>'+
-          '<div class="stat"><span>المحقق بالكمية</span><strong>'+N(x.achieved).toLocaleString()+' وحدة</strong><small>بيع فقط بدون بونص</small></div>'+
-          '<div class="stat"><span>نسبة تحقيق التارجت</span><strong>'+x.pct.toFixed(1)+'%</strong>'+
-            '<div class="v354-pct-bar"><span style="width:'+Math.min(100,Math.max(0,x.pct))+'%"></span></div></div>'+
-        '</div>'+
-        '<div class="v354-rep-grid">'+g.reps.map(function(rr){
-          var z=repSummary(rr.name);
-          return '<div class="v354-rep-card" data-total-id="'+E(id)+'" data-sub-id="'+E(rr.sub)+'" '+
-            'onclick="openSubgroupAreasV338(this.dataset.totalId,this.dataset.subId)">'+
-            '<h4>'+E(rr.sub)+' — '+E(rr.name)+'</h4>'+
-            '<small>مبيعات: '+M(z.sales)+' | تارجت: '+N(z.target).toLocaleString()+
-            ' | محقق: '+N(z.achieved).toLocaleString()+' | تحقيق: '+z.pct.toFixed(1)+'%</small>'+
-          '</div>';
-        }).join('')+'</div>'+
-      '</div>';
-  }
-
   /* legacy total report wrapper removed by single-source cleanup */
 })();
 </script>
@@ -37705,6 +37699,10 @@ function alloc(){var out=[];reportSales().forEach(function(s){var own=owner(s),o
 function repRows(ref){
   var r=repByRef(ref);if(!r)return [];
   function currentName(v){
+    var raw=String(v==null?'':v).trim();
+    var n=norm(raw);
+    if(n===norm('سيف')) return 'سلمى';
+
     try{if(typeof window.currentRepNameV490==='function')return S(window.currentRepNameV490(v))}catch(e){}
     return S(v)
   }
@@ -37775,6 +37773,112 @@ var bootStarted=Date.now(),timer=setInterval(function(){
     clearInterval(timer);reveal();
   }
 },50);
+
+/* ===== ONE AUTHORITATIVE TERRITORY MASTER =====
+   Reporting / classification only. No DB mutation. */
+window.MAHSOUBAK_TERRITORY_MASTER=(function(){
+  function S(v){return String(v==null?'':v).trim()}
+  function N(v){
+    return S(v).toLowerCase()
+      .replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه')
+      .replace(/[ًٌٍَُِّْـ]/g,'').replace(/\s+/g,' ');
+  }
+  var areaAliases={
+    'قيصل':'فيصل','حدائق الاهرام':'حدائق الأهرام','اكتوبر':'أكتوبر',
+    'الاسكندريه':'إسكندرية','الاسكندرية':'إسكندرية','اسكندريه':'إسكندرية','اسكندرية':'إسكندرية',
+    'مدينه نصر':'مدينة نصر','مصر الجديده':'مصر الجديدة','مدينه السادات':'مدينة السادات'
+  };
+  var territories={
+    west_1:{id:'west_1',label:'West 1',total:'West Total',rep:'مارينا',
+      areas:['زايد','حدائق الأهرام','فيصل','الهرم','الدقي','المهندسين','المعادي','الزمالك','المنيل','أكتوبر']},
+    west_2:{id:'west_2',label:'West 2',total:'West Total',rep:'عماد',
+      areas:['زايد','حدائق الأهرام','فيصل','الهرم','الدقي','المهندسين','المعادي','الزمالك','المنيل','أكتوبر']},
+    east_1:{id:'east_1',label:'East 1',total:'East Total',rep:'سلمى',historical_reps:['سيف'],
+      areas:['التجمع','الرحاب','مدينتي']},
+    east_2:{id:'east_2',label:'East 2',total:'East Total',rep:'ماهينور',
+      areas:['التجمع','الرحاب','مدينتي']},
+    heliopolis:{id:'heliopolis',label:'Heliopolis',total:'East Total',rep:'نوران',
+      areas:['مصر الجديدة','مدينة نصر','العبور']},
+    salma:{id:'salma',label:'Salma',total:'East Total',rep:'سلمى',
+      areas:['التجمع','مصر الجديدة','مدينة نصر','العبور']},
+    delta:{id:'delta',label:'Delta Total',total:'Delta Total',rep:'منى',
+      areas:['طنطا','المنصورة','بنها','شبين الكوم','المنوفية','مدينة السادات']},
+    alex:{id:'alex',label:'Alex Total',total:'Alexandria Total',rep:'يحي فتحي',rep_aliases:['يحيى فتحي'],
+      areas:['إسكندرية','رشيد']}
+  };
+  var order=['west_1','west_2','east_1','east_2','heliopolis','salma','delta','alex'];
+  function all(){return order.map(function(k){return territories[k]})}
+  function canonicalRep(v){
+    var n=N(v);
+    if(n===N('سيف'))return 'سلمى';
+    if(n===N('يحيى فتحي'))return 'يحي فتحي';
+    return S(v);
+  }
+  function canonicalArea(v){
+    var raw=S(v),mapped=areaAliases[N(raw)]||raw,n=N(mapped),found='';
+    all().some(function(t){
+      var x=(t.areas||[]).find(function(a){return N(a)===n});
+      if(x){found=x;return true}
+      return false;
+    });
+    return found||mapped;
+  }
+  function byLabel(v){
+    var n=N(v);
+    return all().find(function(t){
+      if(N(t.label)===n||N(t.id)===n)return true;
+      if(t.id==='alex'&&(n==='alex'||n==='alexandria'||n==='alexandria total'))return true;
+      if(t.id==='delta'&&n==='delta')return true;
+      return false;
+    })||null;
+  }
+  function repMatches(t,rep){
+    var n=N(canonicalRep(rep));
+    return [t.rep].concat(t.rep_aliases||[]).concat(t.historical_reps||[])
+      .some(function(x){return N(canonicalRep(x))===n});
+  }
+  function territoriesForRep(rep){return all().filter(function(t){return repMatches(t,rep)})}
+  function explicitTerritory(obj){
+    obj=obj||{};
+    var vals=[obj.territory_id,obj.territory,obj.sub_region,obj.subregion,obj.sales_group,obj.region_group,
+      obj.area_group,obj.region_code,obj.region_name,obj.group_name,obj.group,obj.source_key,obj.area];
+    for(var i=0;i<vals.length;i++){
+      var t=byLabel(vals[i]); if(t)return t;
+      var n=N(vals[i]);
+      if(n==='rep_west_1')return territories.west_1;
+      if(n==='rep_west_2')return territories.west_2;
+      if(n==='rep_east_1')return territories.east_1;
+      if(n==='rep_east_2')return territories.east_2;
+      if(n==='rep_heliopolis')return territories.heliopolis;
+      if(n==='rep_salma')return territories.salma;
+      if(n==='rep_delta')return territories.delta;
+      if(n==='rep_alex')return territories.alex;
+    }
+    return null;
+  }
+  function resolve(rep,area,obj){
+    var ex=explicitTerritory(obj); if(ex)return ex;
+    var candidates=territoriesForRep(rep);
+    if(candidates.length===1)return candidates[0];
+    var an=N(canonicalArea(area));
+    var matches=candidates.filter(function(t){
+      return (t.areas||[]).some(function(a){return N(a)===an});
+    });
+    return matches.length===1?matches[0]:null; /* never guess when ambiguous */
+  }
+  function areasFor(v){
+    var t=typeof v==='string'?byLabel(v):v;
+    return t?(t.areas||[]).slice():[];
+  }
+  function totalMembers(total){
+    var n=N(total);
+    return all().filter(function(t){return N(t.total)===n});
+  }
+  return {version:'2026-09-client-master',territories:territories,order:order,all:all,
+    byLabel:byLabel,canonicalRep:canonicalRep,canonicalArea:canonicalArea,
+    territoriesForRep:territoriesForRep,resolve:resolve,areasFor:areasFor,totalMembers:totalMembers,norm:N};
+})();
+
 window.auditMahsoubakMetrics=function(){var m=get();var r={metrics:m,reporting_sales_rows:reportSales().length,pending_approved_rows:pendingOrders().length,allocation_rows:alloc().length};console.log('MB SAFE CONSOLIDATED',r);return r};
 
 
