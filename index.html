@@ -37334,29 +37334,138 @@ function syncDashboardCards(){
 /* Detail header numbers use THE SAME snapshot as the cards.
    Existing detail tables remain unchanged. */
 var oldExpanded = window.expandedDashboardHTML || (typeof expandedDashboardHTML==='function'?expandedDashboardHTML:null);
+
 function stats(items){
   return '<div class="dash-expanded-grid">'+items.map(function(i){return '<div class="dash-expanded-stat"><span>'+E(i[0])+'</span><strong>'+i[1]+'</strong></div>'}).join('')+'</div>';
 }
-window.expandedDashboardHTML=function(key){
-  var original = oldExpanded ? oldExpanded.apply(this,arguments) : '';
-  var x=snapshot();
-  var header='';
-  if(key==='sales') header=stats([['إجمالي المبيعات',M(x.sales)],['التحصيلات',M(x.collections)],['مديونية العملاء',M(x.debt)],['عدد الفواتير',x.invoices]]);
-  else if(key==='stock') header=stats([['قيمة المخزون',M(x.stock)],['عدد الأصناف',x.products],['أصناف ناقصة',x.low]]);
-  else if(key==='operations') header=stats([['طلبات تجهيز',x.requested],['جاهز',x.prepared],['تم البيع',x.sold]]);
-  else if(key==='purchases') header=stats([['إجمالي المشتريات',M(x.purchases)],['مستحقات الموردين',M(x.supplierDue)],['عدد الفواتير',x.purchaseInvoices]]);
-  else if(key==='reps') header=stats([['نسبة التحقيق',x.repsPct.toFixed(1)+'%'],['التارجت (كمية)',x.repsTarget.toLocaleString()],['المحقق (كمية)',x.repsAchieved.toLocaleString()]]);
-  else if(key==='customers') header=stats([['إجمالي المديونية',M(x.debt)],['عدد العملاء',x.customers],['التحصيلات',M(x.collections)]]);
-  if(!header)return original;
+function table(headers,rows){
+  if(!rows.length)return '<div class="empty">لا توجد بيانات</div>';
+  return '<table><tr>'+headers.map(function(h){return '<th>'+E(h)+'</th>'}).join('')+'</tr>'+
+    rows.map(function(r){return '<tr>'+r.map(function(c){return '<td>'+c+'</td>'}).join('')+'</tr>'}).join('')+'</table>';
+}
+function dashHead(title,sub){
+  return '<div class="dash-panel-head"><div><h2>'+E(title)+'</h2><p>'+E(sub||'')+'</p></div><div class="actions"><button class="dash-close" onclick="window.print()">طباعة</button><button class="dash-close" onclick="closeDashboardModal()">إغلاق</button></div></div>';
+}
+function invoiceKeyDash(s){return S(s&& (s.invoice_key||s.invoice_number||s.invoice_no||s.invoice_group_id||s.order_id||s.id))}
+function invoiceGroupsDash(rows){
+  var map=new Map();
+  A(rows).forEach(function(s){
+    var k=invoiceKeyDash(s)||('ROW_'+S(s&&s.id));
+    if(!map.has(k))map.set(k,{key:k,date:s.date||'',customer:s.customer_name||'',rep:s.rep_name||'',products:new Set(),total:0,remaining:0});
+    var g=map.get(k);if(S(s.product_name))g.products.add(S(s.product_name));g.total+=N(s.total);g.remaining+=N(s.remaining);
+  });
+  return Array.from(map.values()).map(function(g){g.paid=Math.max(0,g.total-g.remaining);g.productsText=Array.from(g.products).join('، ');return g});
+}
+function canonicalDebtRowsDash(){
+  try{
+    if(typeof window.customerDebtReportRowsV485==='function'){
+      return A(window.customerDebtReportRowsV485(true)).map(function(r){
+        return {id:r.id||'',name:r.name||r.customer_name||'-',phone:r.phone||'',debt:N(r.debt),rows:A(r.rows)};
+      });
+    }
+  }catch(e){}
+  return A(db&&db.customers).map(function(c){return{id:c.id||'',name:c.name||c.customer_name||'-',phone:c.phone||'',debt:N(c.balance),rows:[]}});
+}
+function expiryRowsDash(){
+  return A(db&&db.products).map(function(p){
+    var st;try{st=typeof expiryStatus==='function'?expiryStatus(p):null}catch(e){}
+    return {p:p,st:st||{cls:'',label:'',days:null}};
+  }).filter(function(x){return x.st.cls==='warn'||x.st.cls==='low'});
+}
+function rowsForCurrentRepDash(r){
+  try{
+    if(window.MahsoubakMetrics&&typeof window.MahsoubakMetrics.rowsForRep==='function')return A(window.MahsoubakMetrics.rowsForRep(r.id));
+    if(typeof window.salesRowsV189==='function')return A(window.salesRowsV189(r.id));
+  }catch(e){}
+  return [];
+}
 
-  /* Remove only the first dashboard summary block from the old details,
-     then replace it with the exact same values shown on the card. */
-  var cleaned=String(original||'');
-  cleaned=cleaned.replace(/<div class="dash-expanded-grid">[\s\S]*?<\/div><\/div>/,'');
-  return header+cleaned;
+window.expandedDashboardHTML=function(key){
+  var x=snapshot(), html='';
+  if(key==='sales'){
+    var sr=salesRows(), ig=invoiceGroupsDash(sr), cr=collectionsRows();
+    html=dashHead('تفاصيل المبيعات','نفس مصدر كارت المبيعات')+
+      stats([['إجمالي المبيعات',M(x.sales)],['التحصيلات',M(x.collections)],['مديونية العملاء',M(x.debt)],['عدد الفواتير',String(x.invoices)]])+
+      '<div class="card"><h3>الفواتير المحتسبة</h3>'+
+      table(['التاريخ','الفاتورة','العميل','المندوب','المنتجات','الإجمالي','المسدد','المتبقي'],ig.map(function(g){return [E(g.date),E(g.key),E(g.customer),E(g.rep),E(g.productsText||'-'),M(g.total),M(g.paid),M(g.remaining)]}))+'</div>'+
+      '<div class="card"><h3>صفوف المبيعات</h3>'+
+      table(['التاريخ','العميل','المندوب','المنتج','الكمية','الإجمالي','المتبقي'],sr.map(function(s){return[E(s.date||''),E(s.customer_name||'-'),E(s.rep_name||'-'),E(s.product_name||'-'),String(N(s.qty)),M(s.total),M(s.remaining)]}))+'</div>'+
+      '<div class="card"><h3>التحصيلات</h3>'+
+      table(['التاريخ','العميل','المندوب','القيمة'],cr.map(function(c){return[E(c.date||''),E(c.customer_name||'-'),E(c.rep_name||'-'),M(c.amount)]}))+'</div>';
+    return html;
+  }
+  if(key==='stock'){
+    var pr=A(db&&db.products);
+    return dashHead('تفاصيل المخزون','نفس مصدر كارت قيمة المخزون')+
+      stats([['قيمة المخزون',M(x.stock)],['عدد الأصناف',String(x.products)],['أصناف ناقصة',String(x.low)]])+
+      '<div class="card">'+table(['الصنف','البراند','المخزون','الحد الأدنى','سعر الشراء','قيمة المخزون','الصلاحية'],pr.map(function(p){return[E(p.name||'-'),E(p.brand||'-'),String(N(p.stock)),String(N(p.min)),M(p.purchase_price||p.cost),M(N(p.stock)*N(p.purchase_price||p.cost)),E(p.expiry||'-')]}))+'</div>';
+  }
+  if(key==='expiry'){
+    var er=expiryRowsDash();
+    return dashHead('تنبيه الصلاحية','نفس الأصناف المحتسبة في تنبيه الشاشة الرئيسية')+
+      stats([['عدد تنبيهات الصلاحية',String(er.length)],['أصناف ناقصة',String(x.low)]])+
+      '<div class="card">'+table(['الصنف','الصلاحية','الحالة','الأيام'],er.map(function(z){return[E(z.p.name||'-'),E(z.p.expiry||'-'),E(z.st.label||'-'),z.st.days==null?'-':String(z.st.days)]}))+'</div>';
+  }
+  if(key==='operations'){
+    var ops=operationRows();
+    return dashHead('تفاصيل العمليات','نفس مصدر كارت العمليات')+
+      stats([['طلبات تجهيز',String(x.requested)],['جاهز',String(x.prepared)],['تم البيع',String(x.sold)]])+
+      '<div class="card">'+table(['التاريخ','العميل','المنتج','المندوب','الكمية','الإجمالي','الحالة'],ops.map(function(o){return[E(o.date||''),E(o.customer_name||'-'),E(o.product_name||'-'),E(o.rep_name||'-'),String(N(o.qty)),M(o.total),E(o.status||'-')]}))+'</div>';
+  }
+  if(key==='purchases'){
+    var pp=A(db&&db.purchases);
+    return dashHead('تفاصيل المشتريات','نفس مصدر كارت المشتريات')+
+      stats([['إجمالي المشتريات',M(x.purchases)],['مستحقات الموردين',M(x.supplierDue)],['عدد الفواتير',String(x.purchaseInvoices)]])+
+      '<div class="card">'+table(['التاريخ','المورد','المنتج','الكمية','الإجمالي','المتبقي'],pp.map(function(p){return[E(p.date||''),E(p.supplier_name||'-'),E(p.product_name||'-'),String(N(p.qty)),M(p.total),M(p.remaining)]}))+'</div>';
+  }
+  if(key==='reps'){
+    var reps=currentActiveRepsForDash();
+    var rr=reps.map(function(r){
+      var rows=rowsForCurrentRepDash(r),ach=rows.reduce(function(a,s){return a+N(s.qty)},0);
+      var target=N(r.target_qty!=null?r.target_qty:(r.target_value!=null?r.target_value:(r.target!=null?r.target:r.sales_target)));
+      var sales=rows.reduce(function(a,s){return a+N(s.total)},0);
+      return {name:r.name||'-',target:target,achieved:ach,remaining:Math.max(0,target-ach),pct:target>0?ach/target*100:0,sales:sales};
+    });
+    return dashHead('تفاصيل البياعين','نفس المندوبين الحاليين ونفس مصدر كارت نسبة التحقيق')+
+      stats([['نسبة التحقيق',x.repsPct.toFixed(1)+'%'],['التارجت (كمية)',x.repsTarget.toLocaleString()],['المحقق (كمية)',x.repsAchieved.toLocaleString()]])+
+      '<div class="card">'+table(['المندوب','التارجت','المحقق','المتبقي','النسبة','المبيعات'],rr.map(function(r){return[E(r.name),r.target.toLocaleString(),r.achieved.toLocaleString(),r.remaining.toLocaleString(),r.pct.toFixed(1)+'%',M(r.sales)]}))+'</div>';
+  }
+  if(key==='customers'){
+    var dr=canonicalDebtRowsDash().filter(function(r){return N(r.debt)>0.0001});
+    return dashHead('تفاصيل مديونيات العملاء','نفس المصدر المحاسبي المستخدم في كارت المديونية')+
+      stats([['إجمالي المديونية',M(x.debt)],['عدد العملاء',String(x.customers)],['التحصيلات',M(x.collections)]])+
+      '<div class="card">'+table(['العميل','التليفون','المديونية'],dr.map(function(r){return[E(r.name),E(r.phone||'-'),M(r.debt)]}))+'</div>';
+  }
+  return oldExpanded?oldExpanded.apply(this,arguments):'';
 };
 try{expandedDashboardHTML=window.expandedDashboardHTML}catch(e){}
 
+/* Stamp every visible dashboard card with a stable detail key. */
+function bindDashboardCardKeys(){
+  var root=document.getElementById('view-dashboard');if(!root)return;
+  ['sales','stock','operations','purchases','reps','customers'].forEach(function(key){
+    var tile=root.querySelector('.tile-'+key+',.dash-'+key);
+    if(tile){tile.setAttribute('data-mb-dashboard-key',key);tile.style.cursor='pointer';tile.removeAttribute('onclick')}
+  });
+  var exec=A(root.querySelectorAll('.executive-strip .exec-stat'));
+  var keys=['sales','stock','customers','expiry'];
+  exec.forEach(function(card,i){if(keys[i]){card.setAttribute('data-mb-dashboard-key',keys[i]);card.style.cursor='pointer'}});
+}
+
+/* One delegated dashboard click handler survives every render. */
+if(!window.__MB_DASHBOARD_DELEGATED_CLICK__){
+  window.__MB_DASHBOARD_DELEGATED_CLICK__=true;
+  document.addEventListener('click',function(e){
+    var card=e.target&&e.target.closest?e.target.closest('#view-dashboard [data-mb-dashboard-key]'):null;
+    if(!card)return;
+    e.preventDefault();e.stopPropagation();
+    if(typeof e.stopImmediatePropagation==='function')e.stopImmediatePropagation();
+    var key=S(card.getAttribute('data-mb-dashboard-key'));
+    if(!key)return;
+    syncDashboardCards();
+    if(typeof window.openDashboardCard==='function')window.openDashboardCard(key);
+  },true);
+}
 /* Rep-detail synchronization removed: V189 owns rep cards and details. */
 
 /* Wrap only dashboard rendering/opening, not business calculations. */
@@ -37364,7 +37473,7 @@ var oldRender=window.renderDashboard || (typeof renderDashboard==='function'?ren
 if(typeof oldRender==='function'){
   window.renderDashboard=function(){
     var r=oldRender.apply(this,arguments);
-    setTimeout(syncDashboardCards,0);
+    setTimeout(function(){syncDashboardCards();bindDashboardCardKeys()},0);
     return r;
   };
   try{renderDashboard=window.renderDashboard}catch(e){}
@@ -37374,12 +37483,13 @@ var oldOpenDash=window.openDashboardCard || (typeof openDashboardCard==='functio
 if(typeof oldOpenDash==='function'){
   window.openDashboardCard=function(){
     syncDashboardCards();
+    bindDashboardCardKeys();
     return oldOpenDash.apply(this,arguments);
   };
   try{openDashboardCard=window.openDashboardCard}catch(e){}
 }
 
-setTimeout(syncDashboardCards,0);
+setTimeout(function(){syncDashboardCards();bindDashboardCardKeys()},0);
 })();
 </script>
 
