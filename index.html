@@ -29016,127 +29016,6 @@ html body .summary-box.v303-auto-clickable:after{
 .v338-subtitle{font-size:12px;color:#64748b;margin-top:5px}
 .v338-rep-label{display:inline-flex;margin-top:7px;padding:4px 8px;border-radius:999px;background:#eef2ff;color:#3730a3;font-size:11px;font-weight:900}
 </style>
-<script id="v339-area-number-matching-fix">
-(function(){
-  function S(v){return String(v==null?'':v).trim()}
-  function norm(v){
-    return S(v).toLowerCase()
-      .replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه')
-      .replace(/[ًٌٍَُِّْـ]/g,'')
-      .replace(/[^a-z0-9\u0600-\u06ff]+/g,' ')
-      .replace(/\s+/g,' ').trim();
-  }
-
-  var AREA_ALIASES_V339={
-    'زايد':['زايد','zayed','sheikh zayed','el sheikh zayed','new giza'],
-    'حدائق الأهرام':['حدائق الاهرام','hadaeq el ahram','hadayek el ahram','gardens of pyramids'],
-    'فيصل':['فيصل','faisal','faysal'],
-    'الهرم':['الهرم','haram','el haram','pyramids'],
-    'الدقي':['الدقي','dokki','el dokki'],
-    'المهندسين':['المهندسين','mohandessin','mohandeseen','el mohandessin'],
-    'المعادي':['المعادي','maadi','el maadi'],
-    'الزمالك':['الزمالك','zamalek','el zamalek'],
-    'المنيل':['المنيل','manial','el manial'],
-    'أكتوبر':['اكتوبر','6 october','6th october','october','sixth october'],
-    'التجمع':['التجمع','tagamoa','tagamo3','new cairo','fifth settlement','5th settlement','settlement'],
-    'الرحاب':['الرحاب','rehab','el rehab','al rehab'],
-    'مدينتي':['مدينتي','madinaty','madinty'],
-    'مصر الجديدة':['مصر الجديده','heliopolis','masr el gedida','masr el gededa'],
-    'مدينة نصر':['مدينه نصر','nasr city','madinet nasr'],
-    'العبور':['العبور','obour','el obour','al obour'],
-    'طنطا':['طنطا','tanta'],
-    'المنصورة':['المنصوره','mansoura','mansura'],
-    'بنها':['بنها','banha','benha'],
-    'شبين الكوم':['شبين الكوم','shebin el kom','shibin el kom','shebeen el kom'],
-    'المنوفية':['المنوفيه','monufia','menoufia','monofia'],
-    'مدينة السادات':['مدينه السادات','sadat city','el sadat city'],
-    'إسكندرية':['اسكندريه','الاسكندريه','alexandria','alex'],
-    'رشيد':['رشيد','rosetta','rashid']
-  };
-
-  function candidates(c,s){
-    return [
-      c.customer_region_v327,c.customer_region,
-      s.customer_region_v327,s.customer_region,
-      c.customer_area,c.zone,c.district,c.city,c.region_name,c.region,
-      s.customer_area,s.zone,s.district,s.city,
-      c.address,c.customer_address,s.address,s.customer_address,s.order_address
-    ].map(S).filter(Boolean);
-  }
-
-  window.areaMatchesV339=function(c,s,area){
-    var aliases=(AREA_ALIASES_V339[area]||[area]).map(norm);
-    var vals=candidates(c||{},s||{}).map(norm);
-    return vals.some(function(v){
-      return aliases.some(function(a){
-        if(!a)return false;
-        return v===a || v.indexOf(a)>=0 || a.indexOf(v)>=0;
-      });
-    });
-  };
-
-  /* Override final V338 area-sales resolver with tolerant matching. */
-  window.areaSalesV339=function(totalId,subId,area){
-    var rows=[];
-    try{
-      var g=window.FINAL_GROUPS_V338&&window.FINAL_GROUPS_V338[totalId];
-      if(!g)return [];
-      var rep='';
-      if(subId && Array.isArray(g.subgroups)){
-        var sg=g.subgroups.find(function(x){return x.id===subId});
-        rep=sg&&sg.rep||'';
-      }else{
-        rep=g.rep||'';
-      }
-      var nrep=norm(rep);
-      rows=(typeof companyApprovedSalesV302==='function'?companyApprovedSalesV302():(db.sales||[])).filter(function(s){
-        if(s.approval_status&&s.approval_status!=='approved')return false;
-        try{if(typeof inRangeV189==='function'&&!inRangeV189(s))return false}catch(e){}
-        var rn=S(s.rep_name);
-        if(!rn && s.rep_id){
-          var r=(db.reps||[]).find(function(x){return String(x.id)===String(s.rep_id)});
-          rn=r&&r.name||'';
-        }
-        if(norm(rn)!==nrep)return false;
-        var c=(db.customers||[]).find(function(x){return String(x.id)===String(s.customer_id)})||{};
-        return window.areaMatchesV339(c,s,area);
-      });
-    }catch(e){rows=[]}
-    return rows;
-  };
-
-  /* Rebind V338 detail functions so their area rows use tolerant matcher. */
-  if(typeof window.openSubgroupAreasV338==='function'){
-    var oldSub=window.openSubgroupAreasV338;
-    window.openSubgroupAreasV338=function(totalId,subId){
-      var originalAreaSales = window.areaSalesV338;
-      window.areaSalesV338 = window.areaSalesV339;
-      try{return oldSub.apply(this,arguments)}
-      finally{window.areaSalesV338 = originalAreaSales}
-    };
-  }
-
-  if(typeof window.openDirectAreasV338==='function'){
-    var oldDirect=window.openDirectAreasV338;
-    window.openDirectAreasV338=function(totalId){
-      var originalAreaSales = window.areaSalesV338;
-      window.areaSalesV338 = window.areaSalesV339;
-      try{return oldDirect.apply(this,arguments)}
-      finally{window.areaSalesV338 = originalAreaSales}
-    };
-  }
-
-  if(typeof window.openAreaDetailsV338==='function'){
-    var oldDetail=window.openAreaDetailsV338;
-    window.openAreaDetailsV338=function(totalId,subId,area){
-      var originalAreaSales = window.areaSalesV338;
-      window.areaSalesV338 = window.areaSalesV339;
-      try{return oldDetail.apply(this,arguments)}
-      finally{window.areaSalesV338 = originalAreaSales}
-    };
-  }
-})();
-</script>
 <script id="v338-final-area-hierarchy">
 (function(){
   function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
@@ -29147,6 +29026,56 @@ html body .summary-box.v303-auto-clickable:after{
     return S(v).toLowerCase()
       .replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه')
       .replace(/\s+/g,' ');
+  }
+
+
+  /* Single authoritative area matcher for this report. */
+  var AREA_ALIASES_V338={
+    'زايد':['زايد','zayed','sheikh zayed','el sheikh zayed','new giza'],
+    'حدائق الأهرام':['حدائق الاهرام','hadaeq el ahram','hadayek el ahram'],
+    'فيصل':['فيصل','faisal','faysal'],
+    'الهرم':['الهرم','haram','el haram'],
+    'الدقي':['الدقي','dokki','el dokki'],
+    'المهندسين':['المهندسين','mohandessin','mohandesin'],
+    'المعادي':['المعادي','maadi','el maadi'],
+    'الزمالك':['الزمالك','zamalek'],
+    'المنيل':['المنيل','manial','el manial'],
+    'أكتوبر':['اكتوبر','6 october','6th october','october'],
+    'التجمع':['التجمع','new cairo','tagamoa','tagamo3','fifth settlement'],
+    'الرحاب':['الرحاب','rehab','el rehab'],
+    'مدينتي':['مدينتي','madinaty'],
+    'الشروق':['الشروق','shorouk','el shorouk'],
+    'مصر الجديدة':['مصر الجديده','heliopolis','masr el gedida','masr el gededa'],
+    'مدينة نصر':['مدينه نصر','nasr city','madinet nasr'],
+    'العبور':['العبور','obour','el obour','al obour'],
+    'طنطا':['طنطا','tanta'],
+    'المنصورة':['المنصوره','mansoura','mansura'],
+    'بنها':['بنها','banha','benha'],
+    'شبين الكوم':['شبين الكوم','shebin el kom','shibin el kom','shebeen el kom'],
+    'المنوفية':['المنوفيه','monufia','menoufia','monofia'],
+    'مدينة السادات':['مدينه السادات','sadat city','el sadat city'],
+    'إسكندرية':['اسكندريه','الاسكندريه','alexandria','alex'],
+    'رشيد':['رشيد','rosetta','rashid'],
+    'دمنهور':['دمنهور','damanhour','damanhur']
+  };
+
+  function areaCandidatesV338(c,s){
+    return [
+      c.customer_region_v327,c.customer_region,c.customer_area,c.zone,c.district,c.city,c.region_name,c.region,
+      c.address,c.customer_address,
+      s.customer_region_v327,s.customer_region,s.customer_area,s.zone,s.district,s.city,s.region_name,s.region,
+      s.address,s.customer_address,s.order_address
+    ].map(S).filter(Boolean);
+  }
+
+  function areaMatchesV338(c,s,area){
+    var aliases=(AREA_ALIASES_V338[area]||[area]).map(norm);
+    var vals=areaCandidatesV338(c||{},s||{}).map(norm);
+    return vals.some(function(v){
+      return aliases.some(function(a){
+        return !!a && (v===a || v.indexOf(a)>=0 || a.indexOf(v)>=0);
+      });
+    });
   }
 
   var FINAL_GROUPS_V338={
@@ -29176,7 +29105,7 @@ html body .summary-box.v303-auto-clickable:after{
       name:'Alex Total',
       direct:true,
       rep:'يحي فتحي',
-      areas:['إسكندرية','رشيد']
+      areas:['إسكندرية','رشيد','دمنهور']
     }
   };
 
@@ -29232,12 +29161,11 @@ html body .summary-box.v303-auto-clickable:after{
     var rows=subId?subgroupSales(totalId,subId):directGroupSales(totalId);
     return rows.filter(function(s){
       var c=customerForSale(s);
-      if(typeof window.areaMatchesV339==='function'){
-        return window.areaMatchesV339(c,s,area);
-      }
-      return norm(customerArea(c,s))===norm(area);
+      return areaMatchesV338(c,s,area);
     });
   }
+
+  window.areaMatchesV338=areaMatchesV338;
 
   function invoiceKey(s){return S(s.invoice_no||s.invoice_group_id||s.order_id||s.id)}
 
@@ -35797,67 +35725,6 @@ html body .summary-box.v303-auto-clickable:after{
 #rep_performance_modal_v175 .rep-card-v175[data-rep-id="east_total_v186"]{border-color:#7c3aed!important;background:linear-gradient(135deg,#faf5ff,#eef2ff)!important}
 #rep_performance_modal_v175 .rep-card-v175[data-rep-id="east_total_v186"] .v462-east-structure{color:#4338ca!important;font-weight:900!important}
 </style>
-
-
-<script id="v463-correct-territory-area-map">
-(function(){
-  'use strict';
-  var MAP={
-    west_total_v186:{
-      'West 1':['زايد','أكتوبر','حدائق الأهرام','فيصل','الهرم','الدقي','المهندسين','المعادي','الزمالك','المنيل'],
-      'West 2':['زايد','أكتوبر','حدائق الأهرام','فيصل','الهرم','الدقي','المهندسين','المعادي','الزمالك','المنيل']
-    },
-    east_total_v186:{
-      'East 1':['التجمع','الرحاب','مدينتي','الشروق'],
-      'East 2':['التجمع','الرحاب','مدينتي'],
-      'Heliopolis':['مصر الجديدة','مدينة نصر','العبور']
-    },
-    delta_total_v321:{direct:['طنطا','المنصورة','بنها','شبين الكوم','المنوفية','مدينة السادات']},
-    alex_total_v321:{direct:['الإسكندرية','رشيد','دمنهور']}
-  };
-  function A(v){return Array.isArray(v)?v:[]}
-  function S(v){return String(v==null?'':v).trim()}
-  function key(v){return S(v).toLowerCase().replace(/\s+/g,'')}
-  function applyMap(){
-    var groups=window.FINAL_GROUPS_V338;if(!groups)return;
-    Object.keys(MAP).forEach(function(totalId){
-      var g=groups[totalId],cfg=MAP[totalId];if(!g)return;
-      if(Array.isArray(cfg.direct)){g.areas=cfg.direct.slice();return}
-      A(g.subgroups).forEach(function(sg){
-        var id=Object.keys(cfg).find(function(name){return key(name)===key(sg.id)});
-        if(id)sg.areas=cfg[id].slice();
-      });
-    });
-  }
-  window.applyCorrectTerritoryAreaMapV463=applyMap;
-
-  var normalizeEastBase=window.normalizeEastTotalV459;
-  window.normalizeEastTotalV459=function(){var r=typeof normalizeEastBase==='function'?normalizeEastBase.apply(this,arguments):null;applyMap();return r};
-
-  var subgroupBase=window.openSubgroupAreasV338;
-  if(typeof subgroupBase==='function'){
-    window.openSubgroupAreasV338=function(){applyMap();return subgroupBase.apply(this,arguments)};
-  }
-  var directBase=window.openDirectAreasV338;
-  if(typeof directBase==='function'){
-    window.openDirectAreasV338=function(){applyMap();return directBase.apply(this,arguments)};
-  }
-  var detailBase=window.openRepDetailsV175;
-  if(typeof detailBase==='function'){
-    window.openRepDetailsV175=function(){applyMap();return detailBase.apply(this,arguments)};
-    try{openRepDetailsV175=window.openRepDetailsV175}catch(e){}
-  }
-  var renderBase=window.render;
-  if(typeof renderBase==='function'){
-    window.render=function(){applyMap();var r=renderBase.apply(this,arguments);applyMap();return r};
-    try{render=window.render}catch(e){}
-  }
-  applyMap();setTimeout(applyMap,500);setTimeout(applyMap,1200);
-})();
-</script>
-
-
-
 <style id="v465-west-hierarchy-salma-dedupe-style">
 .v465-west-grid{display:grid;grid-template-columns:repeat(2,minmax(280px,1fr));gap:16px;margin-top:18px}
 .v465-west-card{background:#fff;border:2px solid #bae6fd;border-radius:18px;padding:18px;cursor:pointer;transition:.18s ease;box-shadow:0 10px 28px rgba(15,23,42,.08)}
