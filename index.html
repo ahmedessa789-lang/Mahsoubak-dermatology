@@ -20352,7 +20352,9 @@ function buildReportV189(repId){
     var bars = `<div class="bars-grid">` + activeCurrentRepsV272().map(function(r){
       var target=(typeof window.repQtyTargetV346==='function')?numV272(window.repQtyTargetV346(r)):numV272(r.target);
       var achieved=repAchievementQtyV272(r.id),pct=target?(achieved/target*100):0,pctWidth=Math.min(100,Math.max(0,pct));
-      return `<div class="mini-bar-card">
+      return `<div class="mini-bar-card" role="button" tabindex="0"
+        onclick="if(window.openUnifiedRepDrillV189){window.openUnifiedRepDrillV189('${r.id}','target')}else if(window.openRepDetailsV175){window.openRepDetailsV175('${r.id}')}"
+        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
         <div class="mini-bar-head"><strong>${escV272(r.name||'-')}</strong><b>${pct.toFixed(1)}%</b></div>
         <div class="mini-bar-wrap"><div class="mini-bar-fill" style="width:${pctWidth}%"></div></div>
         <div class="mini-bar-meta">${qtyFmtV272(achieved)} / ${qtyFmtV272(target)} ${qtyWordV272()}</div>
@@ -20413,7 +20415,7 @@ function buildReportV189(repId){
 </script>
 <style id="v272-reps-target-style">
 .bars-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:12px}
-.mini-bar-card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:14px}
+.mini-bar-card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:14px;cursor:pointer}
 .mini-bar-wrap{height:16px;background:#e5eef7;border-radius:999px;overflow:hidden;margin:10px 0}
 .mini-bar-fill{height:100%;background:linear-gradient(90deg,#22c1c3,#4caf50);border-radius:999px}
 .mini-bar-meta{font-size:13px;color:#475569}
