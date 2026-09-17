@@ -7719,13 +7719,13 @@ render();
     wrap.id='rep_management_clean_v185';
     wrap.innerHTML=repReplacementCardV452()+`
       <div class="card rep-management-card-v185"><div class="rep-management-title-v185"><div><h3>إدارة المندوبين</h3><p>إضافة مندوب جديد أو حذف مندوب من قائمة الاختيارات</p></div></div><div class="rep-add-grid-v185"><label><span>اسم المندوب</span><input id="rep_name_v185" type="text" placeholder="اكتب اسم المندوب"></label><label><span>رقم الهاتف</span><input id="rep_phone_v185" type="text" placeholder="رقم الهاتف"></label><label><span>المنطقة</span><input id="rep_area_v185" type="text" placeholder="منطقة العمل"></label><label><span>التارجت</span><input id="rep_target_v185" type="number" min="0" step="0.01" placeholder="0"></label><button type="button" class="btn ok rep-add-btn-v185" onclick="addRepV185()">إضافة المندوب</button></div><div class="rep-list-v185">
-          ${db.reps.length ? db.reps.map(rep=>{
+          ${(db.reps||[]).filter(rep=>rep&&rep.active!==false&&rep.inactive_v452!==true).length ? (db.reps||[]).filter(rep=>rep&&rep.active!==false&&rep.inactive_v452!==true).map(rep=>{
             let usage=repUsageV185(rep);
             return `
-              <div class="rep-row-v185 ${rep.inactive_v452?'rep-row-archived-v452':''}"><div class="rep-info-v185"><b>${esc(rep.name||'')} ${rep.inactive_v452?'<span class="rep-archived-badge-v452">مندوب سابق</span>':''}</b>
+              <div class="rep-row-v185"><div class="rep-info-v185"><b>${esc(rep.name||'')}</b>
                   ${rep.phone?`<span>${esc(rep.phone)}</span>`:''}
                   ${(rep.area||rep.region)?`<span>${esc(rep.area||rep.region)}</span>`:''}
-                </div><div class="rep-counts-v185"><span>مبيعات: ${usage.sales}</span><span>أوردرات: ${usage.orders}</span><span>تحصيلات: ${usage.collections}</span></div>${rep.inactive_v452?`<span class="rep-archived-v452">مؤرشف → ${esc(rep.replaced_by_rep_name_v452||'')}</span>`:`<button type="button" class="rep-delete-v185" onclick="deleteRepV185('${rep.id}')">🗑 حذف المندوب</button>`}</div>
+                </div><div class="rep-counts-v185"><span>مبيعات: ${usage.sales}</span><span>أوردرات: ${usage.orders}</span><span>تحصيلات: ${usage.collections}</span></div><button type="button" class="rep-delete-v185" onclick="deleteRepV185('${rep.id}')">🗑 حذف المندوب</button></div>
             `;
           }).join('') : `<div class="empty">لا يوجد مندوبون حاليًا</div>`}
         </div></div>
@@ -8428,7 +8428,22 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
     let target=reps.reduce(function(sum,r){
       return sum+n(r.target_qty!=null?r.target_qty:(r.target_value!=null?r.target_value:(r.target!=null?r.target:r.sales_target)));
     },0);
-    let achieved=sales.reduce((sum,s)=>sum+(typeof window.targetSaleQtyV346==='function'?window.targetSaleQtyV346(s):n(s.qty)),0);
+
+    /* Achievement must come from the exact same rows displayed below.
+       Only rows explicitly classified as Bonus / Free / Sample are excluded. */
+    let achieved=(sales||[]).reduce(function(sum,s){
+      try{
+        if(typeof window.isTargetSaleRowV346==='function' && !window.isTargetSaleRowV346(s))return sum;
+      }catch(e){}
+      let q=n(s&&(
+        s.qty!=null?s.qty:
+        (s.quantity!=null?s.quantity:
+        (s.allocated_qty!=null?s.allocated_qty:
+        (s.total_qty!=null?s.total_qty:s.units)))
+      ));
+      return sum+q;
+    },0);
+
     return {label:'الكمية',target,achieved};
   }
 
