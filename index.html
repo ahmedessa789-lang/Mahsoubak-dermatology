@@ -8426,7 +8426,10 @@ html body .rep-archived-v452{display:inline-flex!important;align-items:center!im
   function targetInfoV189(repId,sales){
     let reps=GROUPS_V189[repId]?groupMemberRepsV189(repId):[(db.reps||[]).find(r=>String(r.id)===String(repId))].filter(Boolean);
     let target=reps.reduce(function(sum,r){
-      return sum+n(r.target_qty!=null?r.target_qty:(r.target_value!=null?r.target_value:(r.target!=null?r.target:r.sales_target)));
+      let v=(r.target!=null && String(r.target).trim()!=='')?r.target:
+        ((r.target_qty!=null && String(r.target_qty).trim()!=='')?r.target_qty:
+        ((r.target_value!=null && String(r.target_value).trim()!=='')?r.target_value:r.sales_target));
+      return sum+n(v);
     },0);
 
     /* Achievement must come from the exact same rows displayed below.
@@ -20296,6 +20299,14 @@ function buildReportV189(repId){
     });
     return Array.from(map.values());
   }
+  function targetForRepV272(r){
+    if(!r)return 0;
+    if(r.target!=null && String(r.target).trim()!=='')return numV272(r.target);
+    if(r.target_qty!=null && String(r.target_qty).trim()!=='')return numV272(r.target_qty);
+    if(r.target_value!=null && String(r.target_value).trim()!=='')return numV272(r.target_value);
+    return numV272(r.sales_target);
+  }
+
   function repAchievementQtyV272(id){
     var rows=[];
     try{
@@ -20314,7 +20325,7 @@ function buildReportV189(repId){
   }
   window.repAchievement = repAchievementQtyV272;
   window.totalRepTarget = function(){return activeCurrentRepsV272().reduce(function(a,r){
-    var t=(typeof window.repQtyTargetV346==='function')?window.repQtyTargetV346(r):numV272(r.target);
+    var t=targetForRepV272(r);
     return a+numV272(t);
   },0)};
   window.totalRepAchieved = function(){return activeCurrentRepsV272().reduce(function(a,r){return a+repAchievementQtyV272(r.id)},0)};
@@ -20325,11 +20336,11 @@ function buildReportV189(repId){
   window.repBarData = function(){
     var reps=activeCurrentRepsV272();
     var max=Math.max(1,...reps.map(function(r){
-      var target=(typeof window.repQtyTargetV346==='function')?window.repQtyTargetV346(r):numV272(r.target);
+      var target=targetForRepV272(r);
       return Math.max(numV272(target),repAchievementQtyV272(r.id));
     }));
     return reps.map(function(r){
-      var target=(typeof window.repQtyTargetV346==='function')?window.repQtyTargetV346(r):numV272(r.target);
+      var target=targetForRepV272(r);
       var achieved=repAchievementQtyV272(r.id);
       return {label:r.name||'-',target:numV272(target),achieved:achieved,remaining:Math.max(0,numV272(target)-achieved),max:max};
     });
@@ -20346,7 +20357,7 @@ function buildReportV189(repId){
       <th>${(typeof lang!=='undefined'&&lang==='ar')?'المتبقي من التارجت':'Remaining from target'} (${qtyWordV272()})</th>
       <th>${(typeof lang!=='undefined'&&lang==='ar')?'نسبة التحقيق':'Achievement %'}</th>
     </tr>`+reps.map(function(r){
-      var target=(typeof window.repQtyTargetV346==='function')?numV272(window.repQtyTargetV346(r)):numV272(r.target);
+      var target=targetForRepV272(r);
       var achieved=repAchievementQtyV272(r.id),remaining=Math.max(0,target-achieved),pct=target?achieved/target*100:0;
       return `<tr>
         <td>${escV272(r.name||'-')}</td><td>${qtyFmtV272(target)}</td><td>${qtyFmtV272(achieved)}</td>
@@ -20365,14 +20376,14 @@ function buildReportV189(repId){
         <div class="stat-card"><h3>${(typeof lang!=='undefined'&&lang==='ar')?'نسبة التحقيق':'Achievement %'}</h3><div class="value">${pct}%</div></div>
       </div>`;
     var bars = `<div class="bars-grid">` + activeCurrentRepsV272().map(function(r){
-      var target=(typeof window.repQtyTargetV346==='function')?numV272(window.repQtyTargetV346(r)):numV272(r.target);
+      var target=targetForRepV272(r);
       var achieved=repAchievementQtyV272(r.id),pct=target?(achieved/target*100):0,pctWidth=Math.min(100,Math.max(0,pct));
       return `<div class="mini-bar-card" role="button" tabindex="0"
         onclick="if(window.openUnifiedRepDrillV189){window.openUnifiedRepDrillV189('${r.id}','target')}else if(window.openRepDetailsV175){window.openRepDetailsV175('${r.id}')}"
         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
         <div class="mini-bar-head"><strong>${escV272(r.name||'-')}</strong><b>${pct.toFixed(1)}%</b></div>
         <div class="mini-bar-wrap"><div class="mini-bar-fill" style="width:${pctWidth}%"></div></div>
-        <div class="mini-bar-meta">${qtyFmtV272(achieved)} / ${qtyFmtV272(target)} ${qtyWordV272()}</div>
+        <div class="mini-bar-meta">${(typeof lang!=='undefined'&&lang==='ar')?'المحقق':'Achieved'}: <b>${qtyFmtV272(achieved)}</b> &nbsp; | &nbsp; ${(typeof lang!=='undefined'&&lang==='ar')?'التارجت':'Target'}: <b>${qtyFmtV272(target)}</b> &nbsp; | &nbsp; ${(typeof lang!=='undefined'&&lang==='ar')?'النسبة':'Rate'}: <b>${pct.toFixed(1)}%</b></div>
       </div>`;
     }).join('') + `</div>`;
     return cards + `<div class="card"><h3>${(typeof lang!=='undefined'&&lang==='ar')?'نسبة الإنجاز لكل بياع':'Achievement by rep'}</h3>` + bars + `</div>`;
@@ -22366,6 +22377,14 @@ setTimeout(patch,700);setTimeout(patch,1400);
     });
     return Array.from(map.values());
   }
+  function targetForRep286(r){
+    if(!r)return 0;
+    if(r.target!=null && String(r.target).trim()!=='')return N(r.target);
+    if(r.target_qty!=null && String(r.target_qty).trim()!=='')return N(r.target_qty);
+    if(r.target_value!=null && String(r.target_value).trim()!=='')return N(r.target_value);
+    return N(r.sales_target);
+  }
+
   function achievedQty(repId){
     var rows=[];
     try{
@@ -22390,7 +22409,7 @@ setTimeout(patch,700);setTimeout(patch,1400);
       '<th>'+((typeof lang!=='undefined'&&lang==='ar')?'نسبة التحقيق':'Achievement %')+'</th>'+
     '</tr>'+
     reps.map(function(r){
-      var target=N(r.target_qty!=null?r.target_qty:r.target);
+      var target=targetForRep286(r);
       var achieved=achievedQty(r.id);
       var remaining=Math.max(0,target-achieved);
       var pct=target>0?(achieved/target*100):0;
