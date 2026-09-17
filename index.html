@@ -449,7 +449,29 @@ function addSimple(table){let fs={customers:['name','type','phone','area','addre
 function renderCustomers(){document.getElementById('view-customers').innerHTML=simplePage('customers',[['name','name'],['type','type'],['phone','phone'],['area','area'],['address','address'],['balance','balance',1],['notes','notes']],T('newCustomer'))}
 function renderSuppliers(){document.getElementById('view-suppliers').innerHTML=simplePage('suppliers',[['name','name'],['phone','phone'],['brand','brand'],['balance','balance',1],['notes','notes']],T('newSupplier'))}
 function renderReps(){document.getElementById('view-reps').innerHTML=`${simplePage('reps',[['name','name'],['phone','phone'],['area','area'],['target','target',1],['notes','notes']],T('newRep'))}<div class="card"><h3>${T('achievement')}</h3>${repTargetTable()}</div><div class="card"><h3>${T('stockAvailability')}</h3>${stockAvailabilityTable()}</div>`}
-function repTargetTable(){if(!db.reps.length)return `<div class="empty">${T('empty')}</div>`;return `<table><tr><th>${T('rep')}</th><th>${T('target')}</th><th>${T('achieved')}</th><th>${T('remainingTarget')}</th><th>${T('achievement')}</th></tr>${db.reps.map(r=>{let a=repAchievement(r.id),target=n(r.target),pct=target?Math.min(100,Math.round(a/target*100)):0;return `<tr><td>${esc(r.name)}</td><td>${money(target)}</td><td>${money(a)}</td><td>${money(Math.max(target-a,0))}</td><td><div class="progress"><span style="width:${pct}%"></span></div><div class="hint">${pct}%</div></td></tr>`}).join('')}</table>`}
+function repTargetTable(){
+  let reps=(db.reps||[]).filter(r=>r&&r.active!==false&&r.inactive_v452!==true);
+  if(!reps.length)return `<div class="empty">${T('empty')}</div>`;
+  function targetQty(r){
+    try{if(typeof window.repQtyTargetV346==='function')return n(window.repQtyTargetV346(r))}catch(e){}
+    return n(r.target_qty!=null?r.target_qty:(r.target_value!=null?r.target_value:(r.target!=null?r.target:r.sales_target)));
+  }
+  function achievedQty(r){
+    let rows=[];
+    try{
+      if(window.MahsoubakMetrics&&typeof window.MahsoubakMetrics.rowsForRep==='function')rows=window.MahsoubakMetrics.rowsForRep(r.id)||[];
+      else rows=(db.sales||[]).filter(s=>(String(s.rep_id||'')===String(r.id||''))||(String(s.rep_name||'').trim()===String(r.name||'').trim()));
+    }catch(e){rows=[]}
+    return rows.reduce((sum,s)=>{
+      try{if(typeof window.targetSaleQtyV346==='function')return sum+n(window.targetSaleQtyV346(s))}catch(e){}
+      return sum+n(s.qty);
+    },0);
+  }
+  return `<table><tr><th>${T('rep')}</th><th>${T('target')}</th><th>${T('achieved')}</th><th>${T('remainingTarget')}</th><th>${T('achievement')}</th></tr>${reps.map(r=>{
+    let target=targetQty(r),a=achievedQty(r),pct=target>0?(a/target*100):0,bar=Math.min(100,Math.max(0,pct));
+    return `<tr><td>${esc(r.name)}</td><td>${Number(target).toLocaleString()} وحدة</td><td>${Number(a).toLocaleString()} وحدة</td><td>${Number(Math.max(target-a,0)).toLocaleString()} وحدة</td><td><div class="progress"><span style="width:${bar}%"></span></div><div class="hint">${pct.toFixed(1)}%</div></td></tr>`;
+  }).join('')}</table>`;
+}
 function stockAvailabilityTable(){if(!db.products.length)return `<div class="empty">${T('empty')}</div>`;return `<table><tr><th>${T('product')}</th><th>${T('brand')}</th><th>${T('availableQty')}</th><th>${T('salePrice')}</th><th>${T('expiry')}</th><th>${T('status')}</th></tr>${db.products.map(p=>{let st=expiryStatus(p);return `<tr><td>${esc(p.name)}</td><td>${esc(p.brand)}</td><td><b>${n(p.stock)}</b></td><td>${money(p.sale)}</td><td>${esc(p.expiry||'')}</td><td><span class="badge ${st.cls}">${st.label}</span></td></tr>`}).join('')}</table>`}
 
 function renderOperations(){let p=db.products[0];document.getElementById('view-operations').innerHTML=`<div class="card"><h3>${T('newOperation')}</h3><div class="grid grid4"><div><label>${T('customer')}</label><select id="op_customer">${options(db.customers)}</select></div><div><label>${T('product')}</label><select id="op_product" onchange="opInfo()">${options(db.products)}</select><div class="hint" id="op_hint"></div></div><div><label>${T('qty')}</label><input id="op_qty" type="number" value="1"></div><div><label>${T('deliveryRep')}</label><select id="op_rep">${options(db.reps)}</select></div><div><label>${T('price')}</label><input id="op_price" type="number" value="${p?n(p.sale):0}"></div><div><label>${T('paid')}</label><input id="op_paid" type="number" value="0"></div><div><label>${T('orderNotes')}</label><input id="op_notes"></div><div style="display:flex;align-items:end"><button class="btn ok" onclick="addOperation()">${T('save')}</button></div></div></div><div class="card"><h3>${T('operationList')}</h3>${operationsTable()}</div>`;setTimeout(opInfo,10)}
@@ -1327,7 +1349,8 @@ function regionEntityPage(table,title){
     return `<div><label>${T(f[1])}</label><input id="${table}_${f[0]}" ${f[2]?'type="number"':''}${extra}></div>`;
   }).join('');
   let regionField=`<div><label>${lang==='ar'?'المنطقة الرئيسية':'Main region'}</label><select id="${table}_region_id" onmousedown="commitCustomerAreaBeforeDropdownV132()" onfocus="commitCustomerAreaBeforeDropdownV132()">${moduleRegionOptions('')}</select></div>`;
-  let rows=db[table].length?`<table><tr>${fields.map(f=>`<th>${T(f[1])}</th>`).join('')}<th>${lang==='ar'?'المنطقة':'Region'}</th><th></th></tr>${db[table].map(row=>`<tr>${fields.map(f=>`<td><input ${f[2]?'type="number"':''} value="${esc(row[f[0]]||'')}" onchange="editCell('${table}','${row.id}','${f[0]}',this.value,${!!f[2]})"></td>`).join('')}<td><select onchange="setModuleEntityRegion('${table}','${row.id}',this.value)">${moduleRegionOptions(entityRegionId(row))}</select></td><td><button class="btn small danger" onclick="del('${table}','${row.id}')">${T('delete')}</button></td></tr>`).join('')}</table>`:`<div class="empty">${T('empty')}</div>`;
+  let sourceRows=(table==='reps'?(db.reps||[]).filter(r=>r&&r.active!==false&&r.inactive_v452!==true):(db[table]||[]));
+  let rows=sourceRows.length?`<table><tr>${fields.map(f=>`<th>${T(f[1])}</th>`).join('')}<th>${lang==='ar'?'المنطقة':'Region'}</th><th></th></tr>${sourceRows.map(row=>`<tr>${fields.map(f=>`<td><input ${f[2]?'type="number"':''} value="${esc(row[f[0]]||'')}" onchange="editCell('${table}','${row.id}','${f[0]}',this.value,${!!f[2]})"></td>`).join('')}<td><select onchange="setModuleEntityRegion('${table}','${row.id}',this.value)">${moduleRegionOptions(entityRegionId(row))}</select></td><td><button class="btn small danger" onclick="del('${table}','${row.id}')">${T('delete')}</button></td></tr>`).join('')}</table>`:`<div class="empty">${T('empty')}</div>`;
   return `<div class="card"><h3>${title}</h3><div class="grid grid4">${form}${regionField}<div style="display:flex;align-items:end"><button class="btn ok" onclick="addRegionEntity('${table}')">${T('add')}</button></div></div></div><div class="card"><h3>${T(table)}</h3>${rows}</div>`;
 }
 function addRegionEntity(table){
