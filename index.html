@@ -20259,49 +20259,85 @@ function buildReportV189(repId){
       return a + numV272(it.qty||it.quantity||it.count||it.units||it.q||0);
     },0);
   }
+
+  function currentRepNameV272(name){
+    var x=String(name==null?'':name).trim();
+    try{if(typeof window.currentRepNameV490==='function')x=String(window.currentRepNameV490(x)||x).trim()}catch(e){}
+    try{if(window.MAHSOUBAK_TERRITORY_MASTER)x=window.MAHSOUBAK_TERRITORY_MASTER.canonicalRep(x)||x}catch(e){}
+    return x;
+  }
+  function normRepV272(v){
+    return String(v==null?'':v).trim().toLowerCase()
+      .replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ');
+  }
+  function activeCurrentRepsV272(){
+    var raw=(db.reps||[]).filter(function(r){return r&&r.active!==false&&r.inactive_v452!==true});
+    var map=new Map();
+    raw.forEach(function(r){
+      var current=currentRepNameV272(r.name),key=normRepV272(current);
+      if(!key)return;
+      var exact=normRepV272(r.name)===key,prev=map.get(key);
+      if(!prev||exact)map.set(key,Object.assign({},r,{name:current}));
+    });
+    return Array.from(map.values());
+  }
   function repAchievementQtyV272(id){
-    if(!Array.isArray(db.sales)) return 0;
-    return db.sales.filter(function(s){return String(s.rep_id||'')===String(id)}).reduce(function(a,s){
-      var q = numV272(s.qty||s.quantity||s.total_qty||s.units||s.count||0);
-      if(!q) q = qtyFromItemsV272(s.items);
+    var rows=[];
+    try{
+      if(window.MahsoubakMetrics&&typeof window.MahsoubakMetrics.rowsForRep==='function'){
+        rows=window.MahsoubakMetrics.rowsForRep(id)||[];
+      }else{
+        rows=(db.sales||[]).filter(function(s){return String(s.rep_id||'')===String(id)});
+      }
+    }catch(e){rows=[]}
+    return rows.reduce(function(a,s){
+      var q=numV272(s.qty||s.quantity||s.total_qty||s.units||s.count||0);
+      if(!q)q=qtyFromItemsV272(s.items);
       if(typeof window.targetSaleQtyV346==='function')q=window.targetSaleQtyV346(s);
-      return a + q;
+      return a+q;
     },0);
   }
   window.repAchievement = repAchievementQtyV272;
-  window.totalRepTarget = function(){return (db.reps||[]).reduce(function(a,r){return a+numV272(r.target)},0)};
-  window.totalRepAchieved = function(){return (db.reps||[]).reduce(function(a,r){return a+repAchievementQtyV272(r.id)},0)};
+  window.totalRepTarget = function(){return activeCurrentRepsV272().reduce(function(a,r){
+    var t=(typeof window.repQtyTargetV346==='function')?window.repQtyTargetV346(r):numV272(r.target);
+    return a+numV272(t);
+  },0)};
+  window.totalRepAchieved = function(){return activeCurrentRepsV272().reduce(function(a,r){return a+repAchievementQtyV272(r.id)},0)};
   window.avgRepPercent = function(){
     var t=window.totalRepTarget();
     return t? Math.round((window.totalRepAchieved()/t)*100) : 0;
   };
   window.repBarData = function(){
-    var reps=(db.reps||[]);
-    var max=Math.max(1,...reps.map(function(r){return Math.max(numV272(r.target),repAchievementQtyV272(r.id))}));
+    var reps=activeCurrentRepsV272();
+    var max=Math.max(1,...reps.map(function(r){
+      var target=(typeof window.repQtyTargetV346==='function')?window.repQtyTargetV346(r):numV272(r.target);
+      return Math.max(numV272(target),repAchievementQtyV272(r.id));
+    }));
     return reps.map(function(r){
-      return {label:r.name||'-', target:numV272(r.target), achieved:repAchievementQtyV272(r.id), remaining:Math.max(0,numV272(r.target)-repAchievementQtyV272(r.id)), max:max};
+      var target=(typeof window.repQtyTargetV346==='function')?window.repQtyTargetV346(r):numV272(r.target);
+      var achieved=repAchievementQtyV272(r.id);
+      return {label:r.name||'-',target:numV272(target),achieved:achieved,remaining:Math.max(0,numV272(target)-achieved),max:max};
     });
   };
   window.repBarDataFiltered = window.repBarData;
 
   window.repTargetTable = function(){
-    if(!(db.reps||[]).length) return `<div class="empty">${typeof T==='function'?T('noData'):'No data'}</div>`;
+    var reps=activeCurrentRepsV272();
+    if(!reps.length)return `<div class="empty">${typeof T==='function'?T('noData'):'No data'}</div>`;
     return `<table><tr>
       <th>${typeof T==='function'?T('name'):'Name'}</th>
       <th>${typeof T==='function'?T('target'):'Target'} (${qtyWordV272()})</th>
       <th>${(typeof lang!=='undefined'&&lang==='ar')?'المحقق':'Achieved'} (${qtyWordV272()})</th>
       <th>${(typeof lang!=='undefined'&&lang==='ar')?'المتبقي من التارجت':'Remaining from target'} (${qtyWordV272()})</th>
       <th>${(typeof lang!=='undefined'&&lang==='ar')?'نسبة التحقيق':'Achievement %'}</th>
-    </tr>` + db.reps.map(function(r){
-      var target=numV272(r.target), achieved=repAchievementQtyV272(r.id), remaining=Math.max(0,target-achieved), pct=target?Math.round((achieved/target)*100):0;
+    </tr>`+reps.map(function(r){
+      var target=(typeof window.repQtyTargetV346==='function')?numV272(window.repQtyTargetV346(r)):numV272(r.target);
+      var achieved=repAchievementQtyV272(r.id),remaining=Math.max(0,target-achieved),pct=target?achieved/target*100:0;
       return `<tr>
-        <td>${escV272(r.name||'-')}</td>
-        <td>${qtyFmtV272(target)}</td>
-        <td>${qtyFmtV272(achieved)}</td>
-        <td>${qtyFmtV272(remaining)}</td>
-        <td><div class="hint">${pct}%</div></td>
+        <td>${escV272(r.name||'-')}</td><td>${qtyFmtV272(target)}</td><td>${qtyFmtV272(achieved)}</td>
+        <td>${qtyFmtV272(remaining)}</td><td><b>${pct.toFixed(1)}%</b></td>
       </tr>`;
-    }).join('') + `</table>`;
+    }).join('')+`</table>`;
   };
 
   window.repsQuantitySummaryHTMLV272 = function(){
@@ -20313,10 +20349,11 @@ function buildReportV189(repId){
         <div class="stat-card"><h3>${(typeof lang!=='undefined'&&lang==='ar')?'المتبقي من التارجت':'Remaining from target'}</h3><div class="value">${qtyFmtV272(totalRemaining)} <small>${qtyWordV272()}</small></div></div>
         <div class="stat-card"><h3>${(typeof lang!=='undefined'&&lang==='ar')?'نسبة التحقيق':'Achievement %'}</h3><div class="value">${pct}%</div></div>
       </div>`;
-    var bars = `<div class="bars-grid">` + (db.reps||[]).map(function(r){
-      var target=numV272(r.target), achieved=repAchievementQtyV272(r.id), pctWidth=target?Math.min(100,Math.round((achieved/target)*100)):0;
+    var bars = `<div class="bars-grid">` + activeCurrentRepsV272().map(function(r){
+      var target=(typeof window.repQtyTargetV346==='function')?numV272(window.repQtyTargetV346(r)):numV272(r.target);
+      var achieved=repAchievementQtyV272(r.id),pct=target?(achieved/target*100):0,pctWidth=Math.min(100,Math.max(0,pct));
       return `<div class="mini-bar-card">
-        <div class="mini-bar-head"><strong>${escV272(r.name||'-')}</strong></div>
+        <div class="mini-bar-head"><strong>${escV272(r.name||'-')}</strong><b>${pct.toFixed(1)}%</b></div>
         <div class="mini-bar-wrap"><div class="mini-bar-fill" style="width:${pctWidth}%"></div></div>
         <div class="mini-bar-meta">${qtyFmtV272(achieved)} / ${qtyFmtV272(target)} ${qtyWordV272()}</div>
       </div>`;
@@ -22297,16 +22334,35 @@ setTimeout(patch,700);setTimeout(patch,1400);
   function N(v){var x=Number(v);return Number.isFinite(x)?x:0}
   function Q(v){v=N(v);return Number.isInteger(v)?String(v):String(Math.round(v*100)/100)}
   function ESC(v){return String(v==null?'':v).replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]})}
+  function norm286(v){return String(v==null?'':v).trim().toLowerCase().replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ')}
+  function currentName286(v){
+    var x=String(v==null?'':v).trim();
+    try{if(typeof window.currentRepNameV490==='function')x=String(window.currentRepNameV490(x)||x).trim()}catch(e){}
+    try{if(window.MAHSOUBAK_TERRITORY_MASTER)x=window.MAHSOUBAK_TERRITORY_MASTER.canonicalRep(x)||x}catch(e){}
+    return x;
+  }
+  function activeReps286(){
+    var map=new Map();
+    (db.reps||[]).filter(function(r){return r&&r.active!==false&&r.inactive_v452!==true}).forEach(function(r){
+      var name=currentName286(r.name),key=norm286(name),exact=norm286(r.name)===key,prev=map.get(key);
+      if(key&&(!prev||exact))map.set(key,Object.assign({},r,{name:name}));
+    });
+    return Array.from(map.values());
+  }
   function achievedQty(repId){
-    return (db.sales||[]).filter(function(s){return String(s.rep_id||'')===String(repId)}).reduce(function(t,s){
-      if(typeof window.targetSaleQtyV346==='function')return t+window.targetSaleQtyV346(s);
-      var q=N(s.qty||s.quantity||s.total_qty||s.units||s.count||0);
-      return t+q;
+    var rows=[];
+    try{
+      if(window.MahsoubakMetrics&&typeof window.MahsoubakMetrics.rowsForRep==='function')rows=window.MahsoubakMetrics.rowsForRep(repId)||[];
+      else rows=(db.sales||[]).filter(function(s){return String(s.rep_id||'')===String(repId)});
+    }catch(e){rows=[]}
+    return rows.reduce(function(t,s){
+      if(typeof window.targetSaleQtyV346==='function')return t+N(window.targetSaleQtyV346(s));
+      return t+N(s.qty||s.quantity||s.total_qty||s.units||s.count||0);
     },0);
   }
 
   window.repTargetTable=function(){
-    var reps=db.reps||[];
+    var reps=activeReps286();
     if(!reps.length)return '<div class="empty">'+((typeof T==='function'&&T('empty'))||'لا توجد بيانات')+'</div>';
 
     return '<table><tr>'+
