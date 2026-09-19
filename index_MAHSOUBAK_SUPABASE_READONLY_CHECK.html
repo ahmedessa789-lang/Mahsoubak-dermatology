@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mahsoubak — Supabase Read Only Check</title>
+  <style>
+    body{font-family:Arial,Tahoma,sans-serif;background:#f5f7fa;color:#172033;margin:0;padding:24px}
+    .wrap{max-width:1100px;margin:auto}
+    h1{margin:0 0 8px;font-size:26px}
+    .sub{color:#64748b;margin-bottom:18px}
+    .status{padding:12px 14px;border-radius:10px;background:#fff;border:1px solid #dfe5ec;margin-bottom:18px;font-weight:700}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-bottom:18px}
+    .card{background:#fff;border:1px solid #dfe5ec;border-radius:12px;padding:16px}
+    .card small{color:#64748b;display:block;margin-bottom:8px}
+    .card strong{font-size:23px}
+    table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #dfe5ec;margin:0 0 18px}
+    th,td{padding:10px;border-bottom:1px solid #e8edf3;text-align:right;white-space:nowrap}
+    th{background:#f8fafc}
+    h2{font-size:18px;margin:20px 0 10px}
+    .ok{color:#067647}.bad{color:#b42318}.muted{color:#64748b}
+    .footer{font-size:12px;color:#64748b;margin-top:16px}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Mahsoubak — Supabase Read Only Check</h1>
+  <div class="sub">صفحة اختبار منفصلة — قراءة فقط من مصادر Supabase الموحّدة. لا يوجد بها أي كتابة أو كود من الواجهة القديمة.</div>
+  <div id="status" class="status">جاري تحميل البيانات…</div>
+
+  <div class="grid">
+    <div class="card"><small>Company Sales</small><strong id="companySales">—</strong></div>
+    <div class="card"><small>All Reps Total</small><strong id="allReps">—</strong></div>
+    <div class="card"><small>Receivables</small><strong id="remaining">—</strong></div>
+    <div class="card"><small>Quantity</small><strong id="qty">—</strong></div>
+  </div>
+
+  <h2>إجماليات المناطق</h2>
+  <div style="overflow:auto"><table>
+    <thead><tr><th>المنطقة</th><th>المبيعات</th><th>المدفوع</th><th>المتبقي</th><th>الكمية</th><th>عدد المبيعات</th></tr></thead>
+    <tbody id="territories"><tr><td colspan="6" class="muted">جاري التحميل…</td></tr></tbody>
+  </table></div>
+
+  <h2>المندوبين</h2>
+  <div style="overflow:auto"><table>
+    <thead><tr><th>المندوب</th><th>المبيعات</th><th>المدفوع</th><th>المتبقي</th><th>الكمية</th><th>عدد المبيعات</th></tr></thead>
+    <tbody id="reps"><tr><td colspan="6" class="muted">جاري التحميل…</td></tr></tbody>
+  </table></div>
+
+  <div class="footer" id="loadedAt"></div>
+</div>
+<script>
+(() => {
+  'use strict';
+  const SUPABASE_URL='https://fkksydpbfqkctvlkoaom.supabase.co';
+  const SUPABASE_KEY='sb_publishable_gq0JyUXR5M57OZAaOd6eEg_6WyzVx9D';
+  const headers={apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,Accept:'application/json'};
+
+  const money=v=>Number(v||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+' EGP';
+  const num=v=>Number(v||0).toLocaleString('en-US',{maximumFractionDigits:4});
+  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  async function get(path){
+    const r=await fetch(SUPABASE_URL+'/rest/v1/'+path,{method:'GET',headers,cache:'no-store'});
+    if(!r.ok) throw new Error(path+' — HTTP '+r.status+' — '+await r.text());
+    return r.json();
+  }
+
+  async function load(){
+    const status=document.getElementById('status');
+    try{
+      const [reconRows,repRows,territoryRows]=await Promise.all([
+        get('mahsoubak_phase6b_reconciliation?select=*'),
+        get('mahsoubak_reporting_rep_sales?select=rep_name,sale_count,qty,sales,paid,remaining&order=sales.desc'),
+        get('mahsoubak_reporting_territory_totals?select=territory_group,sale_count,qty,sales,paid,remaining&order=territory_group.asc')
+      ]);
+      if(!reconRows.length) throw new Error('Reconciliation view returned no rows');
+      const r=reconRows[0];
+
+      document.getElementById('companySales').textContent=money(r.company_sales);
+      document.getElementById('allReps').textContent=money(r.all_reps_total);
+      document.getElementById('remaining').textContent=money(r.company_remaining);
+      document.getElementById('qty').textContent=num(r.company_qty);
+
+      document.getElementById('territories').innerHTML=territoryRows.map(x=>`<tr>
+        <td>${esc(x.territory_group)}</td><td>${money(x.sales)}</td><td>${money(x.paid)}</td>
+        <td>${money(x.remaining)}</td><td>${num(x.qty)}</td><td>${num(x.sale_count)}</td>
+      </tr>`).join('') || '<tr><td colspan="6">لا توجد بيانات</td></tr>';
+
+      document.getElementById('reps').innerHTML=repRows.map(x=>`<tr>
+        <td>${esc(x.rep_name)}</td><td>${money(x.sales)}</td><td>${money(x.paid)}</td>
+        <td>${money(x.remaining)}</td><td>${num(x.qty)}</td><td>${num(x.sale_count)}</td>
+      </tr>`).join('') || '<tr><td colspan="6">لا توجد بيانات</td></tr>';
+
+      const ok = String(r.status)==='MATCH' && Math.abs(Number(r.sales_difference||0))<=0.01 && Math.abs(Number(r.remaining_difference||0))<=0.01 && Math.abs(Number(r.qty_difference||0))<=0.0001;
+      status.className='status '+(ok?'ok':'bad');
+      status.textContent=ok ? 'Supabase reconciliation: MATCH' : 'Supabase reconciliation requires review';
+      document.getElementById('loadedAt').textContent='Loaded directly from Supabase at '+new Date().toLocaleString();
+    }catch(err){
+      status.className='status bad';
+      status.textContent='فشل تحميل بيانات Supabase: '+err.message;
+      console.error(err);
+    }
+  }
+  load();
+})();
+</script>
+</body>
+</html>
