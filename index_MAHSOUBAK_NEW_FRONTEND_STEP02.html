@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mahsoubak Business — Step 02</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Tahoma,Arial,sans-serif;background:#f5f6f8;color:#1f2937}
+.app{min-height:100vh;display:grid;grid-template-columns:1fr 260px}.side{grid-column:2;background:linear-gradient(180deg,#744a68,#5f3b55);color:#fff;padding:18px 14px;height:100vh;position:sticky;top:0;overflow:auto}
+.brand{padding:5px 8px 16px;border-bottom:1px solid #ffffff2a;margin-bottom:12px}.brand h1{font-size:20px;margin:0 0 5px}.brand p{font-size:11px;opacity:.82;margin:0}
+.nav{display:grid;gap:5px}.nav button{border:0;background:transparent;color:#fff;text-align:right;padding:11px;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit}.nav button:hover,.nav button.active{background:#ffffff24}
+.status{margin-top:16px;padding:10px;border-radius:10px;background:#ffffff16;font-size:11px;white-space:pre-line}.main{grid-column:1;grid-row:1;padding:22px;min-width:0}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}.top h2{margin:0;font-size:24px}.top p{margin:5px 0 0;color:#6b7280;font-size:12px}
+.btn{border:0;border-radius:10px;padding:10px 14px;font-weight:900;cursor:pointer;font-family:inherit}.btn.secondary{background:#fff;border:1px solid #e5e7eb}
+.health{display:flex;align-items:center;gap:8px;padding:10px 13px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:14px;font-size:12px;font-weight:800}
+.dot{width:9px;height:9px;border-radius:50%;background:#9ca3af}.dot.ok{background:#16a34a}.dot.bad{background:#dc2626}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(220px,1fr));gap:14px}.card{background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:17px;box-shadow:0 8px 24px #0f172a0d}
+.kpi{cursor:pointer;min-height:170px;transition:.16s}.kpi:hover{transform:translateY(-2px);box-shadow:0 12px 30px #0f172a17}
+.kpi-title{font-size:16px;font-weight:900}.kpi-sub{font-size:11px;color:#6b7280;margin-top:4px}.kpi-value{font-size:25px;font-weight:900;margin:20px 0 12px}
+.metrics{display:grid;gap:7px}.metric{display:flex;justify-content:space-between;gap:10px;font-size:11px}.metric span{color:#6b7280}
+.section{display:none}.section.active{display:block}.placeholder{background:#fff;border:1px dashed #cbd5e1;border-radius:18px;padding:30px;text-align:center;color:#6b7280}
+.modal{display:none;position:fixed;inset:0;background:#0f172a7a;z-index:99;padding:28px;align-items:center;justify-content:center}.modal.show{display:flex}
+.panel{background:#fff;border-radius:20px;width:min(900px,100%);max-height:88vh;overflow:auto}.panel-head{display:flex;justify-content:space-between;align-items:center;padding:18px;border-bottom:1px solid #e5e7eb}.panel-body{padding:18px}
+.detail-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.detail{background:#f8fafc;border:1px solid #e5e7eb;border-radius:13px;padding:13px}.detail span{display:block;color:#6b7280;font-size:11px}.detail b{display:block;margin-top:5px;font-size:18px}
+.error{display:none;background:#fef2f2;color:#991b1b;border:1px solid #fecaca;border-radius:12px;padding:11px 13px;margin-bottom:14px;white-space:pre-wrap}
+.loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#f5f6f8;z-index:999}.loading div{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:18px 24px;font-weight:900}
+@media(max-width:1000px){.grid{grid-template-columns:repeat(2,1fr)}.detail-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:720px){.app{display:block}.side{height:auto;position:relative}.main{padding:14px}.grid{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}}
+</style>
+</head>
+<body>
+<div id="loading" class="loading"><div>جاري تحميل قاعدة البيانات الجديدة…</div></div>
+<div class="app">
+<aside class="side"><div class="brand"><h1>Mahsoubak Business</h1><p>Dermatology Distribution System</p></div><div id="nav" class="nav"></div><div id="status" class="status">Connecting…</div></aside>
+<main class="main">
+<div class="top"><div><h2 id="pageTitle">الرئيسية</h2><p>New Frontend • Canonical Supabase Data</p></div><button class="btn secondary" onclick="loadData()">↻ تحديث</button></div>
+<div id="error" class="error"></div><div class="health"><span id="healthDot" class="dot"></span><span id="healthText">Checking database contract…</span></div>
+<section id="view-dashboard" class="section active"><div id="dashboard" class="grid"></div></section>
+<section id="view-products" class="section"></section><section id="view-customers" class="section"></section><section id="view-suppliers" class="section"></section>
+<section id="view-reps" class="section"></section><section id="view-operations" class="section"></section><section id="view-purchases" class="section"></section>
+<section id="view-sales" class="section"></section><section id="view-collections" class="section"></section><section id="view-reports" class="section"></section>
+<section id="view-finance" class="section"></section><section id="view-trial" class="section"></section><section id="view-regions" class="section"></section>
+<section id="view-users" class="section"></section><section id="view-cashflow" class="section"></section><section id="view-settings" class="section"></section>
+</main></div>
+<div id="modal" class="modal" onclick="if(event.target===this)closeModal()"><div class="panel"><div class="panel-head"><b id="modalTitle"></b><button class="btn secondary" onclick="closeModal()">إغلاق</button></div><div id="modalBody" class="panel-body"></div></div></div>
+
+<script>
+'use strict';
+const SB_URL="https://fkksydpbfqkctvlkoaom.supabase.co",SB_KEY="sb_publishable_gq0JyUXR5M57OZAaOd6eEg_6WyzVx9D";
+const NAV=[['dashboard','📊','الرئيسية'],['products','📦','المنتجات والمخزون'],['customers','👥','العملاء'],['suppliers','🏭','الموردين'],['reps','🎯','Sales Target'],['operations','⚙️','Operation / طلبات المخزن'],['purchases','🛒','المشتريات'],['sales','🧾','Orders / الفواتير'],['collections','💰','التحصيلات'],['reports','📈','التقارير'],['finance','💼','المالية'],['trial','⚖️','ميزان المراجعة'],['regions','⌖','المناطق'],['users','👤','المستخدمين والصلاحيات'],['cashflow','💵','Cash Flow'],['settings','⚙️','الإعدادات']];
+const V={summary:'mahsoubak_app_dashboard_summary',health:'mahsoubak_app_phase6f6_health',inventory:'mahsoubak_app_inventory_detail',orders:'mahsoubak_sales_orders',reps:'mahsoubak_app_rep_sales',purchases:'mahsoubak_purchases',allocations:'mahsoubak_sales_allocations'};
+const D={}; const $=id=>document.getElementById(id),A=v=>Array.isArray(v)?v:[],N=v=>Number.isFinite(Number(v))?Number(v):0,S=v=>String(v??'').trim(),money=v=>N(v).toLocaleString('en-EG',{maximumFractionDigits:2})+' EGP',num=(v,d=2)=>N(v).toLocaleString('en-EG',{maximumFractionDigits:d});
+function buildNav(){$('nav').innerHTML=NAV.map(([id,ic,t])=>`<button id="nav-${id}" onclick="show('${id}')">${ic} ${t}</button>`).join('');$('nav-dashboard').classList.add('active')}
+function show(id){document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));$('view-'+id).classList.add('active');document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));$('nav-'+id).classList.add('active');const n=NAV.find(x=>x[0]===id);$('pageTitle').textContent=n?n[2]:id;if(id!=='dashboard'&&!$('view-'+id).dataset.ready){$('view-'+id).innerHTML=`<div class="placeholder"><b>${n?n[2]:id}</b><br><br>هذا الموديول سيتم تركيبه فوق نفس Data Service في الخطوة التالية بدون Legacy Code.</div>`;$('view-'+id).dataset.ready='1'}}
+async function getAll(view){let out=[],offset=0,limit=1000;while(true){const r=await fetch(`${SB_URL}/rest/v1/${encodeURIComponent(view)}?select=*&limit=${limit}&offset=${offset}`,{headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY},cache:'no-store'});const text=await r.text();let rows=[];try{rows=text?JSON.parse(text):[]}catch(e){throw new Error(view+' returned invalid JSON')}if(!r.ok)throw new Error(view+': '+(rows?.message||text||r.status));out.push(...A(rows));if(rows.length<limit)break;offset+=limit;if(offset>30000)throw new Error(view+': pagination stop')}return out}
+const summary=()=>A(D.summary)[0]||{},health=()=>A(D.health)[0]||{};
+const metric=(a,b)=>`<div class="metric"><span>${a}</span><b>${b}</b></div>`;
+function card(k,t,s,v,m){return `<div class="card kpi" onclick="openCard('${k}')"><div class="kpi-title">${t}</div><div class="kpi-sub">${s}</div><div class="kpi-value">${v}</div><div class="metrics">${m.join('')}</div></div>`}
+function renderDashboard(){const s=summary(),inv=A(D.inventory),orders=A(D.orders),reps=A(D.reps),p=A(D.purchases),rs=reps.reduce((a,r)=>a+N(r.sales),0),rq=reps.reduce((a,r)=>a+N(r.qty),0),pt=p.reduce((a,r)=>a+N(r.total),0),pd=p.reduce((a,r)=>a+N(r.remaining),0);
+$('dashboard').innerHTML=
+card('sales','المبيعات','إجمالي المبيعات والفواتير',money(s.company_sales),[metric('عدد الفواتير',num(s.invoice_count,0)),metric('المسدد',money(s.invoice_paid)),metric('المتبقي',money(s.receivables_from_sales||s.invoice_remaining))])+
+card('stock','المخزون','القيمة والكميات الحالية',money(s.inventory_value),[metric('إجمالي الكمية',num(s.stock_qty,2)),metric('عدد الأصناف',num(inv.length,0)),metric('COGS',money(s.cogs))])+
+card('debt','مديونيات العملاء','الرصيد المستحق',money(s.receivables_from_sales||s.invoice_remaining),[metric('المبيعات',money(s.company_sales)),metric('المسدد',money(s.invoice_paid)),metric('التحصيلات',money(s.collection_cash))])+
+card('operations','العمليات','طلبات المخزن',num(orders.length,0),[metric('Approved',num(orders.filter(x=>S(x.approval_status).toLowerCase()==='approved').length,0)),metric('Pending',num(orders.filter(x=>S(x.approval_status).toLowerCase()==='pending').length,0)),metric('Total',num(orders.length,0))])+
+card('target','Sales Target','أداء المندوبين',money(rs),[metric('الكمية',num(rq,2)),metric('المندوبين',num(reps.length,0)),metric('المطابقة',Math.abs(rs-N(s.company_sales))<=.01?'MATCH':'CHECK')])+
+card('purchases','المشتريات','حركة المشتريات',money(pt),[metric('المستحق',money(pd)),metric('المسدد',money(Math.max(0,pt-pd))),metric('السجلات',num(p.length,0))])}
+const detail=(a,b)=>`<div class="detail"><span>${a}</span><b>${b}</b></div>`;
+function openCard(k){const s=summary(),o=A(D.orders),r=A(D.reps),p=A(D.purchases);let t='',x=[];if(k==='sales'){t='تفاصيل المبيعات';x=[['المبيعات',money(s.company_sales)],['الفواتير',num(s.invoice_count,0)],['المسدد',money(s.invoice_paid)],['المتبقي',money(s.receivables_from_sales||s.invoice_remaining)]]}if(k==='stock'){t='تفاصيل المخزون';x=[['القيمة',money(s.inventory_value)],['الكمية',num(s.stock_qty,2)],['الأصناف',num(A(D.inventory).length,0)],['COGS',money(s.cogs)]]}if(k==='debt'){t='مديونيات العملاء';x=[['المديونية',money(s.receivables_from_sales||s.invoice_remaining)],['المبيعات',money(s.company_sales)],['المسدد',money(s.invoice_paid)],['التحصيلات',money(s.collection_cash)]]}if(k==='operations'){t='العمليات';x=[['Orders',num(o.length,0)],['Approved',num(o.filter(x=>S(x.approval_status).toLowerCase()==='approved').length,0)],['Pending',num(o.filter(x=>S(x.approval_status).toLowerCase()==='pending').length,0)]]}if(k==='target'){let rs=r.reduce((a,z)=>a+N(z.sales),0),rq=r.reduce((a,z)=>a+N(z.qty),0);t='Sales Target';x=[['مبيعات المندوبين',money(rs)],['الكمية',num(rq,2)],['المندوبين',num(r.length,0)],['مبيعات الشركة',money(s.company_sales)]]}if(k==='purchases'){let pt=p.reduce((a,z)=>a+N(z.total),0),pd=p.reduce((a,z)=>a+N(z.remaining),0);t='المشتريات';x=[['الإجمالي',money(pt)],['المستحق',money(pd)],['المسدد',money(Math.max(0,pt-pd))],['السجلات',num(p.length,0)]]}$('modalTitle').textContent=t;$('modalBody').innerHTML=`<div class="detail-grid">${x.map(z=>detail(z[0],z[1])).join('')}</div>`;$('modal').classList.add('show')}
+function closeModal(){$('modal').classList.remove('show')}
+function validate(){const s=summary(),h=health(),a=A(D.allocations),as=a.reduce((x,r)=>x+N(r.allocated_total),0),ar=a.reduce((x,r)=>x+N(r.allocated_remaining),0),rs=A(D.reps).reduce((x,r)=>x+N(r.sales),0);const ok=S(h.phase6f6_status)==='PHASE6F6_APP_READ_CONTRACT_MATCH'&&Math.abs(as-N(s.company_sales))<=.01&&Math.abs(ar-N(s.receivables_from_sales||s.invoice_remaining))<=.01&&Math.abs(rs-N(s.company_sales))<=.01;$('healthDot').className='dot '+(ok?'ok':'bad');$('healthText').textContent=ok?`Canonical Contract MATCH • Sales ${money(s.company_sales)} • Remaining ${money(s.receivables_from_sales||s.invoice_remaining)}`:'Canonical Contract CHECK';return ok}
+async function loadData(){try{$('error').style.display='none';$('status').textContent='Loading canonical data…';const [s,h,i,o,r,p,a]=await Promise.all([getAll(V.summary),getAll(V.health),getAll(V.inventory),getAll(V.orders),getAll(V.reps),getAll(V.purchases),getAll(V.allocations)]);Object.assign(D,{summary:s,health:h,inventory:i,orders:o,reps:r,purchases:p,allocations:a});if(!validate())throw new Error('Canonical contract validation failed');renderDashboard();$('status').textContent='Canonical DB Connected\\n'+new Date().toLocaleTimeString('ar-EG');$('loading').style.display='none'}catch(e){console.error(e);$('loading').style.display='none';$('error').style.display='block';$('error').textContent='خطأ في تحميل البيانات:\\n'+e.message;$('status').textContent='Connection error'}}
+buildNav();loadData();
+</script>
+</body></html>
