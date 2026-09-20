@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mahsoubak Business — Step 04 Rep Reports</title>
+<style>
+*{box-sizing:border-box}
+:root{
+ --bg:#f5f6f8;--card:#fff;--line:#e5e7eb;--text:#1f2937;--muted:#64748b;
+ --side:#744a68;--side2:#5f3b55;--ok:#15803d;--warn:#b45309;--danger:#b91c1c;--blue:#2563eb
+}
+html,body{margin:0;min-height:100%;font-family:Tahoma,Arial,sans-serif;background:var(--bg);color:var(--text)}
+button,input,select{font-family:inherit}
+.app{min-height:100vh;display:grid;grid-template-columns:1fr 260px}
+.side{grid-column:2;grid-row:1;background:linear-gradient(180deg,var(--side),var(--side2));color:#fff;padding:18px 14px;height:100vh;position:sticky;top:0;overflow:auto}
+.main{grid-column:1;grid-row:1;padding:22px;min-width:0}
+html[dir="ltr"] .app{grid-template-columns:260px 1fr}
+html[dir="ltr"] .side{grid-column:1}
+html[dir="ltr"] .main{grid-column:2}
+.brand{padding:5px 8px 16px;border-bottom:1px solid #ffffff2a;margin-bottom:12px}
+.brand h1{font-size:20px;margin:0 0 5px}.brand p{font-size:11px;opacity:.82;margin:0}
+.lang-btn{background:#ffffff18;border:1px solid #ffffff2f;color:#fff;border-radius:10px;padding:9px 11px;width:100%;font-weight:900;cursor:pointer;margin-top:10px}
+.nav{display:grid;gap:5px}
+.nav button{border:0;background:transparent;color:#fff;padding:11px;border-radius:10px;font-weight:800;cursor:pointer}
+html[dir="rtl"] .nav button{text-align:right}html[dir="ltr"] .nav button{text-align:left}
+.nav button:hover,.nav button.active{background:#ffffff24}
+.status{margin-top:16px;padding:10px;border-radius:10px;background:#ffffff16;font-size:11px;white-space:pre-line;line-height:1.6}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}
+.top h2{margin:0;font-size:24px}.top p{margin:5px 0 0;color:var(--muted);font-size:12px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:0;border-radius:10px;padding:10px 14px;font-weight:900;cursor:pointer}
+.btn.primary{background:var(--side);color:#fff}.btn.blue{background:var(--blue);color:#fff}.btn.ok{background:#16a34a;color:#fff}
+.btn.secondary{background:#fff;border:1px solid var(--line);color:var(--text)}.btn.danger{background:#fee2e2;color:#991b1b}
+.btn.small{padding:7px 9px;font-size:11px}
+.health{display:flex;align-items:center;gap:8px;padding:10px 13px;background:#fff;border:1px solid var(--line);border-radius:12px;margin-bottom:14px;font-size:12px;font-weight:800}
+.dot{width:9px;height:9px;border-radius:50%;background:#9ca3af}.dot.ok{background:#16a34a}.dot.bad{background:#dc2626}
+.section{display:none}.section.active{display:block}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(220px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:17px;box-shadow:0 8px 24px #0f172a0d}
+.kpi{cursor:pointer;min-height:170px;transition:.16s}.kpi:hover{transform:translateY(-2px);box-shadow:0 12px 30px #0f172a17}
+.kpi-title{font-size:16px;font-weight:900}.kpi-sub{font-size:11px;color:var(--muted);margin-top:4px}.kpi-value{font-size:25px;font-weight:900;margin:20px 0 12px}
+.metrics{display:grid;gap:7px}.metric{display:flex;justify-content:space-between;gap:10px;font-size:11px}.metric span{color:var(--muted)}
+.placeholder{background:#fff;border:1px dashed #cbd5e1;border-radius:18px;padding:30px;text-align:center;color:var(--muted)}
+.module-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
+.module-head h3{margin:0;font-size:20px}.module-head p{margin:5px 0 0;color:var(--muted);font-size:12px}
+.module-tools{display:flex;gap:8px;flex-wrap:wrap}
+.input,.select{border:1px solid #d1d5db;background:#fff;border-radius:10px;padding:10px 12px;min-width:170px;color:var(--text)}
+.module-grid{display:grid;grid-template-columns:repeat(4,minmax(180px,1fr));gap:12px;margin-bottom:14px}
+.mini-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px;cursor:pointer}
+.mini-card span{display:block;color:var(--muted);font-size:11px}.mini-card b{display:block;margin-top:6px;font-size:20px}
+.table-card{background:#fff;border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 8px 24px #0f172a0d}
+.table-wrap{overflow:auto}.data-table{width:100%;border-collapse:collapse;min-width:900px}
+.data-table th,.data-table td{padding:11px 12px;border-bottom:1px solid #eef2f7;font-size:12px;white-space:nowrap}
+html[dir="rtl"] .data-table th,html[dir="rtl"] .data-table td{text-align:right}
+html[dir="ltr"] .data-table th,html[dir="ltr"] .data-table td{text-align:left}
+.data-table th{background:#f8fafc;color:#475569}.data-table tr:hover td{background:#fafafa}
+.product-name{font-weight:900}.empty{padding:30px;text-align:center;color:var(--muted)}
+.pill{display:inline-flex;align-items:center;padding:5px 8px;border-radius:999px;font-size:10px;font-weight:900}
+.pill.ok{background:#ecfdf5;color:#166534}.pill.low{background:#fff7ed;color:#9a3412}.pill.zero{background:#fef2f2;color:#991b1b}
+.modal{display:none;position:fixed;inset:0;background:#0f172a7a;z-index:99;padding:28px;align-items:center;justify-content:center}
+.modal.show{display:flex}.panel{background:#fff;border-radius:20px;width:min(1050px,100%);max-height:90vh;overflow:auto}
+.panel-head{display:flex;justify-content:space-between;align-items:center;padding:18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff;z-index:3}
+.panel-body{padding:18px}.detail-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.detail{background:#f8fafc;border:1px solid var(--line);border-radius:13px;padding:13px}.detail span{display:block;color:var(--muted);font-size:11px}.detail b{display:block;margin-top:5px;font-size:18px}
+.error{display:none;background:#fef2f2;color:#991b1b;border:1px solid #fecaca;border-radius:12px;padding:11px 13px;margin-bottom:14px;white-space:pre-wrap}
+.loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#f5f6f8;z-index:999}
+.loading div{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px 24px;font-weight:900}
+
+/* Rep reports */
+.rep-shell{display:grid;grid-template-columns:270px 1fr;gap:14px;align-items:start}
+html[dir="ltr"] .rep-shell{grid-template-columns:270px 1fr}
+.rep-list{display:grid;gap:8px;position:sticky;top:16px}
+.rep-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;cursor:pointer;transition:.15s}
+.rep-card:hover,.rep-card.active{border-color:#8b5cf6;box-shadow:0 8px 22px #8b5cf61f}
+.rep-card b{display:block;font-size:13px}.rep-card span{display:block;color:var(--muted);font-size:10px;margin-top:4px}
+.rep-main{min-width:0}.report-filter{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
+.filter-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;align-items:end}
+.filter-grid label{display:grid;gap:5px;font-size:11px;color:var(--muted);font-weight:800}
+.report-banner{background:#ecfdf5;border:1px solid #86efac;border-radius:16px;padding:14px 16px;margin-bottom:12px}
+.report-banner span{font-size:11px;color:#166534}.report-banner strong{display:block;font-size:26px;color:#166534;margin-top:5px}
+.report-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:12px}
+.report-kpi{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px}
+.report-kpi span{display:block;color:var(--muted);font-size:10px}.report-kpi b{display:block;margin-top:5px;font-size:17px}
+.progress{height:8px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin-top:8px}.progress i{display:block;height:100%;background:#16a34a}
+.report-section{margin-top:12px}
+.report-section h4{margin:0;padding:13px 15px;background:#fff;border:1px solid var(--line);border-bottom:0;border-radius:14px 14px 0 0}
+.report-section .table-card{border-radius:0 0 14px 14px}
+.rep-report-tile{display:flex;justify-content:space-between;align-items:center;gap:15px;background:linear-gradient(135deg,#fff,#faf5ff);border:1px solid #e9d5ff;border-radius:18px;padding:18px;margin-bottom:14px}
+.rep-report-tile h3{margin:0}.rep-report-tile p{margin:5px 0 0;color:var(--muted);font-size:12px}
+@media print{
+ .side,.top,.health,.report-filter,.rep-list,.no-print{display:none!important}
+ .app,.main,.rep-shell{display:block!important}.main{padding:0!important}.rep-main{width:100%!important}
+ body{background:#fff}.card,.table-card,.report-kpi,.report-banner{box-shadow:none!important}
+}
+@media(max-width:1100px){.grid{grid-template-columns:repeat(2,1fr)}.module-grid{grid-template-columns:repeat(2,1fr)}.report-kpis{grid-template-columns:repeat(3,1fr)}.filter-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:850px){.rep-shell{grid-template-columns:1fr}.rep-list{position:static;grid-template-columns:repeat(2,1fr)}}
+@media(max-width:720px){.app{display:block}.side{height:auto;position:relative}.main{padding:14px}.grid,.module-grid,.report-kpis,.filter-grid,.detail-grid{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}.rep-list{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="loading" class="loading"><div id="loadingText">Loading…</div></div>
+<div class="app">
+<aside class="side">
+  <div class="brand"><h1>Mahsoubak Business</h1><p id="brandSub">Dermatology Distribution System</p><button id="langBtn" class="lang-btn" onclick="toggleLang()">English</button></div>
+  <div id="nav" class="nav"></div>
+  <div id="status" class="status">Connecting…</div>
+</aside>
+<main class="main">
+  <div class="top">
+    <div><h2 id="pageTitle"></h2><p id="pageSub"></p></div>
+    <div class="actions"><button id="refreshBtn" class="btn secondary" onclick="loadData(true)"></button></div>
+  </div>
+  <div id="error" class="error"></div>
+  <div class="health"><span id="healthDot" class="dot"></span><span id="healthText">Checking…</span></div>
+
+  <section id="view-dashboard" class="section active"><div id="dashboard" class="grid"></div></section>
+  <section id="view-products" class="section"></section>
+  <section id="view-customers" class="section"></section>
+  <section id="view-suppliers" class="section"></section>
+  <section id="view-reps" class="section"></section>
+  <section id="view-rep_reports" class="section"></section>
+  <section id="view-operations" class="section"></section>
+  <section id="view-purchases" class="section"></section>
+  <section id="view-sales" class="section"></section>
+  <section id="view-collections" class="section"></section>
+  <section id="view-reports" class="section"></section>
+  <section id="view-finance" class="section"></section>
+  <section id="view-trial" class="section"></section>
+  <section id="view-regions" class="section"></section>
+  <section id="view-users" class="section"></section>
+  <section id="view-cashflow" class="section"></section>
+  <section id="view-settings" class="section"></section>
+</main>
+</div>
+
+<div id="modal" class="modal" onclick="if(event.target===this)closeModal()">
+  <div class="panel">
+    <div class="panel-head"><b id="modalTitle"></b><button id="modalClose" class="btn secondary" onclick="closeModal()"></button></div>
+    <div id="modalBody" class="panel-body"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+const SB_URL="https://fkksydpbfqkctvlkoaom.supabase.co",SB_KEY="sb_publishable_gq0JyUXR5M57OZAaOd6eEg_6WyzVx9D";
+let LANG=localStorage.getItem('mb_lang')||'ar',currentPage='dashboard',selectedRepRef='all',PRODUCT_VIEW_ROWS=[];
+
+const TR={
+ ar:{
+  dashboard:'الرئيسية',products:'المنتجات والمخزون',customers:'العملاء',suppliers:'الموردين',reps:'Sales Target',rep_reports:'تقارير المندوبين',
+  operations:'Operation / طلبات المخزن',purchases:'المشتريات',sales:'Orders / الفواتير',collections:'التحصيلات',reports:'التقارير',
+  finance:'المالية',trial:'ميزان المراجعة',regions:'المناطق',users:'المستخدمين والصلاحيات',cashflow:'Cash Flow',settings:'الإعدادات',
+  brandSub:'نظام توزيع منتجات الجلدية',switchLang:'English',refresh:'↻ تحديث',pageSub:'واجهة جديدة • بيانات مباشرة من Supabase',
+  loading:'جاري تحميل قاعدة البيانات الجديدة…',placeholder:'سيتم بناء هذا الموديول فوق نفس Data Service بدون Legacy Code.',
+  salesTitle:'المبيعات',salesSub:'إجمالي المبيعات والفواتير',invoiceCount:'عدد الفواتير',paid:'المسدد',remaining:'المتبقي',
+  stock:'المخزون',stockSub:'القيمة والكميات الحالية',totalQty:'إجمالي الكمية',productsCount:'عدد الأصناف',debt:'مديونيات العملاء',
+  debtSub:'الرصيد المستحق',collectionsKpi:'التحصيلات',ops:'العمليات',opsSub:'طلبات المخزن',approved:'Approved',pending:'Pending',
+  total:'الإجمالي',targetSub:'أداء المندوبين',qty:'الكمية',repsCount:'المندوبين',match:'المطابقة',purchasesKpi:'المشتريات',
+  purchasesSub:'حركة المشتريات',due:'المستحق',records:'السجلات',inventoryValue:'قيمة المخزون',unitCost:'تكلفة الوحدة',
+  openingQty:'الكمية الافتتاحية',incoming:'الوارد',sold:'المباع',status:'الحالة',productsTitle:'المنتجات والمخزون',
+  productsSource:'قراءة مباشرة من mahsoubak_app_inventory_detail',searchProduct:'بحث باسم المنتج أو الكود…',allProducts:'كل الأصناف',
+  available:'متاح',low:'مخزون منخفض',out:'نفد المخزون',product:'المنتج',code:'الكود',balance:'الرصيد',cost:'التكلفة',
+  opening:'افتتاحي',details:'تفاصيل',open:'فتح',noProducts:'لا توجد منتجات مطابقة للبحث',sourceData:'بيانات المصدر',close:'إغلاق',
+  connected:'Canonical DB Connected',loadError:'خطأ في تحميل البيانات:',connectionError:'Connection error',contractCheck:'Canonical Contract CHECK',
+  repReportTitle:'تقرير مبيعات وتحصيلات المندوبين',repReportSub:'تقرير مستقل للمندوبين والمناطق والفواتير والعملاء والتحصيلات',
+  openReport:'فتح التقرير',from:'من',to:'إلى',rep:'المندوب / المجموعة',apply:'تطبيق',print:'طباعة التقرير',
+  allReps:'All Reps Total',west:'West Total',east:'East Total',delta:'Delta Total',alex:'Alexandria Total',
+  achieved:'المحقق',target:'التارجت',targetRemaining:'المتبقي من التارجت',achievement:'نسبة التحقيق',collectionsDirect:'التحصيلات المسجلة',
+  regionAnalysis:'تحليل المناطق',invoices:'الفواتير',customersAnalysis:'العملاء',collectionRecords:'سجل التحصيلات',
+  customer:'العميل',region:'المنطقة',invoice:'الفاتورة',date:'التاريخ',salesAmount:'المبيعات',collection:'التحصيل',
+  method:'الطريقة',notes:'ملاحظات',noData:'لا توجد بيانات في الفترة المحددة',repList:'المندوبون والمجموعات',
+  targetModuleTitle:'Sales Target',targetModuleSub:'التارجت والمحقق والمتبقي لكل مندوب',companySales:'مبيعات الشركة'
+ },
+ en:{
+  dashboard:'Dashboard',products:'Products & Inventory',customers:'Customers',suppliers:'Suppliers',reps:'Sales Target',rep_reports:'Rep Reports',
+  operations:'Operations / Warehouse Orders',purchases:'Purchases',sales:'Orders / Invoices',collections:'Collections',reports:'Reports',
+  finance:'Finance',trial:'Trial Balance',regions:'Regions',users:'Users & Permissions',cashflow:'Cash Flow',settings:'Settings',
+  brandSub:'Dermatology Distribution System',switchLang:'العربية',refresh:'↻ Refresh',pageSub:'New Frontend • Live Supabase Data',
+  loading:'Loading the new database…',placeholder:'This module will be built on the same Data Service with no legacy code.',
+  salesTitle:'Sales',salesSub:'Total sales and invoices',invoiceCount:'Invoice count',paid:'Paid',remaining:'Remaining',
+  stock:'Inventory',stockSub:'Current value and quantities',totalQty:'Total quantity',productsCount:'Products',debt:'Customer Receivables',
+  debtSub:'Outstanding customer balance',collectionsKpi:'Collections',ops:'Operations',opsSub:'Warehouse orders',approved:'Approved',pending:'Pending',
+  total:'Total',targetSub:'Sales rep performance',qty:'Quantity',repsCount:'Sales reps',match:'Match',purchasesKpi:'Purchases',
+  purchasesSub:'Purchase activity',due:'Due',records:'Records',inventoryValue:'Inventory value',unitCost:'Unit cost',
+  openingQty:'Opening quantity',incoming:'Incoming',sold:'Sold',status:'Status',productsTitle:'Products & Inventory',
+  productsSource:'Direct read from mahsoubak_app_inventory_detail',searchProduct:'Search by product name or code…',allProducts:'All products',
+  available:'Available',low:'Low stock',out:'Out of stock',product:'Product',code:'Code',balance:'Balance',cost:'Cost',
+  opening:'Opening',details:'Details',open:'Open',noProducts:'No products match the current search',sourceData:'Source data',close:'Close',
+  connected:'Canonical DB Connected',loadError:'Data loading error:',connectionError:'Connection error',contractCheck:'Canonical Contract CHECK',
+  repReportTitle:'Sales & Collections Rep Report',repReportSub:'Independent report for reps, regions, invoices, customers and collections',
+  openReport:'Open report',from:'From',to:'To',rep:'Rep / Group',apply:'Apply',print:'Print report',
+  allReps:'All Reps Total',west:'West Total',east:'East Total',delta:'Delta Total',alex:'Alexandria Total',
+  achieved:'Achieved',target:'Target',targetRemaining:'Target remaining',achievement:'Achievement',collectionsDirect:'Recorded collections',
+  regionAnalysis:'Region analysis',invoices:'Invoices',customersAnalysis:'Customers',collectionRecords:'Collection records',
+  customer:'Customer',region:'Region',invoice:'Invoice',date:'Date',salesAmount:'Sales',collection:'Collection',
+  method:'Method',notes:'Notes',noData:'No data for the selected period',repList:'Reps & groups',
+  targetModuleTitle:'Sales Target',targetModuleSub:'Target, achieved and remaining for each rep',companySales:'Company sales'
+ }
+};
+const T=k=>TR[LANG][k]??k;
+const NAV=[
+ ['dashboard','📊'],['products','📦'],['customers','👥'],['suppliers','🏭'],['reps','🎯'],['rep_reports','📊'],
+ ['operations','⚙️'],['purchases','🛒'],['sales','🧾'],['collections','💰'],['reports','📈'],['finance','💼'],
+ ['trial','⚖️'],['regions','⌖'],['users','👤'],['cashflow','💵'],['settings','⚙️']
+];
+const V={
+ summary:'mahsoubak_app_dashboard_summary',health:'mahsoubak_app_phase6f6_health',inventory:'mahsoubak_app_inventory_detail',
+ orders:'mahsoubak_sales_orders',repSales:'mahsoubak_app_rep_sales',repMaster:'mahsoubak_reps',purchases:'mahsoubak_purchases',
+ allocations:'mahsoubak_sales_allocations',collections:'mahsoubak_app_collection_detail',territorySales:'mahsoubak_app_territory_sales',
+ territoryTotals:'mahsoubak_app_territory_totals'
+};
+const D={};
+const $=id=>document.getElementById(id),A=v=>Array.isArray(v)?v:[],N=v=>Number.isFinite(Number(v))?Number(v):0,S=v=>String(v??'').trim();
+const money=v=>N(v).toLocaleString('en-EG',{maximumFractionDigits:2})+' EGP',num=(v,d=2)=>N(v).toLocaleString('en-EG',{maximumFractionDigits:d});
+const norm=v=>S(v).toLowerCase().replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ');
+const esc=v=>S(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+
+function buildNav(){
+ $('nav').innerHTML=NAV.map(([id,ic])=>`<button id="nav-${id}" onclick="show('${id}')">${ic} ${T(id)}</button>`).join('');
+ $('nav-'+currentPage)?.classList.add('active');
+}
+function applyLanguage(){
+ document.documentElement.lang=LANG;document.documentElement.dir=LANG==='ar'?'rtl':'ltr';
+ $('brandSub').textContent=T('brandSub');$('langBtn').textContent=T('switchLang');$('refreshBtn').textContent=T('refresh');
+ $('pageSub').textContent=T('pageSub');$('loadingText').textContent=T('loading');$('modalClose').textContent=T('close');
+ buildNav();show(currentPage);renderDashboard();renderProducts();renderSalesTarget();renderRepReports();
+}
+function toggleLang(){LANG=LANG==='ar'?'en':'ar';localStorage.setItem('mb_lang',LANG);applyLanguage()}
+function show(id){
+ currentPage=id;
+ document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));$('view-'+id).classList.add('active');
+ document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));$('nav-'+id)?.classList.add('active');
+ $('pageTitle').textContent=T(id);
+ if(id==='products')return renderProducts();
+ if(id==='reps')return renderSalesTarget();
+ if(id==='rep_reports')return renderRepReports();
+ if(id!=='dashboard')$('view-'+id).innerHTML=`<div class="placeholder"><b>${T(id)}</b><br><br>${T('placeholder')}</div>`;
+}
+async function getAll(view){
+ let out=[],offset=0,limit=1000;
+ while(true){
+  const r=await fetch(`${SB_URL}/rest/v1/${encodeURIComponent(view)}?select=*&limit=${limit}&offset=${offset}`,{headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY},cache:'no-store'});
+  const text=await r.text();let rows=[];
+  try{rows=text?JSON.parse(text):[]}catch(e){throw new Error(view+' returned invalid JSON')}
+  if(!r.ok)throw new Error(view+': '+(rows?.message||text||r.status));
+  out.push(...A(rows));if(rows.length<limit)break;offset+=limit;if(offset>30000)throw new Error(view+': pagination stop');
+ }
+ return out;
+}
+const summary=()=>A(D.summary)[0]||{},health=()=>A(D.health)[0]||{};
+const metric=(a,b)=>`<div class="metric"><span>${a}</span><b>${b}</b></div>`;
+const detail=(a,b)=>`<div class="detail"><span>${a}</span><b>${b}</b></div>`;
+function card(k,t,s,v,m){return `<div class="card kpi" onclick="openCard('${k}')"><div class="kpi-title">${t}</div><div class="kpi-sub">${s}</div><div class="kpi-value">${v}</div><div class="metrics">${m.join('')}</div></div>`}
+
+function renderDashboard(){
+ const s=summary(),inv=A(D.inventory),orders=A(D.orders),reps=A(D.repSales),p=A(D.purchases);
+ const rs=reps.reduce((a,r)=>a+N(r.sales),0),rq=reps.reduce((a,r)=>a+N(r.qty),0),pt=p.reduce((a,r)=>a+N(r.total),0),pd=p.reduce((a,r)=>a+N(r.remaining),0);
+ $('dashboard').innerHTML=
+  card('sales',T('salesTitle'),T('salesSub'),money(s.company_sales),[metric(T('invoiceCount'),num(s.invoice_count,0)),metric(T('paid'),money(s.invoice_paid)),metric(T('remaining'),money(s.receivables_from_sales||s.invoice_remaining))])+
+  card('stock',T('stock'),T('stockSub'),money(s.inventory_value),[metric(T('totalQty'),num(s.stock_qty,2)),metric(T('productsCount'),num(inv.length,0)),metric('COGS',money(s.cogs))])+
+  card('debt',T('debt'),T('debtSub'),money(s.receivables_from_sales||s.invoice_remaining),[metric(T('salesTitle'),money(s.company_sales)),metric(T('paid'),money(s.invoice_paid)),metric(T('collectionsKpi'),money(s.collection_cash))])+
+  card('operations',T('ops'),T('opsSub'),num(orders.length,0),[metric(T('approved'),num(orders.filter(x=>S(x.approval_status).toLowerCase()==='approved').length,0)),metric(T('pending'),num(orders.filter(x=>S(x.approval_status).toLowerCase()==='pending').length,0)),metric(T('total'),num(orders.length,0))])+
+  card('target','Sales Target',T('targetSub'),money(rs),[metric(T('qty'),num(rq,2)),metric(T('repsCount'),num(reps.length,0)),metric(T('match'),Math.abs(rs-N(s.company_sales))<=.01?'MATCH':'CHECK')])+
+  card('rep_reports',T('repReportTitle'),T('repReportSub'),money(rs),[metric(T('allReps'),money(rs)),metric(T('remaining'),money(reps.reduce((a,r)=>a+N(r.remaining),0))),metric(T('invoiceCount'),num(s.invoice_count,0))])+
+  card('purchases',T('purchasesKpi'),T('purchasesSub'),money(pt),[metric(T('due'),money(pd)),metric(T('paid'),money(Math.max(0,pt-pd))),metric(T('records'),num(p.length,0))]);
+}
+function openCard(k){
+ if(k==='stock'){show('products');return}
+ if(k==='target'){show('reps');return}
+ if(k==='rep_reports'){show('rep_reports');return}
+ const s=summary();let t='',x=[];
+ if(k==='sales'){t=T('salesTitle');x=[[T('salesTitle'),money(s.company_sales)],[T('invoiceCount'),num(s.invoice_count,0)],[T('paid'),money(s.invoice_paid)],[T('remaining'),money(s.receivables_from_sales||s.invoice_remaining)]]}
+ if(k==='debt'){t=T('debt');x=[[T('remaining'),money(s.receivables_from_sales||s.invoice_remaining)],[T('collectionsKpi'),money(s.collection_cash)]]}
+ if(k==='operations'){t=T('ops');x=[['Orders',num(A(D.orders).length,0)]]}
+ if(k==='purchases'){t=T('purchasesKpi');x=[[T('records'),num(A(D.purchases).length,0)]]}
+ openModal(t,`<div class="detail-grid">${x.map(z=>detail(z[0],z[1])).join('')}</div>`);
+}
+function openModal(title,body){$('modalTitle').textContent=title;$('modalBody').innerHTML=body;$('modal').classList.add('show')}
+function closeModal(){$('modal').classList.remove('show')}
+
+/* Products */
+function stockStatus(r){const qty=N(r.current_stock_qty),min=N(r.min_stock_qty??r.min_stock??r.reorder_level);if(qty<=0)return [T('out'),'zero'];if(min>0&&qty<=min)return [T('low'),'low'];return [T('available'),'ok']}
+function productRows(){const text=S(($('productSearch')||{}).value).toLowerCase(),filter=S(($('stockFilter')||{}).value||'all');return A(D.inventory).filter(r=>{const hay=(S(r.product_name)+' '+S(r.product_code)+' '+S(r.lot_number)).toLowerCase();if(text&&!hay.includes(text))return false;const st=stockStatus(r)[1];if(filter==='low'&&st!=='low')return false;if(filter==='zero'&&st!=='zero')return false;if(filter==='available'&&st!=='ok')return false;return true})}
+function renderProducts(){
+ const rows=A(D.inventory),totalQty=rows.reduce((a,r)=>a+N(r.current_stock_qty),0),totalValue=rows.reduce((a,r)=>a+N(r.ending_inventory_value),0),low=rows.filter(r=>stockStatus(r)[1]==='low').length,zero=rows.filter(r=>stockStatus(r)[1]==='zero').length;
+ $('view-products').innerHTML=`<div class="module-head"><div><h3>${T('productsTitle')}</h3><p>${T('productsSource')}</p></div><div class="module-tools"><input id="productSearch" class="input" placeholder="${T('searchProduct')}" oninput="renderProductTable()"><select id="stockFilter" class="select" onchange="renderProductTable()"><option value="all">${T('allProducts')}</option><option value="available">${T('available')}</option><option value="low">${T('low')}</option><option value="zero">${T('out')}</option></select></div></div>
+ <div class="module-grid"><div class="mini-card"><span>${T('inventoryValue')}</span><b>${money(totalValue)}</b></div><div class="mini-card"><span>${T('totalQty')}</span><b>${num(totalQty,2)}</b></div><div class="mini-card"><span>${T('low')}</span><b>${num(low,0)}</b></div><div class="mini-card"><span>${T('out')}</span><b>${num(zero,0)}</b></div></div><div class="table-card"><div id="productTableWrap" class="table-wrap"></div></div>`;
+ renderProductTable();
+}
+function renderProductTable(){
+ PRODUCT_VIEW_ROWS=productRows();const w=$('productTableWrap');if(!w)return;
+ if(!PRODUCT_VIEW_ROWS.length){w.innerHTML=`<div class="empty">${T('noProducts')}</div>`;return}
+ w.innerHTML=`<table class="data-table"><thead><tr><th>${T('product')}</th><th>${T('code')}</th><th>${T('balance')}</th><th>${T('cost')}</th><th>${T('inventoryValue')}</th><th>${T('opening')}</th><th>${T('sold')}</th><th>${T('status')}</th></tr></thead><tbody>${PRODUCT_VIEW_ROWS.map(r=>{const st=stockStatus(r);return `<tr><td class="product-name">${esc(r.product_name||'-')}</td><td>${esc(r.product_code||r.code||'-')}</td><td>${num(r.current_stock_qty,2)}</td><td>${money(r.canonical_unit_cost||r.unit_cost||r.cost)}</td><td>${money(r.ending_inventory_value)}</td><td>${num(r.opening_qty,2)}</td><td>${num(r.sold_qty,2)}</td><td><span class="pill ${st[1]}">${st[0]}</span></td></tr>`}).join('')}</tbody></table>`;
+}
+
+/* Sales Target */
+function isTargetQtyRow(r){const t=norm(r.order_type||r.sale_type||r.type);return !/bonus|بونص|display|sample|عين|free|مجاني/.test(t)}
+function repTargetValue(rep){return N(rep.target_qty??rep.target??rep.sales_target)}
+function achievedForRep(rep){
+ const id=S(rep.id),name=norm(rep.name||rep.rep_name);
+ return A(D.allocations).filter(r=>(S(r.rep_id)===id||norm(r.rep_name)===name)&&isTargetQtyRow(r)).reduce((a,r)=>a+N(r.allocated_qty),0);
+}
+function renderSalesTarget(){
+ const reps=A(D.repMaster).filter(r=>r.active!==false);
+ $('view-reps').innerHTML=`<div class="rep-report-tile"><div><h3>${T('targetModuleTitle')}</h3><p>${T('targetModuleSub')}</p></div><button class="btn blue" onclick="show('rep_reports')">${T('openReport')}</button></div>
+ <div class="table-card"><div class="table-wrap"><table class="data-table"><thead><tr><th>${T('rep')}</th><th>${T('region')}</th><th>${T('target')}</th><th>${T('achieved')}</th><th>${T('targetRemaining')}</th><th>${T('achievement')}</th><th>${T('salesAmount')}</th></tr></thead><tbody>${reps.map(rep=>{const target=repTargetValue(rep),ach=achievedForRep(rep),left=Math.max(0,target-ach),pct=target?ach/target*100:0;const rs=A(D.repSales).find(x=>S(x.rep_id)===S(rep.id)||norm(x.rep_name)===norm(rep.name||rep.rep_name))||{};return `<tr><td><b>${esc(rep.name||rep.rep_name)}</b></td><td>${esc(rep.region_code||rep.territory_code||'-')}</td><td>${num(target,2)}</td><td>${num(ach,2)}</td><td>${num(left,2)}</td><td>${pct.toFixed(1)}%<div class="progress"><i style="width:${Math.min(100,Math.max(0,pct))}%"></i></div></td><td>${money(rs.sales)}</td></tr>`}).join('')}</tbody></table></div></div>`;
+}
+
+/* Rep Reports */
+const GROUPS=[
+ {id:'all',labelKey:'allReps'},
+ {id:'West Total',labelKey:'west'},
+ {id:'East Total',labelKey:'east'},
+ {id:'Delta Total',labelKey:'delta'},
+ {id:'Alexandria Total',labelKey:'alex'}
+];
+function repNameById(id){const r=A(D.repMaster).find(x=>S(x.id)===S(id));return r?S(r.name||r.rep_name):S(id)}
+function reportRefs(){
+ return [...GROUPS,...A(D.repMaster).filter(r=>r.active!==false).map(r=>({id:S(r.id),name:S(r.name||r.rep_name)}))];
+}
+function refLabel(ref){
+ const g=GROUPS.find(x=>x.id===ref);if(g)return T(g.labelKey);
+ return repNameById(ref);
+}
+function dateInRange(v,from,to){const d=S(v).slice(0,10);if(from&&d<from)return false;if(to&&d>to)return false;return true}
+function allocationRowsForRef(ref,from='',to=''){
+ let rows=A(D.allocations).filter(r=>dateInRange(r.sale_date||r.date,from,to));
+ if(ref==='all')return rows;
+ if(GROUPS.some(g=>g.id===ref))return rows.filter(r=>S(r.territory_group)===ref);
+ const name=norm(repNameById(ref));
+ return rows.filter(r=>S(r.rep_id)===S(ref)||norm(r.rep_name)===name);
+}
+function repsForRef(ref,rows){
+ if(ref==='all')return A(D.repMaster).filter(r=>r.active!==false);
+ if(GROUPS.some(g=>g.id===ref)){
+  const names=new Set(rows.map(r=>norm(r.rep_name)).filter(Boolean));
+  return A(D.repMaster).filter(r=>names.has(norm(r.name||r.rep_name)));
+ }
+ return A(D.repMaster).filter(r=>S(r.id)===S(ref));
+}
+function collectionRowsForRef(ref,from='',to=''){
+ let rows=A(D.collections).filter(r=>dateInRange(r.collection_date||r.date,from,to));
+ if(ref==='all')return rows;
+ const alloc=allocationRowsForRef(ref,from,to),ids=new Set(alloc.map(r=>S(r.rep_id)).filter(Boolean)),names=new Set(alloc.map(r=>norm(r.rep_name)).filter(Boolean));
+ return rows.filter(r=>(S(r.rep_id)&&ids.has(S(r.rep_id)))||(norm(r.rep_name)&&names.has(norm(r.rep_name))));
+}
+function groupInvoices(rows){
+ const m=new Map();
+ rows.forEach(r=>{
+  const k=S(r.invoice_key||r.invoice_number||r.invoice_no||r.order_id||r.sale_id)||S(r.sale_id);
+  if(!m.has(k))m.set(k,{key:k,date:S(r.sale_date||r.date).slice(0,10),customer:S(r.customer_name),region:S(r.territory_code),qty:0,sales:0,remaining:0,products:new Set()});
+  const x=m.get(k);x.qty+=N(r.allocated_qty);x.sales+=N(r.allocated_total);x.remaining+=N(r.allocated_remaining);if(r.product_name)x.products.add(S(r.product_name));
+ });
+ return [...m.values()];
+}
+function customerSummary(rows){
+ const m=new Map();
+ rows.forEach(r=>{const k=S(r.customer_id)||norm(r.customer_name);if(!m.has(k))m.set(k,{name:S(r.customer_name),sales:0,remaining:0,qty:0,invoices:new Set()});const x=m.get(k);x.sales+=N(r.allocated_total);x.remaining+=N(r.allocated_remaining);x.qty+=N(r.allocated_qty);x.invoices.add(S(r.invoice_key||r.invoice_number||r.sale_id))});
+ return [...m.values()].sort((a,b)=>b.sales-a.sales);
+}
+function regionSummary(rows){
+ const m=new Map();
+ rows.forEach(r=>{const k=S(r.territory_code||'Unspecified');if(!m.has(k))m.set(k,{name:k,sales:0,remaining:0,qty:0,invoices:new Set()});const x=m.get(k);x.sales+=N(r.allocated_total);x.remaining+=N(r.allocated_remaining);x.qty+=N(r.allocated_qty);x.invoices.add(S(r.invoice_key||r.invoice_number||r.sale_id))});
+ return [...m.values()].sort((a,b)=>b.sales-a.sales);
+}
+function reportTarget(ref,rows){
+ return repsForRef(ref,rows).reduce((a,r)=>a+repTargetValue(r),0);
+}
+function reportAchieved(rows){return rows.filter(isTargetQtyRow).reduce((a,r)=>a+N(r.allocated_qty),0)}
+function table(headers,rows){
+ if(!rows.length)return `<div class="empty">${T('noData')}</div>`;
+ return `<div class="table-card"><div class="table-wrap"><table class="data-table"><thead><tr>${headers.map(h=>`<th>${h[0]}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${headers.map(h=>`<td>${h[1](r)}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`;
+}
+function reportCardHtml(ref,from='',to=''){
+ const rows=allocationRowsForRef(ref,from,to),collections=collectionRowsForRef(ref,from,to),invoices=groupInvoices(rows),customers=customerSummary(rows),regions=regionSummary(rows);
+ const sales=rows.reduce((a,r)=>a+N(r.allocated_total),0),remaining=rows.reduce((a,r)=>a+N(r.allocated_remaining),0),paid=sales-remaining;
+ const target=reportTarget(ref,rows),ach=reportAchieved(rows),left=Math.max(0,target-ach),pct=target?ach/target*100:0;
+ const collectionCash=collections.reduce((a,r)=>a+N(r.cash_received??r.amount),0);
+ return `
+ <div class="report-banner"><span>${T('salesAmount')} — ${esc(refLabel(ref))}</span><strong>${money(sales)}</strong></div>
+ <div class="report-kpis">
+  <div class="report-kpi"><span>${T('paid')}</span><b>${money(paid)}</b></div>
+  <div class="report-kpi"><span>${T('remaining')}</span><b>${money(remaining)}</b></div>
+  <div class="report-kpi"><span>${T('invoiceCount')}</span><b>${num(invoices.length,0)}</b></div>
+  <div class="report-kpi"><span>${T('collectionsDirect')}</span><b>${money(collectionCash)}</b></div>
+  <div class="report-kpi"><span>${T('qty')}</span><b>${num(rows.reduce((a,r)=>a+N(r.allocated_qty),0),2)}</b></div>
+ </div>
+ <div class="report-kpis">
+  <div class="report-kpi"><span>${T('target')}</span><b>${num(target,2)}</b></div>
+  <div class="report-kpi"><span>${T('achieved')}</span><b>${num(ach,2)}</b></div>
+  <div class="report-kpi"><span>${T('targetRemaining')}</span><b>${num(left,2)}</b></div>
+  <div class="report-kpi"><span>${T('achievement')}</span><b>${pct.toFixed(1)}%</b><div class="progress"><i style="width:${Math.min(100,Math.max(0,pct))}%"></i></div></div>
+ </div>
+ <div class="report-section"><h4>${T('regionAnalysis')}</h4>${table([
+   [T('region'),r=>`<b>${esc(r.name)}</b>`],[T('qty'),r=>num(r.qty,2)],[T('salesAmount'),r=>money(r.sales)],[T('remaining'),r=>money(r.remaining)],[T('invoiceCount'),r=>num(r.invoices.size,0)]
+ ],regions)}</div>
+ <div class="report-section"><h4>${T('invoices')}</h4>${table([
+   [T('date'),r=>esc(r.date)],[T('invoice'),r=>`<b>${esc(r.key)}</b>`],[T('customer'),r=>esc(r.customer)],[T('region'),r=>esc(r.region||'-')],[T('qty'),r=>num(r.qty,2)],[T('salesAmount'),r=>money(r.sales)],[T('remaining'),r=>money(r.remaining)]
+ ],invoices)}</div>
+ <div class="report-section"><h4>${T('customersAnalysis')}</h4>${table([
+   [T('customer'),r=>`<b>${esc(r.name)}</b>`],[T('qty'),r=>num(r.qty,2)],[T('salesAmount'),r=>money(r.sales)],[T('remaining'),r=>money(r.remaining)],[T('invoiceCount'),r=>num(r.invoices.size,0)]
+ ],customers)}</div>
+ <div class="report-section"><h4>${T('collectionRecords')}</h4>${table([
+   [T('date'),r=>esc(r.collection_date||r.date)],[T('customer'),r=>esc(r.customer_name)],[T('collection'),r=>money(r.cash_received??r.amount)],[T('method'),r=>esc(r.method||'-')],[T('notes'),r=>esc(r.notes||'-')]
+ ],collections)}</div>`;
+}
+function refCard(ref){
+ const rows=allocationRowsForRef(ref),sales=rows.reduce((a,r)=>a+N(r.allocated_total),0),remaining=rows.reduce((a,r)=>a+N(r.allocated_remaining),0);
+ return `<div class="rep-card ${selectedRepRef===ref?'active':''}" onclick="selectRepRef('${esc(ref)}')"><b>${esc(refLabel(ref))}</b><span>${T('salesAmount')}: ${money(sales)}</span><span>${T('remaining')}: ${money(remaining)}</span></div>`;
+}
+function renderRepReports(){
+ const refs=reportRefs();
+ $('view-rep_reports').innerHTML=`<div class="module-head"><div><h3>${T('repReportTitle')}</h3><p>${T('repReportSub')}</p></div><button class="btn blue no-print" onclick="window.print()">${T('print')}</button></div>
+ <div class="rep-shell">
+  <div class="rep-list"><div class="card" style="padding:12px"><b>${T('repList')}</b></div>${refs.map(x=>refCard(x.id)).join('')}</div>
+  <div class="rep-main">
+   <div class="report-filter no-print"><div class="filter-grid">
+    <label>${T('from')}<input id="repFrom" class="input" type="date"></label>
+    <label>${T('to')}<input id="repTo" class="input" type="date"></label>
+    <label>${T('rep')}<select id="repSelect" class="select">${refs.map(x=>`<option value="${esc(x.id)}">${esc(x.labelKey?T(x.labelKey):x.name)}</option>`).join('')}</select></label>
+    <button class="btn ok" onclick="applyRepFilter()">${T('apply')}</button>
+   </div></div>
+   <div id="repReportBody"></div>
+  </div>
+ </div>`;
+ $('repSelect').value=selectedRepRef;
+ $('repReportBody').innerHTML=reportCardHtml(selectedRepRef);
+}
+function selectRepRef(ref){selectedRepRef=ref;renderRepReports()}
+function applyRepFilter(){
+ const ref=S($('repSelect').value)||'all',from=S($('repFrom').value),to=S($('repTo').value);
+ if(from&&to&&from>to){alert(LANG==='ar'?'تاريخ البداية يجب أن يكون قبل تاريخ النهاية':'From date must be before To date');return}
+ selectedRepRef=ref;
+ document.querySelectorAll('.rep-card').forEach(x=>x.classList.remove('active'));
+ $('repReportBody').innerHTML=reportCardHtml(ref,from,to);
+}
+
+/* contract */
+function validate(){
+ const s=summary(),h=health(),a=A(D.allocations),as=a.reduce((x,r)=>x+N(r.allocated_total),0),ar=a.reduce((x,r)=>x+N(r.allocated_remaining),0),rs=A(D.repSales).reduce((x,r)=>x+N(r.sales),0);
+ const ok=S(h.phase6f6_status)==='PHASE6F6_APP_READ_CONTRACT_MATCH'&&Math.abs(as-N(s.company_sales))<=.01&&Math.abs(ar-N(s.receivables_from_sales||s.invoice_remaining))<=.01&&Math.abs(rs-N(s.company_sales))<=.01;
+ $('healthDot').className='dot '+(ok?'ok':'bad');
+ $('healthText').textContent=ok?`Canonical Contract MATCH • Sales ${money(s.company_sales)} • Remaining ${money(s.receivables_from_sales||s.invoice_remaining)}`:T('contractCheck');
+ return ok;
+}
+async function loadData(manual=false){
+ try{
+  $('error').style.display='none';$('status').textContent=LANG==='ar'?'جاري تحميل البيانات…':'Loading canonical data…';
+  const [summaryRows,healthRows,inventoryRows,orderRows,repSalesRows,repMasterRows,purchaseRows,allocationRows,collectionRows,territorySalesRows,territoryTotalsRows]=await Promise.all([
+   getAll(V.summary),getAll(V.health),getAll(V.inventory),getAll(V.orders),getAll(V.repSales),getAll(V.repMaster),
+   getAll(V.purchases),getAll(V.allocations),getAll(V.collections),getAll(V.territorySales),getAll(V.territoryTotals)
+  ]);
+  Object.assign(D,{summary:summaryRows,health:healthRows,inventory:inventoryRows,orders:orderRows,repSales:repSalesRows,repMaster:repMasterRows,purchases:purchaseRows,allocations:allocationRows,collections:collectionRows,territorySales:territorySalesRows,territoryTotals:territoryTotalsRows});
+  if(!validate())throw new Error('Canonical contract validation failed');
+  renderDashboard();renderProducts();renderSalesTarget();renderRepReports();
+  $('status').textContent=T('connected')+'\n'+new Date().toLocaleTimeString(LANG==='ar'?'ar-EG':'en-GB');
+  $('loading').style.display='none';
+  if(manual)alert(LANG==='ar'?'تم تحديث البيانات':'Data refreshed');
+ }catch(e){
+  console.error(e);$('loading').style.display='none';$('error').style.display='block';$('error').textContent=T('loadError')+'\n'+e.message;$('status').textContent=T('connectionError');
+ }
+}
+applyLanguage();loadData();
+</script>
+</body>
+</html>
