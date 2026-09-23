@@ -4188,8 +4188,75 @@ function renderCollectionsDashboardP24(){
 }
 function renderCollectionClassificationP24(){
   const el=$('view-collection_classification');if(!el)return;
-  el.innerHTML=`<div class="module-head"><div><h3>${T('collection_classification')}</h3></div></div>
-    ${agingSummaryTableP24()}`;
+
+  const rows=A(D.collections);
+  const value=r=>N(r.cash_received??r.amount);
+  const applied=r=>N(r.applied_to_invoices??r.applied_amount);
+  const unapplied=r=>N(r.unapplied_customer_credit??r.unapplied_amount);
+
+  const fullyApplied=rows.filter(r=>value(r)>0 && applied(r)>0 && unapplied(r)<=0.01);
+  const mixed=rows.filter(r=>applied(r)>0 && unapplied(r)>0.01);
+  const unappliedOnly=rows.filter(r=>value(r)>0 && applied(r)<=0.01 && unapplied(r)>0.01);
+
+  const totalCash=rows.reduce((a,r)=>a+value(r),0);
+  const totalApplied=rows.reduce((a,r)=>a+applied(r),0);
+  const totalUnapplied=rows.reduce((a,r)=>a+unapplied(r),0);
+
+  const methodMap={};
+  rows.forEach(r=>{
+    const m=S(r.method||r.payment_method||'-')||'-';
+    if(!methodMap[m])methodMap[m]={method:m,count:0,amount:0};
+    methodMap[m].count++;
+    methodMap[m].amount+=value(r);
+  });
+  const methods=Object.values(methodMap).sort((a,b)=>b.amount-a.amount);
+
+  function classificationLabel(r){
+    const a=applied(r),u=unapplied(r),v=value(r);
+    if(v<=0)return LANG==='ar'?'صفر':'Zero';
+    if(a>0&&u<=0.01)return LANG==='ar'?'مطبق بالكامل':'Fully applied';
+    if(a>0&&u>0.01)return LANG==='ar'?'مطبق جزئيًا':'Partially applied';
+    if(a<=0.01&&u>0.01)return LANG==='ar'?'غير موزع':'Unapplied';
+    return LANG==='ar'?'غير مصنف':'Unclassified';
+  }
+
+  const methodTable=methods.length?`
+    <div class="parity24-card" style="margin-top:16px">
+      <h3>${LANG==='ar'?'تصنيف حسب طريقة الدفع':'By payment method'}</h3>
+      ${table([
+        [T('method'),r=>esc(r.method)],
+        [LANG==='ar'?'عدد التحصيلات':'Collections',r=>num(r.count,0)],
+        [T('amount'),r=>money(r.amount)]
+      ],methods)}
+    </div>`:'';
+
+  const detailTable=rows.length?`
+    <div class="parity24-card" style="margin-top:16px">
+      <h3>${LANG==='ar'?'تفاصيل تصنيف التحصيلات':'Collection classification details'}</h3>
+      ${table([
+        [T('date'),r=>esc(r.collection_date||r.date||'-')],
+        [T('customer'),r=>esc(r.customer_name||'-')],
+        [LANG==='ar'?'المحصل':'Collector',r=>esc(r.rep_name||r.collector_name||'-')],
+        [T('method'),r=>esc(r.method||r.payment_method||'-')],
+        [LANG==='ar'?'قيمة التحصيل':'Collected',r=>money(value(r))],
+        [LANG==='ar'?'مطبق على الفواتير':'Applied',r=>money(applied(r))],
+        [LANG==='ar'?'غير موزع':'Unapplied',r=>money(unapplied(r))],
+        [LANG==='ar'?'التصنيف':'Classification',r=>esc(classificationLabel(r))]
+      ],rows)}
+    </div>`:`<div class="empty">${T('noData')}</div>`;
+
+  el.innerHTML=`<div class="module-head"><div><h3>${T('collection_classification')}</h3>
+    <p>${LANG==='ar'?'تصنيف التحصيلات الفعلية حسب حالة التوزيع وطريقة الدفع':'Actual collections classified by allocation status and payment method'}</p>
+  </div></div>
+  <div class="parity24-grid">
+    <div class="parity24-kpi"><span>${LANG==='ar'?'إجمالي التحصيلات':'Total collections'}</span><b>${money(totalCash)}</b><small>${num(rows.length,0)}</small></div>
+    <div class="parity24-kpi"><span>${LANG==='ar'?'مطبق بالكامل':'Fully applied'}</span><b>${money(fullyApplied.reduce((a,r)=>a+value(r),0))}</b><small>${num(fullyApplied.length,0)}</small></div>
+    <div class="parity24-kpi"><span>${LANG==='ar'?'مطبق جزئيًا':'Partially applied'}</span><b>${money(mixed.reduce((a,r)=>a+value(r),0))}</b><small>${num(mixed.length,0)}</small></div>
+    <div class="parity24-kpi"><span>${LANG==='ar'?'غير موزع':'Unapplied'}</span><b>${money(totalUnapplied)}</b><small>${num(unappliedOnly.length,0)}</small></div>
+    <div class="parity24-kpi"><span>${LANG==='ar'?'المطبق على الفواتير':'Applied to invoices'}</span><b>${money(totalApplied)}</b></div>
+  </div>
+  ${methodTable}
+  ${detailTable}`;
 }
 function renderAgingReportP24(){
   const el=$('view-aging_report');if(!el)return;
@@ -6160,6 +6227,6 @@ setTimeout(function(){
 })();
 </script>
 
-<div id="cleanBuildId" style="position:fixed;bottom:8px;right:10px;z-index:99999;background:#111827;color:#fff;padding:4px 8px;border-radius:8px;font:700 10px Arial;opacity:.75;pointer-events:none">CLEAN DB V3 • INTEGRATED INVOICE</div>
+<div id="cleanBuildId" style="position:fixed;bottom:8px;right:10px;z-index:99999;background:#111827;color:#fff;padding:4px 8px;border-radius:8px;font:700 10px Arial;opacity:.75;pointer-events:none">CLEAN DB V4 • COLLECTION CLASSIFICATION FIXED</div>
 </body>
 </html>
