@@ -387,7 +387,7 @@ body,.main{background:#f1f4f8!important}
 .canonical-kpi:nth-child(6n+5):before{background:#ef4444}
 .canonical-kpi:nth-child(6n+6):before{background:#14b8a6}
 </style>
-<meta name="mahsoubak-build" content="FINAL_CLIENT_FIX4_2026_09_23">
+<meta name="mahsoubak-build" content="FINAL_CLIENT_FIX5_2026_09_23">
 
 <style id="rc24-clickable-kpi-style">
 .clickable-kpi{cursor:pointer;transition:transform .12s ease,box-shadow .12s ease}
@@ -4336,7 +4336,7 @@ function canonicalDetailTable(key,rows){
 function openDashboardCard(key){
  const c=canonicalCardByKey(key); if(!c)return;
  const rows=canonicalDetailRows(key),title=LANG==='ar'?c.label_ar:c.label_en;
- openModal(title,`<div class="detail-grid">${detail(LANG==='ar'?'القيمة':'Value',canonicalCardValue(c))}${detail(LANG==='ar'?'عدد السجلات':'Rows',num(rows.length,0))}</div><div style="height:14px"></div>${canonicalDetailTable(key,rows)}`);
+ openModal(title,`<div class="detail-grid">${finalMetricSummaryHtml(c,key,rows)}</div><div style="height:14px"></div>${canonicalDetailTable(key,rows)}`);
 }
 
 updateNotificationBell=function(){
@@ -6047,6 +6047,31 @@ async function dashboardRowsDirect22(c,key){
   return filterDashboardRows22(key,rows);
 }
 
+
+function finalMetricLabel(c,key=''){
+  const kind=S(c?.metric_kind).toUpperCase();
+  const k=S(key||c?.card_key).toLowerCase();
+
+  if(kind==='COUNT'){
+    if(k.includes('invoice')) return LANG==='ar'?'عدد الفواتير':'Invoice count';
+    if(k.includes('collection')) return LANG==='ar'?'عدد التحصيلات':'Collection count';
+    if(k.includes('customer')) return LANG==='ar'?'عدد العملاء':'Customer count';
+    if(k.includes('supplier')) return LANG==='ar'?'عدد الموردين':'Supplier count';
+    if(k.includes('product')) return LANG==='ar'?'عدد المنتجات':'Product count';
+    return LANG==='ar'?'العدد':'Count';
+  }
+  if(kind==='EGP') return LANG==='ar'?'إجمالي المبلغ':'Total amount';
+  if(kind==='QTY') return LANG==='ar'?'إجمالي الكمية':'Total quantity';
+  if(kind==='PERCENT') return LANG==='ar'?'النسبة':'Percentage';
+  return LANG==='ar'?'القيمة':'Value';
+}
+function finalMetricSummaryHtml(c,key,rows){
+  const kind=S(c?.metric_kind).toUpperCase();
+  const main=detail(finalMetricLabel(c,key),canonicalCardValue(c));
+  if(kind==='COUNT') return `<div class="detail-grid">${main}</div>`;
+  return `<div class="detail-grid">${main}${detail(LANG==='ar'?'عدد السجلات':'Rows',num(A(rows).length,0))}</div>`;
+}
+
 /* Final card drilldown: direct DB source, no Source/Filter/View names */
 window.openDashboardCard=async function(key){
   const c=canonicalCardByKey(key);
@@ -6075,10 +6100,7 @@ window.openDashboardCard=async function(key){
 
   openModal(
     title,
-    `<div class="detail-grid">
-      ${detail(LANG==='ar'?'القيمة':'Value',canonicalCardValue(c))}
-      ${detail(LANG==='ar'?'عدد السجلات':'Rows',num(rows.length,0))}
-    </div>
+    `${finalMetricSummaryHtml(c,key,rows)}
     <div style="height:14px"></div>
     ${body}`
   );
@@ -6103,7 +6125,7 @@ if(typeof window.openDbCardBuild16==='function' || typeof openDbCardBuild16==='f
       ],rows):`<div class="empty">${LANG==='ar'?'لا توجد بنود حالية لهذا الكارت.':'No current items for this card.'}</div>`;
       openModal(
         dbCardLabelBuild16(c),
-        `<div class="detail-grid">${detail(LANG==='ar'?'القيمة':'Value',dbCardValueBuild16(c))}</div>${body}`
+        `<div class="detail-grid">${detail(finalMetricLabel(c,c.card_key),dbCardValueBuild16(c))}</div>${body}`
       );
     }catch(e){
       openModal(
