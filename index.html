@@ -387,7 +387,7 @@ body,.main{background:#f1f4f8!important}
 .canonical-kpi:nth-child(6n+5):before{background:#ef4444}
 .canonical-kpi:nth-child(6n+6):before{background:#14b8a6}
 </style>
-<meta name="mahsoubak-build" content="FINAL_CLIENT_FIX2_2026_09_23">
+<meta name="mahsoubak-build" content="FINAL_CLIENT_FIX4_2026_09_23">
 
 <style id="rc24-clickable-kpi-style">
 .clickable-kpi{cursor:pointer;transition:transform .12s ease,box-shadow .12s ease}
@@ -4322,7 +4322,8 @@ function canonicalDetailRows(key){
 }
 function canonicalDetailTable(key,rows){
  if(['sales_total','sales_paid','paid_sales','invoice_count','fully_paid_invoices','paid_invoices','partial_invoices','unpaid_invoices','zero_value_invoices'].includes(key))return invoiceTableHtml(rows);
- if(key==='receivables'||key==='customers_with_receivable')return table([[T('customer'),r=>esc(r.customer_name||'-')],[T('invoiceCount'),r=>num(r.open_invoice_count??r.invoice_count,0)],[T('remaining'),r=>money(r.total_outstanding??r.receivable_balance)],[LANG==='ar'?'0–30 يوم':'0–30 days',r=>money(r.bucket_0_30)],[LANG==='ar'?'31–60 يوم':'31–60 days',r=>money(r.bucket_31_60)],[LANG==='ar'?'61–90 يوم':'61–90 days',r=>money(r.bucket_61_90)],[LANG==='ar'?'+90 يوم':'+90 days',r=>money(r.bucket_90_plus)]],rows);
+ if(key==='receivables')return invoiceTableHtml(rows);
+ if(key==='customers_with_receivable')return table([[T('customer'),r=>esc(r.customer_name||'-')],[T('invoiceCount'),r=>num(r.open_invoice_count??r.invoice_count,0)],[T('remaining'),r=>money(r.total_outstanding??r.receivable_balance)],[LANG==='ar'?'0–30 يوم':'0–30 days',r=>money(r.bucket_0_30)],[LANG==='ar'?'31–60 يوم':'31–60 days',r=>money(r.bucket_31_60)],[LANG==='ar'?'61–90 يوم':'61–90 days',r=>money(r.bucket_61_90)],[LANG==='ar'?'+90 يوم':'+90 days',r=>money(r.bucket_90_plus)]],rows);
  if(key==='active_customers')return table([[T('customer'),r=>esc(customerName(r))],[T('clinic'),r=>esc(r.clinic_name||'-')],[T('phone'),r=>esc(r.phone||'-')],[T('area'),r=>esc(customerArea(r))]],rows);
  if(key.startsWith('collection_')||['collections_total','collections_applied','customer_credit'].includes(key))return collectionTableHtml(rows);
  if(key.startsWith('expense_'))return table([[T('date'),r=>esc(r.expense_date||'-')],[LANG==='ar'?'التصنيف':'Category',r=>esc(r.category_name||r.expense_group||'-')],[T('amount'),r=>money(r.amount)],[T('notes'),r=>esc(r.notes||'-')]],rows);
@@ -4702,7 +4703,7 @@ liquidityMapHtml=function(){
     </div>
     <div class="parity24-grid" style="margin-top:16px">
       ${dbCardHtmlBuild16('LIQUIDITY_NET_POSITION')}
-      ${dbCardHtmlBuild16('LIQUIDITY_COVERAGE_PCT')}
+      
     </div>
   </section>`;
 };
@@ -4829,7 +4830,7 @@ liquidityMapHtml=function(){
     </div>
     <div class="parity24-grid" style="margin-top:16px">
       ${dbCardHtmlBuild16('LIQUIDITY_NET_POSITION')}
-      ${dbCardHtmlBuild16('LIQUIDITY_COVERAGE_PCT')}
+      
     </div>
   </section>`;
 };
@@ -5698,24 +5699,42 @@ function expenseGroupSection24(group){
 }
 
 
+
 let FINAL_MJ_SEQ=0;
+
+async function loadManualJournalAccountsFinal(){
+  let master=[];
+  try{ master=await getAllSessionSafe('mahsoubak_finance_account_master'); }catch(e){}
+  let runtime=[];
+  if(!master.length){
+    try{ runtime=await getAllSessionSafe('mahsoubak_finance_runtime_accounts_v2'); }catch(e){}
+  }
+  const rows=master.length?master:runtime;
+  D.financeAccountMaster=rows;
+  return rows;
+}
+
 function finalMjAccounts(){
-  return A(D.financeAccountMaster||D.financeAccounts).filter(a=>{
-    const code=S(a.account_code),typ=S(a.account_type).toUpperCase();
+  const source=A(D.financeAccountMaster).length?A(D.financeAccountMaster):A(D.financeAccounts);
+  return source.filter(a=>{
+    const code=S(a.account_code);
+    const typ=S(a.account_type).toUpperCase();
     return a.active!==false && (typ==='EXPENSE'||code==='3990');
   }).sort((a,b)=>S(a.account_code).localeCompare(S(b.account_code)));
 }
 function finalMjOptions(selected=''){
-  return finalMjAccounts().map(a=>`<option value="${esc(a.account_code)}" ${S(selected)===S(a.account_code)?'selected':''}>${esc(a.account_code)} — ${esc(a.account_name||'')}</option>`).join('');
+  return finalMjAccounts().map(a=>
+    `<option value="${esc(a.account_code)}" ${S(selected)===S(a.account_code)?'selected':''}>${esc(a.account_code)} — ${esc(a.account_name||'')}</option>`
+  ).join('');
 }
-function finalMjLine(account='',debit='',credit='',memo=''){
+function finalMjLine(account='',debit='',credit='',memo='',removable=true){
   const id=++FINAL_MJ_SEQ;
   return `<div class="final-mj-line" data-line="${id}" style="display:grid;grid-template-columns:2fr 1fr 1fr 1.5fr auto;gap:8px;align-items:end;margin-bottom:8px">
     <label>${LANG==='ar'?'الحساب':'Account'}<select class="input final-mj-account">${finalMjOptions(account)}</select></label>
     <label>${LANG==='ar'?'مدين':'Debit'}<input class="input final-mj-debit" type="number" min="0" step="0.01" value="${esc(debit)}" oninput="finalMjTotals()"></label>
     <label>${LANG==='ar'?'دائن':'Credit'}<input class="input final-mj-credit" type="number" min="0" step="0.01" value="${esc(credit)}" oninput="finalMjTotals()"></label>
     <label>${T('notes')}<input class="input final-mj-memo" value="${esc(memo)}"></label>
-    <button type="button" class="btn secondary" onclick="finalMjRemove(${id})">×</button>
+    ${removable?`<button type="button" class="btn secondary" onclick="finalMjRemove(${id})">×</button>`:`<span></span>`}
   </div>`;
 }
 function finalMjTotals(){
@@ -5728,7 +5747,7 @@ function finalMjTotals(){
 function finalMjAdd(){
   const shell=$('finalMjLines');if(!shell)return;
   const def=finalMjAccounts().find(a=>S(a.account_code)!=='3990')?.account_code||'6290';
-  shell.insertAdjacentHTML('beforeend',finalMjLine(def));
+  shell.insertAdjacentHTML('beforeend',finalMjLine(def,'','','',true));
   finalMjTotals();
 }
 function finalMjRemove(id){
@@ -5737,48 +5756,79 @@ function finalMjRemove(id){
   document.querySelector(`.final-mj-line[data-line="${id}"]`)?.remove();
   finalMjTotals();
 }
-async function openManualJournalFinal(){
-  if(!requireModulePermission('accounts','view'))return;
-  await financeMasterData23();
-  D.manualJournalV3=await getAllSessionSafe(V.manualJournalV3||'mahsoubak_app_manual_journal_v3');
-  const rows=A(D.manualJournalV3);
-  openModal(LANG==='ar'?'القيود اليدوية':'Manual Journals',`
-    <div style="margin-bottom:12px">${authCan('accounts','add')?`<button class="btn ok" onclick="newManualJournalFinal()">＋ ${LANG==='ar'?'قيد جديد':'New Journal'}</button>`:''}</div>
-    ${table([
-      [LANG==='ar'?'رقم القيد':'Document',r=>esc(r.document_number||r.id||'-')],
-      [T('date'),r=>esc(S(r.entry_date).slice(0,10)||'-')],
-      [LANG==='ar'?'البيان':'Description',r=>esc(r.description||'-')],
-      [LANG==='ar'?'مدين':'Debit',r=>money(r.total_debit)],
-      [LANG==='ar'?'دائن':'Credit',r=>money(r.total_credit)],
-      [T('status'),r=>esc(r.status||'-')]
-    ],rows)}
-  `);
-}
-async function newManualJournalFinal(){
-  if(!requireModulePermission('accounts','add'))return;
-  await financeMasterData23();
-  const accounts=finalMjAccounts();
-  if(!accounts.length)return alert(LANG==='ar'?'لا توجد حسابات مصروفات متاحة':'No expense accounts are available');
-  FINAL_MJ_SEQ=0;
-  const exp=accounts.find(a=>S(a.account_code)!=='3990')?.account_code||accounts[0].account_code;
-  openModal(LANG==='ar'?'قيد يدوي جديد':'New Manual Journal',`
-    <div class="auth-grid">
-      <label>${T('date')}<input id="finalMjDate" type="date" class="input" value="${new Date().toISOString().slice(0,10)}"></label>
-      <label>${LANG==='ar'?'المرجع':'Reference'}<input id="finalMjRef" class="input"></label>
-      <label class="full">${LANG==='ar'?'البيان':'Description'}<input id="finalMjDesc" class="input"></label>
-    </div>
-    <div id="finalMjLines" style="margin-top:14px">${finalMjLine(exp)}${finalMjLine('3990')}</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-      <button class="btn secondary" onclick="finalMjAdd()">＋ ${LANG==='ar'?'إضافة سطر':'Add Line'}</button>
-      <button id="finalMjSave" class="btn ok" onclick="saveManualJournalFinal()">${LANG==='ar'?'حفظ وترحيل':'Save & Post'}</button>
-    </div>
-    <div id="finalMjTotals" style="margin-top:10px;font-weight:700"></div>
-  `);
-  finalMjTotals();
-}
-async function saveManualJournalFinal(){
+
+window.openManualJournalFinal=async function(){
+  try{
+    if(!requireModulePermission('accounts','view'))return;
+
+    // Do not block opening the journal list on the account-master request.
+    const rows=await getAllSessionSafe(V.manualJournalV3||'mahsoubak_app_manual_journal_v3');
+    D.manualJournalV3=rows;
+
+    openModal(LANG==='ar'?'القيود المالية':'Financial Journals',`
+      <div style="margin-bottom:12px">
+        ${authCan('accounts','add')?`<button class="btn ok" onclick="newManualJournalFinal()">＋ ${LANG==='ar'?'قيد مالي جديد':'New Journal'}</button>`:''}
+      </div>
+      ${table([
+        [LANG==='ar'?'رقم القيد':'Document',r=>esc(r.document_number||r.id||'-')],
+        [T('date'),r=>esc(S(r.entry_date).slice(0,10)||'-')],
+        [LANG==='ar'?'البيان':'Description',r=>esc(r.description||'-')],
+        [LANG==='ar'?'مدين':'Debit',r=>money(r.total_debit)],
+        [LANG==='ar'?'دائن':'Credit',r=>money(r.total_credit)],
+        [T('status'),r=>esc(r.status||'-')]
+      ],rows)}
+    `);
+  }catch(e){
+    console.error('Open financial journal failed',e);
+    alert((LANG==='ar'?'تعذر فتح القيود المالية: ':'Could not open financial journals: ')+(e.message||e));
+  }
+};
+
+window.newManualJournalFinal=async function(){
+  try{
+    if(!requireModulePermission('accounts','add'))return;
+
+    await loadManualJournalAccountsFinal();
+    const accounts=finalMjAccounts();
+    const expenses=accounts.filter(a=>S(a.account_type).toUpperCase()==='EXPENSE');
+    const clearing=accounts.find(a=>S(a.account_code)==='3990');
+
+    if(!expenses.length)
+      throw new Error(LANG==='ar'?'لا توجد حسابات مصروفات متاحة للقيد':'No expense accounts are available');
+    if(!clearing)
+      throw new Error(LANG==='ar'?'حساب 3990 غير متاح للقيد المالي':'Account 3990 is not available');
+
+    FINAL_MJ_SEQ=0;
+    const exp=expenses.find(a=>S(a.account_code)==='6290')?.account_code||expenses[0].account_code;
+
+    openModal(LANG==='ar'?'قيد مالي جديد':'New Financial Journal',`
+      <div class="auth-grid">
+        <label>${T('date')}<input id="finalMjDate" type="date" class="input" value="${new Date().toISOString().slice(0,10)}"></label>
+        <label>${LANG==='ar'?'المرجع':'Reference'}<input id="finalMjRef" class="input"></label>
+        <label class="full">${LANG==='ar'?'البيان':'Description'}<input id="finalMjDesc" class="input"></label>
+      </div>
+      <div id="finalMjLines" style="margin-top:14px">
+        ${finalMjLine(exp,'','','',false)}
+        ${finalMjLine('3990','','','',false)}
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+        <button class="btn secondary" onclick="finalMjAdd()">＋ ${LANG==='ar'?'إضافة سطر':'Add Line'}</button>
+        <button id="finalMjSave" class="btn ok" onclick="saveManualJournalFinal()">${LANG==='ar'?'حفظ وترحيل':'Save & Post'}</button>
+      </div>
+      <div id="finalMjTotals" style="margin-top:10px;font-weight:700"></div>
+    `);
+    finalMjTotals();
+  }catch(e){
+    console.error('New financial journal failed',e);
+    alert((LANG==='ar'?'تعذر فتح قيد مالي جديد: ':'Could not open a new journal: ')+(e.message||e));
+  }
+};
+
+window.saveManualJournalFinal=async function(){
   const btn=$('finalMjSave');
   try{
+    if(!requireModulePermission('accounts','add'))return;
+
     const lines=[...document.querySelectorAll('.final-mj-line')].map(r=>({
       account_code:S(r.querySelector('.final-mj-account')?.value),
       debit:Number(N(r.querySelector('.final-mj-debit')?.value).toFixed(2)),
@@ -5786,30 +5836,68 @@ async function saveManualJournalFinal(){
       memo:S(r.querySelector('.final-mj-memo')?.value)||null
     }));
     const desc=S($('finalMjDesc')?.value),date=S($('finalMjDate')?.value);
-    if(!desc||!date)throw new Error(LANG==='ar'?'أكمل التاريخ والبيان':'Complete date and description');
-    let debit=0,credit=0;
+
+    if(!desc||!date)
+      throw new Error(LANG==='ar'?'أكمل التاريخ والبيان':'Complete date and description');
+    if(lines.length<2)
+      throw new Error(LANG==='ar'?'القيد يحتاج سطرين على الأقل':'At least two lines are required');
+
+    let debit=0,credit=0,expenseLines=0;
+    const accounts=finalMjAccounts();
+
     for(const l of lines){
-      if(!l.account_code)throw new Error(LANG==='ar'?'اختر حساب لكل سطر':'Select an account for each line');
-      if(!((l.debit>0&&l.credit===0)||(l.credit>0&&l.debit===0)))throw new Error(LANG==='ar'?'كل سطر يجب أن يكون مدين أو دائن فقط':'Each line must be debit or credit only');
+      if(!l.account_code)
+        throw new Error(LANG==='ar'?'اختر حساب لكل سطر':'Select an account for each line');
+      if(!((l.debit>0&&l.credit===0)||(l.credit>0&&l.debit===0)))
+        throw new Error(LANG==='ar'?'كل سطر يجب أن يكون مدين أو دائن فقط':'Each line must be debit or credit only');
+
+      const acc=accounts.find(a=>S(a.account_code)===l.account_code);
+      if(S(acc?.account_type).toUpperCase()==='EXPENSE')expenseLines++;
       debit+=l.debit;credit+=l.credit;
     }
-    if(Math.abs(debit-credit)>0.01)throw new Error(LANG==='ar'?'القيد غير متوازن':'Journal is not balanced');
+
+    if(expenseLines<1)
+      throw new Error(LANG==='ar'?'يجب أن يحتوي القيد على حساب مصروف واحد على الأقل':'Journal must contain at least one expense account');
+    if(Math.abs(debit-credit)>0.01)
+      throw new Error((LANG==='ar'?'القيد غير متوازن. المدين ':'Journal is not balanced. Debit ')+money(debit)+(LANG==='ar'?' والدائن ':' Credit ')+money(credit));
+
+    if(!confirm(
+      LANG==='ar'
+        ?`سيتم ترحيل قيد مالي فعلي بإجمالي ${money(debit)}. هل تريد المتابعة؟`
+        :`A live journal totaling ${money(debit)} will be posted. Continue?`
+    ))return;
+
     if(btn)btn.disabled=true;
-    await rpcAuth('mahsoubak_post_manual_journal_atomic_v3',{
+
+    const result=await rpcAuth('mahsoubak_post_manual_journal_atomic_v3',{
       p_request_id:newRequestId('finance_manual_v3'),
       p_entry_date:date,
       p_description:desc,
       p_reference:S($('finalMjRef')?.value)||null,
       p_lines:lines
     });
+
     closeModal();
-    await loadData(true);
     await ensureFinanceDocumentSources(true);
+    D.manualJournalV3=await getAllSessionSafe(V.manualJournalV3||'mahsoubak_app_manual_journal_v3');
     renderFinanceModule();
-    alert(LANG==='ar'?'تم ترحيل القيد بنجاح':'Journal posted successfully');
-  }catch(e){alert(e.message||e)}
-  finally{if(btn)btn.disabled=false}
-}
+
+    alert(
+      (LANG==='ar'?'تم ترحيل القيد بنجاح':'Journal posted successfully')+
+      (result?.document_number?'\n'+S(result.document_number):'')
+    );
+  }catch(e){
+    console.error('Financial journal post failed',e);
+    alert((LANG==='ar'?'تعذر ترحيل القيد: ':'Could not post journal: ')+(e.message||e));
+  }finally{
+    if(btn)btn.disabled=false;
+  }
+};
+
+// Explicit globals for inline button handlers.
+window.finalMjTotals=finalMjTotals;
+window.finalMjAdd=finalMjAdd;
+window.finalMjRemove=finalMjRemove;
 
  function financeDocsTable(rows,isReceipt){
    return table([
@@ -5827,7 +5915,7 @@ async function saveManualJournalFinal(){
  window.renderFinanceModule=function(){
    renderFinanceBeforeB9();const el=$('view-finance');if(!el)return;
    const wh=A(D.financeDocumentWriterHealth)[0]||{},dh=A(D.financeDocumentHealth)[0]||{};
-   const box=`${expenseGroupSection24('general_admin')}${expenseGroupSection24('marketing')}<div class="card dashboard-wide"><div class="dashboard-block-title"><div><h3>${LANG==='ar'?'إيصالات القبض والصرف':'Receipts & Payment Vouchers'}</h3></div><div class="doc-actions"><button class="btn ok" onclick="openFinanceReceiptDocument()">＋ ${LANG==='ar'?'إيصال استلام':'Receipt'}</button><button class="btn warn" onclick="openFinancePaymentDocument()">− ${LANG==='ar'?'إيصال صرف':'Payment'}</button><button class="btn secondary" onclick="openFinanceAccount23()">＋ ${LANG==='ar'?'حساب مالي':'Account'}</button><button class="btn secondary" onclick="openCashflowFund23()">＋ ${LANG==='ar'?'خزنة / بنك':'Cashbox / Bank'}</button><button class="btn secondary" onclick="openManualJournalFinal()">⚖ ${LANG==='ar'?'قيد يدوي':'Manual Journal'}</button></div></div><h4>${LANG==='ar'?'آخر إيصالات الاستلام':'Recent receipts'}</h4>${financeDocsTable(A(D.financeReceiptsV2).slice(0,10),true)}<h4>${LANG==='ar'?'آخر إيصالات الصرف':'Recent payments'}</h4>${financeDocsTable(A(D.financePaymentsV3).slice(0,10),false)}</div>`;
+   const box=`${expenseGroupSection24('general_admin')}${expenseGroupSection24('marketing')}<div class="card dashboard-wide"><div class="dashboard-block-title"><div><h3>${LANG==='ar'?'إيصالات القبض والصرف':'Receipts & Payment Vouchers'}</h3></div><div class="doc-actions"><button class="btn ok" onclick="openFinanceReceiptDocument()">＋ ${LANG==='ar'?'إيصال استلام':'Receipt'}</button><button class="btn warn" onclick="openFinancePaymentDocument()">− ${LANG==='ar'?'إيصال صرف':'Payment'}</button><button class="btn secondary" onclick="openFinanceAccount23()">＋ ${LANG==='ar'?'حساب مالي':'Account'}</button><button class="btn secondary" onclick="openCashflowFund23()">＋ ${LANG==='ar'?'خزنة / بنك':'Cashbox / Bank'}</button><button class="btn secondary" onclick="window.openManualJournalFinal()">⚖ ${LANG==='ar'?'قيد مالي':'Financial Journal'}</button></div></div><h4>${LANG==='ar'?'آخر إيصالات الاستلام':'Recent receipts'}</h4>${financeDocsTable(A(D.financeReceiptsV2).slice(0,10),true)}<h4>${LANG==='ar'?'آخر إيصالات الصرف':'Recent payments'}</h4>${financeDocsTable(A(D.financePaymentsV3).slice(0,10),false)}</div>`;
    const head=el.querySelector('.module-head');if(head)head.insertAdjacentHTML('afterend',box);else el.insertAdjacentHTML('afterbegin',box);
  };
 
@@ -5931,7 +6019,8 @@ function filterDashboardRows22(key,rows){
   if(key==='partial_invoices')return rows.filter(r=>['PARTIAL','PARTIALLY_PAID'].includes(S(r.invoice_status).toUpperCase()));
   if(key==='unpaid_invoices')return rows.filter(r=>S(r.invoice_status).toUpperCase()==='UNPAID');
   if(key==='zero_value_invoices')return rows.filter(r=>S(r.invoice_status).toUpperCase()==='ZERO_VALUE');
-  if(key==='receivables'||key==='customers_with_receivable')return rows.filter(r=>N(r.total_outstanding??r.receivable_balance)>0);
+  if(key==='receivables')return rows.filter(r=>N(r.remaining??r.total_outstanding??r.receivable_balance)>0);
+  if(key==='customers_with_receivable')return rows.filter(r=>N(r.total_outstanding??r.receivable_balance)>0);
   if(key==='active_customers')return rows.filter(r=>r.active!==false);
   if(['collection_cash','collections_total','collection_count'].includes(key))return rows;
   if(['collection_applied','collections_applied'].includes(key))return rows.filter(r=>N(r.applied_to_invoices??r.applied_amount)>0);
@@ -5948,7 +6037,7 @@ async function dashboardRowsDirect22(c,key){
   const source=S(c?.detail_source);
   let rows=[];
   if(source){
-    rows=await getAllSessionSafe(source);
+    rows=await getAllSession(source);
   }else{
     rows=typeof canonicalDetailRows==='function'?canonicalDetailRows(key):[];
   }
@@ -5965,18 +6054,23 @@ window.openDashboardCard=async function(key){
 
   const title=LANG==='ar'?(c.label_ar||c.card_key):(c.label_en||c.card_key);
   let rows=[];
-
   try{
     rows=await dashboardRowsDirect22(c,key);
   }catch(e){
     console.error('Dashboard detail load failed',key,e);
+    openModal(
+      title,
+      `<div class="error">${LANG==='ar'?'تعذر تحميل تفاصيل الكارت من قاعدة البيانات. اضغط تحديث ثم حاول مرة أخرى.':'Could not load card details from the database. Refresh and try again.'}</div>`
+    );
+    return;
   }
 
   let body='';
   try{
     body=canonicalDetailTable(key,rows);
   }catch(e){
-    body=`<div class="empty">${LANG==='ar'?'لا توجد تفاصيل متاحة حاليًا.':'No details are available right now.'}</div>`;
+    console.error('Dashboard detail render failed',key,e);
+    body=`<div class="empty">${LANG==='ar'?'تعذر عرض التفاصيل حاليًا.':'Could not display details right now.'}</div>`;
   }
 
   openModal(
@@ -6078,3 +6172,6 @@ setTimeout(function(){
 
 </body>
 </html>
+<style id="final-fix3-hide-liquidity-coverage">
+.liq-coverage{display:none!important}
+</style>
