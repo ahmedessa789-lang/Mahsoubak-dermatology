@@ -1587,6 +1587,95 @@ function openSalesSummary(kind){if(!requireModulePermission('sales','view'))retu
    invoiceTableClickable(rows)
  );
 }
+
+function invoiceRefV2(r){return S(r&&(
+ r.invoice_ref||r.invoice_number||r.invoice_no||r.invoice_key||
+ r.invoice_group_id||r.batch_id||''
+)).trim()}
+function invoiceDocRowsV2(inv){
+ const ref=invoiceRefV2(inv);
+ const same=x=>{
+   const xr=invoiceRefV2(x);
+   if(ref&&xr===ref)return true;
+   return S(x.order_id||'')&&S(inv.order_id||'')&&S(x.order_id)===S(inv.order_id);
+ };
+ let rows=A(D.salesDocuments).filter(same);
+ if(!rows.length)rows=A(D.salesLines).filter(same);
+ return rows;
+}
+function invoiceClientHtmlV2(inv,type='invoice'){
+ const rows=invoiceDocRowsV2(inv);
+ const c=A(D.customers).find(x=>S(x.id)===S(inv.customer_id)||norm(customerName(x))===norm(inv.customer_name))||{};
+ const first=rows[0]||inv||{};
+ const ref=invoiceRefV2(inv)||invoiceRefV2(first)||'-';
+ const deliveryNo='DN-'+ref.replace(/^INV-/i,'');
+ const numv=v=>N(v);
+ const moneyv=v=>numv(v).toLocaleString('en-US',{maximumFractionDigits:2})+' EGP';
+ const customer=S(inv.customer_name||first.customer_name||c.customer_name||c.official_name||c.name||'-');
+ const clinic=S(first.clinic_name||first.order_clinic_name||c.clinic_name||c.name||'-');
+ const address=S(first.address||first.order_address||first.customer_address||c.address||c.customer_address||'-');
+ const city=S(first.clinic_city||first.customer_city||first.city||c.clinic_city||c.customer_city||c.city||c.customer_region||'-');
+ const phone=S(c.phone||'-');
+ const date=S(inv.invoice_date||first.invoice_date||first.sale_date||first.date||'-').slice(0,10);
+ const payment=S(first.payment_method||first.method||'-');
+ const company='New Life Medical';
+ const productRows=(rows.length?rows:[first]).map(r=>{
+   const lot=S(r.lot_number||r.lot||r.batch||r.lot_id||'—');
+   const ot=S(r.order_type_label||r.order_type||'Sale');
+   const product=S(r.product_name||r.product||'-')+(ot&&norm(ot)!=='sale'&&norm(ot)!=='بيع'?' — '+ot:'');
+   const qty=numv(r.qty||r.quantity);
+   const price=numv(r.price||r.unit_price||r.sale_price);
+   const total=numv(r.line_total||r.total||r.allocated_total||(qty*price));
+   return `<tr><td>${esc(lot)}</td><td>${esc(product)}</td><td>${num(qty,2)}</td><td>PCS</td><td>${moneyv(price)}</td><td>${moneyv(total)}</td></tr>`;
+ }).join('');
+ const grand=numv(inv.invoice_total||first.invoice_total)||(rows.length?rows.reduce((a,r)=>a+numv(r.line_total||r.total||r.allocated_total),0):numv(first.total));
+ if(type==='delivery'){
+   return `<!doctype html><html dir="${LANG==='ar'?'rtl':'ltr'}"><head><meta charset="utf-8"><title>${esc(deliveryNo)}</title>
+   <style>@page{size:A4;margin:12mm}body{font-family:Arial,Tahoma,sans-serif;color:#111;padding:18px}h1{margin:0 0 6px}.meta{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:20px 0}.box{border:1px solid #bbb;padding:10px}table{width:100%;border-collapse:collapse;margin-top:18px}th,td{border:1px solid #777;padding:8px;text-align:center}.sig{display:grid;grid-template-columns:repeat(3,1fr);gap:30px;margin-top:45px}.sig div{border-top:1px solid #555;padding-top:8px;text-align:center}</style></head><body>
+   <h1>${LANG==='ar'?'إذن تسليم':'Delivery Note'}</h1><b>${esc(company)}</b>
+   <div class="meta"><div class="box">${T('date')}: <b>${esc(date)}</b></div><div class="box">${LANG==='ar'?'رقم إذن التسليم':'Delivery No.'}: <b>${esc(deliveryNo)}</b></div><div class="box">${T('customer')}: <b>${esc(customer)}</b></div><div class="box">${T('rep')}: <b>${esc(first.rep_name||inv.rep_name||'-')}</b></div></div>
+   <table><thead><tr><th>LOT</th><th>PRODUCT</th><th>Quantity</th><th>UN</th></tr></thead><tbody>${(rows.length?rows:[first]).map(r=>`<tr><td>${esc(S(r.lot_number||r.lot||r.batch||'—'))}</td><td>${esc(S(r.product_name||r.product||'-'))}</td><td>${num(N(r.qty||r.quantity),2)}</td><td>PCS</td></tr>`).join('')}</tbody></table>
+   <div class="sig"><div>${LANG==='ar'?'توقيع المخزن':'Warehouse'}</div><div>${LANG==='ar'?'توقيع المندوب':'Sales Rep'}</div><div>${LANG==='ar'?'توقيع العميل':'Customer'}</div></div>
+   <script>window.onload=function(){setTimeout(function(){window.print()},250)}<\/script></body></html>`;
+ }
+ return `<!DOCTYPE html><html lang="en" dir="ltr"><head><meta charset="UTF-8"><title>${esc(ref)}</title><style>
+ @page{size:A4 portrait;margin:8mm}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff;color:#111;font-family:Arial,Tahoma,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+ body{padding:12px}.page{width:100%;max-width:794px;margin:0 auto;background:#fff;padding:16px 20px 10px}
+ .top{display:grid;grid-template-columns:1fr 90px;gap:20px;align-items:start}.title{font-size:52px;line-height:1;font-weight:800;margin:8px 0 18px;letter-spacing:-1px}
+ .teal-line{height:4px;background:#12aeb4;width:100%;margin-bottom:22px}.doc-icon{width:56px;height:72px;border:4px solid #222;background:#ffd52f;margin:0 auto;position:relative;box-shadow:inset 0 0 0 3px #fff}
+ .doc-icon:before{content:"";position:absolute;left:11px;right:11px;top:20px;height:4px;background:#222;box-shadow:0 10px 0 #222,0 20px 0 #222,0 30px 0 #222}
+ .company-name{font-family:Georgia,serif;font-size:20px;font-weight:900;text-transform:uppercase;margin:0 0 12px}.company-city{font-size:15px;font-style:italic;margin:0}.spacer{height:60px}
+ .party-grid{display:grid;grid-template-columns:1.08fr .82fr;gap:55px;align-items:start;margin-top:10px}.info-box{background:#f0f0f0;padding:10px 22px 6px;min-height:205px}
+ .info-row{display:grid;grid-template-columns:180px 1fr;gap:10px;min-height:36px;align-items:center;font-size:15px}.recipient h3{font-size:21px;margin:0 0 14px}
+ .recipient-row{display:grid;grid-template-columns:145px 1fr;gap:10px;min-height:37px;font-size:15px;align-items:start}.recipient-row .label{font-weight:700}.recipient-row.italic .label{font-style:italic;font-weight:400}
+ .additional{margin-top:18px}.additional h3{font-size:21px;margin:0 0 14px}.additional p{font-size:15px;line-height:1.55;margin:0 0 10px}
+ .arabic-info{direction:rtl;text-align:right;width:58%;margin:22px 0 12px auto;font-family:Tahoma,Arial,sans-serif}.arabic-info h3{font-size:17px;margin:0 0 13px}.arabic-info p{font-size:14px;margin:0 0 8px}
+ .table-line{height:4px;background:#12aeb4;width:77%;margin:8px 0 4px}table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:13px}th,td{border:1px solid #222;padding:8px 6px;text-align:center;vertical-align:middle;background:#fff;color:#111}
+ th{font-weight:800}th:nth-child(1){width:26%}th:nth-child(2){width:18%}th:nth-child(3){width:9%}th:nth-child(4){width:9%}th:nth-child(5){width:22%}th:nth-child(6){width:16%}
+ .total-row td{font-weight:800;height:42px}.total-label{text-align:right!important;padding-right:18px!important}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:150px;margin-top:0;font-weight:800}
+ .sig-line{height:28px;border-bottom:1px solid #c8c8c8;margin-bottom:28px}.receipt-title{font-size:14px;margin:0 0 14px}.ack{font-family:Georgia,serif;font-size:12px;margin:0 0 4px}.footer-bar{height:19px;background:#12aeb4;margin:0 -20px -10px}
+ .print-actions{position:fixed;top:10px;right:10px;z-index:10}.print-actions button{padding:9px 13px;border:0;border-radius:6px;margin-left:6px;cursor:pointer;font-weight:700}.print-actions .print{background:#111;color:#fff}.print-actions .close{background:#ddd;color:#111}
+ @media print{body{padding:0}.page{max-width:none;padding:8px 10px 0}.print-actions{display:none!important}.title{font-size:48px}.spacer{height:45px}}
+ </style></head><body><div class="print-actions"><button class="print" onclick="window.print()">Print / PDF</button><button class="close" onclick="window.close()">Close</button></div><main class="page">
+ <section class="top"><div><div class="title">Proforma Invoice</div><div class="teal-line"></div><div class="company-name">${esc(company)}</div><p class="company-city">City: New Cairo 1</p></div><div class="doc-icon"></div></section>
+ <div class="spacer"></div><section class="party-grid"><div class="info-box">
+ <div class="info-row"><span>Date:</span><b>${esc(date)}</b></div><div class="info-row"><span>Location:</span><span>Egypt</span></div><div class="info-row"><span>Order Number:</span><b>${esc(ref)}</b></div>
+ <div class="info-row"><span>Goods Delivery number:</span><span>${esc(deliveryNo)}</span></div><div class="info-row"><span>Delivery Method:</span><span>Road transport</span></div><div class="info-row"><span>Method Of Payment :</span><span>${esc(payment)}</span></div>
+ </div><div class="recipient"><h3>Recipient</h3><div class="recipient-row"><span class="label">Customer Name:</span><b>${esc(customer)}</b></div><div class="recipient-row italic"><span class="label">Clinic Name:</span><span>${esc(clinic)}</span></div>
+ <div class="recipient-row italic"><span class="label">Address:</span><span>${esc(address)}</span></div><div class="recipient-row italic"><span class="label">City:</span><span>${esc(city)}</span></div><div class="recipient-row italic"><span class="label">Phone:</span><span>${esc(phone)}</span></div></div></section>
+ <section class="additional"><h3>Additional Information</h3><p>The mentioned goods must be kept in refrigerators by a cold temperature ....... .</p><p>We are not responsible for any damage resulting from a storage error.</p></section>
+ <section class="arabic-info"><h3>معلومات إضافية</h3><p>يجب حفظ البضائع المذكورة في ثلاجات بدرجة حرارة باردة ....... .</p><p>نحن لسنا مسؤولين عن أي ضرر ناتج عن خطأ في التخزين.</p></section>
+ <div class="table-line"></div><table><thead><tr><th>LOT</th><th>PRODUCT</th><th>Quantity</th><th>UN</th><th>Price</th><th>Total Price</th></tr></thead><tbody>${productRows}<tr class="total-row"><td colspan="5" class="total-label">Grand Total</td><td>${moneyv(grand)}</td></tr></tbody></table>
+ <section class="signatures"><div class="sig-block">Goods received by:<div class="sig-line"></div></div><div class="sig-block">Approved :<div class="sig-line"></div></div></section>
+ <p class="receipt-title">Signature of receipt:</p><p class="ack">Acknowledge i the recipient of the goods, that I have received all the mentioned goods as completely intact and undamaged.</p><div class="footer-bar"></div>
+ </main><script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>`;
+}
+function printInvoiceClientV2(idx,type){
+ const inv=A(D.invoices)[idx];if(!inv)return;
+ const w=window.open('','_blank','width=1000,height=800');if(!w)return;
+ w.document.open();w.document.write(invoiceClientHtmlV2(inv,type));w.document.close();w.focus();
+}
+
 function openInvoiceByIndex(idx){if(!requireModulePermission('sales','view'))return;
  const r=A(D.invoices)[idx];if(!r)return;
  const c=A(D.customers).find(x=>S(x.id)===S(r.customer_id)||norm(customerName(x))===norm(r.customer_name));
@@ -1598,6 +1687,10 @@ function openInvoiceByIndex(idx){if(!requireModulePermission('sales','view'))ret
   ${detailClick(T('paid'),money(r.paid),"openSalesSummary('paid')")}
   ${detailClick(T('remaining'),money(r.remaining),"openSalesSummary('remaining')")}
   ${detail(T('status'),esc(r.invoice_status||r.status||'-'))}
+ </div>
+ <div class="doc-actions" style="margin-top:14px">
+  <button class="btn blue" onclick="printInvoiceClientV2(${idx},'invoice')">🧾 ${LANG==='ar'?'طباعة الفاتورة':'Print Invoice'}</button>
+  <button class="btn ok" onclick="printInvoiceClientV2(${idx},'delivery')">📦 ${LANG==='ar'?'إذن تسليم':'Delivery Note'}</button>
  </div>`);
 }
 
@@ -3883,7 +3976,7 @@ async function loadData(manual=false){
   $('error').style.display='none';$('status').textContent=LANG==='ar'?'جاري تحميل البيانات…':'Loading canonical data…';
   const [summaryRows,healthRows,inventoryRows,orderRows,repSalesRows,repMasterRows,purchaseRows,allocationRows,collectionRows,territorySalesRows,territoryTotalsRows,moneyTargetRows,territoryMasterRows,repCoverageRows,invoiceRows,payInvoiceRows,receivableRows,customerRows,splitRows,supplierRows,operationRows,expenseRows,treasuryRowsData,trialRowsData,ledgerRowsData,settingRows,dispatchLotRows,orderProductRows,purchaseLotRows,productMasterRows,purchaseHealthRows,collectionOutstandingRows,collectionAllocationRows,collectionHealthRows,agingRows,agingSummaryRows,notificationRows,inventoryAlertRows]=await Promise.all([
    getAllSession(V.summary),getAllSessionSafe(V.health),getAllSession(V.inventory),getDispatchOrdersSafe(),getAllSession(V.repSales),getAllSession(V.repMaster),
-   getAllSession(V.purchases),getAllSession(V.allocations),getAllSession(V.collections),getAllSession(V.territorySales),getAllSession(V.territoryTotals),getAllSession(V.moneyTargets),getAllSession(V.territoryMaster),getAllSession(V.repCoverage),getAllSession(V.invoices),getAllSessionSafe(V.paidInvoices),getAllSession(V.receivables),getAllSession(V.customers),getAllSession(V.splits),getAllSession(V.suppliers),getAllSession(V.operations),getAllSession(V.expenses),getAllSession(V.treasury),Promise.resolve([]),Promise.resolve([]),getAllSession(V.settings),getDispatchLotsSafe(),getOrderProductsSafe(),getAllSession(V.purchaseLots),getAllSession(V.productsMaster),getAllSessionSafe(V.purchaseHealth),getAllSessionSafe(V.collectionOutstanding),getAllSessionSafe(V.collectionAllocations),getAllSessionSafe(V.collectionHealth),getAllSession(V.aging),getAllSession(V.agingSummary),getAllSession(V.notifications),getAllSession(V.inventoryAlerts)
+   getAllSession(V.purchases),getAllSession(V.allocations),getCollectionsCompat(),getAllSession(V.territorySales),getAllSession(V.territoryTotals),getAllSession(V.moneyTargets),getAllSession(V.territoryMaster),getAllSession(V.repCoverage),getAllSession(V.invoices),getAllSessionSafe(V.paidInvoices),getAllSession(V.receivables),getAllSession(V.customers),getAllSession(V.splits),getAllSession(V.suppliers),getAllSession(V.operations),getAllSession(V.expenses),getAllSession(V.treasury),Promise.resolve([]),Promise.resolve([]),getAllSession(V.settings),getDispatchLotsSafe(),getOrderProductsSafe(),getAllSession(V.purchaseLots),getAllSession(V.productsMaster),getAllSessionSafe(V.purchaseHealth),getAllSessionSafe(V.collectionOutstanding),getAllSessionSafe(V.collectionAllocations),getAllSessionSafe(V.collectionHealth),getAllSession(V.aging),getAllSession(V.agingSummary),getAllSession(V.notifications),getAllSession(V.inventoryAlerts)
   ]);
   Object.assign(D,{summary:summaryRows,health:healthRows,inventory:inventoryRows,orders:orderRows,repSales:repSalesRows,repMaster:repMasterRows,purchases:purchaseRows,allocations:allocationRows,collections:collectionRows,territorySales:territorySalesRows,territoryTotals:territoryTotalsRows,moneyTargets:moneyTargetRows,territoryMaster:territoryMasterRows,repCoverage:repCoverageRows,invoices:invoiceRows,paidInvoices:payInvoiceRows,receivables:receivableRows,customers:customerRows,splits:splitRows,suppliers:supplierRows,operations:operationRows,expenses:expenseRows,treasury:treasuryRowsData,trial:trialRowsData,ledger:ledgerRowsData,settings:settingRows,dispatchLots:dispatchLotRows,orderProducts:orderProductRows,purchaseLots:purchaseLotRows,productsMaster:productMasterRows,purchaseHealth:purchaseHealthRows,collectionOutstanding:collectionOutstandingRows,collectionAllocations:collectionAllocationRows,collectionHealth:collectionHealthRows,aging:agingRows,agingSummary:agingSummaryRows,notifications:notificationRows,inventoryAlerts:inventoryAlertRows});
   await loadSecureData();
@@ -4210,6 +4303,14 @@ Object.assign(V,{
  cheques:'mahsoubak_app_cheques_v1'
 });
 
+
+async function getCollectionsCompat(){
+  const primary=await getAllSessionSafe('mahsoubak_app_collection_detail_v2');
+  if(A(primary).length)return primary;
+  const fallback=await getAllSessionSafe('mahsoubak_app_collection_detail');
+  return A(fallback);
+}
+
 function mapRepPerformanceForLegacy(rows){
  return A(rows).map(r=>Object.assign({},r,{
    sales:N(r.achieved_sales),
@@ -4247,7 +4348,7 @@ loadData=async function(manual=false){
    regionPerformanceRows,salesLineRows,salesDocumentRows,liquiditySummaryRows,liquidityDetailRows
   ]=await Promise.all([
    getAllSession(V.summary),getAllSessionSafe(V.health),getAllSession(V.inventory),getDispatchOrdersSafe(),getAllSession(V.repPerformance),getAllSession(V.repMaster),
-   getAllSession(V.purchases),getAllSession(V.allocations),getAllSession(V.collections),getAllSession(V.territorySales),getAllSession(V.territoryTotals),getAllSession(V.moneyTargets),getAllSession(V.territoryMaster),getAllSession(V.repCoverage),getAllSession(V.invoices),getAllSessionSafe(V.paidInvoices),getAllSession(V.receivables),getAllSession(V.customers),Promise.resolve([]),getAllSession(V.splits),getAllSession(V.suppliers),getAllSessionSafe(V.operations),getAllSession(V.expenses),getAllSession(V.treasury),Promise.resolve([]),Promise.resolve([]),getAllSession(V.settings),getDispatchLotsSafe(),getOrderProductsSafe(),getAllSession(V.purchaseLots),getAllSession(V.productsMaster),getAllSessionSafe(V.purchaseHealth),getAllSessionSafe(V.collectionOutstanding),getAllSessionSafe(V.collectionAllocations),getAllSessionSafe(V.collectionHealth),getAllSession(V.aging),getAllSession(V.agingSummary),getAllSession(V.notifications),getAllSession(V.inventoryAlerts),getAllSession(V.dashboardCards),getAllSessionSafe(V.dashboardCardsHealth),getAllSession(V.notificationBell),getAllSession(V.notificationRoutes),Promise.resolve([]),getAllSessionSafe(V.regionPerformance),getAllSession(V.salesLines),getAllSession(V.salesDocuments),getAllSession(V.liquiditySummary),getAllSession(V.liquidityDetail)
+   getAllSession(V.purchases),getAllSession(V.allocations),getCollectionsCompat(),getAllSession(V.territorySales),getAllSession(V.territoryTotals),getAllSession(V.moneyTargets),getAllSession(V.territoryMaster),getAllSession(V.repCoverage),getAllSession(V.invoices),getAllSessionSafe(V.paidInvoices),getAllSession(V.receivables),getAllSession(V.customers),Promise.resolve([]),getAllSession(V.splits),getAllSession(V.suppliers),getAllSessionSafe(V.operations),getAllSession(V.expenses),getAllSession(V.treasury),Promise.resolve([]),Promise.resolve([]),getAllSession(V.settings),getDispatchLotsSafe(),getOrderProductsSafe(),getAllSession(V.purchaseLots),getAllSession(V.productsMaster),getAllSessionSafe(V.purchaseHealth),getAllSessionSafe(V.collectionOutstanding),getAllSessionSafe(V.collectionAllocations),getAllSessionSafe(V.collectionHealth),getAllSession(V.aging),getAllSession(V.agingSummary),getAllSession(V.notifications),getAllSession(V.inventoryAlerts),getAllSession(V.dashboardCards),getAllSessionSafe(V.dashboardCardsHealth),getAllSession(V.notificationBell),getAllSession(V.notificationRoutes),Promise.resolve([]),getAllSessionSafe(V.regionPerformance),getAllSession(V.salesLines),getAllSession(V.salesDocuments),getAllSession(V.liquiditySummary),getAllSession(V.liquidityDetail)
   ]);
   Object.assign(D,{
    summary:summaryRows,health:healthRows,inventory:inventoryRows,orders:orderRows,
@@ -6052,6 +6153,6 @@ setTimeout(function(){
 })();
 </script>
 
-<div id="cleanBuildId" style="position:fixed;bottom:8px;right:10px;z-index:99999;background:#111827;color:#fff;padding:4px 8px;border-radius:8px;font:700 10px Arial;opacity:.75;pointer-events:none">CLEAN DB V1 • 2026-09-23</div>
+<div id="cleanBuildId" style="position:fixed;bottom:8px;right:10px;z-index:99999;background:#111827;color:#fff;padding:4px 8px;border-radius:8px;font:700 10px Arial;opacity:.75;pointer-events:none">CLEAN DB V2 • INVOICE + COLLECTIONS</div>
 </body>
 </html>
