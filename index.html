@@ -570,7 +570,10 @@ function permissionModuleForNav(id){
  return id;
 }
 function authLinked(){return !!(AUTH.context&&AUTH.context.linked)}
-function isSuperAdmin(){return !!(AUTH.context&&AUTH.context.super_admin)}
+function isSuperAdmin(){
+ const c=AUTH.context||{},u=c.user||{};
+ return !!c.super_admin || S(u.role)==='operations_manager';
+}
 function authCan(module,action='view'){
  if(!authLinked())return false;
  if(isSuperAdmin())return true;
@@ -586,7 +589,10 @@ function navAllowed(id){
  return authCan(permissionModuleForNav(id),'view');
 }
 function buildNav(){
- $('nav').innerHTML=NAV.filter(([id])=>navAllowed(id)).map(([id,ic])=>`<button id="nav-${id}" onclick="show('${id}')">${ic} ${T(id)}</button>`).join('');
+ const allowed=NAV.filter(([id])=>navAllowed(id));
+ /* Never leave an authenticated operations manager with an empty system menu. */
+ const rows=(authLinked() && isSuperAdmin() && allowed.length===0)?NAV:allowed;
+ $('nav').innerHTML=rows.map(([id,ic])=>`<button id="nav-${id}" onclick="show('${id}')">${ic} ${T(id)}</button>`).join('');
  $('nav-'+currentPage)?.classList.add('active');
  updateAuthButton();
 }
@@ -2466,6 +2472,8 @@ async function getCurrentUserPermissions(){
 async function loadSecureData(){
  if(!authLinked())return;
  AUTH.permissions=await getCurrentUserPermissions().catch(()=>[]);
+ /* DB-bound navigation: rebuild from the authenticated profile + permissions immediately. */
+ try{buildNav()}catch(e){console.warn('Navigation rebuild after permission load',e)}
  const jobs=[];
  if(authCan('users','view')){
   jobs.push(getAllAuth('mahsoubak_users').then(x=>AUTH.users=x));
@@ -4308,6 +4316,7 @@ loadData=async function(manual=false){
   });
   await loadParity24Sources();
   await loadSecureData();
+  buildNav();
   renderDashboard();renderProducts();renderCustomers();renderSuppliers();renderOperations();renderPurchases();renderSalesModule();renderCollectionsModule();renderReportsModule();renderFinanceModule();renderTrialModule();renderCashFlowModule();renderUsersModule();renderSettingsModule();renderSalesTarget();renderRepReports();renderRegions();
   if(['customerCost','income','balance','collections_dashboard','collection_classification','aging_report','collector_performance','cash_forecast'].includes(currentPage))renderParity24Page(currentPage);
   const gh=A(D.globalContract)[0]||{};
