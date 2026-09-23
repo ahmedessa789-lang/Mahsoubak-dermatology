@@ -574,8 +574,12 @@ function isSuperAdmin(){return !!(AUTH.context&&AUTH.context.super_admin)}
 function authCan(module,action='view'){
  if(!authLinked())return false;
  if(isSuperAdmin())return true;
- const p=(AUTH.context.permissions||{})[module]||{};
- return !!p[action];
+ const ctxPerms=(AUTH.context&&AUTH.context.permissions)||{};
+ const ctx=ctxPerms[module];
+ if(ctx&&Object.prototype.hasOwnProperty.call(ctx,action))return !!ctx[action];
+ const userId=S(AUTH.context&&AUTH.context.user&&AUTH.context.user.id);
+ const row=A(AUTH.permissions).find(p=>S(p.user_id)===userId&&S(p.module)===S(module));
+ return !!(row&&row['can_'+action]);
 }
 function navAllowed(id){
  if(!authLinked())return false;
@@ -2449,8 +2453,19 @@ function openAuthPanel(){
   <div class="auth-note">${T('authSetupNote')}</div>
  </div>`);
 }
+async function getCurrentUserPermissions(){
+ const userId=S(AUTH.context&&AUTH.context.user&&AUTH.context.user.id);
+ if(!userId)return [];
+ const url=`${SB_URL}/rest/v1/mahsoubak_user_permissions?select=*&user_id=eq.${encodeURIComponent(userId)}`;
+ const r=await authFetch(url,{});
+ const text=await r.text();let rows=[];
+ try{rows=text?JSON.parse(text):[]}catch(e){throw new Error('mahsoubak_user_permissions invalid JSON')}
+ if(!r.ok)throw new Error('mahsoubak_user_permissions: '+(rows?.message||text||r.status));
+ return A(rows);
+}
 async function loadSecureData(){
  if(!authLinked())return;
+ AUTH.permissions=await getCurrentUserPermissions().catch(()=>[]);
  const jobs=[];
  if(authCan('users','view')){
   jobs.push(getAllAuth('mahsoubak_users').then(x=>AUTH.users=x));
