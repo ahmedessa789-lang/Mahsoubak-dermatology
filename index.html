@@ -582,7 +582,9 @@ function navAllowed(id){
  return authCan(permissionModuleForNav(id),'view');
 }
 function buildNav(){
- $('nav').innerHTML=NAV.filter(([id])=>navAllowed(id)).map(([id,ic])=>`<button id="nav-${id}" onclick="show('${id}')">${ic} ${T(id)}</button>`).join('');
+ const nav=$('nav');if(!nav)return;
+ nav.style.display='';nav.style.visibility='visible';nav.style.opacity='1';
+ nav.innerHTML=NAV.filter(([id])=>navAllowed(id)).map(([id,ic])=>`<button id="nav-${id}" onclick="show('${id}')">${ic} ${T(id)}</button>`).join('');
  $('nav-'+currentPage)?.classList.add('active');
  updateAuthButton();
 }
@@ -2356,6 +2358,25 @@ async function loadAuthContext(){
   return null;
  }
 }
+
+async function hydrateCurrentUserPermissions(){
+ if(!AUTH.accessToken||!AUTH.context||!AUTH.context.linked||!AUTH.context.user||!AUTH.context.user.id)return AUTH.context;
+ const userId=S(AUTH.context.user.id);
+ try{
+  const url=`${SB_URL}/rest/v1/mahsoubak_user_permissions?select=module,can_view,can_add,can_edit,can_delete&user_id=eq.${encodeURIComponent(userId)}`;
+  const r=await authFetch(url,{});
+  const text=await r.text();let rows=[];
+  try{rows=text?JSON.parse(text):[]}catch(e){rows=[]}
+  if(r.ok&&Array.isArray(rows)){
+   const map={};
+   rows.forEach(p=>{if(p&&p.module)map[p.module]={view:!!p.can_view,add:!!p.can_add,edit:!!p.can_edit,delete:!!p.can_delete}});
+   AUTH.context.permissions=map;
+   AUTH.permissions=rows.map(p=>Object.assign({user_id:userId},p));
+  }
+  if(AUTH.context.user.role==='operations_manager')AUTH.context.super_admin=true;
+ }catch(e){console.warn('Current permission hydration failed',e)}
+ return AUTH.context;
+}
 async function claimAuthProfile(showMessage=true){
  try{
   const btn=$('claimProfileBtn');
@@ -2378,6 +2399,7 @@ async function claimAuthProfile(showMessage=true){
 async function restoreAuth(){
  if(!AUTH.accessToken){AUTH.context=null;updateAuthButton();renderSecureGate();return false}
  let c=await loadAuthContext();
+ if(c&&c.linked){await hydrateCurrentUserPermissions();c=AUTH.context}
  if(c&&c.authenticated&&!c.linked){
   await claimAuthProfile(false);
  }else if(authLinked()){
@@ -2399,6 +2421,7 @@ async function loginWithCredentials(username,password){
  if(!r.ok)throw new Error(data?.msg||data?.message||text||r.status);
  saveAuthTokens(data);
  await loadAuthContext();
+ if(AUTH.context&&AUTH.context.linked)await hydrateCurrentUserPermissions();
  if(AUTH.context&&AUTH.context.authenticated&&!AUTH.context.linked){
   const ok=await claimAuthProfile(false);
   if(!ok)throw new Error('PROFILE_LINK_FAILED');
@@ -5993,17 +6016,14 @@ try{renderDashboard=window.renderDashboard}catch(e){}
 /* Remove remaining technical wording injected by late finance/other renderers */
 function scrubClientTechnicalText22(root=document){
   const technical=/^(DB|النظام|Source|المصدر)$/i;
-  const navEl=document.getElementById('nav');if(navEl)navEl.style.display='';
   root.querySelectorAll('.kpi-sub,.dashboard-block-title span').forEach(el=>el.style.display='none');
   root.querySelectorAll('small,span,div').forEach(el=>{
-    if(el.id==='nav' || el.closest?.('#nav'))return;
     if(el.children.length)return;
     const t=(el.textContent||'').trim();
     if(technical.test(t) || /^mahsoubak_[a-z0-9_]+$/i.test(t)){
       el.style.display='none';
     }
   });
-  const nav=document.getElementById('nav');if(nav)nav.style.display='';
 }
 
 
@@ -6032,5 +6052,6 @@ setTimeout(function(){
 })();
 </script>
 
+<div id="cleanBuildId" style="position:fixed;bottom:8px;right:10px;z-index:99999;background:#111827;color:#fff;padding:4px 8px;border-radius:8px;font:700 10px Arial;opacity:.75;pointer-events:none">CLEAN DB V1 • 2026-09-23</div>
 </body>
 </html>
