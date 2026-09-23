@@ -387,7 +387,7 @@ body,.main{background:#f1f4f8!important}
 .canonical-kpi:nth-child(6n+5):before{background:#ef4444}
 .canonical-kpi:nth-child(6n+6):before{background:#14b8a6}
 </style>
-<meta name="mahsoubak-build" content="FINAL_CLIENT_FIX5_2026_09_23">
+<meta name="mahsoubak-build" content="FINAL_CLIENT_DB_ONLY_2026_09_23_R2">
 
 <style id="rc24-clickable-kpi-style">
 .clickable-kpi{cursor:pointer;transition:transform .12s ease,box-shadow .12s ease}
@@ -401,22 +401,6 @@ body,.main{background:#f1f4f8!important}
 .module-head p,.summary-note,.liq-source,.b19-warn,.b19-live,.auth-note{display:none!important}
 .card,.mini-card,.parity24-kpi,.canonical-kpi{background:#fff;border:1px solid #d7dce3;box-shadow:0 7px 20px rgba(15,23,42,.08)}
 .mini-card,.parity24-kpi,.canonical-kpi{cursor:pointer}
-</style>
-
-
-<style id="final-client-clean-fix2">
-.module-head p,
-.summary-note,
-.c18-live,
-.p17-note,
-.b19-warn,
-.b19-live,
-.auth-note,
-.liq-head p,
-.contract-banner,
-.kpi-sub{
-  display:none !important;
-}
 </style>
 
 </head>
@@ -494,7 +478,7 @@ const TR={
   regionAnalysis:'تحليل المناطق',invoices:'الفواتير',customersAnalysis:'العملاء',collectionRecords:'سجل التحصيلات',
   customer:'العميل',region:'المنطقة',invoice:'الفاتورة',date:'التاريخ',salesAmount:'المبيعات',collection:'التحصيل',
   method:'الطريقة',notes:'ملاحظات',noData:'لا توجد بيانات في الفترة المحددة',repList:'المندوبون والمجموعات',
-  targetModuleTitle:'Sales Target',targetModuleSub:'التارجت والمحقق والمتبقي لكل مندوب',companySales:'مبيعات الشركة',salesDetails:'تفاصيل المبيعات',paidDetails:'تفاصيل المسدد',remainingDetails:'تفاصيل المتبقي',quantityDetails:'تفاصيل الكميات',targetDetails:'تفاصيل التارجت',achievementDetails:'تفاصيل تحقيق التارجت',clickForDetails:'اضغط لفتح التفاصيل',companyAllSales:'إجمالي مبيعات الشركة كلها خلال المدة',moneyTarget:'التارجت المالي',moneyAchieved:'المحقق المالي',moneyRemaining:'المتبقي المالي',moneyAchievement:'نسبة تحقيق التارجت المالي',qtyTarget:'تارجت الشركة بالكمية',qtyAchieved:'المحقق بالكمية',qtyRemaining:'المتبقي بالكمية',qtyAchievement:'نسبة تحقيق تارجت الكمية',companyBreakdown:'تقسيم مبيعات الشركة',notSet:'غير محدد',selectedScope:'تفاصيل الاختيار الحالي',territoryMaster:'خريطة وتقسيم المناطق',territoryMasterSub:'المناطق والأحياء والمندوبون الحاليون',currentRep:'المندوب الحالي',legacyRep:'المندوب السابق',areas:'الأحياء',currentCoverage:'تغطية المندوبين الحالية',historicalSales:'المبيعات التاريخية',historicalQty:'الكمية التاريخية',historicalInvoices:'الفواتير التاريخية',customersTitle:'العملاء والمديونيات',customersSub:'العملاء والمديونيات وتوزيع المندوبين من قاعدة البيانات',totalCustomers:'إجمالي العملاء',customersWithDebt:'عملاء عليهم مديونية',customersClear:'عملاء بدون مديونية',repSplits:'توزيعات المندوبين',searchCustomer:'بحث باسم العميل أو العيادة أو الهاتف…',clinic:'العيادة',phone:'الهاتف',area:'الحي / المنطقة',customerDetails:'تفاصيل العميل',customerInvoices:'فواتير العميل',customerCollections:'تحصيلات العميل',customerReps:'مندوبي العميل',salesLines:'سطور المبيعات',openDetails:'فتح التفاصيل',approvedOrders:'الطلبات المعتمدة',pendingOrders:'الطلبات المعلقة',purchaseDue:'مستحقات المشتريات',purchasePaid:'المسدد من المشتريات',allPurchases:'كل المشتريات',allInventory:'كل المخزون',lowInventory:'المخزون المنخفض',zeroInventory:'المخزون المنتهي',repPerformance:'أداء المندوب',territoryDetails:'تفاصيل المنطقة',areaCustomers:'عملاء الحي',noCustomerData:'لا توجد بيانات لهذا العميل',suppliersTitle:'الموردون والمستحقات',suppliersSub:'الموردون وأرصدة الاستحقاق وفواتير الشراء المرتبطة',totalSuppliers:'إجمالي الموردين',suppliersWithDue:'موردون عليهم مستحقات',supplierDueTotal:'إجمالي مستحقات الموردين',supplierPurchases:'مشتريات المورد',supplierProducts:'منتجات المورد',supplierDetails:'تفاصيل المورد',email:'البريد الإلكتروني',brand:'البراند',purchasesTitle:'المشتريات',purchasesModuleSub:'فواتير المشتريات والمبالغ المسددة والمتبقية',purchaseInvoices:'فواتير الشراء',purchaseQty:'كمية المشتريات',purchaseDetails:'تفاصيل فاتورة الشراء',invoiceNumber:'رقم الفاتورة',lot:'اللوط',operationsTitle:'Operation / طلبات المخزن',operationsModuleSub:'طلبات التشغيل وحالة التجهيز والبيع وربطها بالعميل والمندوب والمنتج',allOperations:'كل العمليات',requestedOps:'مطلوب',preparedOps:'تم التجهيز',soldOps:'تم البيع',cancelledOps:'ملغي',operationValue:'قيمة العمليات',operationDetails:'تفاصيل العملية',warehouseOrders:'Orders / طلبات البيع',approvedOrdersCount:'طلبات Approved',pendingOrdersCount:'طلبات Pending',dispatchedOrders:'طلبات Dispatched',operationType:'نوع العملية',readOnlyWriteNotice:'يمكن الإضافة والتعديل حسب صلاحيات المستخدم.',salesModuleTitle:'الفواتير والمبيعات',salesModuleSub:'الفواتير المعتمدة والمسدد والمتبقي وحالة كل فاتورة',fullyPaid:'مدفوع بالكامل',partialPaid:'مسدد جزئيًا',unpaid:'غير مسدد',zeroValue:'صفر قيمة',paidInvoiceRows:'فواتير عليها سداد',invoiceDetails:'تفاصيل الفاتورة',collectionsTitle:'التحصيلات',collectionsSub:'التحصيل النقدي والمطبق على الفواتير والرصيد غير الموزع',cashReceived:'إجمالي النقد المحصل',appliedToInvoices:'المطبق على الفواتير',unappliedCredit:'رصيد غير موزع',collectionCount:'عدد عمليات التحصيل',receivables:'إجمالي المديونيات',collectionDetails:'تفاصيل التحصيل',collectorRep:'المندوب المحصل',reportsTitle:'التقارير',reportsSub:'تقارير الفترة من نفس المصادر المعتمدة للمبيعات والمشتريات والتحصيلات والعمليات والمصروفات',fromDate:'من تاريخ',toDate:'إلى تاريخ',apply:'تطبيق',reset:'إعادة ضبط',print:'طباعة',exportCsv:'تصدير CSV',period:'الفترة',reportSales:'مبيعات الفترة',reportPurchases:'مشتريات الفترة',reportCollections:'تحصيلات الفترة',reportOperations:'عمليات الفترة',reportExpenses:'مصروفات الفترة',reportReceivables:'المديونيات الحالية',financeTitle:'المالية',financeSub:'ملخص مالي ودفتر الأستاذ والحسابات',cashBalance:'رصيد الخزنة',accountsReceivable:'حسابات العملاء',inventoryAsset:'قيمة المخزون',netIncome:'صافي نتيجة الفترة',totalAssets:'إجمالي الأصول',revenue:'الإيرادات',cogsLabel:'تكلفة البضاعة المباعة',expensesLabel:'المصروفات',ledgerEntries:'القيود',ledgerLines:'سطور القيود',account:'الحساب',accountType:'نوع الحساب',debit:'مدين',credit:'دائن',balance:'الرصيد',entryDetails:'تفاصيل القيود',trialTitle:'ميزان المراجعة',trialSub:'أرصدة الحسابات من دفتر الأستاذ',totalDebit:'إجمالي المدين',totalCredit:'إجمالي الدائن',trialDifference:'فرق الميزان',balanced:'متزن',unbalanced:'غير متزن',cashflowTitle:'Cash Flow / التدفقات النقدية',cashflowSub:'حركة الخزن والبنوك حسب الفترة',openingCash:'رصيد أول الفترة',cashIn:'إجمالي الداخل',cashOut:'إجمالي الخارج',closingCash:'رصيد آخر الفترة',movementCount:'عدد الحركات',movementType:'نوع الحركة',party:'الطرف / البيان',effect:'الأثر',classification:'التصنيف',source:'المصدر',financeReadOnly:'يمكن إضافة وتعديل الحسابات والخزن والبنوك وتسجيل المستندات المالية حسب الصلاحيات.',downloaded:'تم تجهيز الملف',allAccounts:'كل الحسابات',login:'تسجيل الدخول',logout:'تسجيل الخروج',loginTitle:'تسجيل الدخول الآمن',loginSub:'تسجيل الدخول باسم المستخدم وكلمة المرور — كلمات المرور لا تُحفظ داخل التطبيق',password:'كلمة المرور',signIn:'دخول',signedIn:'مسجل الدخول',notSignedIn:'غير مسجل',authLinked:'الحساب مربوط بالملف الوظيفي',authUnlinked:'الحساب غير مربوط بعد',claimProfile:'ربط الحساب بالملف الحالي',authSetupNote:'يتم الدخول باسم المستخدم وكلمة المرور المخصصة له.',usersTitle:'المستخدمون والصلاحيات',usersSub:'إدارة ملفات المستخدمين ومصفوفة الصلاحيات من قاعدة البيانات',active:'نشط',inactive:'موقوف',role:'الدور',authStatus:'حالة Auth',linked:'مربوط',pendingLink:'بانتظار الربط',permissions:'الصلاحيات',viewPerm:'عرض',addPerm:'إضافة',editPerm:'تعديل',deletePerm:'حذف',add:'إضافة',amount:'المبلغ',save:'حفظ',saveProfile:'حفظ المستخدم',savePermissions:'حفظ الصلاحيات',addUserProfile:'إضافة ملف مستخدم',newUserProfile:'ملف مستخدم جديد',createProfile:'إنشاء الملف',authAccountReminder:'بعد إنشاء المستخدم، أكمل ربط حساب الدخول الخاص به.',activityLog:'Activity Log',settingsTitle:'إعدادات النظام',settingsSub:'إعدادات الشركة وصحة النظام',companyName:'اسم الشركة',subtitle:'الوصف الفرعي',saveCompany:'حفظ إعدادات الشركة',coreHealth:'حالة النظام',authHealth:'حالة تسجيل الدخول',profileHealth:'حالة الملف',permissionDenied:'لا توجد صلاحية لفتح هذا القسم',loginRequired:'سجّل الدخول للوصول إلى المستخدمين والصلاحيات',profileSaved:'تم حفظ المستخدم',permissionsSaved:'تم حفظ الصلاحيات',settingsSaved:'تم حفظ الإعدادات',profileCreated:'تم إنشاء ملف المستخدم',loginFailed:'فشل تسجيل الدخول',sessionExpired:'انتهت جلسة الدخول',superAdmin:'Super Admin',myProfile:'ملفي الحالي',module:'الموديول',auditAction:'الإجراء',auditEntity:'العنصر',auditTime:'الوقت',authPublicMode:'يتم تطبيق صلاحيات كل مستخدم بعد تسجيل الدخول.',username:'اسم المستخدم',internalAuthAlias:'معرف Auth الداخلي',usernameRule:'استخدم حروف إنجليزية أو أرقام أو . _ - فقط',officialEmailLater:'البريد الرسمي يمكن إضافته لاحقًا بدون تغيير اسم المستخدم.',linking:'جاري ربط الحساب…',linkSuccess:'تم ربط الحساب بالمستخدم بنجاح',linkFailed:'فشل ربط الحساب',secureLoginTitle:'تسجيل الدخول إلى Mahsoubak Business',secureLoginSub:'الدخول مطلوب قبل تحميل بيانات النظام. كل مستخدم يشاهد الموديولات المسموح له بها فقط.',secureMode:'Secure Mode',enterCredentials:'اكتب اسم المستخدم وكلمة المرور',sessionRequired:'يجب تسجيل الدخول أولاً',noModulePermission:'ليس لديك صلاحية لفتح هذا الموديول',secureLogout:'تم تسجيل الخروج من الجلسة الآمنة',newOrder:'طلب جديد',createOrder:'إنشاء الطلب',approveOrder:'اعتماد الطلب',rejectOrder:'رفض الطلب',dispatchOrder:'خروج من المخزن',dispatchConfirm:'سيتم إنشاء البيع وخصم المخزون وتسجيل القيود مرة واحدة. هل تريد المتابعة؟',approveConfirm:'اعتماد هذا الطلب؟',rejectConfirm:'رفض هذا الطلب؟',orderCreated:'تم إنشاء الطلب',orderApproved:'تم اعتماد الطلب',orderRejected:'تم رفض الطلب',orderDispatched:'تم خروج الطلب وإنشاء البيع بنجاح',selectCustomer:'اختر العميل',selectRep:'اختر المندوب',selectProduct:'اختر المنتج',selectLot:'اختر اللوط',availableQty:'المتاح',salePrice:'سعر البيع',paidNow:'المسدد الآن',orderType:'نوع الطلب',normalSale:'بيع',bonus:'Bonus',displayOrder:'Display',sampleOrder:'Sample',freeOrder:'Free',orderWorkflowLive:'دورة العمل: طلب → اعتماد → خروج من المخزن → فاتورة وتحديث المخزون',purchaseStillLocked:'المشتريات ما زالت مقفولة لحين استكمال ربطها بالمخزون والحسابات.',newPurchaseInvoice:'فاتورة شراء جديدة',addPurchaseLine:'إضافة صنف',savePurchaseInvoice:'حفظ فاتورة الشراء',purchaseInvoiceLive:'المشتريات فعالة: الفاتورة تحدث المخزون والمورد والخزينة والحسابات وCash Flow في عملية واحدة.',purchaseDate:'تاريخ الشراء',selectSupplier:'اختر المورد',invoicePaid:'المدفوع من الفاتورة',invoiceTotal:'إجمالي الفاتورة',invoiceRemaining:'المتبقي للمورد',existingLot:'LOT موجود',newLot:'LOT جديد',lotNumber:'رقم LOT',expiry:'الصلاحية',removeLine:'حذف السطر',purchaseSaved:'تم حفظ فاتورة الشراء بنجاح',newSupplier:'مورد جديد',supplierSaved:'تم حفظ المورد',supplierName:'اسم المورد',purchaseWriteActive:'المشتريات فعالة',invoiceLines:'أصناف الفاتورة',purchaseRuntimeV2:'يتم تحديث المالية والمخزون والخزينة مباشرة بعد الحفظ.',requiredField:'بيانات مطلوبة ناقصة',paidExceedsTotal:'المدفوع أكبر من إجمالي الفاتورة',cashflowApprovedTitle:'التحصيلات والمصروفات خلال شهر',firstHalf:'النصف الأول',secondHalf:'النصف الثاني',customPeriod:'فترة مخصصة',month:'الشهر',days:'Days',incomeSection:'الوارد / التحصيلات',cashOutSection:'المنصرف',totalIncome:'إجمالي الوارد',totalCashOut:'Total Cash Out',surplusDef:'Surplus Or Def.',fundBalances:'النقدية بالجنيه المصري',cumulativeSummary:'الملخص التراكمي',routeStatus:'حالة توزيع الحركات',needsRouting:'حركات تحتاج توزيع على خزنة/بنك',fullyRouted:'كل الحركات موزعة',setOpening:'ضبط رصيد افتتاحي',routeMovement:'توزيع الحركة',routeWholeMovement:'توزيع كامل الحركة',fund:'الخزنة / البنك',category:'التصنيف',nativeAmount:'المبلغ بالعملة الأصلية',fxRate:'سعر الصرف',egpValue:'القيمة بالجنيه',approveOpening:'اعتماد الرصيد',openingNotApproved:'لا توجد أرصدة افتتاحية معتمدة؛ الأرقام الحالية مبنية على الحركات  المتاحة فقط.',temporaryUnallocated:'غير موزع مؤقتًا',reconciliation:'مطابقة الخزينة',canonicalTreasury:'رصيد الخزينة ',displayedFundsTotal:'إجمالي الخزن المعروضة',routingSaved:'تم حفظ توزيع الحركة',openingSaved:'تم حفظ الرصيد الافتتاحي',cashflowAudit:'مراجعة Cash Flow',treasuryMatchCheck:'مطابقة الخزينة',routingCheck:'توزيع الحركات',continuityCheck:'استمرارية الرصيد اليومي',fundTotalCheck:'إجمالي الخزن',checkPassed:'سليم',checkWarning:'مراجعة مطلوبة',openingManager:'إدارة الأرصدة الافتتاحية',latestOpening:'آخر رصيد افتتاحي',noOpening:'لا يوجد رصيد افتتاحي',editOpening:'تعديل الرصيد',printCashFlowOnly:'طباعة Cash Flow فقط',cashflowExportClean:'تصدير Excel منسق',openingDate:'تاريخ الرصيد الافتتاحي',openingStatus:'حالة الاعتماد',auditReady:'Cash Flow متطابق وجاهز للمراجعة',auditNeedsReview:'Cash Flow يحتاج مراجعة قبل الاعتماد',exportExcel:'تصدير Excel',cellDetails:'تفاصيل الخلية',noMovements:'لا توجد حركات لهذه الخلية',movementRouting:'توزيع الحركة على الخزنة/البنك',openingBalanceEditor:'الرصيد الافتتاحي',approved:'معتمد',notApproved:'غير معتمد',cashflowReady:'Cash Flow Foundation جاهز',refreshCashflow:'تحديث Cash Flow',newCollection:'تحصيل جديد',saveCollection:'حفظ التحصيل',collectionLive:'التحصيلات فعالة وآمنة: المبلغ يزيد الخزنة ويُخفض مديونية الفواتير الموزع عليها، وأي فرق يظل رصيدًا دائنًا للعميل.',collectionDate:'تاريخ التحصيل',collectionAmount:'مبلغ التحصيل',selectFund:'اختر الخزنة / البنك',allocationMode:'توزيع التحصيل',autoAllocate:'توزيع تلقائي',clearAllocation:'مسح التوزيع',outstandingInvoices:'الفواتير المفتوحة',invoiceOutstanding:'المتبقي على الفاتورة',allocateAmount:'المبلغ الموزع',allocatedTotal:'إجمالي الموزع',unappliedAfter:'غير موزع بعد الحفظ',customerCurrentDebt:'مديونية العميل الحالية',collectionSaved:'تم حفظ التحصيل بنجاح',allocationExceedsCollection:'إجمالي التوزيع أكبر من مبلغ التحصيل',allocationExceedsInvoice:'مبلغ التوزيع أكبر من المتبقي على إحدى الفواتير',collectionWriteActive:'التحصيلات فعالة',collectionRuntimeV2:'التحصيل مربوط مباشرة بالمديونية والخزينة والحسابات وCash Flow النظام',noOutstandingInvoices:'لا توجد فواتير مفتوحة لهذا العميل — يمكن تسجيل المبلغ كرصد دائن غير موزع.',collectionFund:'الخزنة / البنك',openInvoice:'فتح الفاتورة',allocatedInvoices:'الفواتير التي تم التوزيع عليها',customerCreditNote:'أي جزء غير موزع يُحفظ كرصيد دائن للعميل ولا يتم إسقاطه.',collectionHealth:'صحة التحصيلات'
+  targetModuleTitle:'Sales Target',targetModuleSub:'التارجت والمحقق والمتبقي لكل مندوب',companySales:'مبيعات الشركة',salesDetails:'تفاصيل المبيعات',paidDetails:'تفاصيل المسدد',remainingDetails:'تفاصيل المتبقي',quantityDetails:'تفاصيل الكميات',targetDetails:'تفاصيل التارجت',achievementDetails:'تفاصيل تحقيق التارجت',clickForDetails:'اضغط لفتح التفاصيل',companyAllSales:'إجمالي مبيعات الشركة كلها خلال المدة',moneyTarget:'التارجت المالي',moneyAchieved:'المحقق المالي',moneyRemaining:'المتبقي المالي',moneyAchievement:'نسبة تحقيق التارجت المالي',qtyTarget:'تارجت الشركة بالكمية',qtyAchieved:'المحقق بالكمية',qtyRemaining:'المتبقي بالكمية',qtyAchievement:'نسبة تحقيق تارجت الكمية',companyBreakdown:'تقسيم مبيعات الشركة',notSet:'غير محدد',selectedScope:'تفاصيل الاختيار الحالي',territoryMaster:'خريطة وتقسيم المناطق',territoryMasterSub:'المناطق والأحياء والمندوبون الحاليون',currentRep:'المندوب الحالي',legacyRep:'المندوب السابق',areas:'الأحياء',currentCoverage:'تغطية المندوبين الحالية',historicalSales:'المبيعات التاريخية',historicalQty:'الكمية التاريخية',historicalInvoices:'الفواتير التاريخية',customersTitle:'العملاء والمديونيات',customersSub:'العملاء والمديونيات وتوزيع المندوبين من قاعدة البيانات',totalCustomers:'إجمالي العملاء',customersWithDebt:'عملاء عليهم مديونية',customersClear:'عملاء بدون مديونية',repSplits:'توزيعات المندوبين',searchCustomer:'بحث باسم العميل أو العيادة أو الهاتف…',clinic:'العيادة',phone:'الهاتف',area:'الحي / المنطقة',customerDetails:'تفاصيل العميل',customerInvoices:'فواتير العميل',customerCollections:'تحصيلات العميل',customerReps:'مندوبي العميل',salesLines:'سطور المبيعات',openDetails:'فتح التفاصيل',approvedOrders:'الطلبات المعتمدة',pendingOrders:'الطلبات المعلقة',purchaseDue:'مستحقات المشتريات',purchasePaid:'المسدد من المشتريات',allPurchases:'كل المشتريات',allInventory:'كل المخزون',lowInventory:'المخزون المنخفض',zeroInventory:'المخزون المنتهي',repPerformance:'أداء المندوب',territoryDetails:'تفاصيل المنطقة',areaCustomers:'عملاء الحي',noCustomerData:'لا توجد بيانات لهذا العميل',suppliersTitle:'الموردون والمستحقات',suppliersSub:'الموردون وأرصدة الاستحقاق وفواتير الشراء المرتبطة',totalSuppliers:'إجمالي الموردين',suppliersWithDue:'موردون عليهم مستحقات',supplierDueTotal:'إجمالي مستحقات الموردين',supplierPurchases:'مشتريات المورد',supplierProducts:'منتجات المورد',supplierDetails:'تفاصيل المورد',email:'البريد الإلكتروني',brand:'البراند',purchasesTitle:'المشتريات',purchasesModuleSub:'فواتير المشتريات والمبالغ المسددة والمتبقية',purchaseInvoices:'فواتير الشراء',purchaseQty:'كمية المشتريات',purchaseDetails:'تفاصيل فاتورة الشراء',invoiceNumber:'رقم الفاتورة',lot:'اللوط',operationsTitle:'Operation / طلبات المخزن',operationsModuleSub:'طلبات التشغيل وحالة التجهيز والبيع وربطها بالعميل والمندوب والمنتج',allOperations:'كل العمليات',requestedOps:'مطلوب',preparedOps:'تم التجهيز',soldOps:'تم البيع',cancelledOps:'ملغي',operationValue:'قيمة العمليات',operationDetails:'تفاصيل العملية',warehouseOrders:'Orders / طلبات البيع',approvedOrdersCount:'طلبات Approved',pendingOrdersCount:'طلبات Pending',dispatchedOrders:'طلبات Dispatched',operationType:'نوع العملية',readOnlyWriteNotice:'يمكن الإضافة والتعديل حسب صلاحيات المستخدم.',salesModuleTitle:'الفواتير والمبيعات',salesModuleSub:'الفواتير المعتمدة والمسدد والمتبقي وحالة كل فاتورة',fullyPaid:'مدفوع بالكامل',partialPaid:'مسدد جزئيًا',unpaid:'غير مسدد',zeroValue:'صفر قيمة',paidInvoiceRows:'فواتير عليها سداد',invoiceDetails:'تفاصيل الفاتورة',collectionsTitle:'التحصيلات',collectionsSub:'التحصيل النقدي والمطبق على الفواتير والرصيد غير الموزع',cashReceived:'إجمالي النقد المحصل',appliedToInvoices:'المطبق على الفواتير',unappliedCredit:'رصيد غير موزع',collectionCount:'عدد عمليات التحصيل',collectionDetails:'تفاصيل التحصيل',collectorRep:'المندوب المحصل',reportsTitle:'التقارير',reportsSub:'تقارير الفترة من نفس المصادر المعتمدة للمبيعات والمشتريات والتحصيلات والعمليات والمصروفات',fromDate:'من تاريخ',toDate:'إلى تاريخ',apply:'تطبيق',reset:'إعادة ضبط',print:'طباعة',exportCsv:'تصدير CSV',period:'الفترة',reportSales:'مبيعات الفترة',reportPurchases:'مشتريات الفترة',reportCollections:'تحصيلات الفترة',reportOperations:'عمليات الفترة',reportExpenses:'مصروفات الفترة',reportReceivables:'المديونيات الحالية',financeTitle:'المالية',financeSub:'ملخص مالي ودفتر الأستاذ والحسابات',cashBalance:'رصيد الخزنة',accountsReceivable:'حسابات العملاء',inventoryAsset:'قيمة المخزون',netIncome:'صافي نتيجة الفترة',totalAssets:'إجمالي الأصول',revenue:'الإيرادات',cogsLabel:'تكلفة البضاعة المباعة',expensesLabel:'المصروفات',ledgerEntries:'القيود',ledgerLines:'سطور القيود',account:'الحساب',accountType:'نوع الحساب',debit:'مدين',credit:'دائن',balance:'الرصيد',entryDetails:'تفاصيل القيود',trialTitle:'ميزان المراجعة',trialSub:'أرصدة الحسابات من دفتر الأستاذ',totalDebit:'إجمالي المدين',totalCredit:'إجمالي الدائن',trialDifference:'فرق الميزان',balanced:'متزن',unbalanced:'غير متزن',cashflowTitle:'Cash Flow / التدفقات النقدية',cashflowSub:'حركة الخزن والبنوك حسب الفترة',openingCash:'رصيد أول الفترة',cashIn:'إجمالي الداخل',cashOut:'إجمالي الخارج',closingCash:'رصيد آخر الفترة',movementCount:'عدد الحركات',movementType:'نوع الحركة',party:'الطرف / البيان',effect:'الأثر',classification:'التصنيف',source:'المصدر',financeReadOnly:'يمكن إضافة وتعديل الحسابات والخزن والبنوك وتسجيل المستندات المالية حسب الصلاحيات.',downloaded:'تم تجهيز الملف',allAccounts:'كل الحسابات',login:'تسجيل الدخول',logout:'تسجيل الخروج',loginTitle:'تسجيل الدخول الآمن',loginSub:'تسجيل الدخول باسم المستخدم وكلمة المرور — كلمات المرور لا تُحفظ داخل التطبيق',password:'كلمة المرور',signIn:'دخول',signedIn:'مسجل الدخول',notSignedIn:'غير مسجل',authLinked:'الحساب مربوط بالملف الوظيفي',authUnlinked:'الحساب غير مربوط بعد',claimProfile:'ربط الحساب بالملف الحالي',authSetupNote:'يتم الدخول باسم المستخدم وكلمة المرور المخصصة له.',usersTitle:'المستخدمون والصلاحيات',usersSub:'إدارة ملفات المستخدمين ومصفوفة الصلاحيات من قاعدة البيانات',active:'نشط',inactive:'موقوف',role:'الدور',authStatus:'حالة Auth',linked:'مربوط',pendingLink:'بانتظار الربط',permissions:'الصلاحيات',viewPerm:'عرض',addPerm:'إضافة',editPerm:'تعديل',deletePerm:'حذف',add:'إضافة',amount:'المبلغ',save:'حفظ',saveProfile:'حفظ المستخدم',savePermissions:'حفظ الصلاحيات',addUserProfile:'إضافة ملف مستخدم',newUserProfile:'ملف مستخدم جديد',createProfile:'إنشاء الملف',authAccountReminder:'بعد إنشاء المستخدم، أكمل ربط حساب الدخول الخاص به.',activityLog:'Activity Log',settingsTitle:'إعدادات النظام',settingsSub:'إعدادات الشركة وصحة النظام',companyName:'اسم الشركة',subtitle:'الوصف الفرعي',saveCompany:'حفظ إعدادات الشركة',coreHealth:'حالة النظام',authHealth:'حالة تسجيل الدخول',profileHealth:'حالة الملف',permissionDenied:'لا توجد صلاحية لفتح هذا القسم',loginRequired:'سجّل الدخول للوصول إلى المستخدمين والصلاحيات',profileSaved:'تم حفظ المستخدم',permissionsSaved:'تم حفظ الصلاحيات',settingsSaved:'تم حفظ الإعدادات',profileCreated:'تم إنشاء ملف المستخدم',loginFailed:'فشل تسجيل الدخول',sessionExpired:'انتهت جلسة الدخول',superAdmin:'Super Admin',myProfile:'ملفي الحالي',module:'الموديول',auditAction:'الإجراء',auditEntity:'العنصر',auditTime:'الوقت',authPublicMode:'يتم تطبيق صلاحيات كل مستخدم بعد تسجيل الدخول.',username:'اسم المستخدم',internalAuthAlias:'معرف Auth الداخلي',usernameRule:'استخدم حروف إنجليزية أو أرقام أو . _ - فقط',officialEmailLater:'البريد الرسمي يمكن إضافته لاحقًا بدون تغيير اسم المستخدم.',linking:'جاري ربط الحساب…',linkSuccess:'تم ربط الحساب بالمستخدم بنجاح',linkFailed:'فشل ربط الحساب',secureLoginTitle:'تسجيل الدخول إلى Mahsoubak Business',secureLoginSub:'الدخول مطلوب قبل تحميل بيانات النظام. كل مستخدم يشاهد الموديولات المسموح له بها فقط.',secureMode:'Secure Mode',enterCredentials:'اكتب اسم المستخدم وكلمة المرور',sessionRequired:'يجب تسجيل الدخول أولاً',noModulePermission:'ليس لديك صلاحية لفتح هذا الموديول',secureLogout:'تم تسجيل الخروج من الجلسة الآمنة',newOrder:'طلب جديد',createOrder:'إنشاء الطلب',approveOrder:'اعتماد الطلب',rejectOrder:'رفض الطلب',dispatchOrder:'خروج من المخزن',dispatchConfirm:'سيتم إنشاء البيع وخصم المخزون وتسجيل القيود مرة واحدة. هل تريد المتابعة؟',approveConfirm:'اعتماد هذا الطلب؟',rejectConfirm:'رفض هذا الطلب؟',orderCreated:'تم إنشاء الطلب',orderApproved:'تم اعتماد الطلب',orderRejected:'تم رفض الطلب',orderDispatched:'تم خروج الطلب وإنشاء البيع بنجاح',selectCustomer:'اختر العميل',selectRep:'اختر المندوب',selectProduct:'اختر المنتج',selectLot:'اختر اللوط',availableQty:'المتاح',salePrice:'سعر البيع',paidNow:'المسدد الآن',orderType:'نوع الطلب',normalSale:'بيع',bonus:'Bonus',displayOrder:'Display',sampleOrder:'Sample',freeOrder:'Free',orderWorkflowLive:'دورة العمل: طلب → اعتماد → خروج من المخزن → فاتورة وتحديث المخزون',purchaseStillLocked:'المشتريات ما زالت مقفولة لحين استكمال ربطها بالمخزون والحسابات.',newPurchaseInvoice:'فاتورة شراء جديدة',addPurchaseLine:'إضافة صنف',savePurchaseInvoice:'حفظ فاتورة الشراء',purchaseInvoiceLive:'المشتريات فعالة: الفاتورة تحدث المخزون والمورد والخزينة والحسابات وCash Flow في عملية واحدة.',purchaseDate:'تاريخ الشراء',selectSupplier:'اختر المورد',invoicePaid:'المدفوع من الفاتورة',invoiceTotal:'إجمالي الفاتورة',invoiceRemaining:'المتبقي للمورد',existingLot:'LOT موجود',newLot:'LOT جديد',lotNumber:'رقم LOT',expiry:'الصلاحية',removeLine:'حذف السطر',purchaseSaved:'تم حفظ فاتورة الشراء بنجاح',newSupplier:'مورد جديد',supplierSaved:'تم حفظ المورد',supplierName:'اسم المورد',purchaseWriteActive:'المشتريات فعالة',invoiceLines:'أصناف الفاتورة',purchaseRuntimeV2:'يتم تحديث المالية والمخزون والخزينة مباشرة بعد الحفظ.',requiredField:'بيانات مطلوبة ناقصة',paidExceedsTotal:'المدفوع أكبر من إجمالي الفاتورة',cashflowApprovedTitle:'التحصيلات والمصروفات خلال شهر',firstHalf:'النصف الأول',secondHalf:'النصف الثاني',customPeriod:'فترة مخصصة',month:'الشهر',days:'Days',incomeSection:'الوارد / التحصيلات',cashOutSection:'المنصرف',totalIncome:'إجمالي الوارد',totalCashOut:'Total Cash Out',surplusDef:'Surplus Or Def.',fundBalances:'النقدية بالجنيه المصري',cumulativeSummary:'الملخص التراكمي',routeStatus:'حالة توزيع الحركات',needsRouting:'حركات تحتاج توزيع على خزنة/بنك',fullyRouted:'كل الحركات موزعة',setOpening:'ضبط رصيد افتتاحي',routeMovement:'توزيع الحركة',routeWholeMovement:'توزيع كامل الحركة',fund:'الخزنة / البنك',category:'التصنيف',nativeAmount:'المبلغ بالعملة الأصلية',fxRate:'سعر الصرف',egpValue:'القيمة بالجنيه',approveOpening:'اعتماد الرصيد',openingNotApproved:'لا توجد أرصدة افتتاحية معتمدة؛ الأرقام الحالية مبنية على الحركات  المتاحة فقط.',temporaryUnallocated:'غير موزع مؤقتًا',reconciliation:'مطابقة الخزينة',canonicalTreasury:'رصيد الخزينة ',displayedFundsTotal:'إجمالي الخزن المعروضة',routingSaved:'تم حفظ توزيع الحركة',openingSaved:'تم حفظ الرصيد الافتتاحي',cashflowAudit:'مراجعة Cash Flow',treasuryMatchCheck:'مطابقة الخزينة',routingCheck:'توزيع الحركات',continuityCheck:'استمرارية الرصيد اليومي',fundTotalCheck:'إجمالي الخزن',checkPassed:'سليم',checkWarning:'مراجعة مطلوبة',openingManager:'إدارة الأرصدة الافتتاحية',latestOpening:'آخر رصيد افتتاحي',noOpening:'لا يوجد رصيد افتتاحي',editOpening:'تعديل الرصيد',printCashFlowOnly:'طباعة Cash Flow فقط',cashflowExportClean:'تصدير Excel منسق',openingDate:'تاريخ الرصيد الافتتاحي',openingStatus:'حالة الاعتماد',auditReady:'Cash Flow متطابق وجاهز للمراجعة',auditNeedsReview:'Cash Flow يحتاج مراجعة قبل الاعتماد',exportExcel:'تصدير Excel',cellDetails:'تفاصيل الخلية',noMovements:'لا توجد حركات لهذه الخلية',movementRouting:'توزيع الحركة على الخزنة/البنك',openingBalanceEditor:'الرصيد الافتتاحي',approved:'معتمد',notApproved:'غير معتمد',cashflowReady:'Cash Flow Foundation جاهز',refreshCashflow:'تحديث Cash Flow',newCollection:'تحصيل جديد',saveCollection:'حفظ التحصيل',collectionLive:'التحصيلات فعالة وآمنة: المبلغ يزيد الخزنة ويُخفض مديونية الفواتير الموزع عليها، وأي فرق يظل رصيدًا دائنًا للعميل.',collectionDate:'تاريخ التحصيل',collectionAmount:'مبلغ التحصيل',selectFund:'اختر الخزنة / البنك',allocationMode:'توزيع التحصيل',autoAllocate:'توزيع تلقائي',clearAllocation:'مسح التوزيع',outstandingInvoices:'الفواتير المفتوحة',invoiceOutstanding:'المتبقي على الفاتورة',allocateAmount:'المبلغ الموزع',allocatedTotal:'إجمالي الموزع',unappliedAfter:'غير موزع بعد الحفظ',customerCurrentDebt:'مديونية العميل الحالية',collectionSaved:'تم حفظ التحصيل بنجاح',allocationExceedsCollection:'إجمالي التوزيع أكبر من مبلغ التحصيل',allocationExceedsInvoice:'مبلغ التوزيع أكبر من المتبقي على إحدى الفواتير',collectionWriteActive:'التحصيلات فعالة',collectionRuntimeV2:'التحصيل مربوط مباشرة بالمديونية والخزينة والحسابات وCash Flow النظام',noOutstandingInvoices:'لا توجد فواتير مفتوحة لهذا العميل — يمكن تسجيل المبلغ كرصد دائن غير موزع.',collectionFund:'الخزنة / البنك',openInvoice:'فتح الفاتورة',allocatedInvoices:'الفواتير التي تم التوزيع عليها',customerCreditNote:'أي جزء غير موزع يُحفظ كرصيد دائن للعميل ولا يتم إسقاطه.',collectionHealth:'صحة التحصيلات'
  },
  en:{
   dashboard:'Dashboard',products:'Products & Inventory',customers:'Customers',suppliers:'Suppliers',reps:'Sales Target',rep_reports:'Rep Reports',
@@ -519,7 +503,7 @@ const TR={
   regionAnalysis:'Region analysis',invoices:'Invoices',customersAnalysis:'Customers',collectionRecords:'Collection records',
   customer:'Customer',region:'Region',invoice:'Invoice',date:'Date',salesAmount:'Sales',collection:'Collection',
   method:'Method',notes:'Notes',noData:'No data for the selected period',repList:'Reps & groups',
-  targetModuleTitle:'Sales Target',targetModuleSub:'Target, achieved and remaining for each rep',companySales:'Company sales',salesDetails:'Sales details',paidDetails:'Paid details',remainingDetails:'Outstanding details',quantityDetails:'Quantity details',targetDetails:'Target details',achievementDetails:'Target achievement details',clickForDetails:'Click for details',companyAllSales:'Total Company Sales During Period',moneyTarget:'Money target',moneyAchieved:'Money achieved',moneyRemaining:'Money remaining',moneyAchievement:'Money target achievement',qtyTarget:'Company quantity target',qtyAchieved:'Quantity achieved',qtyRemaining:'Quantity remaining',qtyAchievement:'Quantity target achievement',companyBreakdown:'Company sales breakdown',notSet:'Not set',selectedScope:'Selected scope details',territoryMaster:'Territory & Area Map',territoryMasterSub:'Single source for territories, neighborhoods and current owner',currentRep:'Current rep',legacyRep:'Legacy rep',areas:'Areas',currentCoverage:'Current rep coverage',historicalSales:'Historical sales',historicalQty:'Historical quantity',historicalInvoices:'Historical invoices',customersTitle:'Customers & Receivables',customersSub:'Customers, receivables and rep splits from the database',totalCustomers:'Total customers',customersWithDebt:'Customers with debt',customersClear:'Customers with no debt',repSplits:'Rep splits',searchCustomer:'Search by customer, clinic or phone…',clinic:'Clinic',phone:'Phone',area:'Area / Region',customerDetails:'Customer details',customerInvoices:'Customer invoices',customerCollections:'Customer collections',customerReps:'Customer reps',salesLines:'Sales lines',openDetails:'Open details',approvedOrders:'Approved orders',pendingOrders:'Pending orders',purchaseDue:'Purchase due',purchasePaid:'Purchase paid',allPurchases:'All purchases',allInventory:'All inventory',lowInventory:'Low inventory',zeroInventory:'Out of stock',repPerformance:'Rep performance',territoryDetails:'Territory details',areaCustomers:'Area customers',noCustomerData:'No customer data',suppliersTitle:'Suppliers & Payables',suppliersSub:'Suppliers, payable balances and linked purchase invoices',totalSuppliers:'Total suppliers',suppliersWithDue:'Suppliers with due',supplierDueTotal:'Total supplier due',supplierPurchases:'Supplier purchases',supplierProducts:'Supplier products',supplierDetails:'Supplier details',email:'Email',brand:'Brand',purchasesTitle:'Purchases',purchasesModuleSub:'Purchase invoices, paid amounts and outstanding balances',purchaseInvoices:'Purchase invoices',purchaseQty:'Purchase quantity',purchaseDetails:'Purchase invoice details',invoiceNumber:'Invoice number',lot:'Lot',operationsTitle:'Operations / Warehouse Orders',operationsModuleSub:'Operational requests, preparation/sale status, customer, rep and product links',allOperations:'All operations',requestedOps:'Requested',preparedOps:'Prepared',soldOps:'Sold',cancelledOps:'Cancelled',operationValue:'Operations value',operationDetails:'Operation details',warehouseOrders:'Orders / Sales Requests',approvedOrdersCount:'Approved orders',pendingOrdersCount:'Pending orders',dispatchedOrders:'Dispatched orders',operationType:'Operation type',readOnlyWriteNotice:'Live read and drill-down are active. Add/edit actions will be enabled only through secured RPCs.',salesModuleTitle:'Invoices & Sales',salesModuleSub:'Approved invoices, paid, outstanding and invoice status',fullyPaid:'Fully paid',partialPaid:'Partially paid',unpaid:'Unpaid',zeroValue:'Zero value',paidInvoiceRows:'Invoices with payment',invoiceDetails:'Invoice details',collectionsTitle:'Collections',collectionsSub:'Cash received, invoice application and unapplied customer credit',cashReceived:'Cash received',appliedToInvoices:'Applied to invoices',unappliedCredit:'Unapplied credit',collectionCount:'Collection count',receivables:'Receivables',collectionDetails:'Collection details',collectorRep:'Collector rep',reportsTitle:'Reports',reportsSub:'Period reports for sales, purchases, collections, operations and expenses',fromDate:'From date',toDate:'To date',apply:'Apply',reset:'Reset',print:'Print',exportCsv:'Export CSV',period:'Period',reportSales:'Period sales',reportPurchases:'Period purchases',reportCollections:'Period collections',reportOperations:'Period operations',reportExpenses:'Period expenses',reportReceivables:'Current receivables',financeTitle:'Finance',financeSub:'Financial summary, accounts and ledger',cashBalance:'Treasury balance',accountsReceivable:'Accounts receivable',inventoryAsset:'Inventory value',netIncome:'Current period result',totalAssets:'Total assets',revenue:'Revenue',cogsLabel:'Cost of goods sold',expensesLabel:'Expenses',ledgerEntries:'Journal entries',ledgerLines:'Journal lines',account:'Account',accountType:'Account type',debit:'Debit',credit:'Credit',balance:'Balance',entryDetails:'Journal details',trialTitle:'Trial Balance',trialSub:'Account balances from the ledger',totalDebit:'Total debit',totalCredit:'Total credit',trialDifference:'Trial difference',balanced:'Balanced',unbalanced:'Unbalanced',cashflowTitle:'Cash Flow',cashflowSub:'Cash and bank movements by period',openingCash:'Opening cash',cashIn:'Cash in',cashOut:'Cash out',closingCash:'Closing cash',movementCount:'Movement count',movementType:'Movement type',party:'Party / Description',effect:'Effect',classification:'Classification',source:'Source',financeReadOnly:'Finance is read/report-only at this stage; financial writes remain behind secured RPC/cutover gates.',downloaded:'File prepared',allAccounts:'All accounts',login:'Login',logout:'Logout',loginTitle:'Secure Login',loginSub:'Sign in with username and password — passwords are never stored in the application',password:'Password',signIn:'Sign in',signedIn:'Signed in',notSignedIn:'Not signed in',authLinked:'Auth account linked to application profile',authUnlinked:'Auth account is not linked yet',claimProfile:'Link account to existing profile',authSetupNote:'First-time setup only: create an internal النظام Auth user for the username. Employees sign in with username only; no official email is required.',usersTitle:'Users & Permissions',usersSub:'Manage application profiles and the permission matrix from the database',active:'Active',inactive:'Disabled',role:'Role',authStatus:'Auth status',linked:'Linked',pendingLink:'Pending link',permissions:'Permissions',viewPerm:'View',addPerm:'Add',editPerm:'Edit',deletePerm:'Delete',add:'Add',amount:'Amount',save:'Save',saveProfile:'Save user',savePermissions:'Save permissions',addUserProfile:'Add user profile',newUserProfile:'New user profile',createProfile:'Create profile',authAccountReminder:'After creating the profile, create the النظام Auth user with the internal alias shown for that username. Employees still sign in using username only.',activityLog:'Activity Log',settingsTitle:'System Settings',settingsSub:'Company settings and system health',companyName:'Company name',subtitle:'Subtitle',saveCompany:'Save company settings',coreHealth:'System status',authHealth:'Authentication status',profileHealth:'Profile status',permissionDenied:'You do not have permission to open this section',loginRequired:'Sign in to access users and permissions',profileSaved:'User profile saved',permissionsSaved:'Permissions saved',settingsSaved:'Settings saved',profileCreated:'User profile created',loginFailed:'Login failed',sessionExpired:'Session expired',superAdmin:'Super Admin',myProfile:'My profile',module:'Module',auditAction:'Action',auditEntity:'Entity',auditTime:'Time',authPublicMode:'Secure mode is active: system data is not loaded before login, and user permissions control navigation and modules.',username:'Username',internalAuthAlias:'Internal Auth alias',usernameRule:'Use English letters, numbers, dot, underscore or hyphen only',officialEmailLater:'Official email can be added later without changing the username.',linking:'Linking account…',linkSuccess:'Account linked successfully',linkFailed:'Account linking failed',secureLoginTitle:'Sign in to Mahsoubak Business',secureLoginSub:'Login is required before system data is loaded. Each user sees only permitted modules.',secureMode:'Secure Mode',enterCredentials:'Enter username and password',sessionRequired:'Please sign in first',noModulePermission:'You do not have permission to open this module',secureLogout:'Signed out of the secure session',newOrder:'New order',createOrder:'Create order',approveOrder:'Approve order',rejectOrder:'Reject order',dispatchOrder:'Dispatch from warehouse',dispatchConfirm:'This creates the sale, deducts stock and posts accounting exactly once. Continue?',approveConfirm:'Approve this order?',rejectConfirm:'Reject this order?',orderCreated:'Order created',orderApproved:'Order approved',orderRejected:'Order rejected',orderDispatched:'Order dispatched and sale created successfully',selectCustomer:'Select customer',selectRep:'Select rep',selectProduct:'Select product',selectLot:'Select lot',availableQty:'Available',salePrice:'Sale price',paidNow:'Paid now',orderType:'Order type',normalSale:'Sale',bonus:'Bonus',displayOrder:'Display',sampleOrder:'Sample',freeOrder:'Free',orderWorkflowLive:'Workflow: order → approval → warehouse dispatch → invoice and stock update',purchaseStillLocked:'Purchases remain locked until inventory/accounting cutover is completed.',newPurchaseInvoice:'New Purchase Invoice',addPurchaseLine:'Add Item',savePurchaseInvoice:'Save Purchase Invoice',purchaseInvoiceLive:'Purchases are live: one invoice updates inventory, supplier payable, treasury, accounting and Cash Flow atomically.',purchaseDate:'Purchase date',selectSupplier:'Select supplier',invoicePaid:'Invoice paid',invoiceTotal:'Invoice total',invoiceRemaining:'Supplier remaining',existingLot:'Existing LOT',newLot:'New LOT',lotNumber:'LOT number',expiry:'Expiry',removeLine:'Remove line',purchaseSaved:'Purchase invoice saved successfully',newSupplier:'New Supplier',supplierSaved:'Supplier saved',supplierName:'Supplier name',purchaseWriteActive:'Purchases are active',invoiceLines:'Invoice items',purchaseRuntimeV2:'Finance, inventory and treasury refresh immediately after save.',requiredField:'Required data is missing',paidExceedsTotal:'Paid amount exceeds invoice total',cashflowApprovedTitle:'Collections and Expenses During',firstHalf:'1st Half',secondHalf:'2nd Half',customPeriod:'Custom Period',month:'Month',days:'Days',incomeSection:'Income / Collections',cashOutSection:'Cash Out',totalIncome:'Total Income',totalCashOut:'Total Cash Out',surplusDef:'Surplus Or Def.',fundBalances:'Cash & Bank Balances',cumulativeSummary:'Cumulative Summary',routeStatus:'Movement routing',needsRouting:'movements need cash/bank routing',fullyRouted:'All movements are routed',setOpening:'Set opening balance',routeMovement:'Route movement',routeWholeMovement:'Route full movement',fund:'Cashbox / Bank',category:'Category',nativeAmount:'Native amount',fxRate:'FX rate',egpValue:'EGP value',approveOpening:'Approve opening balance',openingNotApproved:'No approved opening balances exist; current figures use the available canonical movements only.',temporaryUnallocated:'Temporarily unallocated',reconciliation:'Treasury reconciliation',canonicalTreasury:' treasury balance',displayedFundsTotal:'Displayed funds total',routingSaved:'Movement routing saved',openingSaved:'Opening balance saved',cashflowAudit:'Cash Flow Audit',treasuryMatchCheck:'Treasury Match',routingCheck:'Movement Routing',continuityCheck:'Daily Balance Continuity',fundTotalCheck:'Fund Total',checkPassed:'Passed',checkWarning:'Review Required',openingManager:'Opening Balance Manager',latestOpening:'Latest Opening',noOpening:'No opening balance',editOpening:'Edit opening',printCashFlowOnly:'Print Cash Flow Only',cashflowExportClean:'Formatted Excel Export',openingDate:'Opening Date',openingStatus:'Approval Status',auditReady:'Cash Flow matches and is ready for review',auditNeedsReview:'Cash Flow needs review before sign-off',exportExcel:'Export Excel',cellDetails:'Cell details',noMovements:'No movements for this cell',movementRouting:'Route movement to cashbox/bank',openingBalanceEditor:'Opening Balance',approved:'Approved',notApproved:'Not approved',cashflowReady:'Cash Flow Foundation ready',refreshCashflow:'Refresh Cash Flow',newCollection:'New Collection',saveCollection:'Save Collection',collectionLive:'Collections are live and secured: cash increases the selected fund, allocated amounts reduce invoice receivables, and any remainder stays as customer credit.',collectionDate:'Collection date',collectionAmount:'Collection amount',selectFund:'Select cashbox / bank',allocationMode:'Collection allocation',autoAllocate:'Auto allocate',clearAllocation:'Clear allocation',outstandingInvoices:'Outstanding invoices',invoiceOutstanding:'Invoice outstanding',allocateAmount:'Allocated amount',allocatedTotal:'Allocated total',unappliedAfter:'Unapplied after save',customerCurrentDebt:'Current customer receivable',collectionSaved:'Collection saved successfully',allocationExceedsCollection:'Allocated total exceeds collection amount',allocationExceedsInvoice:'An allocation exceeds invoice outstanding',collectionWriteActive:'Collections are active',collectionRuntimeV2:'Collections are connected directly to receivables, treasury, accounting and Cash Flow النظام',noOutstandingInvoices:'This customer has no outstanding invoices — the amount can still be recorded as unapplied customer credit.',collectionFund:'Cashbox / Bank',openInvoice:'Open invoice',allocatedInvoices:'Allocated invoices',customerCreditNote:'Any unapplied amount remains customer credit; it is never discarded.',collectionHealth:'Collection health'
+  targetModuleTitle:'Sales Target',targetModuleSub:'Target, achieved and remaining for each rep',companySales:'Company sales',salesDetails:'Sales details',paidDetails:'Paid details',remainingDetails:'Outstanding details',quantityDetails:'Quantity details',targetDetails:'Target details',achievementDetails:'Target achievement details',clickForDetails:'Click for details',companyAllSales:'Total Company Sales During Period',moneyTarget:'Money target',moneyAchieved:'Money achieved',moneyRemaining:'Money remaining',moneyAchievement:'Money target achievement',qtyTarget:'Company quantity target',qtyAchieved:'Quantity achieved',qtyRemaining:'Quantity remaining',qtyAchievement:'Quantity target achievement',companyBreakdown:'Company sales breakdown',notSet:'Not set',selectedScope:'Selected scope details',territoryMaster:'Territory & Area Map',territoryMasterSub:'Single source for territories, neighborhoods and current owner',currentRep:'Current rep',legacyRep:'Legacy rep',areas:'Areas',currentCoverage:'Current rep coverage',historicalSales:'Historical sales',historicalQty:'Historical quantity',historicalInvoices:'Historical invoices',customersTitle:'Customers & Receivables',customersSub:'Customers, receivables and rep splits from the database',totalCustomers:'Total customers',customersWithDebt:'Customers with debt',customersClear:'Customers with no debt',repSplits:'Rep splits',searchCustomer:'Search by customer, clinic or phone…',clinic:'Clinic',phone:'Phone',area:'Area / Region',customerDetails:'Customer details',customerInvoices:'Customer invoices',customerCollections:'Customer collections',customerReps:'Customer reps',salesLines:'Sales lines',openDetails:'Open details',approvedOrders:'Approved orders',pendingOrders:'Pending orders',purchaseDue:'Purchase due',purchasePaid:'Purchase paid',allPurchases:'All purchases',allInventory:'All inventory',lowInventory:'Low inventory',zeroInventory:'Out of stock',repPerformance:'Rep performance',territoryDetails:'Territory details',areaCustomers:'Area customers',noCustomerData:'No customer data',suppliersTitle:'Suppliers & Payables',suppliersSub:'Suppliers, payable balances and linked purchase invoices',totalSuppliers:'Total suppliers',suppliersWithDue:'Suppliers with due',supplierDueTotal:'Total supplier due',supplierPurchases:'Supplier purchases',supplierProducts:'Supplier products',supplierDetails:'Supplier details',email:'Email',brand:'Brand',purchasesTitle:'Purchases',purchasesModuleSub:'Purchase invoices, paid amounts and outstanding balances',purchaseInvoices:'Purchase invoices',purchaseQty:'Purchase quantity',purchaseDetails:'Purchase invoice details',invoiceNumber:'Invoice number',lot:'Lot',operationsTitle:'Operations / Warehouse Orders',operationsModuleSub:'Operational requests, preparation/sale status, customer, rep and product links',allOperations:'All operations',requestedOps:'Requested',preparedOps:'Prepared',soldOps:'Sold',cancelledOps:'Cancelled',operationValue:'Operations value',operationDetails:'Operation details',warehouseOrders:'Orders / Sales Requests',approvedOrdersCount:'Approved orders',pendingOrdersCount:'Pending orders',dispatchedOrders:'Dispatched orders',operationType:'Operation type',readOnlyWriteNotice:'Live read and drill-down are active. Add/edit actions will be enabled only through secured RPCs.',salesModuleTitle:'Invoices & Sales',salesModuleSub:'Approved invoices, paid, outstanding and invoice status',fullyPaid:'Fully paid',partialPaid:'Partially paid',unpaid:'Unpaid',zeroValue:'Zero value',paidInvoiceRows:'Invoices with payment',invoiceDetails:'Invoice details',collectionsTitle:'Collections',collectionsSub:'Cash received, invoice application and unapplied customer credit',cashReceived:'Cash received',appliedToInvoices:'Applied to invoices',unappliedCredit:'Unapplied credit',collectionCount:'Collection count',collectionDetails:'Collection details',collectorRep:'Collector rep',reportsTitle:'Reports',reportsSub:'Period reports for sales, purchases, collections, operations and expenses',fromDate:'From date',toDate:'To date',apply:'Apply',reset:'Reset',print:'Print',exportCsv:'Export CSV',period:'Period',reportSales:'Period sales',reportPurchases:'Period purchases',reportCollections:'Period collections',reportOperations:'Period operations',reportExpenses:'Period expenses',reportReceivables:'Current receivables',financeTitle:'Finance',financeSub:'Financial summary, accounts and ledger',cashBalance:'Treasury balance',accountsReceivable:'Accounts receivable',inventoryAsset:'Inventory value',netIncome:'Current period result',totalAssets:'Total assets',revenue:'Revenue',cogsLabel:'Cost of goods sold',expensesLabel:'Expenses',ledgerEntries:'Journal entries',ledgerLines:'Journal lines',account:'Account',accountType:'Account type',debit:'Debit',credit:'Credit',balance:'Balance',entryDetails:'Journal details',trialTitle:'Trial Balance',trialSub:'Account balances from the ledger',totalDebit:'Total debit',totalCredit:'Total credit',trialDifference:'Trial difference',balanced:'Balanced',unbalanced:'Unbalanced',cashflowTitle:'Cash Flow',cashflowSub:'Cash and bank movements by period',openingCash:'Opening cash',cashIn:'Cash in',cashOut:'Cash out',closingCash:'Closing cash',movementCount:'Movement count',movementType:'Movement type',party:'Party / Description',effect:'Effect',classification:'Classification',source:'Source',financeReadOnly:'Finance is read/report-only at this stage; financial writes remain behind secured RPC/cutover gates.',downloaded:'File prepared',allAccounts:'All accounts',login:'Login',logout:'Logout',loginTitle:'Secure Login',loginSub:'Sign in with username and password — passwords are never stored in the application',password:'Password',signIn:'Sign in',signedIn:'Signed in',notSignedIn:'Not signed in',authLinked:'Auth account linked to application profile',authUnlinked:'Auth account is not linked yet',claimProfile:'Link account to existing profile',authSetupNote:'First-time setup only: create an internal النظام Auth user for the username. Employees sign in with username only; no official email is required.',usersTitle:'Users & Permissions',usersSub:'Manage application profiles and the permission matrix from the database',active:'Active',inactive:'Disabled',role:'Role',authStatus:'Auth status',linked:'Linked',pendingLink:'Pending link',permissions:'Permissions',viewPerm:'View',addPerm:'Add',editPerm:'Edit',deletePerm:'Delete',add:'Add',amount:'Amount',save:'Save',saveProfile:'Save user',savePermissions:'Save permissions',addUserProfile:'Add user profile',newUserProfile:'New user profile',createProfile:'Create profile',authAccountReminder:'After creating the profile, create the النظام Auth user with the internal alias shown for that username. Employees still sign in using username only.',activityLog:'Activity Log',settingsTitle:'System Settings',settingsSub:'Company settings and system health',companyName:'Company name',subtitle:'Subtitle',saveCompany:'Save company settings',coreHealth:'System status',authHealth:'Authentication status',profileHealth:'Profile status',permissionDenied:'You do not have permission to open this section',loginRequired:'Sign in to access users and permissions',profileSaved:'User profile saved',permissionsSaved:'Permissions saved',settingsSaved:'Settings saved',profileCreated:'User profile created',loginFailed:'Login failed',sessionExpired:'Session expired',superAdmin:'Super Admin',myProfile:'My profile',module:'Module',auditAction:'Action',auditEntity:'Entity',auditTime:'Time',authPublicMode:'Secure mode is active: system data is not loaded before login, and user permissions control navigation and modules.',username:'Username',internalAuthAlias:'Internal Auth alias',usernameRule:'Use English letters, numbers, dot, underscore or hyphen only',officialEmailLater:'Official email can be added later without changing the username.',linking:'Linking account…',linkSuccess:'Account linked successfully',linkFailed:'Account linking failed',secureLoginTitle:'Sign in to Mahsoubak Business',secureLoginSub:'Login is required before system data is loaded. Each user sees only permitted modules.',secureMode:'Secure Mode',enterCredentials:'Enter username and password',sessionRequired:'Please sign in first',noModulePermission:'You do not have permission to open this module',secureLogout:'Signed out of the secure session',newOrder:'New order',createOrder:'Create order',approveOrder:'Approve order',rejectOrder:'Reject order',dispatchOrder:'Dispatch from warehouse',dispatchConfirm:'This creates the sale, deducts stock and posts accounting exactly once. Continue?',approveConfirm:'Approve this order?',rejectConfirm:'Reject this order?',orderCreated:'Order created',orderApproved:'Order approved',orderRejected:'Order rejected',orderDispatched:'Order dispatched and sale created successfully',selectCustomer:'Select customer',selectRep:'Select rep',selectProduct:'Select product',selectLot:'Select lot',availableQty:'Available',salePrice:'Sale price',paidNow:'Paid now',orderType:'Order type',normalSale:'Sale',bonus:'Bonus',displayOrder:'Display',sampleOrder:'Sample',freeOrder:'Free',orderWorkflowLive:'Workflow: order → approval → warehouse dispatch → invoice and stock update',purchaseStillLocked:'Purchases remain locked until inventory/accounting cutover is completed.',newPurchaseInvoice:'New Purchase Invoice',addPurchaseLine:'Add Item',savePurchaseInvoice:'Save Purchase Invoice',purchaseInvoiceLive:'Purchases are live: one invoice updates inventory, supplier payable, treasury, accounting and Cash Flow atomically.',purchaseDate:'Purchase date',selectSupplier:'Select supplier',invoicePaid:'Invoice paid',invoiceTotal:'Invoice total',invoiceRemaining:'Supplier remaining',existingLot:'Existing LOT',newLot:'New LOT',lotNumber:'LOT number',expiry:'Expiry',removeLine:'Remove line',purchaseSaved:'Purchase invoice saved successfully',newSupplier:'New Supplier',supplierSaved:'Supplier saved',supplierName:'Supplier name',purchaseWriteActive:'Purchases are active',invoiceLines:'Invoice items',purchaseRuntimeV2:'Finance, inventory and treasury refresh immediately after save.',requiredField:'Required data is missing',paidExceedsTotal:'Paid amount exceeds invoice total',cashflowApprovedTitle:'Collections and Expenses During',firstHalf:'1st Half',secondHalf:'2nd Half',customPeriod:'Custom Period',month:'Month',days:'Days',incomeSection:'Income / Collections',cashOutSection:'Cash Out',totalIncome:'Total Income',totalCashOut:'Total Cash Out',surplusDef:'Surplus Or Def.',fundBalances:'Cash & Bank Balances',cumulativeSummary:'Cumulative Summary',routeStatus:'Movement routing',needsRouting:'movements need cash/bank routing',fullyRouted:'All movements are routed',setOpening:'Set opening balance',routeMovement:'Route movement',routeWholeMovement:'Route full movement',fund:'Cashbox / Bank',category:'Category',nativeAmount:'Native amount',fxRate:'FX rate',egpValue:'EGP value',approveOpening:'Approve opening balance',openingNotApproved:'No approved opening balances exist; current figures use the available canonical movements only.',temporaryUnallocated:'Temporarily unallocated',reconciliation:'Treasury reconciliation',canonicalTreasury:' treasury balance',displayedFundsTotal:'Displayed funds total',routingSaved:'Movement routing saved',openingSaved:'Opening balance saved',cashflowAudit:'Cash Flow Audit',treasuryMatchCheck:'Treasury Match',routingCheck:'Movement Routing',continuityCheck:'Daily Balance Continuity',fundTotalCheck:'Fund Total',checkPassed:'Passed',checkWarning:'Review Required',openingManager:'Opening Balance Manager',latestOpening:'Latest Opening',noOpening:'No opening balance',editOpening:'Edit opening',printCashFlowOnly:'Print Cash Flow Only',cashflowExportClean:'Formatted Excel Export',openingDate:'Opening Date',openingStatus:'Approval Status',auditReady:'Cash Flow matches and is ready for review',auditNeedsReview:'Cash Flow needs review before sign-off',exportExcel:'Export Excel',cellDetails:'Cell details',noMovements:'No movements for this cell',movementRouting:'Route movement to cashbox/bank',openingBalanceEditor:'Opening Balance',approved:'Approved',notApproved:'Not approved',cashflowReady:'Cash Flow Foundation ready',refreshCashflow:'Refresh Cash Flow',newCollection:'New Collection',saveCollection:'Save Collection',collectionLive:'Collections are live and secured: cash increases the selected fund, allocated amounts reduce invoice receivables, and any remainder stays as customer credit.',collectionDate:'Collection date',collectionAmount:'Collection amount',selectFund:'Select cashbox / bank',allocationMode:'Collection allocation',autoAllocate:'Auto allocate',clearAllocation:'Clear allocation',outstandingInvoices:'Outstanding invoices',invoiceOutstanding:'Invoice outstanding',allocateAmount:'Allocated amount',allocatedTotal:'Allocated total',unappliedAfter:'Unapplied after save',customerCurrentDebt:'Current customer receivable',collectionSaved:'Collection saved successfully',allocationExceedsCollection:'Allocated total exceeds collection amount',allocationExceedsInvoice:'An allocation exceeds invoice outstanding',collectionWriteActive:'Collections are active',collectionRuntimeV2:'Collections are connected directly to receivables, treasury, accounting and Cash Flow النظام',noOutstandingInvoices:'This customer has no outstanding invoices — the amount can still be recorded as unapplied customer credit.',collectionFund:'Cashbox / Bank',openInvoice:'Open invoice',allocatedInvoices:'Allocated invoices',customerCreditNote:'Any unapplied amount remains customer credit; it is never discarded.',collectionHealth:'Collection health'
  }
 };
 const T=k=>TR[LANG][k]??k;
@@ -1972,8 +1956,9 @@ function renderCollectionsModule(){
  const applied=rows.reduce((a,r)=>a+N(r.applied_to_invoices),0);
  const unapplied=rows.reduce((a,r)=>a+N(r.unapplied_customer_credit),0);
 
- $('view-collections').innerHTML=`<div class="module-head"><div><h3>${T('collectionsTitle')}</h3></div>
+ $('view-collections').innerHTML=`<div class="module-head"><div><h3>${T('collectionsTitle')}</h3><p>${T('collectionsSub')}</p></div>
  <div class="module-tools">${authCan('collections','add')?`<button class="btn secondary" onclick="openNewCollection()">＋ ${T('newCollection')}</button>`:''}</div></div>
+ <div class="c18-live"><b>${T('collectionWriteActive')}</b> — ${T('collectionLive')}<br><span class="p17-note">${T('collectionRuntimeV2')} • ${esc(ch.status||'PHASE6G4A_COLLECTION_CUTOVER_READY')}</span></div>
  <div class="module-grid">
   <div class="mini-card" onclick="openCollectionSummary('all')"><span>${T('cashReceived')}</span><b>${money(cash)}</b><small>${rows.length} ${T('collectionCount')}</small></div>
   <div class="mini-card" onclick="openCollectionSummary('applied')"><span>${T('appliedToInvoices')}</span><b>${money(applied)}</b></div>
@@ -3950,7 +3935,58 @@ function b19DocumentHtml(batch,lines,type){
  const title=type==='delivery'?(LANG==='ar'?'إذن تسليم':'Delivery Note'):(LANG==='ar'?'فاتورة بيع':'Sales Invoice');
  return `<!doctype html><html dir="${LANG==='ar'?'rtl':'ltr'}"><head><meta charset="utf-8"><title>${esc(title)}</title><style>body{font-family:Arial,sans-serif;padding:28px;color:#111}h1{margin:0 0 4px}.meta{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:20px 0}.box{border:1px solid #ddd;padding:10px;border-radius:8px}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #ddd;padding:9px;text-align:${LANG==='ar'?'right':'left'}}tfoot td{font-weight:bold}</style></head><body><h1>${esc(title)}</h1><div>Mahsoubak Business</div><div class="meta"><div class="box">${LANG==='ar'?'رقم الفاتورة':'Invoice'}: <b>${esc(batch.invoice_number||batch.id)}</b></div><div class="box">${T('date')}: <b>${esc(S(batch.order_date).slice(0,10))}</b></div><div class="box">${T('customer')}: <b>${esc(batch.customer_name||'-')}</b></div><div class="box">${T('rep')}: <b>${esc(batch.rep_name||'-')}</b></div></div><table><thead><tr><th>#</th><th>${T('product')}</th><th>${T('lot')}</th><th>${T('qty')}</th><th>${T('orderType')}</th>${type==='invoice'?`<th>${T('price')}</th><th>${T('total')}</th>`:''}</tr></thead><tbody>${lines.map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.product_name||'-')}</td><td>${esc(x.lot_number||'-')}</td><td>${num(x.qty,2)}</td><td>${esc(b19LineTypeLabel(x.order_type))}</td>${type==='invoice'?`<td>${money(x.price)}</td><td>${money(N(x.qty)*N(x.price))}</td>`:''}</tr>`).join('')}</tbody>${type==='invoice'?`<tfoot><tr><td colspan="6">${T('total')}</td><td>${money(batch.total)}</td></tr><tr><td colspan="6">${T('paid')}</td><td>${money(batch.paid)}</td></tr><tr><td colspan="6">${T('remaining')}</td><td>${money(batch.remaining)}</td></tr></tfoot>`:''}</table><script>window.print()<\/script></body></html>`;
 }
-function b19PrintDocument(id,type){const b=b19Batches().find(x=>S(x.id)===S(id));if(!b)return;const lines=b19Lines().filter(x=>S(x.batch_id)===S(id)).sort((a,z)=>N(a.line_index)-N(z.line_index));const w=window.open('','_blank');if(!w)return;w.document.open();w.document.write(b19DocumentHtml(b,lines,type));w.document.close()}
+/* ===== INVOICE DB SOURCE LOCK =====
+   Printed Sales Invoice / Delivery Note keep the original client layout,
+   but source their values from the canonical Supabase sales document views.
+   Legacy order batch data remains a read-only fallback for historical rows.
+   ============================================================ */
+function b19InvoiceKey(r){
+ return S(r&&(
+  r.invoice_ref||r.invoice_number||r.invoice_no||r.invoice_key||r.invoice_group_id||
+  r.batch_invoice_number||r.document_number||r.document_ref||r.batch_id||r.id
+ ));
+}
+function b19CanonicalPrintData(id){
+ const legacyBatch=b19Batches().find(x=>S(x.id)===S(id));
+ if(!legacyBatch)return null;
+ const wanted=[S(legacyBatch.invoice_number),S(legacyBatch.invoice_ref),S(legacyBatch.id)].filter(Boolean);
+ const match=r=>{
+  const keys=[b19InvoiceKey(r),S(r&&r.batch_id),S(r&&r.order_batch_id),S(r&&r.invoice_group_id),S(r&&r.order_id)].filter(Boolean);
+  return wanted.some(w=>keys.includes(w));
+ };
+ let sourceRows=A(D.salesDocuments).filter(match);
+ if(!sourceRows.length)sourceRows=A(D.salesLines).filter(match);
+ const summary=A(D.invoices).find(match)||{};
+ const legacyLines=b19Lines().filter(x=>S(x.batch_id)===S(id)).sort((a,z)=>N(a.line_index)-N(z.line_index));
+ if(!sourceRows.length)return {batch:legacyBatch,lines:legacyLines,source:'legacy_fallback'};
+ const first=sourceRows[0]||{};
+ const totalFromLines=sourceRows.reduce((a,r)=>a+N(r.line_total??r.total??(N(r.qty)*N(r.price))),0);
+ const paid=N(summary.paid??summary.invoice_paid??first.invoice_paid??first.paid??legacyBatch.paid);
+ const total=N(summary.invoice_total??summary.total??first.invoice_total??first.document_total??legacyBatch.total??totalFromLines);
+ const remaining=N(summary.remaining??summary.invoice_remaining??first.invoice_remaining??first.remaining??legacyBatch.remaining??Math.max(0,total-paid));
+ const batch=Object.assign({},legacyBatch,{
+  invoice_number:S(summary.invoice_ref||summary.invoice_number||first.invoice_ref||first.invoice_number||legacyBatch.invoice_number||legacyBatch.id),
+  order_date:S(summary.invoice_date||summary.sale_date||first.invoice_date||first.sale_date||first.order_date||legacyBatch.order_date).slice(0,10),
+  customer_name:S(summary.customer_name||first.customer_name||legacyBatch.customer_name||'-'),
+  rep_name:S(summary.rep_name||first.rep_name||legacyBatch.rep_name||'-'),
+  total,paid,remaining
+ });
+ const lines=sourceRows.map((r,i)=>({
+  line_index:N(r.line_index??r.line_no??i+1),
+  product_name:S(r.product_name||r.product||'-'),
+  lot_number:S(r.lot_number||r.lot||r.batch_number||'-'),
+  qty:N(r.qty??r.quantity),
+  order_type:S(r.order_type||r.line_type||'sale'),
+  price:N(r.price??r.unit_price??r.sale_price),
+  line_total:N(r.line_total??r.total??(N(r.qty??r.quantity)*N(r.price??r.unit_price??r.sale_price)))
+ })).sort((a,z)=>N(a.line_index)-N(z.line_index));
+ return {batch,lines,source:'supabase_canonical'};
+}
+function b19PrintDocument(id,type){
+ const doc=b19CanonicalPrintData(id);if(!doc)return;
+ const w=window.open('','_blank');if(!w)return;
+ w.document.open();w.document.write(b19DocumentHtml(doc.batch,doc.lines,type));w.document.close();
+}
 function b19WhatsApp(id){const b=b19Batches().find(x=>S(x.id)===S(id));if(!b)return;const c=A(D.customers).find(x=>S(x.id)===S(b.customer_id));const phone=S(c&&c.phone).replace(/\D/g,'');const lines=b19Lines().filter(x=>S(x.batch_id)===S(id));const items=lines.map(x=>`${x.product_name||'-'} × ${num(x.qty,2)}`).join('\n');const msg=encodeURIComponent(`Mahsoubak Business\n${LANG==='ar'?'فاتورة':'Invoice'}: ${b.invoice_number||b.id}\n${LANG==='ar'?'العميل':'Customer'}: ${b.customer_name||'-'}\n${items}\n${LANG==='ar'?'الإجمالي':'Total'}: ${money(b.total)}\n${LANG==='ar'?'المتبقي':'Remaining'}: ${money(b.remaining)}`);window.open(`https://wa.me/${phone?phone:''}?text=${msg}`,'_blank')}
 const _b19OpenBatchBuild04=b19OpenBatch;
 b19OpenBatch=function(id){const b=b19Batches().find(x=>S(x.id)===S(id));if(!b)return _b19OpenBatchBuild04(id);const lines=b19Lines().filter(x=>S(x.batch_id)===S(id)).sort((a,z)=>N(a.line_index)-N(z.line_index));const c=A(D.customers).find(x=>S(x.id)===S(b.customer_id));const canReview=(b.can_review===true||norm(b.status)==='pending')&&authCan('sales','edit');const actions=canReview?`<button class="btn ok" onclick="b19ReviewBatch('${esc(id)}','approved')">${b19t('اعتماد الفاتورة','Approve invoice')}</button><button class="btn secondary" onclick="b19ReviewBatch('${esc(id)}','rejected')">${b19t('رفض الفاتورة','Reject invoice')}</button>`:'';openModal(b19t('تفاصيل الطلب / الفاتورة','Order / Invoice Details')+' — '+esc(b.invoice_number||id),`<div class="detail-grid">${detail(T('date'),esc(S(b.order_date).slice(0,10)))}${detailClick(T('customer'),esc(b.customer_name||'-'),c?`openCustomerByKey('${esc(customerKey(c))}')`:"")}${detail(T('rep'),esc(b.rep_name||'-'))}${detail(b19t('عدد الأصناف','Line count'),num(b.actual_line_count??b.line_count,0))}${detail(T('total'),money(b.total))}${detail(T('paid'),money(b.paid))}${detail(T('remaining'),money(b.remaining))}${detail(T('status'),esc(b.operation_status==='dispatched'?'dispatched':b.approval_status||b.status||'-'))}</div><div class="doc-actions"><button class="btn blue" onclick="b19PrintDocument('${esc(id)}','invoice')">🧾 ${LANG==='ar'?'فاتورة':'Invoice'}</button><button class="btn ok" onclick="b19PrintDocument('${esc(id)}','delivery')">📦 ${LANG==='ar'?'إذن تسليم':'Delivery Note'}</button><button class="btn secondary" onclick="b19WhatsApp('${esc(id)}')">💬 WhatsApp</button>${actions}</div><div class="report-section"><h4>${b19t('أصناف الفاتورة','Invoice lines')}</h4>${b19BatchLinesTable(lines)}</div><div class="parity-note">${LANG==='ar'?'الاعتماد لا يخصم المخزون. خروج المخزن الفعلي يتم من Operation / المخزن فقط.':'Approval does not deduct inventory. Actual dispatch is performed only from Operations.'}</div>`)}
@@ -4322,8 +4358,7 @@ function canonicalDetailRows(key){
 }
 function canonicalDetailTable(key,rows){
  if(['sales_total','sales_paid','paid_sales','invoice_count','fully_paid_invoices','paid_invoices','partial_invoices','unpaid_invoices','zero_value_invoices'].includes(key))return invoiceTableHtml(rows);
- if(key==='receivables')return invoiceTableHtml(rows);
- if(key==='customers_with_receivable')return table([[T('customer'),r=>esc(r.customer_name||'-')],[T('invoiceCount'),r=>num(r.open_invoice_count??r.invoice_count,0)],[T('remaining'),r=>money(r.total_outstanding??r.receivable_balance)],[LANG==='ar'?'0–30 يوم':'0–30 days',r=>money(r.bucket_0_30)],[LANG==='ar'?'31–60 يوم':'31–60 days',r=>money(r.bucket_31_60)],[LANG==='ar'?'61–90 يوم':'61–90 days',r=>money(r.bucket_61_90)],[LANG==='ar'?'+90 يوم':'+90 days',r=>money(r.bucket_90_plus)]],rows);
+ if(key==='receivables'||key==='customers_with_receivable')return table([[T('customer'),r=>esc(r.customer_name||'-')],[T('invoiceCount'),r=>num(r.open_invoice_count??r.invoice_count,0)],[T('remaining'),r=>money(r.total_outstanding??r.receivable_balance)],[LANG==='ar'?'0–30 يوم':'0–30 days',r=>money(r.bucket_0_30)],[LANG==='ar'?'31–60 يوم':'31–60 days',r=>money(r.bucket_31_60)],[LANG==='ar'?'61–90 يوم':'61–90 days',r=>money(r.bucket_61_90)],[LANG==='ar'?'+90 يوم':'+90 days',r=>money(r.bucket_90_plus)]],rows);
  if(key==='active_customers')return table([[T('customer'),r=>esc(customerName(r))],[T('clinic'),r=>esc(r.clinic_name||'-')],[T('phone'),r=>esc(r.phone||'-')],[T('area'),r=>esc(customerArea(r))]],rows);
  if(key.startsWith('collection_')||['collections_total','collections_applied','customer_credit'].includes(key))return collectionTableHtml(rows);
  if(key.startsWith('expense_'))return table([[T('date'),r=>esc(r.expense_date||'-')],[LANG==='ar'?'التصنيف':'Category',r=>esc(r.category_name||r.expense_group||'-')],[T('amount'),r=>money(r.amount)],[T('notes'),r=>esc(r.notes||'-')]],rows);
@@ -4336,7 +4371,7 @@ function canonicalDetailTable(key,rows){
 function openDashboardCard(key){
  const c=canonicalCardByKey(key); if(!c)return;
  const rows=canonicalDetailRows(key),title=LANG==='ar'?c.label_ar:c.label_en;
- openModal(title,`<div class="detail-grid">${finalMetricSummaryHtml(c,key,rows)}</div><div style="height:14px"></div>${canonicalDetailTable(key,rows)}`);
+ openModal(title,`<div class="detail-grid">${detail(LANG==='ar'?'القيمة':'Value',canonicalCardValue(c))}${detail(LANG==='ar'?'عدد السجلات':'Rows',num(rows.length,0))}</div><div style="height:14px"></div>${canonicalDetailTable(key,rows)}`);
 }
 
 updateNotificationBell=function(){
@@ -4703,7 +4738,7 @@ liquidityMapHtml=function(){
     </div>
     <div class="parity24-grid" style="margin-top:16px">
       ${dbCardHtmlBuild16('LIQUIDITY_NET_POSITION')}
-      
+      ${dbCardHtmlBuild16('LIQUIDITY_COVERAGE_PCT')}
     </div>
   </section>`;
 };
@@ -4830,7 +4865,7 @@ liquidityMapHtml=function(){
     </div>
     <div class="parity24-grid" style="margin-top:16px">
       ${dbCardHtmlBuild16('LIQUIDITY_NET_POSITION')}
-      
+      ${dbCardHtmlBuild16('LIQUIDITY_COVERAGE_PCT')}
     </div>
   </section>`;
 };
@@ -5699,42 +5734,24 @@ function expenseGroupSection24(group){
 }
 
 
-
 let FINAL_MJ_SEQ=0;
-
-async function loadManualJournalAccountsFinal(){
-  let master=[];
-  try{ master=await getAllSessionSafe('mahsoubak_finance_account_master'); }catch(e){}
-  let runtime=[];
-  if(!master.length){
-    try{ runtime=await getAllSessionSafe('mahsoubak_finance_runtime_accounts_v2'); }catch(e){}
-  }
-  const rows=master.length?master:runtime;
-  D.financeAccountMaster=rows;
-  return rows;
-}
-
 function finalMjAccounts(){
-  const source=A(D.financeAccountMaster).length?A(D.financeAccountMaster):A(D.financeAccounts);
-  return source.filter(a=>{
-    const code=S(a.account_code);
-    const typ=S(a.account_type).toUpperCase();
+  return A(D.financeAccountMaster||D.financeAccounts).filter(a=>{
+    const code=S(a.account_code),typ=S(a.account_type).toUpperCase();
     return a.active!==false && (typ==='EXPENSE'||code==='3990');
   }).sort((a,b)=>S(a.account_code).localeCompare(S(b.account_code)));
 }
 function finalMjOptions(selected=''){
-  return finalMjAccounts().map(a=>
-    `<option value="${esc(a.account_code)}" ${S(selected)===S(a.account_code)?'selected':''}>${esc(a.account_code)} — ${esc(a.account_name||'')}</option>`
-  ).join('');
+  return finalMjAccounts().map(a=>`<option value="${esc(a.account_code)}" ${S(selected)===S(a.account_code)?'selected':''}>${esc(a.account_code)} — ${esc(a.account_name||'')}</option>`).join('');
 }
-function finalMjLine(account='',debit='',credit='',memo='',removable=true){
+function finalMjLine(account='',debit='',credit='',memo=''){
   const id=++FINAL_MJ_SEQ;
   return `<div class="final-mj-line" data-line="${id}" style="display:grid;grid-template-columns:2fr 1fr 1fr 1.5fr auto;gap:8px;align-items:end;margin-bottom:8px">
     <label>${LANG==='ar'?'الحساب':'Account'}<select class="input final-mj-account">${finalMjOptions(account)}</select></label>
     <label>${LANG==='ar'?'مدين':'Debit'}<input class="input final-mj-debit" type="number" min="0" step="0.01" value="${esc(debit)}" oninput="finalMjTotals()"></label>
     <label>${LANG==='ar'?'دائن':'Credit'}<input class="input final-mj-credit" type="number" min="0" step="0.01" value="${esc(credit)}" oninput="finalMjTotals()"></label>
     <label>${T('notes')}<input class="input final-mj-memo" value="${esc(memo)}"></label>
-    ${removable?`<button type="button" class="btn secondary" onclick="finalMjRemove(${id})">×</button>`:`<span></span>`}
+    <button type="button" class="btn secondary" onclick="finalMjRemove(${id})">×</button>
   </div>`;
 }
 function finalMjTotals(){
@@ -5747,7 +5764,7 @@ function finalMjTotals(){
 function finalMjAdd(){
   const shell=$('finalMjLines');if(!shell)return;
   const def=finalMjAccounts().find(a=>S(a.account_code)!=='3990')?.account_code||'6290';
-  shell.insertAdjacentHTML('beforeend',finalMjLine(def,'','','',true));
+  shell.insertAdjacentHTML('beforeend',finalMjLine(def));
   finalMjTotals();
 }
 function finalMjRemove(id){
@@ -5756,79 +5773,48 @@ function finalMjRemove(id){
   document.querySelector(`.final-mj-line[data-line="${id}"]`)?.remove();
   finalMjTotals();
 }
-
-window.openManualJournalFinal=async function(){
-  try{
-    if(!requireModulePermission('accounts','view'))return;
-
-    // Do not block opening the journal list on the account-master request.
-    const rows=await getAllSessionSafe(V.manualJournalV3||'mahsoubak_app_manual_journal_v3');
-    D.manualJournalV3=rows;
-
-    openModal(LANG==='ar'?'القيود المالية':'Financial Journals',`
-      <div style="margin-bottom:12px">
-        ${authCan('accounts','add')?`<button class="btn ok" onclick="newManualJournalFinal()">＋ ${LANG==='ar'?'قيد مالي جديد':'New Journal'}</button>`:''}
-      </div>
-      ${table([
-        [LANG==='ar'?'رقم القيد':'Document',r=>esc(r.document_number||r.id||'-')],
-        [T('date'),r=>esc(S(r.entry_date).slice(0,10)||'-')],
-        [LANG==='ar'?'البيان':'Description',r=>esc(r.description||'-')],
-        [LANG==='ar'?'مدين':'Debit',r=>money(r.total_debit)],
-        [LANG==='ar'?'دائن':'Credit',r=>money(r.total_credit)],
-        [T('status'),r=>esc(r.status||'-')]
-      ],rows)}
-    `);
-  }catch(e){
-    console.error('Open financial journal failed',e);
-    alert((LANG==='ar'?'تعذر فتح القيود المالية: ':'Could not open financial journals: ')+(e.message||e));
-  }
-};
-
-window.newManualJournalFinal=async function(){
-  try{
-    if(!requireModulePermission('accounts','add'))return;
-
-    await loadManualJournalAccountsFinal();
-    const accounts=finalMjAccounts();
-    const expenses=accounts.filter(a=>S(a.account_type).toUpperCase()==='EXPENSE');
-    const clearing=accounts.find(a=>S(a.account_code)==='3990');
-
-    if(!expenses.length)
-      throw new Error(LANG==='ar'?'لا توجد حسابات مصروفات متاحة للقيد':'No expense accounts are available');
-    if(!clearing)
-      throw new Error(LANG==='ar'?'حساب 3990 غير متاح للقيد المالي':'Account 3990 is not available');
-
-    FINAL_MJ_SEQ=0;
-    const exp=expenses.find(a=>S(a.account_code)==='6290')?.account_code||expenses[0].account_code;
-
-    openModal(LANG==='ar'?'قيد مالي جديد':'New Financial Journal',`
-      <div class="auth-grid">
-        <label>${T('date')}<input id="finalMjDate" type="date" class="input" value="${new Date().toISOString().slice(0,10)}"></label>
-        <label>${LANG==='ar'?'المرجع':'Reference'}<input id="finalMjRef" class="input"></label>
-        <label class="full">${LANG==='ar'?'البيان':'Description'}<input id="finalMjDesc" class="input"></label>
-      </div>
-      <div id="finalMjLines" style="margin-top:14px">
-        ${finalMjLine(exp,'','','',false)}
-        ${finalMjLine('3990','','','',false)}
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-        <button class="btn secondary" onclick="finalMjAdd()">＋ ${LANG==='ar'?'إضافة سطر':'Add Line'}</button>
-        <button id="finalMjSave" class="btn ok" onclick="saveManualJournalFinal()">${LANG==='ar'?'حفظ وترحيل':'Save & Post'}</button>
-      </div>
-      <div id="finalMjTotals" style="margin-top:10px;font-weight:700"></div>
-    `);
-    finalMjTotals();
-  }catch(e){
-    console.error('New financial journal failed',e);
-    alert((LANG==='ar'?'تعذر فتح قيد مالي جديد: ':'Could not open a new journal: ')+(e.message||e));
-  }
-};
-
-window.saveManualJournalFinal=async function(){
+async function openManualJournalFinal(){
+  if(!requireModulePermission('accounts','view'))return;
+  await financeMasterData23();
+  D.manualJournalV3=await getAllSessionSafe(V.manualJournalV3||'mahsoubak_app_manual_journal_v3');
+  const rows=A(D.manualJournalV3);
+  openModal(LANG==='ar'?'القيود اليدوية':'Manual Journals',`
+    <div style="margin-bottom:12px">${authCan('accounts','add')?`<button class="btn ok" onclick="newManualJournalFinal()">＋ ${LANG==='ar'?'قيد جديد':'New Journal'}</button>`:''}</div>
+    ${table([
+      [LANG==='ar'?'رقم القيد':'Document',r=>esc(r.document_number||r.id||'-')],
+      [T('date'),r=>esc(S(r.entry_date).slice(0,10)||'-')],
+      [LANG==='ar'?'البيان':'Description',r=>esc(r.description||'-')],
+      [LANG==='ar'?'مدين':'Debit',r=>money(r.total_debit)],
+      [LANG==='ar'?'دائن':'Credit',r=>money(r.total_credit)],
+      [T('status'),r=>esc(r.status||'-')]
+    ],rows)}
+  `);
+}
+async function newManualJournalFinal(){
+  if(!requireModulePermission('accounts','add'))return;
+  await financeMasterData23();
+  const accounts=finalMjAccounts();
+  if(!accounts.length)return alert(LANG==='ar'?'لا توجد حسابات مصروفات متاحة':'No expense accounts are available');
+  FINAL_MJ_SEQ=0;
+  const exp=accounts.find(a=>S(a.account_code)!=='3990')?.account_code||accounts[0].account_code;
+  openModal(LANG==='ar'?'قيد يدوي جديد':'New Manual Journal',`
+    <div class="auth-grid">
+      <label>${T('date')}<input id="finalMjDate" type="date" class="input" value="${new Date().toISOString().slice(0,10)}"></label>
+      <label>${LANG==='ar'?'المرجع':'Reference'}<input id="finalMjRef" class="input"></label>
+      <label class="full">${LANG==='ar'?'البيان':'Description'}<input id="finalMjDesc" class="input"></label>
+    </div>
+    <div id="finalMjLines" style="margin-top:14px">${finalMjLine(exp)}${finalMjLine('3990')}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+      <button class="btn secondary" onclick="finalMjAdd()">＋ ${LANG==='ar'?'إضافة سطر':'Add Line'}</button>
+      <button id="finalMjSave" class="btn ok" onclick="saveManualJournalFinal()">${LANG==='ar'?'حفظ وترحيل':'Save & Post'}</button>
+    </div>
+    <div id="finalMjTotals" style="margin-top:10px;font-weight:700"></div>
+  `);
+  finalMjTotals();
+}
+async function saveManualJournalFinal(){
   const btn=$('finalMjSave');
   try{
-    if(!requireModulePermission('accounts','add'))return;
-
     const lines=[...document.querySelectorAll('.final-mj-line')].map(r=>({
       account_code:S(r.querySelector('.final-mj-account')?.value),
       debit:Number(N(r.querySelector('.final-mj-debit')?.value).toFixed(2)),
@@ -5836,68 +5822,30 @@ window.saveManualJournalFinal=async function(){
       memo:S(r.querySelector('.final-mj-memo')?.value)||null
     }));
     const desc=S($('finalMjDesc')?.value),date=S($('finalMjDate')?.value);
-
-    if(!desc||!date)
-      throw new Error(LANG==='ar'?'أكمل التاريخ والبيان':'Complete date and description');
-    if(lines.length<2)
-      throw new Error(LANG==='ar'?'القيد يحتاج سطرين على الأقل':'At least two lines are required');
-
-    let debit=0,credit=0,expenseLines=0;
-    const accounts=finalMjAccounts();
-
+    if(!desc||!date)throw new Error(LANG==='ar'?'أكمل التاريخ والبيان':'Complete date and description');
+    let debit=0,credit=0;
     for(const l of lines){
-      if(!l.account_code)
-        throw new Error(LANG==='ar'?'اختر حساب لكل سطر':'Select an account for each line');
-      if(!((l.debit>0&&l.credit===0)||(l.credit>0&&l.debit===0)))
-        throw new Error(LANG==='ar'?'كل سطر يجب أن يكون مدين أو دائن فقط':'Each line must be debit or credit only');
-
-      const acc=accounts.find(a=>S(a.account_code)===l.account_code);
-      if(S(acc?.account_type).toUpperCase()==='EXPENSE')expenseLines++;
+      if(!l.account_code)throw new Error(LANG==='ar'?'اختر حساب لكل سطر':'Select an account for each line');
+      if(!((l.debit>0&&l.credit===0)||(l.credit>0&&l.debit===0)))throw new Error(LANG==='ar'?'كل سطر يجب أن يكون مدين أو دائن فقط':'Each line must be debit or credit only');
       debit+=l.debit;credit+=l.credit;
     }
-
-    if(expenseLines<1)
-      throw new Error(LANG==='ar'?'يجب أن يحتوي القيد على حساب مصروف واحد على الأقل':'Journal must contain at least one expense account');
-    if(Math.abs(debit-credit)>0.01)
-      throw new Error((LANG==='ar'?'القيد غير متوازن. المدين ':'Journal is not balanced. Debit ')+money(debit)+(LANG==='ar'?' والدائن ':' Credit ')+money(credit));
-
-    if(!confirm(
-      LANG==='ar'
-        ?`سيتم ترحيل قيد مالي فعلي بإجمالي ${money(debit)}. هل تريد المتابعة؟`
-        :`A live journal totaling ${money(debit)} will be posted. Continue?`
-    ))return;
-
+    if(Math.abs(debit-credit)>0.01)throw new Error(LANG==='ar'?'القيد غير متوازن':'Journal is not balanced');
     if(btn)btn.disabled=true;
-
-    const result=await rpcAuth('mahsoubak_post_manual_journal_atomic_v3',{
+    await rpcAuth('mahsoubak_post_manual_journal_atomic_v3',{
       p_request_id:newRequestId('finance_manual_v3'),
       p_entry_date:date,
       p_description:desc,
       p_reference:S($('finalMjRef')?.value)||null,
       p_lines:lines
     });
-
     closeModal();
+    await loadData(true);
     await ensureFinanceDocumentSources(true);
-    D.manualJournalV3=await getAllSessionSafe(V.manualJournalV3||'mahsoubak_app_manual_journal_v3');
     renderFinanceModule();
-
-    alert(
-      (LANG==='ar'?'تم ترحيل القيد بنجاح':'Journal posted successfully')+
-      (result?.document_number?'\n'+S(result.document_number):'')
-    );
-  }catch(e){
-    console.error('Financial journal post failed',e);
-    alert((LANG==='ar'?'تعذر ترحيل القيد: ':'Could not post journal: ')+(e.message||e));
-  }finally{
-    if(btn)btn.disabled=false;
-  }
-};
-
-// Explicit globals for inline button handlers.
-window.finalMjTotals=finalMjTotals;
-window.finalMjAdd=finalMjAdd;
-window.finalMjRemove=finalMjRemove;
+    alert(LANG==='ar'?'تم ترحيل القيد بنجاح':'Journal posted successfully');
+  }catch(e){alert(e.message||e)}
+  finally{if(btn)btn.disabled=false}
+}
 
  function financeDocsTable(rows,isReceipt){
    return table([
@@ -5915,7 +5863,7 @@ window.finalMjRemove=finalMjRemove;
  window.renderFinanceModule=function(){
    renderFinanceBeforeB9();const el=$('view-finance');if(!el)return;
    const wh=A(D.financeDocumentWriterHealth)[0]||{},dh=A(D.financeDocumentHealth)[0]||{};
-   const box=`${expenseGroupSection24('general_admin')}${expenseGroupSection24('marketing')}<div class="card dashboard-wide"><div class="dashboard-block-title"><div><h3>${LANG==='ar'?'إيصالات القبض والصرف':'Receipts & Payment Vouchers'}</h3></div><div class="doc-actions"><button class="btn ok" onclick="openFinanceReceiptDocument()">＋ ${LANG==='ar'?'إيصال استلام':'Receipt'}</button><button class="btn warn" onclick="openFinancePaymentDocument()">− ${LANG==='ar'?'إيصال صرف':'Payment'}</button><button class="btn secondary" onclick="openFinanceAccount23()">＋ ${LANG==='ar'?'حساب مالي':'Account'}</button><button class="btn secondary" onclick="openCashflowFund23()">＋ ${LANG==='ar'?'خزنة / بنك':'Cashbox / Bank'}</button><button class="btn secondary" onclick="window.openManualJournalFinal()">⚖ ${LANG==='ar'?'قيد مالي':'Financial Journal'}</button></div></div><h4>${LANG==='ar'?'آخر إيصالات الاستلام':'Recent receipts'}</h4>${financeDocsTable(A(D.financeReceiptsV2).slice(0,10),true)}<h4>${LANG==='ar'?'آخر إيصالات الصرف':'Recent payments'}</h4>${financeDocsTable(A(D.financePaymentsV3).slice(0,10),false)}</div>`;
+   const box=`${expenseGroupSection24('general_admin')}${expenseGroupSection24('marketing')}<div class="card dashboard-wide"><div class="dashboard-block-title"><div><h3>${LANG==='ar'?'إيصالات القبض والصرف':'Receipts & Payment Vouchers'}</h3></div><div class="doc-actions"><button class="btn ok" onclick="openFinanceReceiptDocument()">＋ ${LANG==='ar'?'إيصال استلام':'Receipt'}</button><button class="btn warn" onclick="openFinancePaymentDocument()">− ${LANG==='ar'?'إيصال صرف':'Payment'}</button><button class="btn secondary" onclick="openFinanceAccount23()">＋ ${LANG==='ar'?'حساب مالي':'Account'}</button><button class="btn secondary" onclick="openCashflowFund23()">＋ ${LANG==='ar'?'خزنة / بنك':'Cashbox / Bank'}</button><button class="btn secondary" onclick="openManualJournalFinal()">⚖ ${LANG==='ar'?'قيد يدوي':'Manual Journal'}</button></div></div><h4>${LANG==='ar'?'آخر إيصالات الاستلام':'Recent receipts'}</h4>${financeDocsTable(A(D.financeReceiptsV2).slice(0,10),true)}<h4>${LANG==='ar'?'آخر إيصالات الصرف':'Recent payments'}</h4>${financeDocsTable(A(D.financePaymentsV3).slice(0,10),false)}</div>`;
    const head=el.querySelector('.module-head');if(head)head.insertAdjacentHTML('afterend',box);else el.insertAdjacentHTML('afterbegin',box);
  };
 
@@ -6010,97 +5958,42 @@ window.canonicalDashboardCardHtml=function(c){
 };
 try{canonicalDashboardCardHtml=window.canonicalDashboardCardHtml}catch(e){}
 
-/* Dashboard card drilldown reads the card's authoritative DB detail source directly */
-function filterDashboardRows22(key,rows){
-  rows=A(rows);
-  if(['sales_total','invoice_count'].includes(key))return rows;
-  if(['sales_paid','paid_sales'].includes(key))return rows.filter(r=>N(r.paid)>0);
-  if(['fully_paid_invoices','paid_invoices'].includes(key))return rows.filter(r=>['FULLY_PAID','PAID'].includes(S(r.invoice_status).toUpperCase()));
-  if(key==='partial_invoices')return rows.filter(r=>['PARTIAL','PARTIALLY_PAID'].includes(S(r.invoice_status).toUpperCase()));
-  if(key==='unpaid_invoices')return rows.filter(r=>S(r.invoice_status).toUpperCase()==='UNPAID');
-  if(key==='zero_value_invoices')return rows.filter(r=>S(r.invoice_status).toUpperCase()==='ZERO_VALUE');
-  if(key==='receivables')return rows.filter(r=>N(r.remaining??r.total_outstanding??r.receivable_balance)>0);
-  if(key==='customers_with_receivable')return rows.filter(r=>N(r.total_outstanding??r.receivable_balance)>0);
-  if(key==='active_customers')return rows.filter(r=>r.active!==false);
-  if(['collection_cash','collections_total','collection_count'].includes(key))return rows;
-  if(['collection_applied','collections_applied'].includes(key))return rows.filter(r=>N(r.applied_to_invoices??r.applied_amount)>0);
-  if(['collection_unapplied','customer_credit'].includes(key))return rows.filter(r=>N(r.unapplied_customer_credit??r.unapplied_amount)>0);
-  if(key==='expense_total'||key==='expense_count')return rows;
-  if(['stock_qty','inventory_value','cogs'].includes(key))return rows;
-  if(key==='supplier_payable')return rows.filter(r=>N(r.payable_balance)>0);
-  if(key==='low_stock_alerts')return rows.filter(r=>S(r.alert_type||r.status)==='LOW_STOCK');
-  if(key==='expiring_30_days')return rows.filter(r=>['EXPIRING_30_DAYS','EXPIRY'].includes(S(r.alert_type||r.status)));
-  if(key==='no_expiry_alerts')return rows.filter(r=>S(r.alert_type||r.status)==='NO_EXPIRY');
-  return rows;
-}
-async function dashboardRowsDirect22(c,key){
-  const source=S(c?.detail_source);
-  let rows=[];
-  if(source){
-    rows=await getAllSession(source);
-  }else{
-    rows=typeof canonicalDetailRows==='function'?canonicalDetailRows(key):[];
+/* Generic detail rows for every dashboard card key currently supported by the DB contract */
+function rowsForDashboardKey22(key){
+  if(typeof canonicalDetailRows==='function'){
+    const rows=canonicalDetailRows(key);
+    if(Array.isArray(rows)&&rows.length)return rows;
   }
-  if(/sales_invoice_summary/i.test(source) && typeof mapInvoiceSummaryForLegacy==='function'){
-    rows=mapInvoiceSummaryForLegacy(rows);
+  return [];
+}
+
+async function ensureDashboardDetailSource22(key){
+  if(['active_customers'].includes(String(key||'')) && typeof ensureCustomer360Loaded==='function'){
+    await ensureCustomer360Loaded();
   }
-  return filterDashboardRows22(key,rows);
 }
 
-
-function finalMetricLabel(c,key=''){
-  const kind=S(c?.metric_kind).toUpperCase();
-  const k=S(key||c?.card_key).toLowerCase();
-
-  if(kind==='COUNT'){
-    if(k.includes('invoice')) return LANG==='ar'?'عدد الفواتير':'Invoice count';
-    if(k.includes('collection')) return LANG==='ar'?'عدد التحصيلات':'Collection count';
-    if(k.includes('customer')) return LANG==='ar'?'عدد العملاء':'Customer count';
-    if(k.includes('supplier')) return LANG==='ar'?'عدد الموردين':'Supplier count';
-    if(k.includes('product')) return LANG==='ar'?'عدد المنتجات':'Product count';
-    return LANG==='ar'?'العدد':'Count';
-  }
-  if(kind==='EGP') return LANG==='ar'?'إجمالي المبلغ':'Total amount';
-  if(kind==='QTY') return LANG==='ar'?'إجمالي الكمية':'Total quantity';
-  if(kind==='PERCENT') return LANG==='ar'?'النسبة':'Percentage';
-  return LANG==='ar'?'القيمة':'Value';
-}
-function finalMetricSummaryHtml(c,key,rows){
-  const kind=S(c?.metric_kind).toUpperCase();
-  const main=detail(finalMetricLabel(c,key),canonicalCardValue(c));
-  if(kind==='COUNT') return `<div class="detail-grid">${main}</div>`;
-  return `<div class="detail-grid">${main}${detail(LANG==='ar'?'عدد السجلات':'Rows',num(A(rows).length,0))}</div>`;
-}
-
-/* Final card drilldown: direct DB source, no Source/Filter/View names */
+/* Final card drilldown: no Source/Filter/View names */
 window.openDashboardCard=async function(key){
   const c=canonicalCardByKey(key);
   if(!c)return;
-
+  await ensureDashboardDetailSource22(key);
   const title=LANG==='ar'?(c.label_ar||c.card_key):(c.label_en||c.card_key);
-  let rows=[];
-  try{
-    rows=await dashboardRowsDirect22(c,key);
-  }catch(e){
-    console.error('Dashboard detail load failed',key,e);
-    openModal(
-      title,
-      `<div class="error">${LANG==='ar'?'تعذر تحميل تفاصيل الكارت من قاعدة البيانات. اضغط تحديث ثم حاول مرة أخرى.':'Could not load card details from the database. Refresh and try again.'}</div>`
-    );
-    return;
-  }
+  const rows=rowsForDashboardKey22(key);
 
   let body='';
   try{
     body=canonicalDetailTable(key,rows);
   }catch(e){
-    console.error('Dashboard detail render failed',key,e);
-    body=`<div class="empty">${LANG==='ar'?'تعذر عرض التفاصيل حاليًا.':'Could not display details right now.'}</div>`;
+    body=`<div class="empty">${LANG==='ar'?'لا توجد تفاصيل متاحة حاليًا.':'No details are available right now.'}</div>`;
   }
 
   openModal(
     title,
-    `${finalMetricSummaryHtml(c,key,rows)}
+    `<div class="detail-grid">
+      ${detail(LANG==='ar'?'القيمة':'Value',canonicalCardValue(c))}
+      ${detail(LANG==='ar'?'عدد السجلات':'Rows',num(rows.length,0))}
+    </div>
     <div style="height:14px"></div>
     ${body}`
   );
@@ -6125,7 +6018,7 @@ if(typeof window.openDbCardBuild16==='function' || typeof openDbCardBuild16==='f
       ],rows):`<div class="empty">${LANG==='ar'?'لا توجد بنود حالية لهذا الكارت.':'No current items for this card.'}</div>`;
       openModal(
         dbCardLabelBuild16(c),
-        `<div class="detail-grid">${detail(finalMetricLabel(c,c.card_key),dbCardValueBuild16(c))}</div>${body}`
+        `<div class="detail-grid">${detail(LANG==='ar'?'القيمة':'Value',dbCardValueBuild16(c))}</div>${body}`
       );
     }catch(e){
       openModal(
@@ -6150,17 +6043,12 @@ try{renderDashboard=window.renderDashboard}catch(e){}
 
 /* Remove remaining technical wording injected by late finance/other renderers */
 function scrubClientTechnicalText22(root=document){
-  const technical=/^(DB|Source|المصدر)$/i;
-  root.querySelectorAll('.kpi-sub,.dashboard-block-title span,.c18-live,.p17-note,.summary-note').forEach(el=>el.style.display='none');
-  root.querySelectorAll('small,span,div,p').forEach(el=>{
+  const technical=/^(DB|النظام||Source|المصدر)$/i;
+  root.querySelectorAll('.kpi-sub,.dashboard-block-title span').forEach(el=>el.style.display='none');
+  root.querySelectorAll('small,span,div').forEach(el=>{
     if(el.children.length)return;
     const t=(el.textContent||'').trim();
-    if(
-      technical.test(t) ||
-      /^mahsoubak_[a-z0-9_]+$/i.test(t) ||
-      /PHASE[A-Z0-9_]+/i.test(t) ||
-      /CONTRACT_(MATCH|READY|REVIEW)/i.test(t)
-    ){
+    if(technical.test(t) || /^mahsoubak_[a-z0-9_]+$/i.test(t)){
       el.style.display='none';
     }
   });
@@ -6194,6 +6082,3 @@ setTimeout(function(){
 
 </body>
 </html>
-<style id="final-fix3-hide-liquidity-coverage">
-.liq-coverage{display:none!important}
-</style>
