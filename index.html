@@ -387,7 +387,7 @@ body,.main{background:#f1f4f8!important}
 .canonical-kpi:nth-child(6n+5):before{background:#ef4444}
 .canonical-kpi:nth-child(6n+6):before{background:#14b8a6}
 </style>
-<meta name="mahsoubak-build" content="FINAL_CLIENT_DB_ONLY_2026_09_23_R2">
+<meta name="mahsoubak-build" content="FINAL_CONSOLIDATED_CLEAN_V4_FULL_REVIEW_2026_09_24">
 
 <style id="rc24-clickable-kpi-style">
 .clickable-kpi{cursor:pointer;transition:transform .12s ease,box-shadow .12s ease}
@@ -403,6 +403,10 @@ body,.main{background:#f1f4f8!important}
 .mini-card,.parity24-kpi,.canonical-kpi{cursor:pointer}
 </style>
 
+<style id="final-consolidated-clean-v1">
+/* FINAL CONSOLIDATED CLEAN V4 FULL REVIEW */
+.parity-note{border-radius:12px}
+</style>
 </head>
 <body>
 <div id="loading" class="loading"><div id="loadingText">Loading…</div></div>
@@ -533,7 +537,23 @@ const V={
  orderBatchHealth:'mahsoubak_app_backend_phase6g5b_health',orderBatches:'mahsoubak_app_sales_order_batches_v3',orderBatchLines:'mahsoubak_app_sales_order_batch_lines_v2',orderHistoryV2:'mahsoubak_app_order_history_v2',paymentFunds:'mahsoubak_cashflow_funds',manualJournalV3:'mahsoubak_app_manual_journal_v3',
  aging:'mahsoubak_app_customer_aging',agingSummary:'mahsoubak_app_customer_aging_summary',
  notifications:'mahsoubak_app_notifications_summary',inventoryAlerts:'mahsoubak_app_inventory_alerts',
- usernameAuthSetup:'mahsoubak_app_username_auth_setup'
+ usernameAuthSetup:'mahsoubak_app_username_auth_setup',
+
+ /* FINAL CONSOLIDATED BACKEND CONTRACTS */
+ customerStatementSummary:'mahsoubak_app_customer_statement_summary_v3',
+ customerStatementLines:'mahsoubak_app_customer_statement_lines_v3',
+ customerInvoiceProfile:'mahsoubak_app_customer_invoice_profile_v2',
+ customerClinics:'mahsoubak_app_customer_clinics_v1',
+ customerCashback:'mahsoubak_app_customer_cashback_v1',
+ customerSplitHealth:'mahsoubak_app_customer_split_health_v3',
+ inventoryCostSummary:'mahsoubak_app_inventory_cost_summary_v1',
+ inventoryLotCost:'mahsoubak_app_inventory_lot_cost_v1',
+ repCommission:'mahsoubak_app_rep_commission_monthly_v1',
+ vatLines:'mahsoubak_app_sales_order_vat_lines_v1',
+ vatSummary:'mahsoubak_app_invoice_vat_summary_v1',
+ incomeStatement:'mahsoubak_app_income_statement_v1',
+ balanceSheet:'mahsoubak_app_balance_sheet_v1',
+ oldClientParityHealth:'mahsoubak_app_old_client_parity_health_v1'
 };
 const D={};
 let APP_DATA_LOADED=false;
@@ -890,10 +910,18 @@ function renderProducts(){
  <div class="module-grid"><div class="mini-card" onclick="openInventorySummary('value')"><span>${T('inventoryValue')}</span><b>${money(totalValue)}</b></div><div class="mini-card" onclick="openInventorySummary('qty')"><span>${T('totalQty')}</span><b>${num(totalQty,2)}</b></div><div class="mini-card" onclick="setStockFilter('low')"><span>${T('low')}</span><b>${num(low,0)}</b></div><div class="mini-card" onclick="setStockFilter('zero')"><span>${T('out')}</span><b>${num(zero,0)}</b></div></div><div class="table-card"><div id="productTableWrap" class="table-wrap"></div></div>`;
  renderProductTable();
 }
+function finalInventoryCostRow(r){
+ const id=S(r.product_id);
+ return A(D.inventoryCostSummary).find(x=>S(x.product_id)===id)||null;
+}
 function renderProductTable(){
  PRODUCT_VIEW_ROWS=productRows();const w=$('productTableWrap');if(!w)return;
  if(!PRODUCT_VIEW_ROWS.length){w.innerHTML=`<div class="empty">${T('noProducts')}</div>`;return}
- w.innerHTML=`<table class="data-table"><thead><tr><th>${T('product')}</th><th>${T('code')}</th><th>${T('balance')}</th><th>${T('cost')}</th><th>${T('inventoryValue')}</th><th>${T('opening')}</th><th>${T('sold')}</th><th>${T('status')}</th></tr></thead><tbody>${PRODUCT_VIEW_ROWS.map(r=>{const st=stockStatus(r);return `<tr><td class="product-name">${esc(r.product_name||'-')}</td><td>${esc(r.product_code||r.code||'-')}</td><td>${num(r.current_stock_qty,2)}</td><td>${money(r.canonical_unit_cost||r.unit_cost||r.cost)}</td><td>${money(r.ending_inventory_value)}</td><td>${num(r.opening_qty,2)}</td><td>${num(r.sold_qty,2)}</td><td><span class="pill ${st[1]}">${st[0]}</span></td></tr>`}).join('')}</tbody></table>`;
+ w.innerHTML=`<table class="data-table"><thead><tr>
+ <th>${T('product')}</th><th>${T('code')}</th><th>${T('balance')}</th>
+ <th>${LANG==='ar'?'التكلفة الأساسية':'Base Cost'}</th><th>${LANG==='ar'?'التكلفة المعدلة':'Adjusted Cost'}</th>
+ <th>${T('inventoryValue')}</th><th>${T('opening')}</th><th>${T('sold')}</th><th>${T('status')}</th>
+ </tr></thead><tbody>${PRODUCT_VIEW_ROWS.map(r=>{const st=stockStatus(r),x=finalInventoryCostRow(r),base=N(r.canonical_unit_cost||r.unit_cost||r.cost),adjusted=x?N(x.weighted_adjusted_unit_cost):base,value=x?N(x.adjusted_inventory_value):N(r.ending_inventory_value);return `<tr><td class="product-name">${esc(r.product_name||'-')}</td><td>${esc(r.product_code||r.code||'-')}</td><td>${num(r.current_stock_qty,2)}</td><td>${money(base)}</td><td><b>${money(adjusted)}</b></td><td>${money(value)}</td><td>${num(r.opening_qty,2)}</td><td>${num(r.sold_qty,2)}</td><td><span class="pill ${st[1]}">${st[0]}</span></td></tr>`}).join('')}</tbody></table>`;
 }
 
 
@@ -936,6 +964,84 @@ function customerReceivable(c){
  const row=A(D.agingSummary).find(r=>(id&&S(r.customer_id)===id)||norm(r.customer_name)===name);
  return row?N(row.total_outstanding):0;
 }
+
+
+let FINAL_CUSTOMER_PARITY_LOADING=null;
+async function ensureFinalCustomerParityData(force=false){
+ if(!force &&
+    A(D.customerInvoiceProfiles).length>0 &&
+    A(D.customerClinics).length>0 &&
+    A(D.customerCashback).length>0 &&
+    A(D.customerSplitHealth).length>0){
+   return true;
+ }
+ if(FINAL_CUSTOMER_PARITY_LOADING)return FINAL_CUSTOMER_PARITY_LOADING;
+ FINAL_CUSTOMER_PARITY_LOADING=(async()=>{
+   const rr=await Promise.allSettled([
+     getAllSessionSafe(V.customerStatementSummary),
+     getAllSessionSafe(V.customerStatementLines),
+     getAllSessionSafe(V.customerInvoiceProfile),
+     getAllSessionSafe(V.customerClinics),
+     getAllSessionSafe(V.customerCashback),
+     getAllSessionSafe(V.customerSplitHealth)
+   ]);
+   const val=i=>rr[i].status==='fulfilled'?rr[i].value:[];
+   Object.assign(D,{
+     customerStatementSummary:val(0),
+     customerStatementLines:val(1),
+     customerInvoiceProfiles:val(2),
+     customerClinics:val(3),
+     customerCashback:val(4),
+     customerSplitHealth:val(5)
+   });
+   rr.forEach((x,i)=>{if(x.status==='rejected')console.warn('Customer parity source failed',i,x.reason)});
+   return true;
+ })();
+ try{return await FINAL_CUSTOMER_PARITY_LOADING}
+ finally{FINAL_CUSTOMER_PARITY_LOADING=null}
+}
+
+function emptyCustomerStatementFinal(c){
+ const p=finalCustomerProfile(c)||c||{};
+ return {
+   customer_id:S(c?.id||c?.customer_id),
+   customer_name:customerName(c||{}),
+   clinic_name:p.clinic_name||c?.clinic_name||'',
+   city:p.city||c?.city||'',
+   phone:p.phone||c?.phone||'',
+   statement_debits:0,
+   statement_credits:0,
+   statement_balance:0,
+   invoice_outstanding:0,
+   unapplied_customer_credit:0,
+   reconciliation_difference:0
+ };
+}
+function finalCustomerProfile(c){
+ const id=S(c?.id||c?.customer_id),name=norm(customerName(c||{}));
+ return A(D.customerInvoiceProfiles).find(x=>S(x.customer_id)===id)||A(D.customerInvoiceProfiles).find(x=>norm(x.customer_name)===name)||null;
+}
+function finalCustomerStatement(c){
+ const id=S(c?.id||c?.customer_id),name=norm(customerName(c||{}));
+ return A(D.customerStatementSummary).find(x=>S(x.customer_id)===id)||A(D.customerStatementSummary).find(x=>norm(x.customer_name)===name)||null;
+}
+function finalCustomerStatementLines(c){
+ const s=finalCustomerStatement(c);if(!s)return [];
+ return A(D.customerStatementLines).filter(x=>S(x.canonical_customer_id)===S(s.customer_id)||norm(x.canonical_customer_name)===norm(s.customer_name))
+  .sort((a,b)=>(S(a.transaction_date)+S(a.source_id)).localeCompare(S(b.transaction_date)+S(b.source_id)));
+}
+function finalCustomerCashback(c){
+ const id=S(c?.id||c?.customer_id),name=norm(customerName(c||{}));
+ return A(D.customerCashback).find(x=>S(x.customer_id)===id)||A(D.customerCashback).find(x=>norm(x.customer_name)===name)||null;
+}
+function finalCustomerClinics(c){
+ const id=S(c?.id||c?.customer_id);
+ return A(D.customerClinics).filter(x=>S(x.customer_id)===id&&x.active!==false);
+}
+function finalCustomerSplitHealth(c){
+ const id=S(c?.id||c?.customer_id),name=norm(customerName(c||{}));
+ return A(D.customerSplitHealth).find(x=>S(x.customer_id)===id)||A(D.customerSplitHealth).find(x=>norm(x.customer_name)===name)||null;
+}
 function renderCustomers(){
  const search=S(($('customerSearch')||{}).value).toLowerCase();
  const all=A(D.customers),filtered=all.filter(c=>{
@@ -944,27 +1050,24 @@ function renderCustomers(){
  });
  const debtRows=A(D.agingSummary).filter(r=>N(r.total_outstanding)>0);
  const debtTotal=debtRows.reduce((a,r)=>a+N(r.total_outstanding),0);
- const debtCustomers=debtRows.length;
+ const blockers=A(D.customerSplitHealth).filter(r=>S(r.status)!=='MATCH');
  $('view-customers').innerHTML=`<div class="module-head">
    <div><h3>${T('customersTitle')}</h3><p>${T('customersSub')}</p></div>
-   <div class="module-tools"><input id="customerSearch" class="input" value="${esc(search)}" placeholder="${T('searchCustomer')}" oninput="renderCustomers()"></div>
+   <div class="module-tools">${authCan('customers','add')?`<button id="b18AddCustomer" class="btn secondary" onclick="openNewCustomerBuild18()">＋ ${LANG==='ar'?'إضافة عميل':'Add Customer'}</button>`:''}<input id="customerSearch" class="input" value="${esc(search)}" placeholder="${T('searchCustomer')}" oninput="renderCustomers()"></div>
  </div>
  <div class="module-grid">
    <div class="mini-card" onclick="openCustomerSummary('all')"><span>${T('totalCustomers')}</span><b>${num(all.length,0)}</b></div>
-   <div class="mini-card" onclick="openCustomerSummary('debt')"><span>${T('customersWithDebt')}</span><b>${num(debtCustomers,0)}</b></div>
+   <div class="mini-card" onclick="openCustomerSummary('debt')"><span>${T('customersWithDebt')}</span><b>${num(debtRows.length,0)}</b></div>
    <div class="mini-card" onclick="openCustomerSummary('receivables')"><span>${T('debt')}</span><b>${money(debtTotal)}</b></div>
-   <div class="mini-card" onclick="openCustomerSummary('splits')"><span>${T('repSplits')}</span><b>${num(A(D.splits).length,0)}</b></div>
+   <div class="mini-card" onclick="openUnassignedCustomersFinal()"><span>${LANG==='ar'?'عملاء يحتاجون توزيع مندوب':'Customers needing rep assignment'}</span><b>${num(blockers.length,0)}</b></div>
  </div>
  <div class="table-card"><div class="table-wrap"><table class="data-table">
    <thead><tr><th>${T('customer')}</th><th>${T('clinic')}</th><th>${T('phone')}</th><th>${T('area')}</th><th>${T('remaining')}</th><th>${T('details')}</th></tr></thead>
-   <tbody>${filtered.map(c=>`<tr class="customer-row" onclick="openCustomerByKey('${esc(customerKey(c))}')">
-     <td><b>${esc(customerName(c))}</b></td>
-     <td>${esc(c.clinic_name||'-')}</td>
-     <td>${esc(c.phone||'-')}</td>
-     <td>${esc(customerArea(c))}</td>
-     <td>${money(customerReceivable(c))}</td>
+   <tbody>${filtered.map(c=>{const s=finalCustomerStatement(c);return `<tr class="customer-row" onclick="openCustomerByKey('${esc(customerKey(c))}')">
+     <td><b>${esc(customerName(c))}</b></td><td>${esc(c.clinic_name||'-')}</td><td>${esc(c.phone||'-')}</td><td>${esc(customerArea(c))}</td>
+     <td>${money(s?s.statement_balance:customerReceivable(c))}</td>
      <td><button class="btn small secondary" onclick="event.stopPropagation();openCustomerByKey('${esc(customerKey(c))}')">${T('open')}</button></td>
-   </tr>`).join('')}</tbody>
+   </tr>`}).join('')}</tbody>
  </table></div></div>`;
 }
 function openCustomerSummary(kind){if(!requireModulePermission('customers','view'))return;
@@ -994,19 +1097,137 @@ function openCustomerSummary(kind){if(!requireModulePermission('customers','view
    ],A(D.splits)));return;
  }
 }
-function openCustomerByKey(key){if(!requireModulePermission('customers','view'))return;
- const c=customerByKey(key);if(!c)return;
- const inv=rowsForCustomer(D.invoices,c),col=rowsForCustomer(D.collections,c),spl=splitRowsForCustomer(c);
- const sales=inv.reduce((a,r)=>a+N(r.invoice_total),0),paid=inv.reduce((a,r)=>a+N(r.paid),0),rem=inv.reduce((a,r)=>a+N(r.remaining),0);
- openModal(T('customerDetails')+' — '+customerName(c),`<div class="detail-grid">
-   ${detailClick(T('salesAmount'),money(sales),`openCustomerDrill('${esc(key)}','invoices')`)}
-   ${detailClick(T('paid'),money(paid),`openCustomerDrill('${esc(key)}','paid')`)}
-   ${detailClick(T('remaining'),money(rem),`openCustomerDrill('${esc(key)}','remaining')`)}
-   ${detailClick(T('invoiceCount'),num(inv.length,0),`openCustomerDrill('${esc(key)}','invoices')`)}
-   ${detailClick(T('collectionsKpi'),money(col.reduce((a,r)=>a+N(r.cash_received??r.amount),0)),`openCustomerDrill('${esc(key)}','collections')`)}
-   ${detailClick(T('repSplits'),num(spl.length,0),`openCustomerDrill('${esc(key)}','splits')`)}
+async function openCustomerByKey(key){if(!requireModulePermission('customers','view'))return;
+ await ensureFinalCustomerParityData();
+ const c=customerByKey(key);if(!c){alert(LANG==='ar'?'تعذر العثور على العميل.':'Customer not found.');return}
+ const p=finalCustomerProfile(c)||c;
+ const s=finalCustomerStatement(c)||emptyCustomerStatementFinal(c);
+ const cb=finalCustomerCashback(c);
+ const clinics=finalCustomerClinics(c);
+ const sh=finalCustomerSplitHealth(c);
+ const spl=splitRowsForCustomer(c);
+
+ const splitStatus=S(sh?.status)||((spl.length)?'MATCH':'NO_SPLIT');
+ const reps=spl.map(x=>S(x.rep_name)).filter(Boolean);
+ const territories=spl.map(x=>S(x.territory_code)).filter(Boolean);
+ const groups=spl.map(x=>S(x.territory_group)).filter(Boolean);
+ const splitPct=spl.reduce((a,x)=>a+N(x.percentage),0);
+ const repText=reps.length?[...new Set(reps)].join(' / '):'-';
+ const territoryText=territories.length?[...new Set(territories)].join(' / '):(p.area||customerArea(c)||'-');
+ const groupText=groups.length?[...new Set(groups)].join(' / '):'-';
+ const cashbackText=cb?(cb.eligible?`${LANG==='ar'?'مستحق':'Eligible'} • ${money(cb.remaining_amount)}`:`${LANG==='ar'?'متبقي للحد':'To threshold'} ${money(cb.amount_to_threshold)}`):'-';
+
+ openModal(T('customerDetails')+' — '+customerName(c),`
+ <div class="detail-grid">
+   ${detail(T('customer'),esc(p.customer_name||customerName(c)))}
+   ${detail(T('clinic'),esc(p.clinic_name||c.clinic_name||'-'))}
+   ${detail(T('phone'),esc(p.phone||c.phone||'-'))}
+   ${detail(LANG==='ar'?'البريد الإلكتروني':'Email',esc(p.email||c.email||'-'))}
+   ${detail(LANG==='ar'?'المدينة':'City',esc(p.city||c.city||'-'))}
+   ${detail(LANG==='ar'?'المنطقة':'Territory',esc(territoryText))}
+   ${detail(LANG==='ar'?'المجموعة':'Territory Group',esc(groupText))}
+   ${detail(LANG==='ar'?'العنوان':'Address',esc(p.address||c.address||'-'))}
+   ${detail(LANG==='ar'?'المندوب الحالي':'Current Rep',esc(repText))}
+   ${detail(LANG==='ar'?'نسبة التوزيع':'Split %',spl.length?splitPct.toFixed(2)+'%':'-')}
+   ${detail(LANG==='ar'?'المديونية الحالية':'Current Receivable',money(s.statement_balance))}
+   ${detail('Cashback',esc(cashbackText))}
+   ${detail(LANG==='ar'?'عدد العيادات':'Clinics',num(clinics.length,0))}
+   ${detail(LANG==='ar'?'حالة التوزيع':'Split Status',esc(splitStatus))}
+   ${detail(LANG==='ar'?'رقم العميل':'Customer ID',`<span style="font-size:11px">${esc(S(c.id||c.customer_id)||'-')}</span>`)}
  </div>
- <div class="card" style="margin-top:12px"><b>${esc(customerName(c))}</b><div style="margin-top:8px;line-height:1.9;font-size:12px">${T('clinic')}: ${esc(c.clinic_name||'-')}<br>${T('phone')}: ${esc(c.phone||'-')}<br>${T('area')}: ${esc(customerArea(c))}</div>${authCan('customers','edit')?`<div style="margin-top:12px"><button class="btn secondary" onclick="openCustomerSplit23('${esc(S(c.id||c.customer_id))}')">${LANG==='ar'?'تعديل توزيع العميل':'Edit Customer Distribution'}</button></div>`:''}</div>`);
+ ${splitStatus!=='MATCH'?`<div class="parity-note">${LANG==='ar'?'العميل يحتاج تعيين توزيع مندوب.':'Customer needs a rep split assignment.'}</div>`:''}
+ <div class="doc-actions">
+   <button class="btn secondary" onclick="openCustomerStatementFinal('${esc(key)}')">${LANG==='ar'?'كشف الحساب':'Customer Statement'}</button>
+   <button class="btn secondary" onclick="openCustomerClinicsFinal('${esc(key)}')">${LANG==='ar'?'العيادات والعناوين':'Clinics & Addresses'}</button>
+   <button class="btn secondary" onclick="openCustomerCashbackFinal('${esc(key)}')">Cashback</button>
+   ${authCan('customers','edit')?`<button class="btn secondary" onclick="openCustomerSplit23('${esc(S(c.id||c.customer_id))}')">${LANG==='ar'?'تعديل توزيع العميل':'Edit Customer Distribution'}</button>`:''}
+ </div>
+ <div style="margin-top:12px">${table([
+   [T('rep'),r=>esc(r.rep_name||'-')],
+   [T('region'),r=>esc(r.territory_code||'-')],
+   [LANG==='ar'?'المجموعة':'Group',r=>esc(r.territory_group||'-')],
+   [LANG==='ar'?'نسبة التوزيع':'Split %',r=>N(r.percentage).toFixed(2)+'%']
+ ],spl)}</div>`);
+}
+async function openCustomerStatementFinal(key){
+ await ensureFinalCustomerParityData();
+ const c=customerByKey(key);
+ if(!c){alert(LANG==='ar'?'تعذر العثور على العميل.':'Customer not found.');return}
+ const s=finalCustomerStatement(c)||emptyCustomerStatementFinal(c);
+ const rows=finalCustomerStatementLines(c);
+ const noRows=rows.length===0?`<div class="empty">${LANG==='ar'?'لا توجد حركات مالية على هذا العميل حتى الآن.':'No financial transactions for this customer yet.'}</div>`:'';
+ openModal((LANG==='ar'?'كشف حساب — ':'Customer Statement — ')+(s.customer_name||customerName(c)),`
+ <div class="detail-grid">
+ ${detail(LANG==='ar'?'إجمالي الفواتير':'Invoices',money(s.statement_debits))}
+ ${detail(LANG==='ar'?'إجمالي الأرصدة الدائنة':'Credits',money(s.statement_credits))}
+ ${detail(LANG==='ar'?'المتبقي على الفواتير':'Outstanding',money(s.invoice_outstanding))}
+ ${detail(LANG==='ar'?'رصيد دائن غير موزع':'Unapplied Credit',money(s.unapplied_customer_credit))}
+ ${detail(LANG==='ar'?'الرصيد النهائي':'Final Balance',money(s.statement_balance))}
+ </div>
+ <div class="doc-actions"><button class="btn secondary" onclick="printCustomerStatementFinal('${esc(key)}')">${T('print')}</button></div>
+ ${noRows}
+ ${rows.length?table([
+  [T('date'),r=>esc(S(r.transaction_date).slice(0,10))],
+  [LANG==='ar'?'الحركة':'Type',r=>esc(r.transaction_type||'-')],
+  [LANG==='ar'?'المستند':'Document',r=>esc(r.document_number||r.source_id||'-')],
+  [LANG==='ar'?'البيان':'Description',r=>esc(r.description||'-')],
+  [T('debit'),r=>money(r.debit)],[T('credit'),r=>money(r.credit)],[T('balance'),r=>`<b>${money(r.running_receivable_balance)}</b>`]
+ ],rows):''}`);
+}
+async function printCustomerStatementFinal(key){
+ await ensureFinalCustomerParityData();
+ const c=customerByKey(key);if(!c)return;
+ const s=finalCustomerStatement(c)||emptyCustomerStatementFinal(c),rows=finalCustomerStatementLines(c);
+ const w=window.open('','_blank');if(!w)return;
+ w.document.write(`<!doctype html><html dir="${LANG==='ar'?'rtl':'ltr'}"><head><meta charset="utf-8"><title>${esc(s.customer_name||'Statement')}</title><style>body{font-family:Arial;padding:28px}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #ddd;padding:7px}th{background:#f5f5f5}.empty{padding:18px;text-align:center;color:#666}</style></head><body><h2>${LANG==='ar'?'كشف حساب العميل':'Customer Statement'} — ${esc(s.customer_name||'-')}</h2><div>${esc(s.clinic_name||'-')} • ${esc(s.city||'-')} • ${esc(s.phone||'-')}</div><p><b>${LANG==='ar'?'الرصيد النهائي':'Final Balance'}: ${money(s.statement_balance)}</b></p>${rows.length?`<table><thead><tr><th>${T('date')}</th><th>${LANG==='ar'?'الحركة':'Type'}</th><th>${LANG==='ar'?'المستند':'Document'}</th><th>${LANG==='ar'?'البيان':'Description'}</th><th>${T('debit')}</th><th>${T('credit')}</th><th>${T('balance')}</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(S(r.transaction_date).slice(0,10))}</td><td>${esc(r.transaction_type||'-')}</td><td>${esc(r.document_number||r.source_id||'-')}</td><td>${esc(r.description||'-')}</td><td>${money(r.debit)}</td><td>${money(r.credit)}</td><td>${money(r.running_receivable_balance)}</td></tr>`).join('')}</tbody></table>`:`<div class="empty">${LANG==='ar'?'لا توجد حركات مالية على هذا العميل حتى الآن.':'No financial transactions for this customer yet.'}</div>`}<script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();
+}
+async function openCustomerClinicsFinal(key){
+ await ensureFinalCustomerParityData();
+ const c=customerByKey(key);if(!c)return;
+ const p=finalCustomerProfile(c)||c;
+ let rows=finalCustomerClinics(c).slice();
+ if(!rows.length && (p.clinic_name||c.clinic_name)){
+   rows=[{
+     clinic_name:p.clinic_name||c.clinic_name,
+     city:p.city||c.city||'',
+     area:p.area||c.area||customerArea(c)||'',
+     address:p.address||c.address||'',
+     phone:p.phone||c.phone||'',
+     is_primary:true,
+     active:true
+   }];
+ }
+ openModal((LANG==='ar'?'العيادات والعناوين — ':'Clinics & Addresses — ')+customerName(c),rows.length?table([
+   [LANG==='ar'?'النوع':'Type',r=>r.is_primary?'<b>Primary</b>':'Alternate'],
+   [T('clinic'),r=>esc(r.clinic_name||'-')],
+   [LANG==='ar'?'المدينة':'City',r=>esc(r.city||'-')],
+   [LANG==='ar'?'المنطقة':'Area',r=>esc(r.area||'-')],
+   [LANG==='ar'?'العنوان':'Address',r=>esc(r.address||'-')],
+   [T('phone'),r=>esc(r.phone||'-')]
+ ],rows):`<div class="empty">${LANG==='ar'?'لا توجد بيانات عيادات أو عناوين مسجلة لهذا العميل.':'No clinic/address data is registered for this customer.'}</div>`);
+}
+async function openCustomerCashbackFinal(key){
+ await ensureFinalCustomerParityData();
+ const c=customerByKey(key);if(!c)return;
+ const x=finalCustomerCashback(c);
+ if(!x){openModal('Cashback — '+customerName(c),`<div class="empty">${LANG==='ar'?'لا توجد بيانات Cashback لهذا العميل.':'No cashback data for this customer.'}</div>`);return}
+ openModal('Cashback — '+customerName(c),`<div class="detail-grid">
+ ${detail(LANG==='ar'?'إجمالي المشتريات':'Total Purchases',money(x.total_purchases))}
+ ${detail(LANG==='ar'?'حد الاستحقاق':'Threshold',money(x.threshold_amount))}
+ ${detail(LANG==='ar'?'النسبة':'Rate',(N(x.cashback_rate)*100).toFixed(1)+'%')}
+ ${detail(LANG==='ar'?'المستحق':'Eligible',x.eligible?(LANG==='ar'?'نعم':'Yes'):(LANG==='ar'?'لا':'No'))}
+ ${detail(LANG==='ar'?'المكتسب':'Earned',money(x.earned_amount))}
+ ${detail(LANG==='ar'?'المستخدم':'Used',money(x.used_amount))}
+ ${detail(LANG==='ar'?'المتبقي':'Remaining',money(x.remaining_amount))}
+ ${detail(LANG==='ar'?'المتبقي للحد':'To Threshold',money(x.amount_to_threshold))}
+ </div>`);
+}
+async function openUnassignedCustomersFinal(){
+ await ensureFinalCustomerParityData();
+ const rows=A(D.customerSplitHealth).filter(x=>S(x.status)!=='MATCH');
+ openModal(LANG==='ar'?'عملاء يحتاجون توزيع مندوب':'Customers needing rep assignment',table([
+ [T('customer'),r=>`<b>${esc(r.customer_name||'-')}</b>`],[T('achievement'),r=>N(r.split_total_pct).toFixed(2)+'%'],[T('status'),r=>`<span class="pill warn">${esc(r.status||'-')}</span>`]
+ ],rows));
 }
 function openCustomerDrill(key,kind){if(!requireModulePermission('customers','view'))return;
  const c=customerByKey(key);if(!c)return;
@@ -1856,43 +2077,29 @@ function b19LineTypeChanged(){
  const free=['bonus','display','sample','free'].includes(norm(($('b19Type')||{}).value));
  if($('b19Price')){$('b19Price').disabled=free;if(free)$('b19Price').value='0';else b19LineProductChanged()}
 }
+function b19GrossLine(x){
+ const net=N(x.qty)*N(x.price),pct=['bonus','display','sample','free'].includes(norm(x.order_type))?0:N(x.vat_percent);
+ return {net,vat:net*pct/100,gross:net*(1+pct/100),pct};
+}
 function b19RenderDraft(){
  const wrap=$('b19Draft');if(!wrap)return;
- const total=B19_LINES.reduce((a,x)=>a+N(x.qty)*N(x.price),0);
- const qty=B19_LINES.reduce((a,x)=>a+N(x.qty),0);
- const paid=N(($('b19Paid')||{}).value);
+ const calc=B19_LINES.map(b19GrossLine),subtotal=calc.reduce((a,x)=>a+x.net,0),vat=calc.reduce((a,x)=>a+x.vat,0),total=calc.reduce((a,x)=>a+x.gross,0),qty=B19_LINES.reduce((a,x)=>a+N(x.qty),0),paid=N(($('b19Paid')||{}).value);
  wrap.innerHTML=`<div class="b19-totalbar">
-  <div class="mini-card" onclick="void(0)"><span>${b19t('عدد السطور','Lines')}</span><b>${num(B19_LINES.length,0)}</b></div>
-  <div class="mini-card" onclick="void(0)"><span>${T('qty')}</span><b>${num(qty,2)}</b></div>
-  <div class="mini-card" onclick="void(0)"><span>${T('total')}</span><b>${money(total)}</b></div>
-  <div class="mini-card" onclick="void(0)"><span>${T('remaining')}</span><b>${money(Math.max(0,total-paid))}</b></div>
+  <div class="mini-card"><span>${b19t('عدد السطور','Lines')}</span><b>${num(B19_LINES.length,0)}</b></div><div class="mini-card"><span>${T('qty')}</span><b>${num(qty,2)}</b></div>
+  <div class="mini-card"><span>${LANG==='ar'?'قبل VAT':'Before VAT'}</span><b>${money(subtotal)}</b></div><div class="mini-card"><span>VAT</span><b>${money(vat)}</b></div>
+  <div class="mini-card"><span>${T('total')}</span><b>${money(total)}</b></div><div class="mini-card"><span>${T('remaining')}</span><b>${money(Math.max(0,total-paid))}</b></div>
  </div>
- ${B19_LINES.length?`<div class="table-card"><div class="table-wrap"><table class="data-table">
- <thead><tr><th>#</th><th>${T('product')}</th><th>${T('lot')}</th><th>${T('qty')}</th><th>${T('salePrice')}</th><th>${T('total')}</th><th>${b19t('النوع','Type')}</th><th></th></tr></thead>
- <tbody>${B19_LINES.map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.product_name)}</td><td>${esc(x.lot_number)}</td><td>${num(x.qty,2)}</td><td>${money(x.price)}</td><td>${money(N(x.qty)*N(x.price))}</td><td>${esc(b19LineTypeLabel(x.order_type))}</td><td><button class="btn small secondary" onclick="b19RemoveLine(${i})">${b19t('حذف','Remove')}</button></td></tr>`).join('')}</tbody>
- </table></div></div>`:`<div class="empty">${b19t('أضف صنفًا واحدًا على الأقل','Add at least one line')}</div>`}`;
+ ${B19_LINES.length?`<div class="table-card"><div class="table-wrap"><table class="data-table"><thead><tr><th>#</th><th>${T('product')}</th><th>${T('lot')}</th><th>${T('qty')}</th><th>${LANG==='ar'?'السعر قبل VAT':'Net Price'}</th><th>VAT</th><th>${T('total')}</th><th>${b19t('النوع','Type')}</th><th></th></tr></thead><tbody>${B19_LINES.map((x,i)=>{const c=b19GrossLine(x);return `<tr><td>${i+1}</td><td>${esc(x.product_name)}</td><td>${esc(x.lot_number)}</td><td>${num(x.qty,2)}</td><td>${money(x.price)}</td><td>${N(c.pct).toFixed(2)}% • ${money(c.vat)}</td><td><b>${money(c.gross)}</b></td><td>${esc(b19LineTypeLabel(x.order_type))}</td><td><button class="btn small secondary" onclick="b19RemoveLine(${i})">${b19t('حذف','Remove')}</button></td></tr>`}).join('')}</tbody></table></div></div>`:`<div class="empty">${b19t('أضف صنفًا واحدًا على الأقل','Add at least one line')}</div>`}`;
 }
 function b19RemoveLine(i){B19_LINES.splice(i,1);b19RenderDraft()}
 function b19AddLine(){
- const pid=S(($('b19Product')||{}).value),lid=S(($('b19Lot')||{}).value);
- const qty=N(($('b19Qty')||{}).value),price=N(($('b19Price')||{}).value);
- const type=S(($('b19Type')||{}).value)||'sale';
- if(!pid)return alert(b19t('اختر المنتج','Select product'));
- if(!lid)return alert(b19t('اختر اللوط','Select LOT'));
- if(qty<=0)return alert(b19t('أدخل كمية صحيحة','Enter a valid quantity'));
- if(price<0)return alert(b19t('السعر لا يمكن أن يكون سالبًا','Price cannot be negative'));
- const p=A(D.orderProducts).find(x=>S(x.product_id)===pid);
- const l=A(D.dispatchLots).find(x=>S(x.lot_id)===lid);
- if(!p||!l)return alert(b19t('بيانات المنتج أو اللوط غير متاحة','Product or LOT data is unavailable'));
- const already=B19_LINES.filter(x=>S(x.lot_id)===lid).reduce((a,x)=>a+N(x.qty),0);
- if(already+qty>N(l.available_qty))return alert(b19t('إجمالي الكمية المطلوبة من هذا اللوط أكبر من المتاح','Requested quantity from this LOT exceeds available stock'));
- B19_LINES.push({
-  product_id:pid,product_name:p.product_name||'',
-  lot_id:lid,lot_number:l.lot_number||'',
-  qty,price,order_type:type
- });
- if($('b19Qty'))$('b19Qty').value='';
- b19RenderDraft();
+ const pid=S(($('b19Product')||{}).value),lid=S(($('b19Lot')||{}).value),qty=N(($('b19Qty')||{}).value),price=N(($('b19Price')||{}).value),type=S(($('b19Type')||{}).value)||'sale';
+ const vat=['bonus','display','sample','free'].includes(norm(type))?0:N(($('b19Vat')||{}).value);
+ if(!pid)return alert(b19t('اختر المنتج','Select product'));if(!lid)return alert(b19t('اختر اللوط','Select LOT'));if(qty<=0)return alert(b19t('أدخل كمية صحيحة','Enter a valid quantity'));if(price<0)return alert(b19t('السعر لا يمكن أن يكون سالبًا','Price cannot be negative'));if(vat<0||vat>100)return alert(LANG==='ar'?'نسبة VAT غير صحيحة':'Invalid VAT percentage');
+ const p=A(D.orderProducts).find(x=>S(x.product_id)===pid),l=A(D.dispatchLots).find(x=>S(x.lot_id)===lid);if(!p||!l)return alert(b19t('بيانات المنتج أو اللوط غير متاحة','Product or LOT data is unavailable'));
+ const already=B19_LINES.filter(x=>S(x.lot_id)===lid).reduce((a,x)=>a+N(x.qty),0);if(already+qty>N(l.available_qty))return alert(b19t('إجمالي الكمية المطلوبة من هذا اللوط أكبر من المتاح','Requested quantity from this LOT exceeds available stock'));
+ B19_LINES.push({product_id:pid,product_name:p.product_name||'',lot_id:lid,lot_number:l.lot_number||'',qty,price,vat_percent:vat,order_type:type});
+ if($('b19Qty'))$('b19Qty').value='';b19RenderDraft();
 }
 
 async function ensurePaymentFundsFinal(){
@@ -1912,74 +2119,68 @@ function b19PaidChangedFinal(){
   if(wrap)wrap.style.display=paid>0?'block':'none';
   b19RenderDraft();
 }
+
+function b19CustomerProfileChanged(){
+ const cid=S(($('b19Customer')||{}).value),wrap=$('b19CustomerProfile');if(!wrap)return;
+ const p=A(D.customerInvoiceProfiles).find(x=>S(x.customer_id)===cid);
+ const c=A(D.customers).find(x=>S(x.id||x.customer_id)===cid);
+ if(!p&&!c){wrap.innerHTML='';return}
+ const x=p||c;
+ const clinics=A(D.customerClinics).filter(y=>S(y.customer_id)===cid&&y.active!==false);
+ const splits=A(x.current_rep_splits);
+ const repText=splits.map(y=>S(y.rep_name)).filter(Boolean).join(' / ')||'-';
+ const territoryText=splits.map(y=>S(y.territory_code)).filter(Boolean).join(' / ')||x.area||customerArea(c||{})||'-';
+ const groupText=splits.map(y=>S(y.territory_group)).filter(Boolean).join(' / ')||'-';
+ const cashback=x.cashback_eligible
+   ? `${LANG==='ar'?'مستحق':'Eligible'} ${money(x.cashback_remaining)}`
+   : `${LANG==='ar'?'متبقي للحد':'To threshold'} ${money(x.cashback_to_threshold)}`;
+ wrap.innerHTML=`<div class="detail-grid">
+   ${detail(T('clinic'),esc(x.clinic_name||c?.clinic_name||'-'))}
+   ${detail(T('phone'),esc(x.phone||c?.phone||'-'))}
+   ${detail(LANG==='ar'?'المدينة':'City',esc(x.city||c?.city||'-'))}
+   ${detail(LANG==='ar'?'العنوان':'Address',esc(x.address||c?.address||'-'))}
+   ${detail(LANG==='ar'?'المنطقة':'Territory',esc(territoryText))}
+   ${detail(LANG==='ar'?'المجموعة':'Territory Group',esc(groupText))}
+   ${detail(T('rep'),esc(repText))}
+   ${detail('Cashback',cashback)}
+   ${detail(LANG==='ar'?'عدد العيادات':'Clinics',num(clinics.length,0))}
+ </div>`;
+}
 async function b19OpenNew(){
  if(!requireModulePermission('operations','add'))return;
- await ensurePaymentFundsFinal();
+ await Promise.all([ensurePaymentFundsFinal(),ensureFinalCustomerParityData()]);
  B19_LINES=[];
- const customers=A(D.customers).filter(c=>c.active!==false);
- const reps=A(D.repMaster).filter(r=>r.active!==false);
- openModal(
-  b19t('طلب / فاتورة جديدة متعددة الأصناف','New Multi-line Order / Invoice'),
-  `<div class="auth-grid">
+ const customers=A(D.customers).filter(c=>c.active!==false),reps=A(D.repMaster).filter(r=>r.active!==false);
+ openModal(b19t('طلب / فاتورة جديدة متعددة الأصناف','New Multi-line Order / Invoice'),`<div class="auth-grid">
    <label>${T('date')}<input id="b19Date" class="input" type="date" value="${new Date().toISOString().slice(0,10)}"></label>
-   <label>${T('customer')}<select id="b19Customer" class="input"><option value="">${T('selectCustomer')}</option>${customers.map(c=>`<option value="${esc(c.id)}">${esc(customerName(c))}</option>`).join('')}</select></label>
+   <label>${T('customer')}<select id="b19Customer" class="input" onchange="b19CustomerProfileChanged()"><option value="">${T('selectCustomer')}</option>${customers.map(c=>`<option value="${esc(c.id)}">${esc(customerName(c))}</option>`).join('')}</select></label>
    <label>${T('rep')}<select id="b19Rep" class="input"><option value="">${T('selectRep')}</option>${reps.map(r=>`<option value="${esc(r.id)}">${esc(r.name||r.rep_name||'-')}</option>`).join('')}</select></label>
    <label>${T('paidNow')}<input id="b19Paid" class="input" type="number" min="0" step="0.01" value="0" oninput="b19PaidChangedFinal()"></label>
    <label id="b19FundWrap" style="display:none">${T('collectionFund')}<select id="b19Fund" class="input"><option value="">${LANG==='ar'?'اختر الخزنة / البنك':'Select cashbox / bank'}</option>${paymentFundOptionsFinal()}</select></label>
-   <label class="full">${T('notes')}<input id="b19Notes" class="input"></label>
-  </div>
-  <div class="report-section b19-lines"><h4>${b19t('إضافة أصناف الفاتورة','Add invoice lines')}</h4>
-   <div class="b19-line-editor">
+   <label class="full">${T('notes')}<input id="b19Notes" class="input"></label></div>
+   <div id="b19CustomerProfile"></div>
+   <div class="report-section b19-lines"><h4>${b19t('إضافة أصناف الفاتورة','Add invoice lines')}</h4><div class="b19-line-editor">
     <label>${T('product')}<select id="b19Product" class="input" onchange="b19LineProductChanged()"><option value="">${T('selectProduct')}</option>${b19ProductOptions()}</select></label>
     <label>${T('lot')}<select id="b19Lot" class="input"><option value="">${T('selectLot')}</option></select></label>
     <label>${T('qty')}<input id="b19Qty" class="input" type="number" min="0.0001" step="0.01"></label>
     <label>${T('salePrice')}<input id="b19Price" class="input" type="number" min="0" step="0.01"></label>
+    <label>VAT %<input id="b19Vat" class="input" type="number" min="0" max="100" step="0.01" value="0"></label>
     <label>${b19t('النوع','Type')}<select id="b19Type" class="input" onchange="b19LineTypeChanged()"><option value="sale">${b19t('بيع','Sale')}</option><option value="bonus">${b19t('بونص','Bonus')}</option><option value="display">${b19t('عرض','Display')}</option><option value="sample">${b19t('عينة','Sample')}</option><option value="free">${b19t('مجاني','Free')}</option></select></label>
-    <button class="btn secondary" onclick="b19AddLine()">＋ ${b19t('إضافة','Add')}</button>
-   </div>
-   <div id="b19Draft"></div>
-  </div>
-  <button class="btn ok" style="width:100%;margin-top:10px" onclick="b19SaveBatch()">${b19t('حفظ الطلب / الفاتورة','Save Order / Invoice')}</button>`
- );
+    <button class="btn secondary" onclick="b19AddLine()">＋ ${b19t('إضافة','Add')}</button></div><div id="b19Draft"></div></div>
+   <button class="btn ok" style="width:100%;margin-top:10px" onclick="b19SaveBatch()">${b19t('حفظ الطلب / الفاتورة','Save Order / Invoice')}</button>`);
  b19RenderDraft();
 }
 async function b19SaveBatch(){
- const customerId=S(($('b19Customer')||{}).value);
- const repId=S(($('b19Rep')||{}).value);
- const paid=N(($('b19Paid')||{}).value);
- const fundId=S(($('b19Fund')||{}).value);
- const total=B19_LINES.reduce((a,x)=>a+N(x.qty)*N(x.price),0);
- if(!customerId)return alert(T('selectCustomer'));
- if(!B19_LINES.length)return alert(b19t('أضف صنفًا واحدًا على الأقل','Add at least one line'));
- if(paid<0||paid>total)return alert(b19t('المبلغ المسدد غير صحيح','Invalid paid amount'));
- if(paid>0&&!fundId)return alert(b19t('اختر الخزنة أو البنك الذي استلم المبلغ','Select the cashbox or bank receiving the payment'));
+ const customerId=S(($('b19Customer')||{}).value),repId=S(($('b19Rep')||{}).value),paid=N(($('b19Paid')||{}).value),fundId=S(($('b19Fund')||{}).value);
+ const total=B19_LINES.reduce((a,x)=>a+b19GrossLine(x).gross,0);
+ if(!customerId)return alert(T('selectCustomer'));if(!B19_LINES.length)return alert(b19t('أضف صنفًا واحدًا على الأقل','Add at least one line'));if(paid<0||paid>total+0.01)return alert(b19t('المبلغ المسدد غير صحيح','Invalid paid amount'));if(paid>0&&!fundId)return alert(b19t('اختر الخزنة أو البنك الذي استلم المبلغ','Select the cashbox or bank receiving the payment'));
  try{
-  const res=await rpcAuth('mahsoubak_create_sales_order_batch_v3',{
-   p_request_id:newRequestId('web_batch_v3'),
-   p_order_date:S(($('b19Date')||{}).value),
-   p_customer_id:customerId,
-   p_rep_id:repId||null,
-   p_paid:paid,
-   p_fund_id:paid>0?fundId:null,
-   p_order_type:'sale',
-   p_notes:S(($('b19Notes')||{}).value)||null,
-   p_lines:B19_LINES.map(x=>({
-    product_id:x.product_id,
-    lot_id:x.lot_id,
-    qty:N(x.qty),
-    price:N(x.price),
-    order_type:x.order_type
-   }))
+  const res=await rpcAuth('mahsoubak_create_sales_order_batch_v4_vat',{
+   p_request_id:newRequestId('web_batch_v4_vat'),p_order_date:S(($('b19Date')||{}).value),p_customer_id:customerId,p_rep_id:repId||null,p_paid:paid,p_fund_id:paid>0?fundId:null,p_order_type:'sale',p_notes:S(($('b19Notes')||{}).value)||null,
+   p_lines:B19_LINES.map(x=>({product_id:x.product_id,lot_id:x.lot_id,qty:N(x.qty),price:N(x.price),vat_percent:N(x.vat_percent),order_type:x.order_type}))
   });
-  const obj=Array.isArray(res)?(res[0]||{}):(res||{});
-  closeModal();
-  await loadData(false);
-  show('sales');
-  alert(
-   b19t('تم إنشاء الطلب بنجاح','Order created successfully')+
-   '\n'+b19t('رقم الفاتورة: ','Invoice: ')+(obj.invoice_number||'-')+
-   '\n'+b19t('الإجمالي: ','Total: ')+money(obj.total)
-  );
+  const obj=Array.isArray(res)?(res[0]||{}):(res||{});closeModal();await loadData(false);show('sales');
+  alert(b19t('تم إنشاء الطلب بنجاح','Order created successfully')+'\n'+b19t('رقم الفاتورة: ','Invoice: ')+(obj.invoice_number||'-')+'\n'+b19t('الإجمالي شامل VAT: ','Total incl. VAT: ')+money(obj.total));
  }catch(e){alert(e.message||e)}
 }
 async function b19ReviewBatch(id,decision){
@@ -3515,10 +3716,29 @@ function openRepFromTarget(repId){if(!requireModulePermission('reps','view'))ret
  show('rep_reports');
  setTimeout(()=>{if($('repSelect')){$('repSelect').value=selectedRepRef;applyRepFilter()}},0);
 }
+async function saveRepSalaryFinal(repId){
+ const el=$('finalSalary_'+repId);if(!el)return;
+ try{
+  await rpcAuth('mahsoubak_set_rep_monthly_salary_v1',{p_rep_id:repId,p_month:new Date().toISOString().slice(0,10),p_monthly_salary:N(el.value),p_notes:null});
+  D.repCommission=await getAllSessionSafe(V.repCommission);
+  renderSalesTarget();
+ }catch(e){alert(e.message||e)}
+}
 function renderSalesTarget(){
  const reps=A(D.repMaster).filter(r=>r.active!==false);
- $('view-reps').innerHTML=`<div class="rep-report-tile"><div><h3>${T('targetModuleTitle')}</h3><p>${T('targetModuleSub')}</p></div><button class="btn blue" onclick="show('rep_reports')">${T('openReport')}</button></div>
- <div class="table-card"><div class="table-wrap"><table class="data-table"><thead><tr><th>${T('rep')}</th><th>${T('region')}</th><th>${T('target')}</th><th>${T('achieved')}</th><th>${T('targetRemaining')}</th><th>${T('achievement')}</th><th>${T('salesAmount')}</th></tr></thead><tbody>${reps.map(rep=>{const target=repTargetValue(rep),ach=achievedForRep(rep),left=Math.max(0,target-ach),pct=target?ach/target*100:0;const rs=A(D.repSales).find(x=>S(x.rep_id)===S(rep.id)||norm(x.rep_name)===norm(rep.name||rep.rep_name))||{};return `<tr class="customer-row" onclick="openRepFromTarget('${esc(rep.id)}')"><td><b>${esc(rep.name||rep.rep_name)}</b></td><td>${esc(rep.region_code||rep.territory_code||'-')}</td><td>${num(target,2)}</td><td>${num(ach,2)}</td><td>${num(left,2)}</td><td>${pct.toFixed(1)}%<div class="progress"><i style="width:${Math.min(100,Math.max(0,pct))}%"></i></div></td><td>${money(rs.sales)}</td></tr>`}).join('')}</tbody></table></div></div>`;
+ const month=new Date().toISOString().slice(0,7);
+ const comm=A(D.repCommission).filter(x=>S(x.month_start).slice(0,7)===month);
+ $('view-reps').innerHTML=`<div class="rep-report-tile"><div><h3>${T('targetModuleTitle')}</h3><p>${T('targetModuleSub')}</p></div><div class="doc-actions">${authCan('reps','add')?`<button id="b18AddRep" class="btn secondary" onclick="openNewRepBuild18()">＋ ${LANG==='ar'?'إضافة مندوب':'Add Rep'}</button>`:''}<button class="btn blue" onclick="show('rep_reports')">${T('openReport')}</button></div></div>
+ <div class="table-card"><div class="table-wrap"><table class="data-table"><thead><tr><th>${T('rep')}</th><th>${T('region')}</th><th>${T('target')}</th><th>${T('achieved')}</th><th>${T('targetRemaining')}</th><th>${T('achievement')}</th><th>${T('salesAmount')}</th></tr></thead><tbody>${reps.map(rep=>{const target=repTargetValue(rep),ach=achievedForRep(rep),left=Math.max(0,target-ach),pct=target?ach/target*100:0;const rs=A(D.repSales).find(x=>S(x.rep_id)===S(rep.id)||norm(x.rep_name)===norm(rep.name||rep.rep_name))||{};return `<tr class="customer-row" onclick="openRepFromTarget('${esc(rep.id)}')"><td><b>${esc(rep.name||rep.rep_name)}</b></td><td>${esc(rep.region_code||rep.territory_code||'-')}</td><td>${target?num(target,2):`<span class="pill warn">${T('notSet')}</span>`}</td><td>${num(ach,2)}</td><td>${num(left,2)}</td><td>${target?pct.toFixed(1)+'%':'-'}${target?`<div class="progress"><i style="width:${Math.min(100,Math.max(0,pct))}%"></i></div>`:''}</td><td>${money(rs.sales)}</td></tr>`}).join('')}</tbody></table></div></div>
+ <div class="report-section"><h4>${LANG==='ar'?'حافز تحقيق التارجت الشهري':'Monthly Target Incentive'}</h4>${table([
+ [T('rep'),r=>`<b>${esc(r.rep_name||'-')}</b>`],
+ [T('target'),r=>N(r.target_qty)>0?num(r.target_qty,2):`<span class="pill warn">${T('notSet')}</span>`],
+ [T('achieved'),r=>num(r.achieved_qty,2)],
+ [T('achievement'),r=>N(r.target_qty)>0?N(r.achievement_pct).toFixed(1)+'%':'-'],
+ [LANG==='ar'?'قيمة المرتب للحافز':'Salary basis',r=>`<div style="display:flex;gap:6px"><input id="finalSalary_${esc(r.rep_id)}" class="input" type="number" min="0" step="0.01" value="${N(r.monthly_salary)||''}" placeholder="${LANG==='ar'?'اختياري':'Optional'}"><button class="btn small secondary" onclick="event.stopPropagation();saveRepSalaryFinal('${esc(r.rep_id)}')">${T('save')}</button></div>`],
+ [LANG==='ar'?'الاستحقاق':'Eligibility',r=>N(r.target_qty)<=0?`<span class="pill warn">${LANG==='ar'?'التارجت غير محدد':'Target not set'}</span>`:(r.eligible?`<span class="pill ok">${LANG==='ar'?'مستحق':'Eligible'}</span>`:`<span class="pill">${LANG==='ar'?'غير مستحق':'Not eligible'}</span>`)],
+ [LANG==='ar'?'قيمة الحافز':'Incentive',r=>money(r.commission_amount)]
+ ],comm)}</div>`;
 }
 
 /* Rep Reports */
@@ -3983,11 +4203,20 @@ async function loadData(manual=false){
  if(!authLinked()){renderSecureGate();return false}
  try{
   $('error').style.display='none';$('status').textContent=LANG==='ar'?'جاري تحميل البيانات…':'Loading canonical data…';
-  const [summaryRows,healthRows,inventoryRows,orderRows,repSalesRows,repMasterRows,purchaseRows,allocationRows,collectionRows,territorySalesRows,territoryTotalsRows,moneyTargetRows,territoryMasterRows,repCoverageRows,invoiceRows,payInvoiceRows,receivableRows,customerRows,splitRows,supplierRows,operationRows,expenseRows,treasuryRowsData,trialRowsData,ledgerRowsData,settingRows,dispatchLotRows,orderProductRows,purchaseLotRows,productMasterRows,purchaseHealthRows,collectionOutstandingRows,collectionAllocationRows,collectionHealthRows,agingRows,agingSummaryRows,notificationRows,inventoryAlertRows]=await Promise.all([
+  const [summaryRows,healthRows,inventoryRows,orderRows,repSalesRows,repMasterRows,purchaseRows,allocationRows,collectionRows,territorySalesRows,territoryTotalsRows,moneyTargetRows,territoryMasterRows,repCoverageRows,invoiceRows,payInvoiceRows,receivableRows,customerRows,splitRows,supplierRows,operationRows,expenseRows,treasuryRowsData,trialRowsData,ledgerRowsData,settingRows,dispatchLotRows,orderProductRows,purchaseLotRows,productMasterRows,purchaseHealthRows,collectionOutstandingRows,collectionAllocationRows,collectionHealthRows,agingRows,agingSummaryRows,notificationRows,inventoryAlertRows,
+   customerStatementSummaryRows,customerStatementLineRows,customerProfileRows,customerClinicRows,customerCashbackRows,customerSplitHealthRows,inventoryCostSummaryRows,inventoryLotCostRows,repCommissionRows,vatLineRows,vatSummaryRows,incomeStatementRows,balanceSheetRows,parityHealthRows]=await Promise.all([
    getAllSession(V.summary),getAllSessionSafe(V.health),getAllSession(V.inventory),getDispatchOrdersSafe(),getAllSession(V.repSales),getAllSession(V.repMaster),
-   getAllSession(V.purchases),getAllSession(V.allocations),getCollectionsIntegratedV3(),getAllSession(V.territorySales),getAllSession(V.territoryTotals),getAllSession(V.moneyTargets),getAllSession(V.territoryMaster),getAllSession(V.repCoverage),getAllSession(V.invoices),getAllSessionSafe(V.paidInvoices),getAllSession(V.receivables),getAllSession(V.customers),getAllSession(V.splits),getAllSession(V.suppliers),getAllSession(V.operations),getAllSession(V.expenses),getAllSession(V.treasury),Promise.resolve([]),Promise.resolve([]),getAllSession(V.settings),getDispatchLotsSafe(),getOrderProductsSafe(),getAllSession(V.purchaseLots),getAllSession(V.productsMaster),getAllSessionSafe(V.purchaseHealth),getAllSessionSafe(V.collectionOutstanding),getAllSessionSafe(V.collectionAllocations),getAllSessionSafe(V.collectionHealth),getAllSession(V.aging),getAllSession(V.agingSummary),getAllSession(V.notifications),getAllSession(V.inventoryAlerts)
+   getAllSession(V.purchases),getAllSession(V.allocations),getCollectionsIntegratedV3(),getAllSession(V.territorySales),getAllSession(V.territoryTotals),getAllSession(V.moneyTargets),getAllSession(V.territoryMaster),getAllSession(V.repCoverage),getAllSession(V.invoices),getAllSessionSafe(V.paidInvoices),getAllSession(V.receivables),getAllSession(V.customers),getAllSession(V.splits),getAllSession(V.suppliers),getAllSession(V.operations),getAllSession(V.expenses),getAllSession(V.treasury),Promise.resolve([]),Promise.resolve([]),getAllSession(V.settings),getDispatchLotsSafe(),getOrderProductsSafe(),getAllSession(V.purchaseLots),getAllSession(V.productsMaster),getAllSessionSafe(V.purchaseHealth),getAllSessionSafe(V.collectionOutstanding),getAllSessionSafe(V.collectionAllocations),getAllSessionSafe(V.collectionHealth),getAllSession(V.aging),getAllSession(V.agingSummary),getAllSession(V.notifications),getAllSession(V.inventoryAlerts),
+   getAllSessionSafe(V.customerStatementSummary),getAllSessionSafe(V.customerStatementLines),getAllSessionSafe(V.customerInvoiceProfile),getAllSessionSafe(V.customerClinics),
+   getAllSessionSafe(V.customerCashback),getAllSessionSafe(V.customerSplitHealth),getAllSessionSafe(V.inventoryCostSummary),getAllSessionSafe(V.inventoryLotCost),
+   getAllSessionSafe(V.repCommission),getAllSessionSafe(V.vatLines),getAllSessionSafe(V.vatSummary),getAllSessionSafe(V.incomeStatement),
+   getAllSessionSafe(V.balanceSheet),getAllSessionSafe(V.oldClientParityHealth)
   ]);
-  Object.assign(D,{summary:summaryRows,health:healthRows,inventory:inventoryRows,orders:orderRows,repSales:repSalesRows,repMaster:repMasterRows,purchases:purchaseRows,allocations:allocationRows,collections:collectionRows,territorySales:territorySalesRows,territoryTotals:territoryTotalsRows,moneyTargets:moneyTargetRows,territoryMaster:territoryMasterRows,repCoverage:repCoverageRows,invoices:invoiceRows,paidInvoices:payInvoiceRows,receivables:receivableRows,customers:customerRows,splits:splitRows,suppliers:supplierRows,operations:operationRows,expenses:expenseRows,treasury:treasuryRowsData,trial:trialRowsData,ledger:ledgerRowsData,settings:settingRows,dispatchLots:dispatchLotRows,orderProducts:orderProductRows,purchaseLots:purchaseLotRows,productsMaster:productMasterRows,purchaseHealth:purchaseHealthRows,collectionOutstanding:collectionOutstandingRows,collectionAllocations:collectionAllocationRows,collectionHealth:collectionHealthRows,aging:agingRows,agingSummary:agingSummaryRows,notifications:notificationRows,inventoryAlerts:inventoryAlertRows});
+  Object.assign(D,{summary:summaryRows,health:healthRows,inventory:inventoryRows,orders:orderRows,repSales:repSalesRows,repMaster:repMasterRows,purchases:purchaseRows,allocations:allocationRows,collections:collectionRows,territorySales:territorySalesRows,territoryTotals:territoryTotalsRows,moneyTargets:moneyTargetRows,territoryMaster:territoryMasterRows,repCoverage:repCoverageRows,invoices:invoiceRows,paidInvoices:payInvoiceRows,receivables:receivableRows,customers:customerRows,splits:splitRows,suppliers:supplierRows,operations:operationRows,expenses:expenseRows,treasury:treasuryRowsData,trial:trialRowsData,ledger:ledgerRowsData,settings:settingRows,dispatchLots:dispatchLotRows,orderProducts:orderProductRows,purchaseLots:purchaseLotRows,productsMaster:productMasterRows,purchaseHealth:purchaseHealthRows,collectionOutstanding:collectionOutstandingRows,collectionAllocations:collectionAllocationRows,collectionHealth:collectionHealthRows,aging:agingRows,agingSummary:agingSummaryRows,notifications:notificationRows,inventoryAlerts:inventoryAlertRows,
+   customerStatementSummary:customerStatementSummaryRows,customerStatementLines:customerStatementLineRows,customerInvoiceProfiles:customerProfileRows,
+   customerClinics:customerClinicRows,customerCashback:customerCashbackRows,customerSplitHealth:customerSplitHealthRows,
+   inventoryCostSummary:inventoryCostSummaryRows,inventoryLotCost:inventoryLotCostRows,repCommission:repCommissionRows,
+   vatLines:vatLineRows,vatSummary:vatSummaryRows,incomeStatement:incomeStatementRows,balanceSheet:balanceSheetRows,oldClientParityHealth:parityHealthRows});
   await loadSecureData();
   try{validate()}catch(e){console.warn('Runtime validation warning',e)}
   renderDashboard();renderProducts();renderCustomers();renderSuppliers();renderOperations();renderPurchases();renderSalesModule();renderCollectionsModule();renderReportsModule();renderFinanceModule();renderTrialModule();renderCashFlowModule();renderUsersModule();renderSettingsModule();renderSalesTarget();renderRepReports();renderRegions();
@@ -4042,10 +4271,16 @@ function financeStatementData(){
  const equity=trial.filter(r=>normType(r.account_type).includes('equity')).reduce((a,r)=>a+Math.abs(signed(r)),0);
  return {revenue,cogs,expenses,net,assets,liabilities,equity,diff};
 }
-function incomeStatementHtml(){const d=financeStatementData();return `<div class="statement-box"><h4>${LANG==='ar'?'قائمة الدخل':'Income Statement'}</h4><div class="statement-line"><span>${T('revenue')}</span><b>${money(d.revenue)}</b></div><div class="statement-line"><span>${T('cogsLabel')}</span><b>${money(d.cogs)}</b></div><div class="statement-line"><span>${T('expensesLabel')}</span><b>${money(d.expenses)}</b></div><div class="statement-line total"><span>${T('netIncome')}</span><b>${money(d.net)}</b></div></div>`}
-function balanceSheetHtml(){const d=financeStatementData();return `<div class="statement-box"><h4>${LANG==='ar'?'الميزانية العمومية':'Balance Sheet'}</h4><div class="statement-line"><span>${T('totalAssets')}</span><b>${money(d.assets)}</b></div><div class="statement-line"><span>${LANG==='ar'?'إجمالي الالتزامات حسب ميزان المراجعة':'Trial balance liabilities'}</span><b>${money(d.liabilities)}</b></div><div class="statement-line"><span>${LANG==='ar'?'حقوق الملكية حسب ميزان المراجعة':'Trial balance equity'}</span><b>${money(d.equity)}</b></div><div class="statement-line total"><span>${LANG==='ar'?'فرق الميزانية':'Balance sheet difference'}</span><b>${money(d.diff)}</b></div></div>`}
-function openIncomeStatement(){openModal(LANG==='ar'?'قائمة الدخل':'Income Statement',incomeStatementHtml())}
-function openBalanceSheet(){openModal(LANG==='ar'?'الميزانية العمومية':'Balance Sheet',balanceSheetHtml())}
+function incomeStatementHtml(){const d=A(D.incomeStatement)[0]||{};return `<div class="statement-box"><h4>${LANG==='ar'?'قائمة الدخل':'Income Statement'}</h4><div class="statement-line"><span>${T('revenue')}</span><b>${money(d.sales_revenue)}</b></div><div class="statement-line"><span>${T('cogsLabel')}</span><b>${money(d.cost_of_goods_sold)}</b></div><div class="statement-line"><span>${LANG==='ar'?'مجمل الربح':'Gross Profit'}</span><b>${money(d.gross_profit)}</b></div><div class="statement-line"><span>${T('expensesLabel')}</span><b>${money(d.operating_expenses)}</b></div><div class="statement-line total"><span>${T('netIncome')}</span><b>${money(d.net_income)}</b></div></div>`}
+function balanceSheetHtml(){const d=A(D.balanceSheet)[0]||{};return `<div class="statement-box"><h4>${LANG==='ar'?'الميزانية العمومية':'Balance Sheet'}</h4><div class="statement-line"><span>${T('cashBalance')}</span><b>${money(d.cash)}</b></div><div class="statement-line"><span>${T('accountsReceivable')}</span><b>${money(d.accounts_receivable)}</b></div><div class="statement-line"><span>${T('inventoryAsset')}</span><b>${money(d.inventory)}</b></div><div class="statement-line"><span>${T('totalAssets')}</span><b>${money(d.total_assets)}</b></div><div class="statement-line"><span>${LANG==='ar'?'حسابات الموردين':'Accounts Payable'}</span><b>${money(d.accounts_payable)}</b></div><div class="statement-line"><span>${LANG==='ar'?'حقوق الملكية والأرباح الحالية':'Equity & Current Earnings'}</span><b>${money(d.equity_and_current_earnings)}</b></div><div class="statement-line total"><span>${LANG==='ar'?'فرق الميزانية':'Balance sheet difference'}</span><b>${money(d.balance_sheet_difference)}</b></div></div>`}
+async function openIncomeStatement(){
+ if(!A(D.incomeStatement).length)D.incomeStatement=await getAllSessionSafe(V.incomeStatement);
+ openModal(LANG==='ar'?'قائمة الدخل':'Income Statement',incomeStatementHtml())
+}
+async function openBalanceSheet(){
+ if(!A(D.balanceSheet).length)D.balanceSheet=await getAllSessionSafe(V.balanceSheet);
+ openModal(LANG==='ar'?'الميزانية العمومية':'Balance Sheet',balanceSheetHtml())
+}
 const _renderFinanceModuleBuild04=renderFinanceModule;
 renderFinanceModule=function(){_renderFinanceModuleBuild04();const el=$('view-finance');if(!el)return;const note=el.querySelector('.summary-note');const html=`<div class="statement-grid">${incomeStatementHtml()}${balanceSheetHtml()}</div><div class="doc-actions"><button class="btn secondary" onclick="openIncomeStatement()">${LANG==='ar'?'فتح قائمة الدخل':'Open income statement'}</button><button class="btn secondary" onclick="openBalanceSheet()">${LANG==='ar'?'فتح الميزانية العمومية':'Open balance sheet'}</button><button class="btn secondary" onclick="openLiquidityMap()">${LANG==='ar'?'خريطة السيولة والالتزامات':'Liquidity map'}</button></div>`;if(note)note.insertAdjacentHTML('beforebegin',html);else el.insertAdjacentHTML('beforeend',html)}
 
@@ -4176,87 +4411,218 @@ function agingSummaryTableP24(rows=A(D.agingSummary)){
     [T('remaining'),r=>money(r.total_outstanding)]
   ],rows);
 }
+function openCollectionsDebtCardV8(kind){
+  if(!requireModulePermission('collections','view'))return;
+  let rows=A(D.agingSummary).filter(r=>N(r.total_outstanding)>0);
+
+  if(kind==='over30'){
+    rows=rows.filter(r=>N(r.oldest_invoice_days)>30);
+  }
+
+  const title=kind==='over30'
+    ? (LANG==='ar'?'متأخرات أكثر من 30 يوم':'Overdue >30 days')
+    : (LANG==='ar'?'إجمالي المديونيات':'Total receivables');
+
+  const body=rows.length?`
+    <div class="table-card"><div class="table-wrap"><table class="data-table">
+      <thead><tr>
+        <th>${T('customer')}</th>
+        <th>${T('invoiceCount')}</th>
+        <th>${LANG==='ar'?'0–30 يوم':'0–30 days'}</th>
+        <th>${LANG==='ar'?'31–60 يوم':'31–60 days'}</th>
+        <th>${LANG==='ar'?'61–90 يوم':'61–90 days'}</th>
+        <th>${LANG==='ar'?'أكثر من 90 يوم':'90+ days'}</th>
+        <th>${T('remaining')}</th>
+        <th>${LANG==='ar'?'أقدم فاتورة/يوم':'Oldest invoice/days'}</th>
+        <th>${T('details')}</th>
+      </tr></thead>
+      <tbody>${rows.map(r=>{
+        const c=A(D.customers).find(x=>
+          (S(r.customer_id)&&S(x.id||x.customer_id)===S(r.customer_id)) ||
+          norm(customerName(x))===norm(r.customer_name)
+        );
+        const key=c?customerKey(c):S(r.customer_id||r.customer_name);
+        const canOpen=!!c;
+        return `<tr class="${canOpen?'click-row':''}" ${canOpen?`onclick="openCustomerByKey('${esc(key)}')"`:''}>
+          <td><b>${esc(r.customer_name||'-')}</b></td>
+          <td>${num(r.open_invoice_count||r.invoice_count,0)}</td>
+          <td>${money(r.bucket_0_30)}</td>
+          <td>${money(r.bucket_31_60)}</td>
+          <td>${money(r.bucket_61_90)}</td>
+          <td>${money(r.bucket_90_plus)}</td>
+          <td>${money(r.total_outstanding)}</td>
+          <td>${num(r.oldest_invoice_days,0)}</td>
+          <td>${canOpen?`<button class="btn small secondary" onclick="event.stopPropagation();openCustomerByKey('${esc(key)}')">${T('open')}</button>`:'-'}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div></div>`
+    : `<div class="empty">${T('noData')}</div>`;
+
+  openModal(title,body);
+}
+
 function renderCollectionsDashboardP24(){
   const el=$('view-collections_dashboard');if(!el)return;
-  const keys=['receivables','collections_total','collections_applied','customer_credit','collection_count'];
-  el.innerHTML=`<div class="module-head"><div><h3>${T('collections_dashboard')}</h3></div></div>
-    <div class="grid">${dashboardCardsP24(keys)}</div>
-    <div class="parity24-card" style="margin-top:16px">
-      <h3>${LANG==='ar'?'مديونيات العملاء':'Customer Receivables'}</h3>
-      ${agingSummaryTableP24()}
-    </div>`;
-}
-function renderCollectionClassificationP24(){
-  const el=$('view-collection_classification');if(!el)return;
+  const rows=A(D.collections);
+  const aging=A(D.agingSummary);
+  const totalCash=rows.reduce((a,r)=>a+N(r.cash_received??r.amount),0);
+  const totalApplied=rows.reduce((a,r)=>a+N(r.applied_to_invoices??r.applied_amount),0);
+  const totalUnapplied=rows.reduce((a,r)=>a+N(r.unapplied_customer_credit??r.unapplied_amount),0);
+  const receivableRows=aging.filter(r=>N(r.total_outstanding)>0);
+  const receivables=receivableRows.reduce((a,r)=>a+N(r.total_outstanding),0);
+  const overdue=receivableRows.filter(r=>N(r.oldest_invoice_days)>30);
+  const overdueValue=overdue.reduce((a,r)=>a+N(r.total_outstanding),0);
 
+  el.innerHTML=`<div class="module-head"><div><h3>${T('collections_dashboard')}</h3>
+    <p>${LANG==='ar'?'ملخص التحصيلات والمديونيات من نفس بيانات Supabase المحملة':'Collections and receivables summary from the same loaded Supabase data'}</p>
+  </div></div>
+  <div class="parity24-grid">
+    <div class="parity24-kpi" role="button" tabindex="0" style="cursor:pointer" onclick="openCollectionClassCardV5('all')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openCollectionClassCardV5('all')}">
+      <span>${LANG==='ar'?'إجمالي التحصيلات':'Total collections'}</span><b>${money(totalCash)}</b><small>${num(rows.length,0)}</small>
+    </div>
+    <div class="parity24-kpi" role="button" tabindex="0" style="cursor:pointer" onclick="openCollectionClassCardV5('applied')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openCollectionClassCardV5('applied')}">
+      <span>${LANG==='ar'?'المطبق على الفواتير':'Applied to invoices'}</span><b>${money(totalApplied)}</b>
+    </div>
+    <div class="parity24-kpi" role="button" tabindex="0" style="cursor:pointer" onclick="openCollectionClassCardV5('unapplied_balance')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openCollectionClassCardV5('unapplied_balance')}">
+      <span>${LANG==='ar'?'الرصيد غير الموزع':'Unapplied balance'}</span><b>${money(totalUnapplied)}</b>
+    </div>
+    <div class="parity24-kpi" role="button" tabindex="0" style="cursor:pointer" onclick="openCollectionsDebtCardV8('all')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openCollectionsDebtCardV8('all')}">
+      <span>${LANG==='ar'?'إجمالي المديونيات':'Total receivables'}</span><b>${money(receivables)}</b><small>${num(receivableRows.length,0)}</small>
+    </div>
+    <div class="parity24-kpi" role="button" tabindex="0" style="cursor:pointer" onclick="openCollectionsDebtCardV8('over30')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openCollectionsDebtCardV8('over30')}">
+      <span>${LANG==='ar'?'متأخرات أكثر من 30 يوم':'Overdue >30 days'}</span><b>${money(overdueValue)}</b><small>${num(overdue.length,0)}</small>
+    </div>
+  </div>
+  <div class="parity24-card" style="margin-top:16px">
+    <h3>${LANG==='ar'?'مديونيات العملاء':'Customer Receivables'}</h3>
+    ${agingSummaryTableP24()}
+  </div>`;
+}
+function collectionClassRowsV5(kind){
   const rows=A(D.collections);
   const value=r=>N(r.cash_received??r.amount);
   const applied=r=>N(r.applied_to_invoices??r.applied_amount);
   const unapplied=r=>N(r.unapplied_customer_credit??r.unapplied_amount);
-
-  const fullyApplied=rows.filter(r=>value(r)>0 && applied(r)>0 && unapplied(r)<=0.01);
-  const mixed=rows.filter(r=>applied(r)>0 && unapplied(r)>0.01);
-  const unappliedOnly=rows.filter(r=>value(r)>0 && applied(r)<=0.01 && unapplied(r)>0.01);
-
-  const totalCash=rows.reduce((a,r)=>a+value(r),0);
-  const totalApplied=rows.reduce((a,r)=>a+applied(r),0);
-  const totalUnapplied=rows.reduce((a,r)=>a+unapplied(r),0);
-
-  const methodMap={};
-  rows.forEach(r=>{
-    const m=S(r.method||r.payment_method||'-')||'-';
-    if(!methodMap[m])methodMap[m]={method:m,count:0,amount:0};
-    methodMap[m].count++;
-    methodMap[m].amount+=value(r);
-  });
-  const methods=Object.values(methodMap).sort((a,b)=>b.amount-a.amount);
-
-  function classificationLabel(r){
+  if(kind==='fully')return rows.filter(r=>value(r)>0 && applied(r)>0 && unapplied(r)<=0.01);
+  if(kind==='partial')return rows.filter(r=>applied(r)>0 && unapplied(r)>0.01);
+  if(kind==='unapplied')return rows.filter(r=>value(r)>0 && applied(r)<=0.01 && unapplied(r)>0.01);
+  if(kind==='unapplied_balance')return rows.filter(r=>unapplied(r)>0.01);
+  if(kind==='applied')return rows.filter(r=>applied(r)>0);
+  return rows;
+}
+function collectionClassDetailTableV5(rows){
+  const value=r=>N(r.cash_received??r.amount);
+  const applied=r=>N(r.applied_to_invoices??r.applied_amount);
+  const unapplied=r=>N(r.unapplied_customer_credit??r.unapplied_amount);
+  const label=r=>{
     const a=applied(r),u=unapplied(r),v=value(r);
     if(v<=0)return LANG==='ar'?'صفر':'Zero';
     if(a>0&&u<=0.01)return LANG==='ar'?'مطبق بالكامل':'Fully applied';
     if(a>0&&u>0.01)return LANG==='ar'?'مطبق جزئيًا':'Partially applied';
     if(a<=0.01&&u>0.01)return LANG==='ar'?'غير موزع':'Unapplied';
     return LANG==='ar'?'غير مصنف':'Unclassified';
+  };
+  if(!rows.length)return `<div class="empty">${T('noData')}</div>`;
+  return table([
+    [T('date'),r=>esc(r.collection_date||r.date||'-')],
+    [T('customer'),r=>esc(r.customer_name||'-')],
+    [LANG==='ar'?'المحصل':'Collector',r=>esc(r.rep_name||r.collector_name||'-')],
+    [T('method'),r=>esc(r.method||r.payment_method||'-')],
+    [LANG==='ar'?'قيمة التحصيل':'Collected',r=>money(value(r))],
+    [LANG==='ar'?'مطبق على الفواتير':'Applied',r=>money(applied(r))],
+    [LANG==='ar'?'غير موزع':'Unapplied',r=>money(unapplied(r))],
+    [LANG==='ar'?'التصنيف':'Classification',r=>esc(label(r))]
+  ],rows);
+}
+function openCollectionClassCardV5(kind){
+  if(!requireModulePermission('collections','view'))return;
+  const titles={
+    all:LANG==='ar'?'إجمالي التحصيلات':'Total collections',
+    fully:LANG==='ar'?'مطبق بالكامل':'Fully applied',
+    partial:LANG==='ar'?'مطبق جزئيًا':'Partially applied',
+    unapplied:LANG==='ar'?'غير موزع بالكامل':'Fully unapplied',
+    unapplied_balance:LANG==='ar'?'الرصيد غير الموزع':'Unapplied balance',
+    applied:LANG==='ar'?'المطبق على الفواتير':'Applied to invoices'
+  };
+  const rows=collectionClassRowsV5(kind);
+  if(kind==='applied' && A(D.collectionAllocations).length){
+    const ids=new Set(rows.map(r=>S(r.collection_id||r.id)).filter(Boolean));
+    const allocs=A(D.collectionAllocations).filter(a=>ids.has(S(a.collection_id)));
+    if(allocs.length){
+      openModal(titles[kind],table([
+        [LANG==='ar'?'التحصيل':'Collection',r=>esc(r.collection_id||'-')],
+        [LANG==='ar'?'الفاتورة':'Invoice',r=>`<b>${esc(r.invoice_key||'-')}</b>`],
+        [LANG==='ar'?'المبلغ المطبق':'Allocated amount',r=>money(r.allocated_amount)],
+        [T('source'),r=>esc(r.source_kind||'-')]
+      ],allocs));
+      return;
+    }
   }
+  openModal(titles[kind],collectionClassDetailTableV5(rows));
+}
+function renderCollectionClassificationP24(){
+  const el=$('view-collection_classification');if(!el)return;
+  const rows=A(D.collections);
+  const value=r=>N(r.cash_received??r.amount);
+  const applied=r=>N(r.applied_to_invoices??r.applied_amount);
+  const unapplied=r=>N(r.unapplied_customer_credit??r.unapplied_amount);
 
-  const methodTable=methods.length?`
-    <div class="parity24-card" style="margin-top:16px">
-      <h3>${LANG==='ar'?'تصنيف حسب طريقة الدفع':'By payment method'}</h3>
-      ${table([
-        [T('method'),r=>esc(r.method)],
-        [LANG==='ar'?'عدد التحصيلات':'Collections',r=>num(r.count,0)],
-        [T('amount'),r=>money(r.amount)]
-      ],methods)}
-    </div>`:'';
+  const fullyApplied=collectionClassRowsV5('fully');
+  const partial=collectionClassRowsV5('partial');
+  const fullyUnapplied=collectionClassRowsV5('unapplied');
 
-  const detailTable=rows.length?`
-    <div class="parity24-card" style="margin-top:16px">
-      <h3>${LANG==='ar'?'تفاصيل تصنيف التحصيلات':'Collection classification details'}</h3>
-      ${table([
-        [T('date'),r=>esc(r.collection_date||r.date||'-')],
-        [T('customer'),r=>esc(r.customer_name||'-')],
-        [LANG==='ar'?'المحصل':'Collector',r=>esc(r.rep_name||r.collector_name||'-')],
-        [T('method'),r=>esc(r.method||r.payment_method||'-')],
-        [LANG==='ar'?'قيمة التحصيل':'Collected',r=>money(value(r))],
-        [LANG==='ar'?'مطبق على الفواتير':'Applied',r=>money(applied(r))],
-        [LANG==='ar'?'غير موزع':'Unapplied',r=>money(unapplied(r))],
-        [LANG==='ar'?'التصنيف':'Classification',r=>esc(classificationLabel(r))]
-      ],rows)}
-    </div>`:`<div class="empty">${T('noData')}</div>`;
+  const totalCash=rows.reduce((a,r)=>a+value(r),0);
+  const totalApplied=rows.reduce((a,r)=>a+applied(r),0);
+  const totalUnapplied=rows.reduce((a,r)=>a+unapplied(r),0);
+
+  const fullyAppliedCash=fullyApplied.reduce((a,r)=>a+value(r),0);
+  const partialCash=partial.reduce((a,r)=>a+value(r),0);
+  const fullyUnappliedCash=fullyUnapplied.reduce((a,r)=>a+value(r),0);
+  const classTotal=fullyAppliedCash+partialCash+fullyUnappliedCash;
+
+  const methodMap={};
+  rows.forEach(r=>{
+    const raw=S(r.method||r.payment_method||'-')||'-';
+    const key=raw.toLowerCase();
+    if(!methodMap[key])methodMap[key]={method:raw,count:0,amount:0};
+    methodMap[key].count++;
+    methodMap[key].amount+=value(r);
+  });
+  const methods=Object.values(methodMap).sort((a,b)=>b.amount-a.amount);
 
   el.innerHTML=`<div class="module-head"><div><h3>${T('collection_classification')}</h3>
-    <p>${LANG==='ar'?'تصنيف التحصيلات الفعلية حسب حالة التوزيع وطريقة الدفع':'Actual collections classified by allocation status and payment method'}</p>
+    <p>${LANG==='ar'?'تصنيف التحصيلات الفعلية بدون تداخل بين الفئات':'Actual collections classified into non-overlapping categories'}</p>
   </div></div>
+
   <div class="parity24-grid">
-    <div class="parity24-kpi"><span>${LANG==='ar'?'إجمالي التحصيلات':'Total collections'}</span><b>${money(totalCash)}</b><small>${num(rows.length,0)}</small></div>
-    <div class="parity24-kpi"><span>${LANG==='ar'?'مطبق بالكامل':'Fully applied'}</span><b>${money(fullyApplied.reduce((a,r)=>a+value(r),0))}</b><small>${num(fullyApplied.length,0)}</small></div>
-    <div class="parity24-kpi"><span>${LANG==='ar'?'مطبق جزئيًا':'Partially applied'}</span><b>${money(mixed.reduce((a,r)=>a+value(r),0))}</b><small>${num(mixed.length,0)}</small></div>
-    <div class="parity24-kpi"><span>${LANG==='ar'?'غير موزع':'Unapplied'}</span><b>${money(totalUnapplied)}</b><small>${num(unappliedOnly.length,0)}</small></div>
-    <div class="parity24-kpi"><span>${LANG==='ar'?'المطبق على الفواتير':'Applied to invoices'}</span><b>${money(totalApplied)}</b></div>
+    <div class="parity24-kpi" role="button" tabindex="0" style="cursor:pointer" onclick="openCollectionClassCardV5('all')"><span>${LANG==='ar'?'إجمالي التحصيلات':'Total collections'}</span><b>${money(totalCash)}</b><small>${num(rows.length,0)}</small></div>
+    <div class="parity24-kpi" role="button" tabindex="0" style="cursor:pointer" onclick="openCollectionClassCardV5('fully')"><span>${LANG==='ar'?'مطبق بالكامل':'Fully applied'}</span><b>${money(fullyAppliedCash)}</b><small>${num(fullyApplied.length,0)}</small></div>
+    <div class="parity24-kpi" role="button" tabindex="0" style="cursor:pointer" onclick="openCollectionClassCardV5('partial')"><span>${LANG==='ar'?'مطبق جزئيًا':'Partially applied'}</span><b>${money(partialCash)}</b><small>${num(partial.length,0)}</small></div>
+    <div class="parity24-kpi" role="button" tabindex="0" style="cursor:pointer" onclick="openCollectionClassCardV5('unapplied')"><span>${LANG==='ar'?'غير موزع بالكامل':'Fully unapplied'}</span><b>${money(fullyUnappliedCash)}</b><small>${num(fullyUnapplied.length,0)}</small></div>
   </div>
-  ${methodTable}
-  ${detailTable}`;
+
+  <div class="parity24-card" style="margin-top:16px">
+    <h3>${LANG==='ar'?'مطابقة التحصيلات':'Collections reconciliation'}</h3>
+    <div class="parity24-grid">
+      <div class="parity24-kpi" role="button" tabindex="0" style="cursor:pointer" onclick="openCollectionClassCardV5('applied')"><span>${LANG==='ar'?'المطبق على الفواتير':'Applied to invoices'}</span><b>${money(totalApplied)}</b></div>
+      <div class="parity24-kpi" role="button" tabindex="0" style="cursor:pointer" onclick="openCollectionClassCardV5('unapplied_balance')"><span>${LANG==='ar'?'الرصيد غير الموزع':'Unapplied balance'}</span><b>${money(totalUnapplied)}</b></div>
+      <div class="parity24-kpi"><span>${LANG==='ar'?'مطابقة الإجمالي':'Classification total'}</span><b>${money(classTotal)}</b><small>${Math.abs(classTotal-totalCash)<=0.01?(LANG==='ar'?'مطابق':'MATCH'):(LANG==='ar'?'مراجعة':'REVIEW')}</small></div>
+    </div>
+  </div>
+
+  <div class="parity24-card" style="margin-top:16px">
+    <h3>${LANG==='ar'?'تصنيف حسب طريقة الدفع':'By payment method'}</h3>
+    ${methods.length?table([
+      [T('method'),r=>esc(r.method)],
+      [LANG==='ar'?'عدد التحصيلات':'Collections',r=>num(r.count,0)],
+      [T('amount'),r=>money(r.amount)]
+    ],methods):`<div class="empty">${T('noData')}</div>`}
+  </div>
+
+  <div class="parity24-card" style="margin-top:16px">
+    <h3>${LANG==='ar'?'تفاصيل تصنيف التحصيلات':'Collection classification details'}</h3>
+    ${collectionClassDetailTableV5(rows)}
+  </div>`;
 }
 function renderAgingReportP24(){
   const el=$('view-aging_report');if(!el)return;
@@ -4277,22 +4643,163 @@ function collectorNumP24(r,names,d=0){
   const v=collectorValueP24(r,names);
   return v===null?'-':num(v,d);
 }
+function collectorNamesForCollectionV7(r){
+  const names=new Set();
+  const ids=new Set();
+  const addRep=(id,name)=>{
+    const rid=S(id),rn=S(name).trim();
+    if(rid)ids.add(rid);
+    if(rn && rn!=='-' && rn!=='غير محدد')names.add(rn);
+    if(rid && !rn){
+      const rm=A(D.repMaster).find(x=>S(x.id)===rid);
+      const resolved=S(rm&&(rm.name||rm.rep_name)).trim();
+      if(resolved)names.add(resolved);
+    }
+  };
+
+  // 1) Direct collector/rep stored on the collection.
+  addRep(r.rep_id||r.collector_id,r.rep_name||r.collector_name);
+  if(names.size)return [...names];
+
+  // 2) Resolve through the exact invoices this collection was allocated to.
+  const cid=S(r.collection_id||r.id);
+  const allocs=A(D.collectionAllocations).filter(a=>S(a.collection_id)===cid);
+  allocs.forEach(a=>{
+    const key=S(a.invoice_key||a.invoice_ref||a.invoice_number);
+    const inv=A(D.invoices).find(x=>S(x.invoice_ref||x.invoice_number||x.invoice_no||x.invoice_key)===key);
+    if(inv)addRep(inv.rep_id,inv.rep_name);
+    A(D.salesDocuments).filter(x=>S(x.invoice_ref||x.invoice_number||x.invoice_no||x.invoice_key)===key)
+      .forEach(x=>addRep(x.rep_id,x.rep_name));
+  });
+  if(names.size)return [...names];
+
+  // 3) Resolve from the customer's current rep distribution.
+  const customer=A(D.customers).find(c=>
+    (S(r.customer_id)&&S(c.id||c.customer_id)===S(r.customer_id)) ||
+    (norm(customerName(c))===norm(r.customer_name))
+  );
+  if(customer){
+    const splits=splitRowsForCustomer(customer);
+    splits.forEach(s=>addRep(s.rep_id,s.rep_name));
+  }
+  if(names.size)return [...names];
+
+  // 4) Last factual fallback: historical sales rows for the same customer.
+  const custId=S(r.customer_id),custName=norm(r.customer_name);
+  A(D.allocations).filter(x=>
+    (custId&&S(x.customer_id)===custId) ||
+    (custName&&norm(x.customer_name)===custName)
+  ).forEach(x=>addRep(x.rep_id,x.rep_name));
+
+  return [...names];
+}
+
+function collectionCollectorLabelV7(r){
+  const names=collectorNamesForCollectionV7(r);
+  return names.length?names.join(' / '):(LANG==='ar'?'بدون ربط مندوب':'No rep link');
+}
+
+function collectorPerformanceRowsV7(){
+  const grouped={};
+  A(D.collections).forEach(r=>{
+    const label=collectionCollectorLabelV7(r);
+    if(!grouped[label])grouped[label]={
+      collector_label:label,
+      collection_count:0,
+      collection_total:0,
+      applied_total:0,
+      unapplied_total:0,
+      collection_ids:[]
+    };
+    const g=grouped[label];
+    g.collection_count++;
+    g.collection_total+=N(r.cash_received??r.amount);
+    g.applied_total+=N(r.applied_to_invoices??r.applied_amount);
+    g.unapplied_total+=N(r.unapplied_customer_credit??r.unapplied_amount);
+    g.collection_ids.push(S(r.collection_id||r.id));
+  });
+  return Object.values(grouped).sort((a,b)=>N(b.collection_total)-N(a.collection_total));
+}
+
+function openCollectorPerformanceRowV7(label){
+  if(!requireModulePermission('collections','view'))return;
+  const rows=A(D.collections).filter(r=>collectionCollectorLabelV7(r)===label);
+  const body=rows.length?`
+    <div class="table-card"><div class="table-wrap"><table class="data-table">
+      <thead><tr>
+        <th>${T('date')}</th>
+        <th>${T('customer')}</th>
+        <th>${LANG==='ar'?'المندوب / المحصل':'Rep / Collector'}</th>
+        <th>${LANG==='ar'?'قيمة التحصيل':'Collected'}</th>
+        <th>${LANG==='ar'?'المطبق':'Applied'}</th>
+        <th>${LANG==='ar'?'غير موزع':'Unapplied'}</th>
+        <th>${T('details')}</th>
+      </tr></thead>
+      <tbody>${rows.map(r=>{
+        const id=S(r.collection_id||r.id);
+        return `<tr class="click-row" onclick="openCollectionById('${esc(id)}')">
+          <td>${esc(r.collection_date||r.date||'-')}</td>
+          <td>${esc(r.customer_name||'-')}</td>
+          <td>${esc(collectionCollectorLabelV7(r))}</td>
+          <td>${money(r.cash_received??r.amount)}</td>
+          <td>${money(r.applied_to_invoices??r.applied_amount)}</td>
+          <td>${money(r.unapplied_customer_credit??r.unapplied_amount)}</td>
+          <td><button class="btn small secondary" onclick="event.stopPropagation();openCollectionById('${esc(id)}')">${T('open')}</button></td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div></div>`:`<div class="empty">${T('noData')}</div>`;
+  openModal((LANG==='ar'?'تفاصيل المحصل — ':'Collector details — ')+label,body);
+}
+
 function renderCollectorPerformanceP24(){
   const el=$('view-collector_performance');if(!el)return;
-  const rows=A(D.collectorPerformanceV2);
-  el.innerHTML=`<div class="module-head"><div><h3>${T('collector_performance')}</h3></div></div>
-    ${table([
-      [LANG==='ar'?'المندوب / المحصل':'Rep / Collector',r=>esc(collectorValueP24(r,['rep_name','collector_name','name'])||'-')],
-      [LANG==='ar'?'المديونية الحالية':'Outstanding',r=>collectorMoneyP24(r,['outstanding','outstanding_amount','total_outstanding','receivable_balance'])],
-      [LANG==='ar'?'عدد العملاء':'Customers',r=>collectorNumP24(r,['customer_count','customers_count','collection_customer_count'])],
-      [LANG==='ar'?'عدد التحصيلات':'Collections',r=>collectorNumP24(r,['collection_count','collections_count'])],
-      [LANG==='ar'?'إجمالي المحصل':'Collected',r=>collectorMoneyP24(r,['collected','collected_total','total_collected','total_collections','collection_total'])],
-      [LANG==='ar'?'تحصيل الشهر':'This month',r=>collectorMoneyP24(r,['current_month_collected','current_month_collection','month_collected'])],
-      [LANG==='ar'?'نسبة التحصيل':'Collection %',r=>{
-        const v=collectorValueP24(r,['collection_pct','collection_rate_pct','collection_percentage','collection_rate']);
-        return v===null?'-':num(v,2)+'%';
-      }]
-    ],rows)}`;
+
+  // Prefer the dedicated DB view when it has usable named rows.
+  let dbRows=A(D.collectorPerformanceV2).filter(r=>
+    S(collectorValueP24(r,['rep_name','collector_name','name'])).trim()
+  );
+
+  // Rebuild from canonical collection detail when the DB view is empty/incomplete.
+  // This uses invoice allocations and customer rep distribution already loaded in D.
+  let rows=collectorPerformanceRowsV7();
+
+  // If the dedicated view has names missing from reconstructed rows, append them;
+  // never replace factual collection totals with opaque/unnamed rows.
+  const seen=new Set(rows.map(r=>norm(r.collector_label)));
+  dbRows.forEach(r=>{
+    const name=S(collectorValueP24(r,['rep_name','collector_name','name'])).trim();
+    if(!name||seen.has(norm(name)))return;
+    rows.push({
+      collector_label:name,
+      collection_count:N(collectorValueP24(r,['collection_count','collections_count'])||0),
+      collection_total:N(collectorValueP24(r,['collection_total','collections_total','cash_received','collected_amount'])||0),
+      applied_total:N(collectorValueP24(r,['applied_total','applied_amount','collection_applied'])||0),
+      unapplied_total:N(collectorValueP24(r,['unapplied_total','unapplied_amount','customer_credit'])||0),
+      collection_ids:[]
+    });
+  });
+
+  el.innerHTML=`<div class="module-head"><div><h3>${T('collector_performance')}</h3>
+    <p>${LANG==='ar'?'المندوب يُحل من التحصيل ثم الفاتورة ثم توزيع العميل — اضغط أي صف لفتح تفاصيله':'Rep is resolved from collection, then invoice, then customer distribution — click any row for details'}</p>
+  </div></div>
+  ${rows.length?`<div class="table-card"><div class="table-wrap"><table class="data-table">
+    <thead><tr>
+      <th>${LANG==='ar'?'المندوب / المحصل':'Rep / Collector'}</th>
+      <th>${LANG==='ar'?'عدد التحصيلات':'Collections'}</th>
+      <th>${LANG==='ar'?'إجمالي التحصيل':'Collected'}</th>
+      <th>${LANG==='ar'?'المطبق':'Applied'}</th>
+      <th>${LANG==='ar'?'غير موزع':'Unapplied'}</th>
+      <th>${T('details')}</th>
+    </tr></thead>
+    <tbody>${rows.map(r=>`<tr class="click-row" onclick="openCollectorPerformanceRowV7('${esc(r.collector_label)}')">
+      <td><b>${esc(r.collector_label)}</b></td>
+      <td>${num(r.collection_count,0)}</td>
+      <td>${money(r.collection_total)}</td>
+      <td>${money(r.applied_total)}</td>
+      <td>${money(r.unapplied_total)}</td>
+      <td><button class="btn small secondary" onclick="event.stopPropagation();openCollectorPerformanceRowV7('${esc(r.collector_label)}')">${T('open')}</button></td>
+    </tr>`).join('')}</tbody>
+  </table></div></div>`:`<div class="empty">${T('noData')}</div>`}`;
 }
 function liquidityCardsP24(keys){
   return keys.map(k=>dbCardHtmlBuild16(k)).filter(Boolean).join('');
@@ -4419,10 +4926,18 @@ loadData=async function(manual=false){
    ledgerRowsData,settingRows,dispatchLotRows,orderProductRows,purchaseLotRows,productMasterRows,purchaseHealthRows,
    collectionOutstandingRows,collectionAllocationRows,collectionHealthRows,agingRows,agingSummaryRows,notificationRows,
    inventoryAlertRows,dashboardCardRows,dashboardHealthRows,notificationBellRows,notificationRouteRows,globalContractRows,
-   regionPerformanceRows,salesLineRows,salesDocumentRows,liquiditySummaryRows,liquidityDetailRows
+   regionPerformanceRows,salesLineRows,salesDocumentRows,liquiditySummaryRows,liquidityDetailRows,
+   customerStatementSummaryRows,customerStatementLineRows,customerProfileRows,customerClinicRows,customerCashbackRows,
+   customerSplitHealthRows,inventoryCostSummaryRows,inventoryLotCostRows,repCommissionRows,vatLineRows,vatSummaryRows,
+   incomeStatementRows,balanceSheetRows,parityHealthRows
   ]=await Promise.all([
    getAllSession(V.summary),getAllSessionSafe(V.health),getAllSession(V.inventory),getDispatchOrdersSafe(),getAllSession(V.repPerformance),getAllSession(V.repMaster),
-   getAllSession(V.purchases),getAllSession(V.allocations),getCollectionsIntegratedV3(),getAllSession(V.territorySales),getAllSession(V.territoryTotals),getAllSession(V.moneyTargets),getAllSession(V.territoryMaster),getAllSession(V.repCoverage),getAllSession(V.invoices),getAllSessionSafe(V.paidInvoices),getAllSession(V.receivables),getAllSession(V.customers),Promise.resolve([]),getAllSession(V.splits),getAllSession(V.suppliers),getAllSessionSafe(V.operations),getAllSession(V.expenses),getAllSession(V.treasury),Promise.resolve([]),Promise.resolve([]),getAllSession(V.settings),getDispatchLotsSafe(),getOrderProductsSafe(),getAllSession(V.purchaseLots),getAllSession(V.productsMaster),getAllSessionSafe(V.purchaseHealth),getAllSessionSafe(V.collectionOutstanding),getAllSessionSafe(V.collectionAllocations),getAllSessionSafe(V.collectionHealth),getAllSession(V.aging),getAllSession(V.agingSummary),getAllSession(V.notifications),getAllSession(V.inventoryAlerts),getAllSession(V.dashboardCards),getAllSessionSafe(V.dashboardCardsHealth),getAllSession(V.notificationBell),getAllSession(V.notificationRoutes),Promise.resolve([]),getAllSessionSafe(V.regionPerformance),getAllSession(V.salesLines),getAllSession(V.salesDocuments),getAllSession(V.liquiditySummary),getAllSession(V.liquidityDetail)
+   getAllSession(V.purchases),getAllSession(V.allocations),getCollectionsIntegratedV3(),getAllSession(V.territorySales),getAllSession(V.territoryTotals),getAllSession(V.moneyTargets),getAllSession(V.territoryMaster),getAllSession(V.repCoverage),getAllSession(V.invoices),getAllSessionSafe(V.paidInvoices),getAllSession(V.receivables),getAllSession(V.customers),Promise.resolve([]),getAllSession(V.splits),getAllSession(V.suppliers),getAllSessionSafe(V.operations),getAllSession(V.expenses),getAllSession(V.treasury),Promise.resolve([]),Promise.resolve([]),getAllSession(V.settings),getDispatchLotsSafe(),getOrderProductsSafe(),getAllSession(V.purchaseLots),getAllSession(V.productsMaster),getAllSessionSafe(V.purchaseHealth),getAllSessionSafe(V.collectionOutstanding),getAllSessionSafe(V.collectionAllocations),getAllSessionSafe(V.collectionHealth),getAllSession(V.aging),getAllSession(V.agingSummary),getAllSession(V.notifications),getAllSession(V.inventoryAlerts),getAllSession(V.dashboardCards),getAllSessionSafe(V.dashboardCardsHealth),getAllSession(V.notificationBell),getAllSession(V.notificationRoutes),Promise.resolve([]),getAllSessionSafe(V.regionPerformance),getAllSession(V.salesLines),getAllSession(V.salesDocuments),getAllSession(V.liquiditySummary),getAllSession(V.liquidityDetail),
+   getAllSessionSafe(V.customerStatementSummary),getAllSessionSafe(V.customerStatementLines),getAllSessionSafe(V.customerInvoiceProfile),
+   getAllSessionSafe(V.customerClinics),getAllSessionSafe(V.customerCashback),getAllSessionSafe(V.customerSplitHealth),
+   getAllSessionSafe(V.inventoryCostSummary),getAllSessionSafe(V.inventoryLotCost),getAllSessionSafe(V.repCommission),
+   getAllSessionSafe(V.vatLines),getAllSessionSafe(V.vatSummary),getAllSessionSafe(V.incomeStatement),
+   getAllSessionSafe(V.balanceSheet),getAllSessionSafe(V.oldClientParityHealth)
   ]);
   Object.assign(D,{
    summary:summaryRows,health:healthRows,inventory:inventoryRows,orders:orderRows,
@@ -4436,7 +4951,12 @@ loadData=async function(manual=false){
    aging:agingRows,agingSummary:agingSummaryRows,notifications:notificationRows,inventoryAlerts:inventoryAlertRows,
    dashboardCards:dashboardCardRows,dashboardCardsHealth:dashboardHealthRows,notificationBell:notificationBellRows,notificationRoutes:notificationRouteRows,
    globalContract:globalContractRows,regionPerformance:regionPerformanceRows,salesLines:salesLineRows,salesDocuments:salesDocumentRows,
-   liquiditySummary:liquiditySummaryRows,liquidityDetail:liquidityDetailRows
+   liquiditySummary:liquiditySummaryRows,liquidityDetail:liquidityDetailRows,
+   customerStatementSummary:customerStatementSummaryRows,customerStatementLines:customerStatementLineRows,
+   customerInvoiceProfiles:customerProfileRows,customerClinics:customerClinicRows,customerCashback:customerCashbackRows,
+   customerSplitHealth:customerSplitHealthRows,inventoryCostSummary:inventoryCostSummaryRows,inventoryLotCost:inventoryLotCostRows,
+   repCommission:repCommissionRows,vatLines:vatLineRows,vatSummary:vatSummaryRows,incomeStatement:incomeStatementRows,
+   balanceSheet:balanceSheetRows,oldClientParityHealth:parityHealthRows
   });
   await loadParity24Sources();
   await loadSecureData();
@@ -5065,7 +5585,7 @@ async function saveNewProductBuild18(){
       p_price:N(($('b18_prod_price')||{}).value),
       p_lot_number:S(($('b18_prod_lot')||{}).value)||null,
       p_expiry:S(($('b18_prod_expiry')||{}).value)||null,
-      p_payload:{source:'BUILD18_UI'}
+      p_payload:{source:'FINAL_CONSOLIDATED_UI'}
     });
     closeModal(); await refreshAfterWriteBuild18('products');
   }catch(e){alert(e.message||e)}
@@ -5102,7 +5622,7 @@ async function saveNewCustomerBuild18(){
   try{
     const name=S(($('b18_c_name')||{}).value),clinic=S(($('b18_c_clinic')||{}).value);
     if(!name&&!clinic)throw new Error(T('requiredField'));
-    await rpcAuth('mahsoubak_upsert_customer_secured_v1',{
+    await rpcAuth('mahsoubak_upsert_customer_secured_v2',{
       p_customer_id:null,
       p_name:name||clinic,
       p_clinic_name:clinic||null,
@@ -5120,15 +5640,6 @@ async function saveNewCustomerBuild18(){
 window.openNewCustomerBuild18=openNewCustomerBuild18;
 window.saveNewCustomerBuild18=saveNewCustomerBuild18;
 
-const __renderCustomersBuild18=renderCustomers;
-renderCustomers=function(){
-  __renderCustomersBuild18();
-  const root=$('view-customers');if(!root)return;
-  const tools=root.querySelector('.module-tools');
-  if(tools&&authCan('customers','add')&&!root.querySelector('#b18AddCustomer')){
-    tools.insertAdjacentHTML('afterbegin',`<button id="b18AddCustomer" class="btn secondary" onclick="openNewCustomerBuild18()">＋ ${LANG==='ar'?'إضافة عميل':'Add Customer'}</button>`);
-  }
-};
 
 /* ---------- SUPPLIERS: secured wrapper ---------- */
 saveNewSupplier=async function(){
@@ -5178,19 +5689,6 @@ async function saveNewRepBuild18(){
 window.openNewRepBuild18=openNewRepBuild18;
 window.saveNewRepBuild18=saveNewRepBuild18;
 
-const __renderSalesTargetBuild18=renderSalesTarget;
-renderSalesTarget=function(){
-  __renderSalesTargetBuild18();
-  const root=$('view-reps');if(!root)return;
-  const head=root.querySelector('.rep-report-tile');
-  if(head&&authCan('reps','add')&&!root.querySelector('#b18AddRep')){
-    const b=document.createElement('button');
-    b.id='b18AddRep'; b.className='btn secondary';
-    b.textContent='＋ '+(LANG==='ar'?'إضافة مندوب':'Add Rep');
-    b.onclick=openNewRepBuild18;
-    head.appendChild(b);
-  }
-};
 
 /* ---------- REGION VISITS ---------- */
 function territoryOptionsBuild18(){
@@ -6135,15 +6633,36 @@ window.openDashboardCard=async function(key){
     body=`<div class="empty">${LANG==='ar'?'لا توجد تفاصيل متاحة حاليًا.':'No details are available right now.'}</div>`;
   }
 
-  openModal(
-    title,
-    `<div class="detail-grid">
+  let summaryHtml='';
+  const invoiceKeys=['sales_total','invoice_count','sales_paid','paid_sales','fully_paid_invoices','paid_invoices','partial_invoices','unpaid_invoices','zero_value_invoices'];
+  if(invoiceKeys.includes(String(key||''))){
+    const total=rows.reduce((a,r)=>a+N(r.invoice_total),0);
+    const paid=rows.reduce((a,r)=>a+N(r.paid),0);
+    const remaining=rows.reduce((a,r)=>a+N(r.remaining),0);
+    summaryHtml=`<div class="detail-grid">
+      ${detail(LANG==='ar'?'عدد الفواتير':'Invoice Count',num(rows.length,0))}
+      ${detail(LANG==='ar'?'إجمالي قيمة الفواتير':'Invoice Total',money(total))}
+      ${detail(LANG==='ar'?'إجمالي المسدد':'Total Paid',money(paid))}
+      ${detail(LANG==='ar'?'إجمالي المتبقي':'Total Remaining',money(remaining))}
+    </div>`;
+  }else if(['collection_cash','collections_total','collection_count','collection_applied','collections_applied','collection_unapplied','customer_credit'].includes(String(key||''))){
+    const cash=rows.reduce((a,r)=>a+N(r.cash_received??r.amount),0);
+    const applied=rows.reduce((a,r)=>a+N(r.applied_to_invoices??r.applied_amount),0);
+    const unapplied=rows.reduce((a,r)=>a+N(r.unapplied_customer_credit??r.unapplied_amount),0);
+    summaryHtml=`<div class="detail-grid">
+      ${detail(LANG==='ar'?'عدد عمليات التحصيل':'Collection Count',num(rows.length,0))}
+      ${detail(LANG==='ar'?'إجمالي النقد المحصل':'Cash Received',money(cash))}
+      ${detail(LANG==='ar'?'المطبق على الفواتير':'Applied',money(applied))}
+      ${detail(LANG==='ar'?'غير الموزع':'Unapplied',money(unapplied))}
+    </div>`;
+  }else{
+    summaryHtml=`<div class="detail-grid">
       ${detail(LANG==='ar'?'القيمة':'Value',canonicalCardValue(c))}
       ${detail(LANG==='ar'?'عدد السجلات':'Rows',num(rows.length,0))}
-    </div>
-    <div style="height:14px"></div>
-    ${body}`
-  );
+    </div>`;
+  }
+
+  openModal(title,`${summaryHtml}<div style="height:14px"></div>${body}`);
 };
 try{openDashboardCard=window.openDashboardCard}catch(e){}
 
@@ -6227,6 +6746,6 @@ setTimeout(function(){
 })();
 </script>
 
-<div id="cleanBuildId" style="position:fixed;bottom:8px;right:10px;z-index:99999;background:#111827;color:#fff;padding:4px 8px;border-radius:8px;font:700 10px Arial;opacity:.75;pointer-events:none">CLEAN DB V4 • COLLECTION CLASSIFICATION FIXED</div>
+<div id="cleanBuildId" style="position:fixed;bottom:8px;right:10px;z-index:99999;background:#111827;color:#fff;padding:4px 8px;border-radius:8px;font:700 10px Arial;opacity:.75;pointer-events:none">FINAL CONSOLIDATED CLEAN V4 FULL REVIEW</div>
 </body>
 </html>
