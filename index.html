@@ -4292,11 +4292,59 @@ function openInventoryAging(){openModal(LANG==='ar'?'Inventory Aging / LOT Aging
 const _renderProductsBuild04=renderProducts;
 renderProducts=function(){_renderProductsBuild04();const el=$('view-products');if(!el)return;const head=el.querySelector('.module-grid');if(head){head.insertAdjacentHTML('beforeend',`<div class="mini-card" onclick="openInventoryAlerts()"><span>${LANG==='ar'?'تنبيهات المخزون والصلاحية':'Inventory alerts'}</span><b>${num(A(D.inventoryAlerts).length,0)}</b></div><div class="mini-card" onclick="openInventoryAging()"><span>Inventory Aging / LOT</span><b>${num(A(D.purchaseLots).filter(r=>N(r.qty)>0).length,0)}</b></div>`)}}
 
+const MAHSOUBAK_INVOICE_TEMPLATE_KEY='sales_invoice_proforma_v1';
+let MAHSOUBAK_INVOICE_TEMPLATE_CACHE='';
+async function mahsoubakGetInvoiceTemplate(){
+ if(MAHSOUBAK_INVOICE_TEMPLATE_CACHE)return MAHSOUBAK_INVOICE_TEMPLATE_CACHE;
+ if(!AUTH.accessToken)throw new Error('AUTH_REQUIRED');
+ const url=`${SB_URL}/rest/v1/mahsoubak_document_templates?select=template_html&template_key=eq.${encodeURIComponent(MAHSOUBAK_INVOICE_TEMPLATE_KEY)}&is_active=eq.true&limit=1`;
+ const r=await authFetch(url,{});
+ const text=await r.text();let rows=[];
+ try{rows=text?JSON.parse(text):[]}catch(e){throw new Error('INVOICE_TEMPLATE_INVALID_JSON')}
+ if(!r.ok)throw new Error((rows&&rows.message)||text||('INVOICE_TEMPLATE_HTTP_'+r.status));
+ const html=S(A(rows)[0]&&A(rows)[0].template_html);
+ if(!html)throw new Error('INVOICE_TEMPLATE_NOT_FOUND');
+ MAHSOUBAK_INVOICE_TEMPLATE_CACHE=html;
+ return html;
+}
+function mahsoubakTemplateReplace(html,key,value){return html.split('{{'+key+'}}').join(S(value))}
+function mahsoubakMoneyPrint(v){return N(v).toLocaleString('en-US',{maximumFractionDigits:2})+' EGP'}
+function mahsoubakBatchInvoiceContext(batch,lines){
+ const c=A(D.customers).find(x=>S(x.id)===S(batch.customer_id)||norm(customerName(x))===norm(batch.customer_name))||{};
+ const first=A(lines)[0]||{};
+ const ref=S(batch.invoice_number||batch.invoice_ref||batch.id||'-');
+ const deliveryNo='DN-'+ref.replace(/^INV-/i,'');
+ const date=S(batch.order_date||batch.invoice_date||batch.date||'-').slice(0,10);
+ const customer=S(batch.customer_name||c.customer_name||c.official_name||c.name||'-');
+ const clinic=S(first.clinic_name||first.order_clinic_name||c.clinic_name||c.name||'-');
+ const address=S(first.address||first.order_address||first.customer_address||c.address||c.customer_address||'-');
+ const city=S(first.clinic_city||first.customer_city||first.city||c.clinic_city||c.customer_city||c.city||c.customer_region||'-');
+ const phone=S(c.phone||'-');
+ const payment=S(first.payment_method||first.method||(N(batch.paid)>0?'Paid / Credit':'Credit'));
+ const productRows=A(lines).map(r=>{
+   const lot=S(r.lot_number||r.lot||r.batch||r.lot_id||'—');
+   const ot=S(r.order_type_label||r.order_type||'Sale');
+   const product=S(r.product_name||r.product||'-')+((norm(ot)!=='sale'&&norm(ot)!=='بيع')?' — '+ot:'');
+   const qty=N(r.qty||r.quantity),price=N(r.unit_price_before_vat??r.price??r.unit_price??r.sale_price);
+   const total=N(r.total_including_vat??r.line_total??r.total??r.allocated_total??(qty*price));
+   return `<tr><td>${esc(lot)}</td><td>${esc(product)}</td><td>${num(qty,2)}</td><td>PCS</td><td>${mahsoubakMoneyPrint(price)}</td><td>${mahsoubakMoneyPrint(total)}</td></tr>`;
+ }).join('');
+ const grand=N(batch.total||batch.invoice_total)||A(lines).reduce((a,r)=>a+N(r.total_including_vat??r.line_total??r.total??r.allocated_total),0);
+ return {COMPANY:'New Life Medical',DATE:esc(date),REF:esc(ref),DELIVERY_NO:esc(deliveryNo),PAYMENT:esc(payment),CUSTOMER:esc(customer),CLINIC:esc(clinic),ADDRESS:esc(address),CITY:esc(city),PHONE:esc(phone),PRODUCT_ROWS:productRows,GRAND_TOTAL:mahsoubakMoneyPrint(grand)};
+}
+async function mahsoubakPrintBatchFromDbTemplate(batch,lines){
+ const tpl=await mahsoubakGetInvoiceTemplate();
+ const ctx=mahsoubakBatchInvoiceContext(batch,lines);
+ let html=tpl;Object.keys(ctx).forEach(k=>{html=mahsoubakTemplateReplace(html,k,ctx[k])});
+ const w=window.open('','_blank','width=1000,height=800');if(!w)throw new Error('PRINT_WINDOW_BLOCKED');
+ w.document.open();w.document.write(html);w.document.close();w.focus();
+}
+
 function b19DocumentHtml(batch,lines,type){
  const title=type==='delivery'?(LANG==='ar'?'إذن تسليم':'Delivery Note'):(LANG==='ar'?'فاتورة بيع':'Sales Invoice');
  return `<!doctype html><html dir="${LANG==='ar'?'rtl':'ltr'}"><head><meta charset="utf-8"><title>${esc(title)}</title><style>body{font-family:Arial,sans-serif;padding:28px;color:#111}h1{margin:0 0 4px}.meta{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:20px 0}.box{border:1px solid #ddd;padding:10px;border-radius:8px}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #ddd;padding:9px;text-align:${LANG==='ar'?'right':'left'}}tfoot td{font-weight:bold}</style></head><body><h1>${esc(title)}</h1><div>Mahsoubak Business</div><div class="meta"><div class="box">${LANG==='ar'?'رقم الفاتورة':'Invoice'}: <b>${esc(batch.invoice_number||batch.id)}</b></div><div class="box">${T('date')}: <b>${esc(S(batch.order_date).slice(0,10))}</b></div><div class="box">${T('customer')}: <b>${esc(batch.customer_name||'-')}</b></div><div class="box">${T('rep')}: <b>${esc(batch.rep_name||'-')}</b></div></div><table><thead><tr><th>#</th><th>${T('product')}</th><th>${T('lot')}</th><th>${T('qty')}</th><th>${T('orderType')}</th>${type==='invoice'?`<th>${T('price')}</th><th>${T('total')}</th>`:''}</tr></thead><tbody>${lines.map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.product_name||'-')}</td><td>${esc(x.lot_number||'-')}</td><td>${num(x.qty,2)}</td><td>${esc(b19LineTypeLabel(x.order_type))}</td>${type==='invoice'?`<td>${money(x.price)}</td><td>${money(N(x.qty)*N(x.price))}</td>`:''}</tr>`).join('')}</tbody>${type==='invoice'?`<tfoot><tr><td colspan="6">${T('total')}</td><td>${money(batch.total)}</td></tr><tr><td colspan="6">${T('paid')}</td><td>${money(batch.paid)}</td></tr><tr><td colspan="6">${T('remaining')}</td><td>${money(batch.remaining)}</td></tr></tfoot>`:''}</table><script>window.print()<\/script></body></html>`;
 }
-function b19PrintDocument(id,type){const b=b19Batches().find(x=>S(x.id)===S(id));if(!b)return;const lines=b19Lines().filter(x=>S(x.batch_id)===S(id)).sort((a,z)=>N(a.line_index)-N(z.line_index));const w=window.open('','_blank');if(!w)return;w.document.open();w.document.write(b19DocumentHtml(b,lines,type));w.document.close()}
+async function b19PrintDocument(id,type){const b=b19Batches().find(x=>S(x.id)===S(id));if(!b)return;const lines=b19Lines().filter(x=>S(x.batch_id)===S(id)).sort((a,z)=>N(a.line_index)-N(z.line_index));if(type==='invoice'){try{await mahsoubakPrintBatchFromDbTemplate(b,lines)}catch(e){alert((LANG==='ar'?'تعذر تحميل قالب الفاتورة من قاعدة البيانات: ':'Could not load invoice template from database: ')+S(e.message||e));}return;}const w=window.open('','_blank');if(!w)return;w.document.open();w.document.write(b19DocumentHtml(b,lines,type));w.document.close()}
 function b19WhatsApp(id){const b=b19Batches().find(x=>S(x.id)===S(id));if(!b)return;const c=A(D.customers).find(x=>S(x.id)===S(b.customer_id));const phone=S(c&&c.phone).replace(/\D/g,'');const lines=b19Lines().filter(x=>S(x.batch_id)===S(id));const items=lines.map(x=>`${x.product_name||'-'} × ${num(x.qty,2)}`).join('\n');const msg=encodeURIComponent(`Mahsoubak Business\n${LANG==='ar'?'فاتورة':'Invoice'}: ${b.invoice_number||b.id}\n${LANG==='ar'?'العميل':'Customer'}: ${b.customer_name||'-'}\n${items}\n${LANG==='ar'?'الإجمالي':'Total'}: ${money(b.total)}\n${LANG==='ar'?'المتبقي':'Remaining'}: ${money(b.remaining)}`);window.open(`https://wa.me/${phone?phone:''}?text=${msg}`,'_blank')}
 const _b19OpenBatchBuild04=b19OpenBatch;
 b19OpenBatch=function(id){const b=b19Batches().find(x=>S(x.id)===S(id));if(!b)return _b19OpenBatchBuild04(id);const lines=b19Lines().filter(x=>S(x.batch_id)===S(id)).sort((a,z)=>N(a.line_index)-N(z.line_index));const c=A(D.customers).find(x=>S(x.id)===S(b.customer_id));const canReview=(b.can_review===true||norm(b.status)==='pending')&&authCan('sales','edit');const actions=canReview?`<button class="btn ok" onclick="b19ReviewBatch('${esc(id)}','approved')">${b19t('اعتماد الفاتورة','Approve invoice')}</button><button class="btn secondary" onclick="b19ReviewBatch('${esc(id)}','rejected')">${b19t('رفض الفاتورة','Reject invoice')}</button>`:'';openModal(b19t('تفاصيل الطلب / الفاتورة','Order / Invoice Details')+' — '+esc(b.invoice_number||id),`<div class="detail-grid">${detail(T('date'),esc(S(b.order_date).slice(0,10)))}${detailClick(T('customer'),esc(b.customer_name||'-'),c?`openCustomerByKey('${esc(customerKey(c))}')`:"")}${detail(T('rep'),esc(b.rep_name||'-'))}${detail(b19t('عدد الأصناف','Line count'),num(b.actual_line_count??b.line_count,0))}${detail(T('total'),money(b.total))}${detail(T('paid'),money(b.paid))}${detail(T('remaining'),money(b.remaining))}${detail(T('status'),esc(b.operation_status==='dispatched'?'dispatched':b.approval_status||b.status||'-'))}</div><div class="doc-actions"><button class="btn blue" onclick="b19PrintDocument('${esc(id)}','invoice')">🧾 ${LANG==='ar'?'فاتورة':'Invoice'}</button><button class="btn ok" onclick="b19PrintDocument('${esc(id)}','delivery')">📦 ${LANG==='ar'?'إذن تسليم':'Delivery Note'}</button><button class="btn secondary" onclick="b19WhatsApp('${esc(id)}')">💬 WhatsApp</button>${actions}</div><div class="report-section"><h4>${b19t('أصناف الفاتورة','Invoice lines')}</h4>${b19BatchLinesTable(lines)}</div><div class="parity-note">${LANG==='ar'?'الاعتماد لا يخصم المخزون. خروج المخزن الفعلي يتم من Operation / المخزن فقط.':'Approval does not deduct inventory. Actual dispatch is performed only from Operations.'}</div>`)}
