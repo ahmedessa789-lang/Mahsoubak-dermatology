@@ -4906,12 +4906,16 @@ function mapInvoiceSummaryForLegacy(rows){
 }
 
 loadParity24Sources=async function(){
- const [cc,rp,ch]=await Promise.all([
+ const [cc,rp,ch,orderBatches,orderBatchLines,orderBatchHealth]=await Promise.all([
   getAllSessionSafe(V.customerCost),
   getAllSessionSafe(V.receivablePapers),
-  getAllSessionSafe(V.cheques)
+  getAllSessionSafe(V.cheques),
+  getAllSessionSafe(V.orderBatches),
+  getAllSessionSafe(V.orderBatchLines),
+  getAllSessionSafe(V.orderBatchHealth)
  ]);
  D.customerCost=cc; D.receivablePapers=rp; D.cheques=ch;
+ D.orderBatches=orderBatches; D.orderBatchLines=orderBatchLines; D.orderBatchHealth=orderBatchHealth;
 };
 
 loadData=async function(manual=false){
