@@ -1179,102 +1179,7 @@ async function printCustomerStatementFinal(key){
  const c=customerByKey(key);if(!c)return;
  const s=finalCustomerStatement(c)||emptyCustomerStatementFinal(c),rows=finalCustomerStatementLines(c);
  const w=window.open('','_blank');if(!w)return;
- w.document.write(`<!doctype html><html dir="${LANG==='ar'?'rtl':'ltr'}"><head><meta charset="utf-8"><title>${esc(s.customer_name||'Statement')}</title><style>body{font-family:Arial;padding:28px}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #ddd;padding:7px}th{background:#f5f5f5}.empty{padding:18px;text-align:center;color:#666}</style></head><body><h2>${LANG==='ar'?'كشف حساب العميل':'Customer Statement'} — ${esc(s.customer_name||'-')}</h2><div>${esc(s.clinic_name||'-')} • ${esc(s.city||'-')} • ${esc(s.phone||'-')}</div><p><b>${LANG==='ar'?'الرصيد النهائي':'Final Balance'}: ${money(s.statement_balance)}</b></p>${rows.length?`<table><thead><tr><th>${T('date')}</th><th>${LANG==='ar'?'الحركة':'Type'}</th><th>${LANG==='ar'?'المستند':'Document'}</th><th>${LANG==='ar'?'البيان':'Description'}</th><th>${T('debit')}</th><th>${T('credit')}</th><th>${T('balance')}</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(S(r.transaction_date).slice(0,10))}</td><td>${esc(r.transaction_type||'-')}</td><td>${esc(r.document_number||r.source_id||'-')}</td><td>${esc(r.description||'-')}</td><td>${money(r.debit)}</td><td>${money(r.credit)}</td><td>${money(r.running_receivable_balance)}</td></tr>`).join('')}</tbody></table>`:`<div class="empty">${LANG==='ar'?'لا توجد حركات مالية على هذا العميل حتى الآن.':'No financial transactions for this customer yet.'}</div>`}<script>window.onload=()=>window.print()<\/script>
-
-<script id="fix-order-batch-live-load-20260928">
-(function(){
-'use strict';
-
-/* Backend-only data binding fix: load the already-defined batch views into D. */
-let __orderBatchLiveLoading = null;
-
-window.mahsoubakLoadOrderBatchesLive = async function(force=false){
-  if(__orderBatchLiveLoading && !force) return __orderBatchLiveLoading;
-
-  __orderBatchLiveLoading = (async function(){
-    const results = await Promise.allSettled([
-      getAllSession(V.orderBatches),
-      getAllSession(V.orderBatchLines),
-      getAllSessionSafe(V.orderBatchHealth)
-    ]);
-
-    if(results[0].status === 'fulfilled'){
-      D.orderBatches = Array.isArray(results[0].value) ? results[0].value : [];
-    }else{
-      console.error('Order batches live load failed:', results[0].reason);
-    }
-
-    if(results[1].status === 'fulfilled'){
-      D.orderBatchLines = Array.isArray(results[1].value) ? results[1].value : [];
-    }else{
-      /* Keep batch list usable even if line details have a separate DB permission issue. */
-      D.orderBatchLines = Array.isArray(D.orderBatchLines) ? D.orderBatchLines : [];
-      console.warn('Order batch lines live load failed:', results[1].reason);
-    }
-
-    if(results[2].status === 'fulfilled'){
-      D.orderBatchHealth = Array.isArray(results[2].value) ? results[2].value : [];
-    }
-
-    return results[0].status === 'fulfilled';
-  })();
-
-  try{
-    return await __orderBatchLiveLoading;
-  }finally{
-    __orderBatchLiveLoading = null;
-  }
-};
-
-/* Always refresh the batch source immediately before opening Operation. */
-const __showBeforeOrderBatchFix = window.show;
-window.show = async function(id){
-  if(id === 'operations'){
-    try{ await window.mahsoubakLoadOrderBatchesLive(true); }
-    catch(e){ console.error('Operation batch refresh:', e); }
-  }
-
-  const result = await __showBeforeOrderBatchFix.apply(this, arguments);
-
-  if(id === 'operations'){
-    try{ renderOperations(); }catch(e){ console.error('Operation render:', e); }
-  }
-  return result;
-};
-try{ show = window.show; }catch(e){}
-
-/* Also populate batches after every normal/manual global refresh. */
-const __loadDataBeforeOrderBatchFix = window.loadData;
-window.loadData = async function(manual=false){
-  const ok = await __loadDataBeforeOrderBatchFix.apply(this, arguments);
-  if(ok){
-    try{
-      await window.mahsoubakLoadOrderBatchesLive(true);
-      if(currentPage === 'operations') renderOperations();
-      if(currentPage === 'sales') renderSalesModule();
-    }catch(e){
-      console.error('Post-refresh order batch load:', e);
-    }
-  }
-  return ok;
-};
-try{ loadData = window.loadData; }catch(e){}
-
-/* Populate once for an already logged-in session after all late build patches finish. */
-setTimeout(async function(){
-  try{
-    if(typeof authLinked === 'function' && authLinked()){
-      await window.mahsoubakLoadOrderBatchesLive(true);
-      if(currentPage === 'operations') renderOperations();
-      if(currentPage === 'sales') renderSalesModule();
-    }
-  }catch(e){ console.warn('Initial order batch live load:', e); }
-}, 900);
-
-})();
-</script>
-
-</body></html>`);w.document.close();
+ w.document.write(`<!doctype html><html dir="${LANG==='ar'?'rtl':'ltr'}"><head><meta charset="utf-8"><title>${esc(s.customer_name||'Statement')}</title><style>body{font-family:Arial;padding:28px}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #ddd;padding:7px}th{background:#f5f5f5}.empty{padding:18px;text-align:center;color:#666}</style></head><body><h2>${LANG==='ar'?'كشف حساب العميل':'Customer Statement'} — ${esc(s.customer_name||'-')}</h2><div>${esc(s.clinic_name||'-')} • ${esc(s.city||'-')} • ${esc(s.phone||'-')}</div><p><b>${LANG==='ar'?'الرصيد النهائي':'Final Balance'}: ${money(s.statement_balance)}</b></p>${rows.length?`<table><thead><tr><th>${T('date')}</th><th>${LANG==='ar'?'الحركة':'Type'}</th><th>${LANG==='ar'?'المستند':'Document'}</th><th>${LANG==='ar'?'البيان':'Description'}</th><th>${T('debit')}</th><th>${T('credit')}</th><th>${T('balance')}</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(S(r.transaction_date).slice(0,10))}</td><td>${esc(r.transaction_type||'-')}</td><td>${esc(r.document_number||r.source_id||'-')}</td><td>${esc(r.description||'-')}</td><td>${money(r.debit)}</td><td>${money(r.credit)}</td><td>${money(r.running_receivable_balance)}</td></tr>`).join('')}</tbody></table>`:`<div class="empty">${LANG==='ar'?'لا توجد حركات مالية على هذا العميل حتى الآن.':'No financial transactions for this customer yet.'}</div>`}<script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();
 }
 async function openCustomerClinicsFinal(key){
  await ensureFinalCustomerParityData();
@@ -4299,19 +4204,21 @@ async function loadData(manual=false){
  try{
   $('error').style.display='none';$('status').textContent=LANG==='ar'?'جاري تحميل البيانات…':'Loading canonical data…';
   const [summaryRows,healthRows,inventoryRows,orderRows,repSalesRows,repMasterRows,purchaseRows,allocationRows,collectionRows,territorySalesRows,territoryTotalsRows,moneyTargetRows,territoryMasterRows,repCoverageRows,invoiceRows,payInvoiceRows,receivableRows,customerRows,splitRows,supplierRows,operationRows,expenseRows,treasuryRowsData,trialRowsData,ledgerRowsData,settingRows,dispatchLotRows,orderProductRows,purchaseLotRows,productMasterRows,purchaseHealthRows,collectionOutstandingRows,collectionAllocationRows,collectionHealthRows,agingRows,agingSummaryRows,notificationRows,inventoryAlertRows,
-   customerStatementSummaryRows,customerStatementLineRows,customerProfileRows,customerClinicRows,customerCashbackRows,customerSplitHealthRows,inventoryCostSummaryRows,inventoryLotCostRows,repCommissionRows,vatLineRows,vatSummaryRows,incomeStatementRows,balanceSheetRows,parityHealthRows]=await Promise.all([
+   customerStatementSummaryRows,customerStatementLineRows,customerProfileRows,customerClinicRows,customerCashbackRows,customerSplitHealthRows,inventoryCostSummaryRows,inventoryLotCostRows,repCommissionRows,vatLineRows,vatSummaryRows,incomeStatementRows,balanceSheetRows,parityHealthRows,orderBatchRows,orderBatchLineRows,orderBatchHealthRows]=await Promise.all([
    getAllSession(V.summary),getAllSessionSafe(V.health),getAllSession(V.inventory),getDispatchOrdersSafe(),getAllSession(V.repSales),getAllSession(V.repMaster),
    getAllSession(V.purchases),getAllSession(V.allocations),getCollectionsIntegratedV3(),getAllSession(V.territorySales),getAllSession(V.territoryTotals),getAllSession(V.moneyTargets),getAllSession(V.territoryMaster),getAllSession(V.repCoverage),getAllSession(V.invoices),getAllSessionSafe(V.paidInvoices),getAllSession(V.receivables),getAllSession(V.customers),getAllSession(V.splits),getAllSession(V.suppliers),getAllSession(V.operations),getAllSession(V.expenses),getAllSession(V.treasury),Promise.resolve([]),Promise.resolve([]),getAllSession(V.settings),getDispatchLotsSafe(),getOrderProductsSafe(),getAllSession(V.purchaseLots),getAllSession(V.productsMaster),getAllSessionSafe(V.purchaseHealth),getAllSessionSafe(V.collectionOutstanding),getAllSessionSafe(V.collectionAllocations),getAllSessionSafe(V.collectionHealth),getAllSession(V.aging),getAllSession(V.agingSummary),getAllSession(V.notifications),getAllSession(V.inventoryAlerts),
    getAllSessionSafe(V.customerStatementSummary),getAllSessionSafe(V.customerStatementLines),getAllSessionSafe(V.customerInvoiceProfile),getAllSessionSafe(V.customerClinics),
    getAllSessionSafe(V.customerCashback),getAllSessionSafe(V.customerSplitHealth),getAllSessionSafe(V.inventoryCostSummary),getAllSessionSafe(V.inventoryLotCost),
    getAllSessionSafe(V.repCommission),getAllSessionSafe(V.vatLines),getAllSessionSafe(V.vatSummary),getAllSessionSafe(V.incomeStatement),
-   getAllSessionSafe(V.balanceSheet),getAllSessionSafe(V.oldClientParityHealth)
+   getAllSessionSafe(V.balanceSheet),getAllSessionSafe(V.oldClientParityHealth),
+   getAllSessionSafe(V.orderBatches),getAllSessionSafe(V.orderBatchLines),getAllSessionSafe(V.orderBatchHealth)
   ]);
   Object.assign(D,{summary:summaryRows,health:healthRows,inventory:inventoryRows,orders:orderRows,repSales:repSalesRows,repMaster:repMasterRows,purchases:purchaseRows,allocations:allocationRows,collections:collectionRows,territorySales:territorySalesRows,territoryTotals:territoryTotalsRows,moneyTargets:moneyTargetRows,territoryMaster:territoryMasterRows,repCoverage:repCoverageRows,invoices:invoiceRows,paidInvoices:payInvoiceRows,receivables:receivableRows,customers:customerRows,splits:splitRows,suppliers:supplierRows,operations:operationRows,expenses:expenseRows,treasury:treasuryRowsData,trial:trialRowsData,ledger:ledgerRowsData,settings:settingRows,dispatchLots:dispatchLotRows,orderProducts:orderProductRows,purchaseLots:purchaseLotRows,productsMaster:productMasterRows,purchaseHealth:purchaseHealthRows,collectionOutstanding:collectionOutstandingRows,collectionAllocations:collectionAllocationRows,collectionHealth:collectionHealthRows,aging:agingRows,agingSummary:agingSummaryRows,notifications:notificationRows,inventoryAlerts:inventoryAlertRows,
    customerStatementSummary:customerStatementSummaryRows,customerStatementLines:customerStatementLineRows,customerInvoiceProfiles:customerProfileRows,
    customerClinics:customerClinicRows,customerCashback:customerCashbackRows,customerSplitHealth:customerSplitHealthRows,
    inventoryCostSummary:inventoryCostSummaryRows,inventoryLotCost:inventoryLotCostRows,repCommission:repCommissionRows,
-   vatLines:vatLineRows,vatSummary:vatSummaryRows,incomeStatement:incomeStatementRows,balanceSheet:balanceSheetRows,oldClientParityHealth:parityHealthRows});
+   vatLines:vatLineRows,vatSummary:vatSummaryRows,incomeStatement:incomeStatementRows,balanceSheet:balanceSheetRows,oldClientParityHealth:parityHealthRows,
+   orderBatches:orderBatchRows,orderBatchLines:orderBatchLineRows,orderBatchHealth:orderBatchHealthRows});
   await loadSecureData();
   try{validate()}catch(e){console.warn('Runtime validation warning',e)}
   renderDashboard();renderProducts();renderCustomers();renderSuppliers();renderOperations();renderPurchases();renderSalesModule();renderCollectionsModule();renderReportsModule();renderFinanceModule();renderTrialModule();renderCashFlowModule();renderUsersModule();renderSettingsModule();renderSalesTarget();renderRepReports();renderRegions();
