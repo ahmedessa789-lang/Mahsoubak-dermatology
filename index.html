@@ -1179,7 +1179,84 @@ async function printCustomerStatementFinal(key){
  const c=customerByKey(key);if(!c)return;
  const s=finalCustomerStatement(c)||emptyCustomerStatementFinal(c),rows=finalCustomerStatementLines(c);
  const w=window.open('','_blank');if(!w)return;
- w.document.write(`<!doctype html><html dir="${LANG==='ar'?'rtl':'ltr'}"><head><meta charset="utf-8"><title>${esc(s.customer_name||'Statement')}</title><style>body{font-family:Arial;padding:28px}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #ddd;padding:7px}th{background:#f5f5f5}.empty{padding:18px;text-align:center;color:#666}</style></head><body><h2>${LANG==='ar'?'كشف حساب العميل':'Customer Statement'} — ${esc(s.customer_name||'-')}</h2><div>${esc(s.clinic_name||'-')} • ${esc(s.city||'-')} • ${esc(s.phone||'-')}</div><p><b>${LANG==='ar'?'الرصيد النهائي':'Final Balance'}: ${money(s.statement_balance)}</b></p>${rows.length?`<table><thead><tr><th>${T('date')}</th><th>${LANG==='ar'?'الحركة':'Type'}</th><th>${LANG==='ar'?'المستند':'Document'}</th><th>${LANG==='ar'?'البيان':'Description'}</th><th>${T('debit')}</th><th>${T('credit')}</th><th>${T('balance')}</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(S(r.transaction_date).slice(0,10))}</td><td>${esc(r.transaction_type||'-')}</td><td>${esc(r.document_number||r.source_id||'-')}</td><td>${esc(r.description||'-')}</td><td>${money(r.debit)}</td><td>${money(r.credit)}</td><td>${money(r.running_receivable_balance)}</td></tr>`).join('')}</tbody></table>`:`<div class="empty">${LANG==='ar'?'لا توجد حركات مالية على هذا العميل حتى الآن.':'No financial transactions for this customer yet.'}</div>`}<script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();
+ w.document.write(`<!doctype html><html dir="${LANG==='ar'?'rtl':'ltr'}"><head><meta charset="utf-8"><title>${esc(s.customer_name||'Statement')}</title><style>body{font-family:Arial;padding:28px}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #ddd;padding:7px}th{background:#f5f5f5}.empty{padding:18px;text-align:center;color:#666}</style></head><body><h2>${LANG==='ar'?'كشف حساب العميل':'Customer Statement'} — ${esc(s.customer_name||'-')}</h2><div>${esc(s.clinic_name||'-')} • ${esc(s.city||'-')} • ${esc(s.phone||'-')}</div><p><b>${LANG==='ar'?'الرصيد النهائي':'Final Balance'}: ${money(s.statement_balance)}</b></p>${rows.length?`<table><thead><tr><th>${T('date')}</th><th>${LANG==='ar'?'الحركة':'Type'}</th><th>${LANG==='ar'?'المستند':'Document'}</th><th>${LANG==='ar'?'البيان':'Description'}</th><th>${T('debit')}</th><th>${T('credit')}</th><th>${T('balance')}</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(S(r.transaction_date).slice(0,10))}</td><td>${esc(r.transaction_type||'-')}</td><td>${esc(r.document_number||r.source_id||'-')}</td><td>${esc(r.description||'-')}</td><td>${money(r.debit)}</td><td>${money(r.credit)}</td><td>${money(r.running_receivable_balance)}</td></tr>`).join('')}</tbody></table>`:`<div class="empty">${LANG==='ar'?'لا توجد حركات مالية على هذا العميل حتى الآن.':'No financial transactions for this customer yet.'}</div>`}<script>window.onload=()=>window.print()<\/script>
+<script id="build26-light-module-search">
+(function(){
+  'use strict';
+  const SEARCH_STATE=Object.create(null);
+  let searchTimer=0;
+
+  function currentSection(id){
+    return document.getElementById('view-'+id);
+  }
+
+  function rowMatches(row,term){
+    return !term || (row.textContent||'').toLowerCase().includes(term);
+  }
+
+  function applyModuleSearch(id,term){
+    const section=currentSection(id); if(!section)return;
+    const q=String(term||'').trim().toLowerCase();
+    SEARCH_STATE[id]=term||'';
+    section.querySelectorAll('.data-table tbody tr').forEach(row=>{
+      row.style.display=rowMatches(row,q)?'':'none';
+    });
+  }
+
+  function installModuleSearch(id){
+    if(!id || id==='dashboard')return;
+    const section=currentSection(id); if(!section)return;
+    const hasRows=section.querySelector('.data-table tbody');
+    if(!hasRows)return;
+
+    let box=section.querySelector('[data-module-search="'+id+'"]');
+    if(box)return;
+
+    box=document.createElement('div');
+    box.setAttribute('data-module-search',id);
+    box.style.cssText='margin:0 0 12px;display:flex;gap:8px;align-items:center;';
+    box.innerHTML='<input class="input" type="search" autocomplete="off" style="width:min(420px,100%);min-width:220px" placeholder="🔍 '+(LANG==='ar'?'بحث داخل الموديول...':'Search this module...')+'">';
+
+    const tableCard=section.querySelector('.table-card');
+    if(tableCard && tableCard.parentNode){
+      tableCard.parentNode.insertBefore(box,tableCard);
+    }else{
+      section.insertBefore(box,section.firstChild);
+    }
+
+    const input=box.querySelector('input');
+    input.value=SEARCH_STATE[id]||'';
+    input.addEventListener('input',function(){
+      clearTimeout(searchTimer);
+      const value=this.value;
+      searchTimer=setTimeout(()=>applyModuleSearch(id,value),120);
+    },{passive:true});
+    if(input.value)applyModuleSearch(id,input.value);
+  }
+
+  const priorShow=window.show;
+  window.show=async function(id){
+    const r=await priorShow.apply(this,arguments);
+    setTimeout(()=>{try{installModuleSearch(id)}catch(e){console.warn('Module search:',e)}},0);
+    return r;
+  };
+  try{show=window.show}catch(e){}
+
+  const priorLoadData=window.loadData;
+  if(typeof priorLoadData==='function'){
+    window.loadData=async function(){
+      const r=await priorLoadData.apply(this,arguments);
+      setTimeout(()=>{try{installModuleSearch(currentPage)}catch(e){}},0);
+      return r;
+    };
+    try{loadData=window.loadData}catch(e){}
+  }
+
+  setTimeout(()=>{try{installModuleSearch(currentPage)}catch(e){}},500);
+})();
+</script>
+
+</body></html>`);w.document.close();
 }
 async function openCustomerClinicsFinal(key){
  await ensureFinalCustomerParityData();
