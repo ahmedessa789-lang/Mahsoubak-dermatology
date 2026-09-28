@@ -1179,84 +1179,7 @@ async function printCustomerStatementFinal(key){
  const c=customerByKey(key);if(!c)return;
  const s=finalCustomerStatement(c)||emptyCustomerStatementFinal(c),rows=finalCustomerStatementLines(c);
  const w=window.open('','_blank');if(!w)return;
- w.document.write(`<!doctype html><html dir="${LANG==='ar'?'rtl':'ltr'}"><head><meta charset="utf-8"><title>${esc(s.customer_name||'Statement')}</title><style>body{font-family:Arial;padding:28px}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #ddd;padding:7px}th{background:#f5f5f5}.empty{padding:18px;text-align:center;color:#666}</style></head><body><h2>${LANG==='ar'?'كشف حساب العميل':'Customer Statement'} — ${esc(s.customer_name||'-')}</h2><div>${esc(s.clinic_name||'-')} • ${esc(s.city||'-')} • ${esc(s.phone||'-')}</div><p><b>${LANG==='ar'?'الرصيد النهائي':'Final Balance'}: ${money(s.statement_balance)}</b></p>${rows.length?`<table><thead><tr><th>${T('date')}</th><th>${LANG==='ar'?'الحركة':'Type'}</th><th>${LANG==='ar'?'المستند':'Document'}</th><th>${LANG==='ar'?'البيان':'Description'}</th><th>${T('debit')}</th><th>${T('credit')}</th><th>${T('balance')}</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(S(r.transaction_date).slice(0,10))}</td><td>${esc(r.transaction_type||'-')}</td><td>${esc(r.document_number||r.source_id||'-')}</td><td>${esc(r.description||'-')}</td><td>${money(r.debit)}</td><td>${money(r.credit)}</td><td>${money(r.running_receivable_balance)}</td></tr>`).join('')}</tbody></table>`:`<div class="empty">${LANG==='ar'?'لا توجد حركات مالية على هذا العميل حتى الآن.':'No financial transactions for this customer yet.'}</div>`}<script>window.onload=()=>window.print()<\/script>
-<script id="build26-light-module-search">
-(function(){
-  'use strict';
-  const SEARCH_STATE=Object.create(null);
-  let searchTimer=0;
-
-  function currentSection(id){
-    return document.getElementById('view-'+id);
-  }
-
-  function rowMatches(row,term){
-    return !term || (row.textContent||'').toLowerCase().includes(term);
-  }
-
-  function applyModuleSearch(id,term){
-    const section=currentSection(id); if(!section)return;
-    const q=String(term||'').trim().toLowerCase();
-    SEARCH_STATE[id]=term||'';
-    section.querySelectorAll('.data-table tbody tr').forEach(row=>{
-      row.style.display=rowMatches(row,q)?'':'none';
-    });
-  }
-
-  function installModuleSearch(id){
-    if(!id || id==='dashboard')return;
-    const section=currentSection(id); if(!section)return;
-    const hasRows=section.querySelector('.data-table tbody');
-    if(!hasRows)return;
-
-    let box=section.querySelector('[data-module-search="'+id+'"]');
-    if(box)return;
-
-    box=document.createElement('div');
-    box.setAttribute('data-module-search',id);
-    box.style.cssText='margin:0 0 12px;display:flex;gap:8px;align-items:center;';
-    box.innerHTML='<input class="input" type="search" autocomplete="off" style="width:min(420px,100%);min-width:220px" placeholder="🔍 '+(LANG==='ar'?'بحث داخل الموديول...':'Search this module...')+'">';
-
-    const tableCard=section.querySelector('.table-card');
-    if(tableCard && tableCard.parentNode){
-      tableCard.parentNode.insertBefore(box,tableCard);
-    }else{
-      section.insertBefore(box,section.firstChild);
-    }
-
-    const input=box.querySelector('input');
-    input.value=SEARCH_STATE[id]||'';
-    input.addEventListener('input',function(){
-      clearTimeout(searchTimer);
-      const value=this.value;
-      searchTimer=setTimeout(()=>applyModuleSearch(id,value),120);
-    },{passive:true});
-    if(input.value)applyModuleSearch(id,input.value);
-  }
-
-  const priorShow=window.show;
-  window.show=async function(id){
-    const r=await priorShow.apply(this,arguments);
-    setTimeout(()=>{try{installModuleSearch(id)}catch(e){console.warn('Module search:',e)}},0);
-    return r;
-  };
-  try{show=window.show}catch(e){}
-
-  const priorLoadData=window.loadData;
-  if(typeof priorLoadData==='function'){
-    window.loadData=async function(){
-      const r=await priorLoadData.apply(this,arguments);
-      setTimeout(()=>{try{installModuleSearch(currentPage)}catch(e){}},0);
-      return r;
-    };
-    try{loadData=window.loadData}catch(e){}
-  }
-
-  setTimeout(()=>{try{installModuleSearch(currentPage)}catch(e){}},500);
-})();
-</script>
-
-</body></html>`);w.document.close();
+ w.document.write(`<!doctype html><html dir="${LANG==='ar'?'rtl':'ltr'}"><head><meta charset="utf-8"><title>${esc(s.customer_name||'Statement')}</title><style>body{font-family:Arial;padding:28px}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #ddd;padding:7px}th{background:#f5f5f5}.empty{padding:18px;text-align:center;color:#666}</style></head><body><h2>${LANG==='ar'?'كشف حساب العميل':'Customer Statement'} — ${esc(s.customer_name||'-')}</h2><div>${esc(s.clinic_name||'-')} • ${esc(s.city||'-')} • ${esc(s.phone||'-')}</div><p><b>${LANG==='ar'?'الرصيد النهائي':'Final Balance'}: ${money(s.statement_balance)}</b></p>${rows.length?`<table><thead><tr><th>${T('date')}</th><th>${LANG==='ar'?'الحركة':'Type'}</th><th>${LANG==='ar'?'المستند':'Document'}</th><th>${LANG==='ar'?'البيان':'Description'}</th><th>${T('debit')}</th><th>${T('credit')}</th><th>${T('balance')}</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(S(r.transaction_date).slice(0,10))}</td><td>${esc(r.transaction_type||'-')}</td><td>${esc(r.document_number||r.source_id||'-')}</td><td>${esc(r.description||'-')}</td><td>${money(r.debit)}</td><td>${money(r.credit)}</td><td>${money(r.running_receivable_balance)}</td></tr>`).join('')}</tbody></table>`:`<div class="empty">${LANG==='ar'?'لا توجد حركات مالية على هذا العميل حتى الآن.':'No financial transactions for this customer yet.'}</div>`}<script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();
 }
 async function openCustomerClinicsFinal(key){
  await ensureFinalCustomerParityData();
@@ -6928,5 +6851,75 @@ setTimeout(function(){
 </script>
 
 <div id="cleanBuildId" style="position:fixed;bottom:8px;right:10px;z-index:99999;background:#111827;color:#fff;padding:4px 8px;border-radius:8px;font:700 10px Arial;opacity:.75;pointer-events:none">FINAL CONSOLIDATED CLEAN V4 FULL REVIEW</div>
-\n<script id="build25-lazy-liquidity-detail">\n(function(){\n  'use strict';\n  let liquidityDetailLoading=null;\n\n  window.ensureLiquidityDetailLoaded=async function(force=false){\n    if(!force && Array.isArray(D.liquidityDetail) && D.liquidityDetail.length)return true;\n    if(liquidityDetailLoading)return liquidityDetailLoading;\n    liquidityDetailLoading=(async function(){\n      try{\n        const rows=await getAllSessionSafe(V.liquidityDetail);\n        D.liquidityDetail=Array.isArray(rows)?rows:[];\n        return true;\n      }catch(e){\n        console.warn('Liquidity detail lazy load failed:',e);\n        return false;\n      }finally{\n        liquidityDetailLoading=null;\n      }\n    })();\n    return liquidityDetailLoading;\n  };\n\n  const priorShow=window.show;\n  window.show=async function(id){\n    if(id==='cashflow' || id==='finance'){\n      await window.ensureLiquidityDetailLoaded(false);\n    }\n    return priorShow.apply(this,arguments);\n  };\n  try{show=window.show}catch(e){}\n})();\n</script>\n</body>
+\n<script id="build25-lazy-liquidity-detail">\n(function(){\n  'use strict';\n  let liquidityDetailLoading=null;\n\n  window.ensureLiquidityDetailLoaded=async function(force=false){\n    if(!force && Array.isArray(D.liquidityDetail) && D.liquidityDetail.length)return true;\n    if(liquidityDetailLoading)return liquidityDetailLoading;\n    liquidityDetailLoading=(async function(){\n      try{\n        const rows=await getAllSessionSafe(V.liquidityDetail);\n        D.liquidityDetail=Array.isArray(rows)?rows:[];\n        return true;\n      }catch(e){\n        console.warn('Liquidity detail lazy load failed:',e);\n        return false;\n      }finally{\n        liquidityDetailLoading=null;\n      }\n    })();\n    return liquidityDetailLoading;\n  };\n\n  const priorShow=window.show;\n  window.show=async function(id){\n    if(id==='cashflow' || id==='finance'){\n      await window.ensureLiquidityDetailLoaded(false);\n    }\n    return priorShow.apply(this,arguments);\n  };\n  try{show=window.show}catch(e){}\n})();\n</script>\n
+<script id="build26-light-module-search-fixed">
+(function(){
+  'use strict';
+  const SEARCH_STATE=Object.create(null);
+  let searchTimer=null;
+
+  function normalizeSearchText(v){
+    return String(v==null?'':v).toLocaleLowerCase().replace(/\s+/g,' ').trim();
+  }
+
+  function activeModuleRoot(id){
+    const direct=document.getElementById(id);
+    if(direct)return direct;
+    const byData=document.querySelector('[data-page="'+CSS.escape(String(id||''))+'"]');
+    if(byData)return byData;
+    return document.querySelector('.page.active,.module.active,.view.active,main')||document.body;
+  }
+
+  function applyModuleSearch(id,value){
+    SEARCH_STATE[id]=value||'';
+    const root=activeModuleRoot(id);
+    if(!root)return;
+    const q=normalizeSearchText(value);
+    root.querySelectorAll('table tbody tr').forEach(function(row){
+      row.style.display=(!q || normalizeSearchText(row.textContent).includes(q))?'':'none';
+    });
+  }
+
+  function installModuleSearch(id){
+    if(!id || id==='dashboard' || id==='login')return;
+    const root=activeModuleRoot(id);
+    if(!root || root===document.body)return;
+    if(root.querySelector('[data-module-search="'+String(id).replace(/"/g,'')+'"]'))return;
+    const tables=root.querySelectorAll('table');
+    if(!tables.length)return;
+
+    const box=document.createElement('div');
+    box.setAttribute('data-module-search',id);
+    box.style.cssText='margin:0 0 12px;display:flex;gap:8px;align-items:center;';
+    box.innerHTML='<input class="input" type="search" autocomplete="off" style="width:min(420px,100%);min-width:220px" placeholder="🔍 '+((typeof LANG!=='undefined'&&LANG==='ar')?'بحث داخل الموديول...':'Search this module...')+'">';
+
+    const firstTable=tables[0];
+    const anchor=firstTable.closest('.table-card')||firstTable;
+    if(anchor.parentNode)anchor.parentNode.insertBefore(box,anchor);
+    else root.insertBefore(box,root.firstChild);
+
+    const input=box.querySelector('input');
+    input.value=SEARCH_STATE[id]||'';
+    input.addEventListener('input',function(){
+      clearTimeout(searchTimer);
+      const v=this.value;
+      searchTimer=setTimeout(function(){applyModuleSearch(id,v)},120);
+    });
+    if(input.value)applyModuleSearch(id,input.value);
+  }
+
+  const priorShow=window.show;
+  if(typeof priorShow==='function'){
+    window.show=async function(id){
+      const result=await priorShow.apply(this,arguments);
+      setTimeout(function(){
+        try{installModuleSearch(id)}catch(e){console.warn('Module search:',e)}
+      },20);
+      return result;
+    };
+    try{show=window.show}catch(e){}
+  }
+})();
+</script>
+</body>
 </html>
