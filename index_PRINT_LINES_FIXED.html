@@ -4334,7 +4334,31 @@ function mahsoubakBatchInvoiceContext(batch,lines){
 async function mahsoubakPrintBatchFromDbTemplate(batch,lines){
  const tpl=await mahsoubakGetInvoiceTemplate();
  const ctx=mahsoubakBatchInvoiceContext(batch,lines);
- let html=tpl;Object.keys(ctx).forEach(k=>{html=mahsoubakTemplateReplace(html,k,ctx[k])});
+ let html=tpl;
+ const hadRowsToken=html.includes('{{PRODUCT_ROWS}}');
+ Object.keys(ctx).forEach(k=>{html=mahsoubakTemplateReplace(html,k,ctx[k])});
+
+ // Keep the stored print template unchanged. If its item table has no PRODUCT_ROWS
+ // placeholder, inject the already-built rows into that existing table at print time.
+ if(A(lines).length && (!hadRowsToken || !html.includes(ctx.PRODUCT_ROWS))){
+   try{
+     const doc=new DOMParser().parseFromString(html,'text/html');
+     const tables=Array.from(doc.querySelectorAll('table'));
+     const itemTable=tables.find(t=>{
+       const tx=S(t.textContent).toUpperCase();
+       return tx.includes('LOT') && tx.includes('PRODUCT') && tx.includes('QUANTITY') && tx.includes('TOTAL PRICE');
+     });
+     if(itemTable){
+       let tbody=itemTable.querySelector('tbody');
+       if(!tbody){tbody=doc.createElement('tbody');itemTable.appendChild(tbody)}
+       const holder=doc.createElement('tbody');
+       holder.innerHTML=ctx.PRODUCT_ROWS;
+       Array.from(holder.children).forEach(tr=>tbody.appendChild(tr));
+       html='<!doctype html>\n'+doc.documentElement.outerHTML;
+     }
+   }catch(e){console.warn('Invoice row injection fallback failed:',e)}
+ }
+
  const w=window.open('','_blank','width=1000,height=800');if(!w)throw new Error('PRINT_WINDOW_BLOCKED');
  w.document.open();w.document.write(html);w.document.close();w.focus();
 }
