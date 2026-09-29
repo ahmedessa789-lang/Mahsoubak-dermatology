@@ -4332,13 +4332,33 @@ function mahsoubakBatchInvoiceContext(batch,lines){
  return {COMPANY:'New Life Medical',DATE:esc(date),REF:esc(ref),DELIVERY_NO:esc(deliveryNo),PAYMENT:esc(payment),CUSTOMER:esc(customer),CLINIC:esc(clinic),ADDRESS:esc(address),CITY:esc(city),PHONE:esc(phone),PRODUCT_ROWS:productRows,GRAND_TOTAL:mahsoubakMoneyPrint(grand)};
 }
 async function mahsoubakPrintBatchFromDbTemplate(batch,lines){
- // Always read the active invoice template from Supabase at print time.
- // This keeps the database template authoritative and avoids stale cached HTML.
- MAHSOUBAK_INVOICE_TEMPLATE_CACHE='';
  const tpl=await mahsoubakGetInvoiceTemplate();
  const ctx=mahsoubakBatchInvoiceContext(batch,lines);
  let html=tpl;
+ const hadRowsToken=html.includes('{{PRODUCT_ROWS}}');
  Object.keys(ctx).forEach(k=>{html=mahsoubakTemplateReplace(html,k,ctx[k])});
+
+ // Keep the stored print template unchanged. If its item table has no PRODUCT_ROWS
+ // placeholder, inject the already-built rows into that existing table at print time.
+ if(A(lines).length && (!hadRowsToken || !html.includes(ctx.PRODUCT_ROWS))){
+   try{
+     const doc=new DOMParser().parseFromString(html,'text/html');
+     const tables=Array.from(doc.querySelectorAll('table'));
+     const itemTable=tables.find(t=>{
+       const tx=S(t.textContent).toUpperCase();
+       return tx.includes('LOT') && tx.includes('PRODUCT') && tx.includes('QUANTITY') && tx.includes('TOTAL PRICE');
+     });
+     if(itemTable){
+       let tbody=itemTable.querySelector('tbody');
+       if(!tbody){tbody=doc.createElement('tbody');itemTable.appendChild(tbody)}
+       const holder=doc.createElement('tbody');
+       holder.innerHTML=ctx.PRODUCT_ROWS;
+       Array.from(holder.children).forEach(tr=>tbody.appendChild(tr));
+       html='<!doctype html>\n'+doc.documentElement.outerHTML;
+     }
+   }catch(e){console.warn('Invoice row injection fallback failed:',e)}
+ }
+
  const w=window.open('','_blank','width=1000,height=800');if(!w)throw new Error('PRINT_WINDOW_BLOCKED');
  w.document.open();w.document.write(html);w.document.close();w.focus();
 }
@@ -4350,29 +4370,53 @@ function b19DocumentHtml(batch,lines,type){
 async function b19PrintDocument(id,type){
  const b=b19Batches().find(x=>S(x.id)===S(id));if(!b)return;
  let lines=b19Lines().filter(x=>S(x.batch_id)===S(id)).sort((a,z)=>N(a.line_index)-N(z.line_index));
+
+ // Use the exact same database-backed lines that the invoice details modal uses.
+ // If they are not in memory yet, refresh the canonical view; if that view is late,
+ // fall back to the raw orders already loaded from Supabase.
+ if(!lines.length){
+  try{
+   const liveLines=await getAllSessionSafe(V.orderBatchLines);
+   if(A(liveLines).length){
+    D.orderBatchLines=liveLines;
+    lines=A(liveLines).filter(x=>S(x.batch_id)===S(id)).sort((a,z)=>N(a.line_index)-N(z.line_index));
+   }
+  }catch(e){console.warn('Invoice lines canonical refresh failed:',e)}
+ }
+
+ if(!lines.length){
+  lines=A(D.orders).filter(o=>{
+   const oid=S(o.id);
+   const bid=S(o.batch_id||o.order_batch_id||o.payload?.batch_id||oid.split(':L')[0]);
+   return bid===S(id);
+  }).map((o,i)=>({
+   batch_id:id,
+   line_index:N(o.line_index||o.payload?.line_index)||i+1,
+   product_id:o.product_id||o.payload?.product_id||'',
+   product_name:o.product_name||o.payload?.product_name||'',
+   lot_id:o.lot_id||o.payload?.lot_id||'',
+   lot_number:o.lot_number||o.payload?.lot_number||'',
+   qty:N(o.qty||o.payload?.qty),
+   price:N(o.price||o.payload?.price),
+   line_total:N(o.line_total||o.payload?.line_total||o.total||o.payload?.total),
+   total_including_vat:N(o.total_including_vat||o.payload?.total_including_vat||o.total||o.payload?.total),
+   unit_price_before_vat:N(o.unit_price_before_vat||o.payload?.unit_price_before_vat||o.price||o.payload?.price),
+   order_type:o.order_type||o.payload?.order_type||'sale',
+   status:o.status||o.payload?.status||'',
+   approval_status:o.approval_status||o.payload?.approval_status||'',
+   operation_status:o.operation_status||o.payload?.operation_status||''
+  })).sort((a,z)=>N(a.line_index)-N(z.line_index));
+ }
+
  if(type==='invoice'){
   try{
-   // Printing is database-authoritative: always re-read this batch's canonical
-   // invoice lines from Supabase immediately before building the document.
-   const url=`${SB_URL}/rest/v1/${V.orderBatchLines}?select=*&batch_id=eq.${encodeURIComponent(id)}&order=line_index.asc`;
-   const r=await authFetch(url,{});
-   const txt=await r.text();
-   let live=[];
-   try{live=txt?JSON.parse(txt):[]}catch(_){live=[]}
-   if(!r.ok)throw new Error((live&&live.message)||txt||('INVOICE_LINES_HTTP_'+r.status));
-   if(A(live).length){
-    lines=A(live).sort((a,z)=>N(a.line_index)-N(z.line_index));
-    const others=b19Lines().filter(x=>S(x.batch_id)!==S(id));
-    D.orderBatchLines=others.concat(lines);
-   }
-   if(!lines.length)throw new Error('INVOICE_HAS_NO_DATABASE_LINES');
+   if(!lines.length)throw new Error('لا توجد سطور أصناف لهذه الفاتورة في قاعدة البيانات');
    await mahsoubakPrintBatchFromDbTemplate(b,lines);
   }catch(e){alert((LANG==='ar'?'تعذر تحميل بيانات الفاتورة من قاعدة البيانات: ':'Could not load invoice data from database: ')+S(e.message||e));}
   return;
  }
  const w=window.open('','_blank');if(!w)return;w.document.open();w.document.write(b19DocumentHtml(b,lines,type));w.document.close()
 }
-
 function b19WhatsApp(id){const b=b19Batches().find(x=>S(x.id)===S(id));if(!b)return;const c=A(D.customers).find(x=>S(x.id)===S(b.customer_id));const phone=S(c&&c.phone).replace(/\D/g,'');const lines=b19Lines().filter(x=>S(x.batch_id)===S(id));const items=lines.map(x=>`${x.product_name||'-'} × ${num(x.qty,2)}`).join('\n');const msg=encodeURIComponent(`Mahsoubak Business\n${LANG==='ar'?'فاتورة':'Invoice'}: ${b.invoice_number||b.id}\n${LANG==='ar'?'العميل':'Customer'}: ${b.customer_name||'-'}\n${items}\n${LANG==='ar'?'الإجمالي':'Total'}: ${money(b.total)}\n${LANG==='ar'?'المتبقي':'Remaining'}: ${money(b.remaining)}`);window.open(`https://wa.me/${phone?phone:''}?text=${msg}`,'_blank')}
 const _b19OpenBatchBuild04=b19OpenBatch;
 b19OpenBatch=async function(id){
