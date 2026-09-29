@@ -4370,47 +4370,21 @@ function b19DocumentHtml(batch,lines,type){
 async function b19PrintDocument(id,type){
  const b=b19Batches().find(x=>S(x.id)===S(id));if(!b)return;
  let lines=b19Lines().filter(x=>S(x.batch_id)===S(id)).sort((a,z)=>N(a.line_index)-N(z.line_index));
-
- // Use the exact same database-backed lines that the invoice details modal uses.
- // If they are not in memory yet, refresh the canonical view; if that view is late,
- // fall back to the raw orders already loaded from Supabase.
- if(!lines.length){
-  try{
-   const liveLines=await getAllSessionSafe(V.orderBatchLines);
-   if(A(liveLines).length){
-    D.orderBatchLines=liveLines;
-    lines=A(liveLines).filter(x=>S(x.batch_id)===S(id)).sort((a,z)=>N(a.line_index)-N(z.line_index));
-   }
-  }catch(e){console.warn('Invoice lines canonical refresh failed:',e)}
- }
-
- if(!lines.length){
-  lines=A(D.orders).filter(o=>{
-   const oid=S(o.id);
-   const bid=S(o.batch_id||o.order_batch_id||o.payload?.batch_id||oid.split(':L')[0]);
-   return bid===S(id);
-  }).map((o,i)=>({
-   batch_id:id,
-   line_index:N(o.line_index||o.payload?.line_index)||i+1,
-   product_id:o.product_id||o.payload?.product_id||'',
-   product_name:o.product_name||o.payload?.product_name||'',
-   lot_id:o.lot_id||o.payload?.lot_id||'',
-   lot_number:o.lot_number||o.payload?.lot_number||'',
-   qty:N(o.qty||o.payload?.qty),
-   price:N(o.price||o.payload?.price),
-   line_total:N(o.line_total||o.payload?.line_total||o.total||o.payload?.total),
-   total_including_vat:N(o.total_including_vat||o.payload?.total_including_vat||o.total||o.payload?.total),
-   unit_price_before_vat:N(o.unit_price_before_vat||o.payload?.unit_price_before_vat||o.price||o.payload?.price),
-   order_type:o.order_type||o.payload?.order_type||'sale',
-   status:o.status||o.payload?.status||'',
-   approval_status:o.approval_status||o.payload?.approval_status||'',
-   operation_status:o.operation_status||o.payload?.operation_status||''
-  })).sort((a,z)=>N(a.line_index)-N(z.line_index));
- }
-
  if(type==='invoice'){
   try{
-   if(!lines.length)throw new Error('لا توجد سطور أصناف لهذه الفاتورة في قاعدة البيانات');
+   if(!lines.length){
+    const url=`${SB_URL}/rest/v1/${V.orderBatchLines}?select=*&batch_id=eq.${encodeURIComponent(id)}&order=line_index.asc`;
+    const r=await authFetch(url,{});
+    const txt=await r.text();
+    let live=[];
+    try{live=txt?JSON.parse(txt):[]}catch(_){live=[]}
+    if(!r.ok)throw new Error((live&&live.message)||txt||('INVOICE_LINES_HTTP_'+r.status));
+    lines=A(live).sort((a,z)=>N(a.line_index)-N(z.line_index));
+    if(lines.length){
+      const others=b19Lines().filter(x=>S(x.batch_id)!==S(id));
+      D.orderBatchLines=others.concat(lines);
+    }
+   }
    await mahsoubakPrintBatchFromDbTemplate(b,lines);
   }catch(e){alert((LANG==='ar'?'تعذر تحميل بيانات الفاتورة من قاعدة البيانات: ':'Could not load invoice data from database: ')+S(e.message||e));}
   return;
@@ -6099,15 +6073,21 @@ window.refreshCurrentModuleBuild18=async function(){
 };
 
 
-/* ===== BUILD26B: PERFORMANCE + PRINT SAFE ===== */
+/* ===== BUILD26: PERFORMANCE SAFE LOADER ===== */
 (function(){
   'use strict';
 
-  /* Performance-only patch. Does NOT touch invoice/delivery-note printing. */
+  /* Performance only: no business rules, UI, print template, permissions or RPC changes. */
   const MAX_DB_READS=2;
   let activeDbReads=0;
   const dbReadQueue=[];
 
+  function runQueuedDbRead(task){
+    return new Promise((resolve,reject)=>{
+      dbReadQueue.push({task,resolve,reject});
+      pumpDbReadQueue();
+    });
+  }
   function pumpDbReadQueue(){
     while(activeDbReads<MAX_DB_READS && dbReadQueue.length){
       const job=dbReadQueue.shift();
@@ -6118,37 +6098,20 @@ window.refreshCurrentModuleBuild18=async function(){
       });
     }
   }
-  function runQueuedDbRead(task){
-    return new Promise((resolve,reject)=>{
-      dbReadQueue.push({task,resolve,reject});
-      pumpDbReadQueue();
-    });
-  }
 
-  /* Bypass BUILD16's 3-attempt amplification, while keeping one light retry for transient errors. */
+  /* Use the original single-request reader captured before BUILD16 retry logic.
+     This removes the automatic 3x retry amplification and caps parallel reads. */
   const directGetAllSession=(typeof __getAllSessionBuild16Base==='function')
     ? __getAllSessionBuild16Base
     : getAllSession;
-
   getAllSession=function(view){
-    return runQueuedDbRead(async()=>{
-      try{
-        return await directGetAllSession(view);
-      }catch(e){
-        const m=S(e&&e.message).toLowerCase();
-        const transient=m.includes('statement timeout') || m.includes('canceling statement') ||
-          m.includes('too many connections') || m.includes('connection reset') || m.includes('fetch failed');
-        if(!transient)throw e;
-        await new Promise(r=>setTimeout(r,650));
-        return await directGetAllSession(view);
-      }
-    });
+    return runQueuedDbRead(()=>directGetAllSession(view));
   };
   try{window.getAllSession=getAllSession}catch(e){}
 
   let backgroundRefreshTimer=null;
   let backgroundRefreshRunning=false;
-  function scheduleQuietFullRefresh(delay=8000){
+  function scheduleQuietFullRefresh(delay=1800){
     if(backgroundRefreshTimer)clearTimeout(backgroundRefreshTimer);
     backgroundRefreshTimer=setTimeout(async()=>{
       if(backgroundRefreshRunning || !authLinked())return;
@@ -6177,7 +6140,7 @@ window.refreshCurrentModuleBuild18=async function(){
 
   window.mahsoubakRefreshOrdersFast=async function(){
     const ok=await loadOrderCoreFast();
-    scheduleQuietFullRefresh(8000);
+    scheduleQuietFullRefresh(1800);
     return ok;
   };
 
@@ -6206,13 +6169,13 @@ window.refreshCurrentModuleBuild18=async function(){
     try{renderProducts()}catch(e){console.warn('Fast inventory render:',e)}
     try{renderDashboard()}catch(e){console.warn('Fast dashboard render:',e)}
     try{updateNotificationBell()}catch(e){}
-    scheduleQuietFullRefresh(10000);
+    scheduleQuietFullRefresh(2200);
     return true;
   };
 
-  window.mahsoubakPerformancePatch={version:'BUILD26B_PERFORMANCE_PRINT_SAFE',maxConcurrentReads:MAX_DB_READS,targetedOrderRefresh:true,targetedDispatchRefresh:true,printLogicUntouched:true};
+  window.mahsoubakPerformancePatch={version:'BUILD26_PERFORMANCE_SAFE',maxConcurrentReads:MAX_DB_READS,targetedOrderRefresh:true,targetedDispatchRefresh:true};
 })();
-/* ===== END BUILD26B ===== */
+/* ===== END BUILD26 ===== */
 
 startSecureApp();
 </script>
