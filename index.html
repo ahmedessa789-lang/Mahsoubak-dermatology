@@ -2051,7 +2051,7 @@ async function b19DispatchBatchFinal(id){
     p_batch_id:id
   });
   closeModal();
-  await loadData(false);
+  await mahsoubakRefreshDispatchFast();
   show('operations');
   alert(b19t('تم خروج الفاتورة وتحديث المبيعات والمخزون','Invoice dispatched and sales/inventory updated'));
  }catch(e){alert(e.message||e)}
@@ -2179,7 +2179,7 @@ async function b19SaveBatch(){
    p_request_id:newRequestId('web_batch_v4_vat'),p_order_date:S(($('b19Date')||{}).value),p_customer_id:customerId,p_rep_id:repId||null,p_paid:paid,p_fund_id:paid>0?fundId:null,p_order_type:'sale',p_notes:S(($('b19Notes')||{}).value)||null,
    p_lines:B19_LINES.map(x=>({product_id:x.product_id,lot_id:x.lot_id,qty:N(x.qty),price:N(x.price),vat_percent:N(x.vat_percent),order_type:x.order_type}))
   });
-  const obj=Array.isArray(res)?(res[0]||{}):(res||{});closeModal();await loadData(false);show('sales');
+  const obj=Array.isArray(res)?(res[0]||{}):(res||{});closeModal();await mahsoubakRefreshOrdersFast();show('sales');
   alert(b19t('تم إنشاء الطلب بنجاح','Order created successfully')+'\n'+b19t('رقم الفاتورة: ','Invoice: ')+(obj.invoice_number||'-')+'\n'+b19t('الإجمالي شامل VAT: ','Total incl. VAT: ')+money(obj.total));
  }catch(e){alert(e.message||e)}
 }
@@ -2201,7 +2201,7 @@ async function b19ReviewBatch(id,decision){
     localBatch.can_review=false;
   }
   closeModal();
-  await loadData(false);
+  await mahsoubakRefreshOrdersFast();
   show('sales');
   alert(decision==='approved'?b19t('تم اعتماد الفاتورة','Invoice approved'):b19t('تم رفض الفاتورة','Invoice rejected'));
  }catch(e){alert(e.message)}
@@ -4370,47 +4370,21 @@ function b19DocumentHtml(batch,lines,type){
 async function b19PrintDocument(id,type){
  const b=b19Batches().find(x=>S(x.id)===S(id));if(!b)return;
  let lines=b19Lines().filter(x=>S(x.batch_id)===S(id)).sort((a,z)=>N(a.line_index)-N(z.line_index));
-
- // Use the exact same database-backed lines that the invoice details modal uses.
- // If they are not in memory yet, refresh the canonical view; if that view is late,
- // fall back to the raw orders already loaded from Supabase.
- if(!lines.length){
-  try{
-   const liveLines=await getAllSessionSafe(V.orderBatchLines);
-   if(A(liveLines).length){
-    D.orderBatchLines=liveLines;
-    lines=A(liveLines).filter(x=>S(x.batch_id)===S(id)).sort((a,z)=>N(a.line_index)-N(z.line_index));
-   }
-  }catch(e){console.warn('Invoice lines canonical refresh failed:',e)}
- }
-
- if(!lines.length){
-  lines=A(D.orders).filter(o=>{
-   const oid=S(o.id);
-   const bid=S(o.batch_id||o.order_batch_id||o.payload?.batch_id||oid.split(':L')[0]);
-   return bid===S(id);
-  }).map((o,i)=>({
-   batch_id:id,
-   line_index:N(o.line_index||o.payload?.line_index)||i+1,
-   product_id:o.product_id||o.payload?.product_id||'',
-   product_name:o.product_name||o.payload?.product_name||'',
-   lot_id:o.lot_id||o.payload?.lot_id||'',
-   lot_number:o.lot_number||o.payload?.lot_number||'',
-   qty:N(o.qty||o.payload?.qty),
-   price:N(o.price||o.payload?.price),
-   line_total:N(o.line_total||o.payload?.line_total||o.total||o.payload?.total),
-   total_including_vat:N(o.total_including_vat||o.payload?.total_including_vat||o.total||o.payload?.total),
-   unit_price_before_vat:N(o.unit_price_before_vat||o.payload?.unit_price_before_vat||o.price||o.payload?.price),
-   order_type:o.order_type||o.payload?.order_type||'sale',
-   status:o.status||o.payload?.status||'',
-   approval_status:o.approval_status||o.payload?.approval_status||'',
-   operation_status:o.operation_status||o.payload?.operation_status||''
-  })).sort((a,z)=>N(a.line_index)-N(z.line_index));
- }
-
  if(type==='invoice'){
   try{
-   if(!lines.length)throw new Error('لا توجد سطور أصناف لهذه الفاتورة في قاعدة البيانات');
+   if(!lines.length){
+    const url=`${SB_URL}/rest/v1/${V.orderBatchLines}?select=*&batch_id=eq.${encodeURIComponent(id)}&order=line_index.asc`;
+    const r=await authFetch(url,{});
+    const txt=await r.text();
+    let live=[];
+    try{live=txt?JSON.parse(txt):[]}catch(_){live=[]}
+    if(!r.ok)throw new Error((live&&live.message)||txt||('INVOICE_LINES_HTTP_'+r.status));
+    lines=A(live).sort((a,z)=>N(a.line_index)-N(z.line_index));
+    if(lines.length){
+      const others=b19Lines().filter(x=>S(x.batch_id)!==S(id));
+      D.orderBatchLines=others.concat(lines);
+    }
+   }
    await mahsoubakPrintBatchFromDbTemplate(b,lines);
   }catch(e){alert((LANG==='ar'?'تعذر تحميل بيانات الفاتورة من قاعدة البيانات: ':'Could not load invoice data from database: ')+S(e.message||e));}
   return;
@@ -6097,6 +6071,111 @@ window.refreshCurrentModuleBuild18=async function(){
     if(typeof currentPage!=='undefined'&&currentPage)show(currentPage);
   }catch(e){alert(e.message||e)}
 };
+
+
+/* ===== BUILD26: PERFORMANCE SAFE LOADER ===== */
+(function(){
+  'use strict';
+
+  /* Performance only: no business rules, UI, print template, permissions or RPC changes. */
+  const MAX_DB_READS=2;
+  let activeDbReads=0;
+  const dbReadQueue=[];
+
+  function runQueuedDbRead(task){
+    return new Promise((resolve,reject)=>{
+      dbReadQueue.push({task,resolve,reject});
+      pumpDbReadQueue();
+    });
+  }
+  function pumpDbReadQueue(){
+    while(activeDbReads<MAX_DB_READS && dbReadQueue.length){
+      const job=dbReadQueue.shift();
+      activeDbReads++;
+      Promise.resolve().then(job.task).then(job.resolve,job.reject).finally(()=>{
+        activeDbReads--;
+        pumpDbReadQueue();
+      });
+    }
+  }
+
+  /* Use the original single-request reader captured before BUILD16 retry logic.
+     This removes the automatic 3x retry amplification and caps parallel reads. */
+  const directGetAllSession=(typeof __getAllSessionBuild16Base==='function')
+    ? __getAllSessionBuild16Base
+    : getAllSession;
+  getAllSession=function(view){
+    return runQueuedDbRead(()=>directGetAllSession(view));
+  };
+  try{window.getAllSession=getAllSession}catch(e){}
+
+  let backgroundRefreshTimer=null;
+  let backgroundRefreshRunning=false;
+  function scheduleQuietFullRefresh(delay=1800){
+    if(backgroundRefreshTimer)clearTimeout(backgroundRefreshTimer);
+    backgroundRefreshTimer=setTimeout(async()=>{
+      if(backgroundRefreshRunning || !authLinked())return;
+      backgroundRefreshRunning=true;
+      try{await loadData(false)}
+      catch(e){console.warn('Quiet background refresh skipped:',e)}
+      finally{backgroundRefreshRunning=false}
+    },delay);
+  }
+
+  async function loadOrderCoreFast(){
+    const [orders,batches,lines,health,bell,notes]=await Promise.all([
+      getDispatchOrdersSafe(),
+      getAllSessionSafe(V.orderBatches),
+      getAllSessionSafe(V.orderBatchLines),
+      getAllSessionSafe(V.orderBatchHealth),
+      getAllSessionSafe(V.notificationBell),
+      getAllSessionSafe(V.notifications)
+    ]);
+    Object.assign(D,{orders,orderBatches:batches,orderBatchLines:lines,orderBatchHealth:health,notificationBell:bell,notifications:notes});
+    try{renderSalesModule()}catch(e){console.warn('Fast sales render:',e)}
+    try{renderOperations()}catch(e){console.warn('Fast operations render:',e)}
+    try{updateNotificationBell()}catch(e){}
+    return true;
+  }
+
+  window.mahsoubakRefreshOrdersFast=async function(){
+    const ok=await loadOrderCoreFast();
+    scheduleQuietFullRefresh(1800);
+    return ok;
+  };
+
+  window.mahsoubakRefreshDispatchFast=async function(){
+    const [orders,batches,lines,health,inventory,lots,products,invoices,cards,bell,notes]=await Promise.all([
+      getDispatchOrdersSafe(),
+      getAllSessionSafe(V.orderBatches),
+      getAllSessionSafe(V.orderBatchLines),
+      getAllSessionSafe(V.orderBatchHealth),
+      getAllSessionSafe(V.inventory),
+      getDispatchLotsSafe(),
+      getOrderProductsSafe(),
+      getAllSessionSafe(V.invoices),
+      getAllSessionSafe(V.dashboardCards),
+      getAllSessionSafe(V.notificationBell),
+      getAllSessionSafe(V.notifications)
+    ]);
+    Object.assign(D,{
+      orders,orderBatches:batches,orderBatchLines:lines,orderBatchHealth:health,
+      inventory,dispatchLots:lots,orderProducts:products,
+      invoices:typeof mapInvoiceSummaryForLegacy==='function'?mapInvoiceSummaryForLegacy(invoices):invoices,
+      dashboardCards:cards,notificationBell:bell,notifications:notes
+    });
+    try{renderSalesModule()}catch(e){console.warn('Fast sales render:',e)}
+    try{renderOperations()}catch(e){console.warn('Fast operations render:',e)}
+    try{renderProducts()}catch(e){console.warn('Fast inventory render:',e)}
+    try{renderDashboard()}catch(e){console.warn('Fast dashboard render:',e)}
+    try{updateNotificationBell()}catch(e){}
+    scheduleQuietFullRefresh(2200);
+    return true;
+  };
+
+  window.mahsoubakPerformancePatch={version:'BUILD26_PERFORMANCE_SAFE',maxConcurrentReads:MAX_DB_READS,targetedOrderRefresh:true,targetedDispatchRefresh:true};
+})();
+/* ===== END BUILD26 ===== */
 
 startSecureApp();
 </script>
