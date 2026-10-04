@@ -2044,17 +2044,54 @@ async function b19DispatchBatchFinal(id){
  if(!requireModulePermission('operations','edit'))return;
  const b=b19Batches().find(x=>S(x.id)===S(id));
  if(!b)return;
+ if(norm(b.operation_status)==='dispatched')return;
+ window.__mahsoubakDispatchInFlight=window.__mahsoubakDispatchInFlight||new Set();
+ if(window.__mahsoubakDispatchInFlight.has(S(id)))return;
  if(!confirm(b19t('تأكيد خروج الفاتورة من المخزن؟','Confirm warehouse dispatch?')))return;
+ window.__mahsoubakDispatchInFlight.add(S(id));
  try{
   await rpcAuth('mahsoubak_dispatch_sales_order_batch_v3',{
     p_request_id:newRequestId('web_batch_dispatch_v3'),
     p_batch_id:id
   });
+
+  // The dispatch RPC is the authoritative write. Mark the local batch immediately
+  // so a later read/refresh timeout can never make the user dispatch it again.
+  b.status='approved';
+  b.approval_status='approved';
+  b.operation_status='dispatched';
+  b.inventory_deducted=true;
+  b.can_dispatch=false;
+  A(D.orders).forEach(o=>{
+    const oid=S(o.id);
+    const bid=S(o.batch_id||o.order_batch_id||o.payload?.batch_id||oid.split(':L')[0]);
+    if(bid===S(id)){
+      o.operation_status='dispatched';
+      o.inventory_deducted=true;
+      if(o.payload&&typeof o.payload==='object'){
+        o.payload.operation_status='dispatched';
+        o.payload.inventory_deducted=true;
+      }
+    }
+  });
+
   closeModal();
-  await mahsoubakRefreshDispatchFast();
+  try{renderOperations()}catch(_e){}
+  try{renderSalesModule()}catch(_e){}
   show('operations');
   alert(b19t('تم خروج الفاتورة وتحديث المبيعات والمخزون','Invoice dispatched and sales/inventory updated'));
- }catch(e){alert(e.message||e)}
+
+  // Refresh is intentionally separated from the successful write. A timeout here
+  // is background-only and must not be shown as a failed dispatch.
+  setTimeout(async()=>{
+    try{await mahsoubakRefreshDispatchFast()}
+    catch(e){console.warn('Post-dispatch background refresh skipped:',e)}
+  },500);
+ }catch(e){
+  alert(e.message||e);
+ }finally{
+  window.__mahsoubakDispatchInFlight.delete(S(id));
+ }
 }
 function b19ProductOptions(){
  return A(D.orderProducts).filter(p=>N(p.stock_qty)>0).map(p=>
