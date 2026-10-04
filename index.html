@@ -404,7 +404,7 @@ body,.main{background:#f1f4f8!important}
 </style>
 
 <style id="final-consolidated-clean-v1">
-/* FINAL CONSOLIDATED CLEAN V4 FULL REVIEW */
+/* LAZY FAST BUILD27 • PRINT + DISPATCH SAFE */
 .parity-note{border-radius:12px}
 </style>
 </head>
@@ -420,7 +420,7 @@ body,.main{background:#f1f4f8!important}
 <main class="main">
   <div class="top">
     <div><h2 id="pageTitle"></h2><p id="pageSub"></p></div>
-    <div class="actions"><button id="notificationBell" class="btn secondary notification-bell" onclick="openNotifications()" title="Notifications">🔔<span id="notificationBadge" class="notification-badge zero">0</span></button><button id="authBtn" class="btn secondary" onclick="openAuthPanel()">🔐 Login</button><button id="refreshBtn" class="btn secondary" onclick="loadData(true)"></button></div>
+    <div class="actions"><button id="notificationBell" class="btn secondary notification-bell" onclick="openNotifications()" title="Notifications">🔔<span id="notificationBadge" class="notification-badge zero">0</span></button><button id="authBtn" class="btn secondary" onclick="openAuthPanel()">🔐 Login</button><button id="refreshBtn" class="btn secondary" onclick="refreshCurrentScreenLazy28()"></button></div>
   </div>
   <div id="error" class="error"></div>
   <div class="health"><span id="healthDot" class="dot"></span><span id="healthText">Checking…</span></div>
@@ -5454,23 +5454,39 @@ dashboardCompleteSections=function(){
   };
 
   window.loadData=async function(manual=false){
-    if(manual)return fullLoadDataBuild08(true);
     if(!authLinked()){renderSecureGate();return false}
     try{
-      $('error').style.display='none';
-      $('status').textContent=LANG==='ar'?'جاري تحميل لوحة التحكم…':'Loading dashboard…';
-      const [cards,health,bell,notes,invAlerts,agingSummary,liq,regionPerf,territoryMaster,repCoverage,cheques]=await Promise.all([
-        getAllSession(V.dashboardCards),getAllSessionSafe(V.dashboardCardsHealth),getAllSession(V.notificationBell),getAllSession(V.notifications),getAllSession(V.inventoryAlerts),getAllSession(V.agingSummary),getAllSession(V.liquiditySummary),getAllSessionSafe(V.regionPerformance),getAllSession(V.territoryMaster),getAllSession(V.repCoverage),getAllSessionSafe(V.cheques)
+      if($('error'))$('error').style.display='none';
+      if($('status'))$('status').textContent=LANG==='ar'?'جاري تحميل البيانات الأساسية…':'Loading essential data…';
+
+      // BUILD27: startup reads only the dashboard contract + bell.
+      // Every other module is loaded on demand when the user opens it.
+      const [cards,bell,notes]=await Promise.all([
+        getAllSession(V.dashboardCards),
+        getAllSessionSafe(V.notificationBell),
+        getAllSessionSafe(V.notifications)
       ]);
-      Object.assign(D,{dashboardCards:cards,dashboardCardsHealth:health,notificationBell:bell,notifications:notes,inventoryAlerts:invAlerts,agingSummary,liquiditySummary:liq,regionPerformance:regionPerf,territoryMaster,repCoverage,cheques});
-      await loadSecureData();
-      renderDashboard();renderRegions();updateNotificationBell();
-      $('loading').style.display='none';APP_DATA_LOADED=true;
-      const dh=A(D.dashboardCardsHealth)[0]||{};
-      $('status').textContent=(dh.status==='DASHBOARD_CARD_CONTRACT_MATCH'?'✓ ':'')+(LANG==='ar'?'لوحة التحكم جاهزة — جاري تحميل باقي الموديولات في الخلفية':'Dashboard ready — loading remaining modules in background');
-      setTimeout(async()=>{try{await fullLoadDataBuild08(false)}catch(e){console.warn('Background module load:',e)}},5000);
+      Object.assign(D,{dashboardCards:cards,notificationBell:bell,notifications:notes});
+
+      renderDashboard();
+      updateNotificationBell();
+      if($('loading'))$('loading').style.display='none';
+      APP_DATA_LOADED=true;
+      if($('status'))$('status').textContent=LANG==='ar'?'جاهز':'Ready';
+
+      // Manual refresh refreshes only the currently open module, never the whole ERP.
+      if(manual && typeof window.ensureModuleDataLazy27==='function'){
+        await window.ensureModuleDataLazy27(typeof currentPage==='string'?currentPage:'dashboard',true);
+        if(typeof currentPage==='string' && currentPage!=='dashboard')renderDashboard();
+        alert(LANG==='ar'?'تم تحديث الشاشة الحالية':'Current screen refreshed');
+      }
       return true;
-    }catch(e){console.warn('Fast dashboard fallback:',e);return fullLoadDataBuild08(false)}
+    }catch(e){
+      console.warn('Essential loader failed:',e);
+      if($('loading'))$('loading').style.display='none';
+      if($('error')){$('error').style.display='block';$('error').textContent=(LANG==='ar'?'تعذر تحميل البيانات الأساسية: ':'Could not load essential data: ')+(e.message||e)}
+      return false;
+    }
   };
 })();
 /* ===== END BUILD08 PATCH ===== */
@@ -5644,28 +5660,26 @@ function applyRuntimeBuild16(){
 }
 validate=function(){applyRuntimeBuild16();return S(A(D.runtimeStatusV1)[0]?.status)==='READY';};
 
-/* Final loader: load the tiny DB UI contract first, then the existing app loader.
-   This prevents dashboard render from ever inventing zero values for these cards. */
+/* BUILD27: the runtime/liquidity health contract must not block login or module data.
+   Load the visible dashboard first, then refresh these secondary cards quietly. */
 const __loadDataBuild16Base=loadData;
 loadData=async function(manual=false){
   if(!authLinked()){renderSecureGate();return false}
-  try{
-    await loadDbUiContractBuild16();
-  }catch(e){
-    console.error('BUILD16 UI contract load:',e);
-    if($('error')){
-      $('error').style.display='block';
-      $('error').textContent=(LANG==='ar'?'خطأ في قراءة عقد الواجهة من قاعدة البيانات: ':'Database UI contract error: ')+(e.message||e);
-    }
-    if($('healthDot'))$('healthDot').className='dot bad';
-    if($('healthText'))$('healthText').textContent=LANG==='ar'?'REVIEW — تعذر قراءة عقد قاعدة البيانات':'REVIEW — Database contract unavailable';
-    return false;
-  }
-
   const ok=await __loadDataBuild16Base(manual);
-  applyRuntimeBuild16();
-  try{renderDashboard()}catch(e){console.warn('BUILD16 dashboard refresh:',e)}
-  return ok;
+  if(!ok)return false;
+
+  const refreshRuntimeContract=async()=>{
+    try{
+      await loadDbUiContractBuild16();
+      applyRuntimeBuild16();
+      if(typeof currentPage==='undefined'||currentPage==='dashboard')renderDashboard();
+    }catch(e){
+      console.warn('Secondary runtime contract load skipped:',e);
+    }
+  };
+  if(manual)await refreshRuntimeContract();
+  else setTimeout(refreshRuntimeContract,250);
+  return true;
 };
 
 /* Dedicated refresh: same rule, reread DB; no frontend recomputation. */
@@ -7065,6 +7079,332 @@ setTimeout(function(){
 })();
 </script>
 
-<div id="cleanBuildId" style="position:fixed;bottom:8px;right:10px;z-index:99999;background:#111827;color:#fff;padding:4px 8px;border-radius:8px;font:700 10px Arial;opacity:.75;pointer-events:none">FINAL CONSOLIDATED CLEAN V4 FULL REVIEW</div>
-\n<script id="build25-lazy-liquidity-detail">\n(function(){\n  'use strict';\n  let liquidityDetailLoading=null;\n\n  window.ensureLiquidityDetailLoaded=async function(force=false){\n    if(!force && Array.isArray(D.liquidityDetail) && D.liquidityDetail.length)return true;\n    if(liquidityDetailLoading)return liquidityDetailLoading;\n    liquidityDetailLoading=(async function(){\n      try{\n        const rows=await getAllSessionSafe(V.liquidityDetail);\n        D.liquidityDetail=Array.isArray(rows)?rows:[];\n        return true;\n      }catch(e){\n        console.warn('Liquidity detail lazy load failed:',e);\n        return false;\n      }finally{\n        liquidityDetailLoading=null;\n      }\n    })();\n    return liquidityDetailLoading;\n  };\n\n  const priorShow=window.show;\n  window.show=async function(id){\n    if(id==='cashflow' || id==='finance'){\n      await window.ensureLiquidityDetailLoaded(false);\n    }\n    return priorShow.apply(this,arguments);\n  };\n  try{show=window.show}catch(e){}\n})();\n</script>\n</body>
+<div id="cleanBuildId" style="position:fixed;bottom:8px;right:10px;z-index:99999;background:#111827;color:#fff;padding:4px 8px;border-radius:8px;font:700 10px Arial;opacity:.75;pointer-events:none">LAZY FAST BUILD27 • PRINT + DISPATCH SAFE</div>
+\n<script id="build25-lazy-liquidity-detail">\n(function(){\n  'use strict';\n  let liquidityDetailLoading=null;\n\n  window.ensureLiquidityDetailLoaded=async function(force=false){\n    if(!force && Array.isArray(D.liquidityDetail) && D.liquidityDetail.length)return true;\n    if(liquidityDetailLoading)return liquidityDetailLoading;\n    liquidityDetailLoading=(async function(){\n      try{\n        const rows=await getAllSessionSafe(V.liquidityDetail);\n        D.liquidityDetail=Array.isArray(rows)?rows:[];\n        return true;\n      }catch(e){\n        console.warn('Liquidity detail lazy load failed:',e);\n        return false;\n      }finally{\n        liquidityDetailLoading=null;\n      }\n    })();\n    return liquidityDetailLoading;\n  };\n\n  const priorShow=window.show;\n  window.show=async function(id){\n    if(id==='cashflow' || id==='finance'){\n      await window.ensureLiquidityDetailLoaded(false);\n    }\n    return priorShow.apply(this,arguments);\n  };\n  try{show=window.show}catch(e){}\n})();\n</script>\n
+<script id="build27-project-wide-lazy-loader">
+(function(){
+'use strict';
+
+/* BUILD27 — Project-wide lazy module loader.
+   Data source/business logic remain in Supabase. This layer only decides WHEN a module reads its sources.
+   It intentionally does not touch invoice printing, write RPCs, permissions, or calculations. */
+const L27={loaded:Object.create(null),loading:Object.create(null)};
+
+function l27SetStatus(msg){try{if($('status'))$('status').textContent=msg}catch(e){}}
+function l27View(v){return typeof v==='string'&&v?v:null}
+async function l27Get(view,safe=true){
+  if(!l27View(view))return [];
+  return safe?getAllSessionSafe(view):getAllSession(view);
+}
+async function l27Assign(key,view,safe=true,map=null){
+  const rows=await l27Get(view,safe);
+  D[key]=map?map(rows):rows;
+  return rows;
+}
+async function l27OrdersCore(includeInventory=false){
+  const jobs=[
+    getDispatchOrdersSafe().then(x=>D.orders=x),
+    l27Assign('orderBatches',V.orderBatches,true),
+    l27Assign('orderBatchLines',V.orderBatchLines,true),
+    l27Assign('orderBatchHealth',V.orderBatchHealth,true)
+  ];
+  if(includeInventory){
+    jobs.push(l27Assign('inventory',V.inventory,true));
+    jobs.push(getDispatchLotsSafe().then(x=>D.dispatchLots=x));
+    jobs.push(getOrderProductsSafe().then(x=>D.orderProducts=x));
+  }
+  await Promise.all(jobs);
+}
+async function l27SalesCore(){
+  await l27OrdersCore(false);
+  await Promise.all([
+    l27Assign('invoices',V.invoices,true,rows=>typeof mapInvoiceSummaryForLegacy==='function'?mapInvoiceSummaryForLegacy(rows):rows),
+    l27Assign('paidInvoices',V.paidInvoices,true),
+    l27Assign('receivables',V.receivables,true)
+  ]);
+}
+async function l27DashboardExtra(){
+  await Promise.all([
+    l27Assign('dashboardCardsHealth',V.dashboardCardsHealth,true),
+    l27Assign('agingSummary',V.agingSummary,true),
+    l27Assign('inventoryAlerts',V.inventoryAlerts,true),
+    l27Assign('regionPerformance',V.regionPerformance,true)
+  ]);
+  await Promise.all([
+    l27Assign('repPerformance',V.repPerformance||V.repSales,true),
+    l27Assign('territoryMaster',V.territoryMaster,true),
+    l27Assign('repCoverage',V.repCoverage,true),
+    l27Assign('cheques',V.cheques,true),
+    l27Assign('liquiditySummary',V.liquiditySummary,true)
+  ]);
+  if(A(D.repPerformance).length && typeof mapRepPerformanceForLegacy==='function')D.repSales=mapRepPerformanceForLegacy(D.repPerformance);
+}
+
+window.ensureModuleDataLazy27=async function(id,force=false){
+  id=String(id||'dashboard');
+  const aliases={rep_reports:'reps',income:'finance',balance:'finance',collection_classification:'collections',aging_report:'collections',collector_performance:'collections',collections_dashboard:'collections',cash_forecast:'collections'};
+  const key=aliases[id]||id;
+  if(!force&&L27.loaded[key])return true;
+  if(L27.loading[key])return L27.loading[key];
+
+  L27.loading[key]=(async()=>{
+    l27SetStatus((LANG==='ar'?'جاري تحميل ':'Loading ')+id+'…');
+    try{
+      switch(key){
+        case 'dashboard':
+          await l27DashboardExtra();
+          try{renderDashboard()}catch(e){}
+          break;
+
+        case 'products':
+          await Promise.all([
+            l27Assign('inventory',V.inventory,true),
+            getDispatchLotsSafe().then(x=>D.dispatchLots=x),
+            getOrderProductsSafe().then(x=>D.orderProducts=x),
+            l27Assign('productsMaster',V.productsMaster,true),
+            l27Assign('purchaseLots',V.purchaseLots,true),
+            l27Assign('inventoryAlerts',V.inventoryAlerts,true),
+            l27Assign('inventoryCostSummary',V.inventoryCostSummary,true),
+            l27Assign('inventoryLotCost',V.inventoryLotCost,true)
+          ]);
+          try{renderProducts()}catch(e){}
+          break;
+
+        case 'customers':
+          await Promise.all([
+            l27Assign('customers',V.customers,true),
+            l27Assign('receivables',V.receivables,true),
+            l27Assign('splits',V.splits,true),
+            l27Assign('customerSplitHealth',V.customerSplitHealth,true),
+            l27Assign('customerClinics',V.customerClinics,true)
+          ]);
+          try{renderCustomers()}catch(e){}
+          break;
+
+        case 'suppliers':
+          await Promise.all([
+            l27Assign('suppliers',V.suppliers,true),
+            l27Assign('purchases',V.purchases,true)
+          ]);
+          try{renderSuppliers()}catch(e){}
+          break;
+
+        case 'reps':
+          await Promise.all([
+            l27Assign('repPerformance',V.repPerformance||V.repSales,true),
+            l27Assign('repMaster',V.repMaster,true),
+            l27Assign('moneyTargets',V.moneyTargets,true),
+            l27Assign('repCommission',V.repCommission,true),
+            l27Assign('allocations',V.allocations,true),
+            l27Assign('regionPerformance',V.regionPerformance,true)
+          ]);
+          if(A(D.repPerformance).length&&typeof mapRepPerformanceForLegacy==='function')D.repSales=mapRepPerformanceForLegacy(D.repPerformance);
+          try{renderSalesTarget();renderRepReports()}catch(e){}
+          break;
+
+        case 'operations':
+          await l27OrdersCore(true);
+          try{renderOperations()}catch(e){}
+          break;
+
+        case 'sales':
+          await l27SalesCore();
+          try{renderSalesModule()}catch(e){}
+          break;
+
+        case 'purchases':
+          await Promise.all([
+            l27Assign('purchases',V.purchases,true),
+            l27Assign('suppliers',V.suppliers,true),
+            l27Assign('purchaseLots',V.purchaseLots,true),
+            l27Assign('productsMaster',V.productsMaster,true),
+            l27Assign('purchaseHealth',V.purchaseHealth,true),
+            l27Assign('inventory',V.inventory,true)
+          ]);
+          try{renderPurchases()}catch(e){}
+          break;
+
+        case 'collections':
+          await Promise.all([
+            getCollectionsIntegratedV3().then(x=>D.collections=x),
+            l27Assign('collectionOutstanding',V.collectionOutstanding,true),
+            l27Assign('collectionAllocations',V.collectionAllocations,true),
+            l27Assign('collectionHealth',V.collectionHealth,true),
+            l27Assign('receivables',V.receivables,true),
+            l27Assign('customers',V.customers,true),
+            l27Assign('aging',V.aging,true),
+            l27Assign('agingSummary',V.agingSummary,true)
+          ]);
+          if(typeof loadParity24Sources==='function')await loadParity24Sources();
+          try{renderCollectionsModule()}catch(e){}
+          if(typeof renderParity24Page==='function'&&['collections_dashboard','collection_classification','aging_report','collector_performance','cash_forecast'].includes(id))try{renderParity24Page(id)}catch(e){}
+          break;
+
+        case 'reports':
+          await Promise.all([
+            l27Assign('salesLines',V.salesLines,true),
+            l27Assign('salesDocuments',V.salesDocuments,true),
+            l27Assign('purchases',V.purchases,true),
+            getCollectionsIntegratedV3().then(x=>D.collections=x),
+            l27Assign('operations',V.operations,true),
+            l27Assign('expenses',V.expenses,true),
+            l27Assign('receivables',V.receivables,true),
+            l27Assign('vatLines',V.vatLines,true),
+            l27Assign('vatSummary',V.vatSummary,true)
+          ]);
+          try{renderReportsModule()}catch(e){}
+          break;
+
+        case 'finance':
+          await Promise.all([
+            l27Assign('summary',V.summary,true),
+            l27Assign('expenses',V.expenses,true),
+            l27Assign('treasury',V.treasury,true),
+            l27Assign('incomeStatement',V.incomeStatement,true),
+            l27Assign('balanceSheet',V.balanceSheet,true)
+          ]);
+          try{renderFinanceModule()}catch(e){}
+          if(id==='income'&&typeof renderIncomePage==='function')try{renderIncomePage()}catch(e){}
+          if(id==='balance'&&typeof renderBalancePage==='function')try{renderBalancePage()}catch(e){}
+          break;
+
+        case 'trial':
+          if(typeof ensureFinanceRuntimeLoaded==='function')await ensureFinanceRuntimeLoaded();
+          try{renderTrialModule()}catch(e){}
+          break;
+
+        case 'cashflow':
+          if(typeof ensureCashFlowSources==='function')await ensureCashFlowSources(force);
+          try{renderCashFlowModule()}catch(e){}
+          break;
+
+        case 'regions':
+          await Promise.all([
+            l27Assign('territoryMaster',V.territoryMaster,true),
+            l27Assign('repCoverage',V.repCoverage,true),
+            l27Assign('regionPerformance',V.regionPerformance,true),
+            l27Assign('territorySales',V.territorySales,true),
+            l27Assign('territoryTotals',V.territoryTotals,true),
+            l27Assign('allocations',V.allocations,true)
+          ]);
+          try{renderRegions()}catch(e){}
+          break;
+
+        case 'settings':
+          await l27Assign('settings',V.settings,true);
+          await loadSecureData();
+          try{renderSettingsModule()}catch(e){}
+          break;
+
+        case 'users':
+          await loadSecureData();
+          try{renderUsersModule()}catch(e){}
+          break;
+
+        case 'customerCost':
+          await Promise.all([l27Assign('customers',V.customers,true),typeof loadParity24Sources==='function'?loadParity24Sources():Promise.resolve()]);
+          if(typeof renderCustomerCostPage==='function')renderCustomerCostPage();
+          break;
+
+        default:
+          break;
+      }
+      L27.loaded[key]=true;
+      l27SetStatus(LANG==='ar'?'جاهز':'Ready');
+      return true;
+    }catch(e){
+      console.warn('Lazy module load failed ['+id+']:',e);
+      l27SetStatus((LANG==='ar'?'تعذر تحميل بعض بيانات الشاشة — حاول التحديث':'Some screen data could not load — try refresh'));
+      return false;
+    }finally{
+      delete L27.loading[key];
+    }
+  })();
+  return L27.loading[key];
+};
+
+/* Targeted post-write refreshes — never trigger a project-wide reload. */
+window.mahsoubakRefreshOrdersFast=async function(){
+  L27.loaded.sales=false;L27.loaded.operations=false;
+  return window.ensureModuleDataLazy27('sales',true);
+};
+window.mahsoubakRefreshDispatchFast=async function(){
+  L27.loaded.operations=false;L27.loaded.sales=false;L27.loaded.dashboard=false;L27.loaded.products=false;
+  await window.ensureModuleDataLazy27('operations',true);
+  await window.ensureModuleDataLazy27('sales',true);
+  // Dashboard is intentionally last and non-blocking for warehouse workflow.
+  setTimeout(()=>window.ensureModuleDataLazy27('dashboard',true).catch(()=>{}),150);
+  return true;
+};
+
+/* Outermost navigation wrapper: fetch the requested module BEFORE showing it.
+   Existing show wrappers for customer360/finance/liquidity remain intact underneath. */
+const priorShow27=window.show;
+window.show=async function(id){
+  if(id&&id!=='dashboard')await window.ensureModuleDataLazy27(id,false);
+  else if(id==='dashboard'&&!L27.loaded.dashboard){
+    // Dashboard cards are already visible; supplement tables load quietly.
+    setTimeout(()=>window.ensureModuleDataLazy27('dashboard',false).catch(()=>{}),0);
+  }
+  return priorShow27.apply(this,arguments);
+};
+try{show=window.show}catch(e){}
+
+window.mahsoubakLazyLoader27={version:'BUILD27_PROJECT_WIDE_LAZY',state:L27};
+})();
+</script>
+
+<script id="build28-refresh-safe">
+(function(){
+'use strict';
+
+/* BUILD28 — Refresh only the currently open screen.
+   Never re-run the startup/essential loader from the Refresh button. */
+window.refreshCurrentScreenLazy28=async function(){
+  const btn=$('refreshBtn');
+  const page=(typeof currentPage==='string'&&currentPage)?currentPage:'dashboard';
+  try{
+    if(btn)btn.disabled=true;
+    if($('error'))$('error').style.display='none';
+    if($('status'))$('status').textContent=LANG==='ar'?'جاري تحديث الشاشة الحالية…':'Refreshing current screen…';
+
+    if(page==='dashboard'){
+      // Refresh only the three small dashboard essentials; preserve existing values on any transient failure.
+      const jobs=await Promise.allSettled([
+        getAllSession(V.dashboardCards),
+        getAllSession(V.notificationBell),
+        getAllSession(V.notifications)
+      ]);
+      if(jobs[0].status==='fulfilled')D.dashboardCards=jobs[0].value;
+      if(jobs[1].status==='fulfilled')D.notificationBell=jobs[1].value;
+      if(jobs[2].status==='fulfilled')D.notifications=jobs[2].value;
+      try{renderDashboard()}catch(e){}
+      try{updateNotificationBell()}catch(e){}
+      if(typeof window.ensureModuleDataLazy27==='function'){
+        setTimeout(()=>window.ensureModuleDataLazy27('dashboard',true).catch(()=>{}),0);
+      }
+    }else{
+      let ok=true;
+      if(typeof window.ensureModuleDataLazy27==='function')
+        ok=await window.ensureModuleDataLazy27(page,true);
+      // Re-show without reloading; the module data has just been refreshed above.
+      if(typeof window.show==='function')await window.show(page);
+      if(!ok)throw new Error(LANG==='ar'?'تعذر تحديث بعض بيانات الشاشة':'Some screen data could not be refreshed');
+    }
+
+    if($('status'))$('status').textContent=LANG==='ar'?'جاهز':'Ready';
+  }catch(e){
+    console.warn('BUILD28 current-screen refresh:',e);
+    // Keep the previously loaded screen/data visible; do not raise the global essential-data banner.
+    if($('status'))$('status').textContent=LANG==='ar'?'تعذر تحديث بعض بيانات الشاشة — البيانات السابقة ما زالت معروضة':'Some screen data could not refresh — previous data remains visible';
+  }finally{
+    if(btn)btn.disabled=false;
+  }
+};
+
+// Keep legacy callers aligned with the same targeted refresh behavior.
+window.refreshCurrentModuleBuild18=window.refreshCurrentScreenLazy28;
+})();
+</script>
+</body>
 </html>
