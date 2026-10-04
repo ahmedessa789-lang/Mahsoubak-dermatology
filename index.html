@@ -2051,7 +2051,7 @@ async function b19DispatchBatchFinal(id){
     p_batch_id:id
   });
   closeModal();
-  await loadData(false);
+  await mahsoubakRefreshDispatchFast();
   show('operations');
   alert(b19t('تم خروج الفاتورة وتحديث المبيعات والمخزون','Invoice dispatched and sales/inventory updated'));
  }catch(e){alert(e.message||e)}
@@ -2179,7 +2179,7 @@ async function b19SaveBatch(){
    p_request_id:newRequestId('web_batch_v4_vat'),p_order_date:S(($('b19Date')||{}).value),p_customer_id:customerId,p_rep_id:repId||null,p_paid:paid,p_fund_id:paid>0?fundId:null,p_order_type:'sale',p_notes:S(($('b19Notes')||{}).value)||null,
    p_lines:B19_LINES.map(x=>({product_id:x.product_id,lot_id:x.lot_id,qty:N(x.qty),price:N(x.price),vat_percent:N(x.vat_percent),order_type:x.order_type}))
   });
-  const obj=Array.isArray(res)?(res[0]||{}):(res||{});closeModal();await loadData(false);show('sales');
+  const obj=Array.isArray(res)?(res[0]||{}):(res||{});closeModal();await mahsoubakRefreshOrdersFast();show('sales');
   alert(b19t('تم إنشاء الطلب بنجاح','Order created successfully')+'\n'+b19t('رقم الفاتورة: ','Invoice: ')+(obj.invoice_number||'-')+'\n'+b19t('الإجمالي شامل VAT: ','Total incl. VAT: ')+money(obj.total));
  }catch(e){alert(e.message||e)}
 }
@@ -2201,7 +2201,7 @@ async function b19ReviewBatch(id,decision){
     localBatch.can_review=false;
   }
   closeModal();
-  await loadData(false);
+  await mahsoubakRefreshOrdersFast();
   show('sales');
   alert(decision==='approved'?b19t('تم اعتماد الفاتورة','Invoice approved'):b19t('تم رفض الفاتورة','Invoice rejected'));
  }catch(e){alert(e.message)}
@@ -5431,7 +5431,7 @@ dashboardCompleteSections=function(){
       $('loading').style.display='none';APP_DATA_LOADED=true;
       const dh=A(D.dashboardCardsHealth)[0]||{};
       $('status').textContent=(dh.status==='DASHBOARD_CARD_CONTRACT_MATCH'?'✓ ':'')+(LANG==='ar'?'لوحة التحكم جاهزة — جاري تحميل باقي الموديولات في الخلفية':'Dashboard ready — loading remaining modules in background');
-      setTimeout(async()=>{try{await fullLoadDataBuild08(false)}catch(e){console.warn('Background module load:',e)}},20);
+      setTimeout(async()=>{try{await fullLoadDataBuild08(false)}catch(e){console.warn('Background module load:',e)}},5000);
       return true;
     }catch(e){console.warn('Fast dashboard fallback:',e);return fullLoadDataBuild08(false)}
   };
@@ -6097,6 +6097,111 @@ window.refreshCurrentModuleBuild18=async function(){
     if(typeof currentPage!=='undefined'&&currentPage)show(currentPage);
   }catch(e){alert(e.message||e)}
 };
+
+
+/* ===== BUILD26: PERFORMANCE SAFE LOADER ===== */
+(function(){
+  'use strict';
+
+  /* Performance only: no business rules, UI, print template, permissions or RPC changes. */
+  const MAX_DB_READS=2;
+  let activeDbReads=0;
+  const dbReadQueue=[];
+
+  function runQueuedDbRead(task){
+    return new Promise((resolve,reject)=>{
+      dbReadQueue.push({task,resolve,reject});
+      pumpDbReadQueue();
+    });
+  }
+  function pumpDbReadQueue(){
+    while(activeDbReads<MAX_DB_READS && dbReadQueue.length){
+      const job=dbReadQueue.shift();
+      activeDbReads++;
+      Promise.resolve().then(job.task).then(job.resolve,job.reject).finally(()=>{
+        activeDbReads--;
+        pumpDbReadQueue();
+      });
+    }
+  }
+
+  /* Use the original single-request reader captured before BUILD16 retry logic.
+     This removes the automatic 3x retry amplification and caps parallel reads. */
+  const directGetAllSession=(typeof __getAllSessionBuild16Base==='function')
+    ? __getAllSessionBuild16Base
+    : getAllSession;
+  getAllSession=function(view){
+    return runQueuedDbRead(()=>directGetAllSession(view));
+  };
+  try{window.getAllSession=getAllSession}catch(e){}
+
+  let backgroundRefreshTimer=null;
+  let backgroundRefreshRunning=false;
+  function scheduleQuietFullRefresh(delay=12000){
+    if(backgroundRefreshTimer)clearTimeout(backgroundRefreshTimer);
+    backgroundRefreshTimer=setTimeout(async()=>{
+      if(backgroundRefreshRunning || !authLinked())return;
+      backgroundRefreshRunning=true;
+      try{await loadData(false)}
+      catch(e){console.warn('Quiet background refresh skipped:',e)}
+      finally{backgroundRefreshRunning=false}
+    },delay);
+  }
+
+  async function loadOrderCoreFast(){
+    const [orders,batches,lines,health,bell,notes]=await Promise.all([
+      getDispatchOrdersSafe(),
+      getAllSessionSafe(V.orderBatches),
+      getAllSessionSafe(V.orderBatchLines),
+      getAllSessionSafe(V.orderBatchHealth),
+      getAllSessionSafe(V.notificationBell),
+      getAllSessionSafe(V.notifications)
+    ]);
+    Object.assign(D,{orders,orderBatches:batches,orderBatchLines:lines,orderBatchHealth:health,notificationBell:bell,notifications:notes});
+    try{renderSalesModule()}catch(e){console.warn('Fast sales render:',e)}
+    try{renderOperations()}catch(e){console.warn('Fast operations render:',e)}
+    try{updateNotificationBell()}catch(e){}
+    return true;
+  }
+
+  window.mahsoubakRefreshOrdersFast=async function(){
+    const ok=await loadOrderCoreFast();
+    scheduleQuietFullRefresh(12000);
+    return ok;
+  };
+
+  window.mahsoubakRefreshDispatchFast=async function(){
+    const [orders,batches,lines,health,inventory,lots,products,invoices,cards,bell,notes]=await Promise.all([
+      getDispatchOrdersSafe(),
+      getAllSessionSafe(V.orderBatches),
+      getAllSessionSafe(V.orderBatchLines),
+      getAllSessionSafe(V.orderBatchHealth),
+      getAllSessionSafe(V.inventory),
+      getDispatchLotsSafe(),
+      getOrderProductsSafe(),
+      getAllSessionSafe(V.invoices),
+      getAllSessionSafe(V.dashboardCards),
+      getAllSessionSafe(V.notificationBell),
+      getAllSessionSafe(V.notifications)
+    ]);
+    Object.assign(D,{
+      orders,orderBatches:batches,orderBatchLines:lines,orderBatchHealth:health,
+      inventory,dispatchLots:lots,orderProducts:products,
+      invoices:typeof mapInvoiceSummaryForLegacy==='function'?mapInvoiceSummaryForLegacy(invoices):invoices,
+      dashboardCards:cards,notificationBell:bell,notifications:notes
+    });
+    try{renderSalesModule()}catch(e){console.warn('Fast sales render:',e)}
+    try{renderOperations()}catch(e){console.warn('Fast operations render:',e)}
+    try{renderProducts()}catch(e){console.warn('Fast inventory render:',e)}
+    try{renderDashboard()}catch(e){console.warn('Fast dashboard render:',e)}
+    try{updateNotificationBell()}catch(e){}
+    scheduleQuietFullRefresh(12000);
+    return true;
+  };
+
+  window.mahsoubakPerformancePatch={version:'BUILD26_PERFORMANCE_SAFE',maxConcurrentReads:MAX_DB_READS,targetedOrderRefresh:true,targetedDispatchRefresh:true};
+})();
+/* ===== END BUILD26 ===== */
 
 startSecureApp();
 </script>
