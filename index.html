@@ -6530,7 +6530,14 @@ function financeDocumentForm(kind){
  window.openFinanceReceiptDocument=async function(){if(!requireModulePermission('accounts','add'))return;await ensureFinanceDocumentSources();openModal(LANG==='ar'?'إيصال استلام نقدية':'Cash Receipt',financeDocumentForm('receipt'));}
  window.openFinancePaymentDocument=async function(){if(!requireModulePermission('accounts','add'))return;await ensureFinanceDocumentSources();openModal(LANG==='ar'?'إيصال صرف نقدية':'Cash Payment Voucher',financeDocumentForm('payment'));}
 
- window.submitFinanceDocument=async function(kind){
+ document.addEventListener('click',function(e){
+  const b=e.target.closest&&e.target.closest('.customer-search-option29');
+  if(b){e.preventDefault();financeReceiptChooseCustomer29(b.dataset.id,b.dataset.name);return;}
+  const box=$('fr9CustomerSuggestions');
+  if(box && !e.target.closest('#fr9CustomerBox')){box.style.display='none';}
+});
+
+window.submitFinanceDocument=async function(kind){
    if(!requireModulePermission('accounts','add'))return;
    const isReceipt=kind==='receipt',p=isReceipt?'fr9':'fp9';
    try{
@@ -7416,13 +7423,34 @@ window.refreshCurrentModuleBuild18=window.refreshCurrentScreenLazy28;
 const oldFinanceDocumentForm29 = window.financeDocumentForm || financeDocumentForm;
 const oldSubmitFinanceDocument29 = window.submitFinanceDocument;
 
-function receiptCustomerOptions29(){
-  return A(D.customers).filter(c=>c.active!==false).map(c=>{
-    const name=S(c.name||c.customer_name||'-');
-    const clinic=S(c.clinic_name||'');
-    return `<option value="${esc(c.id)}">${esc(name)}${clinic?' — '+esc(clinic):''}</option>`;
-  }).join('');
+function receiptCustomers29(){
+  return A(D.customers).filter(c=>c.active!==false).map(c=>({
+    id:S(c.id),
+    name:S(c.name||c.customer_name||'-'),
+    clinic:S(c.clinic_name||'')
+  })).sort((a,b)=>a.name.localeCompare(b.name,LANG==='ar'?'ar':'en'));
 }
+
+window.financeReceiptCustomerSearch29=function(){
+  const input=$('fr9CustomerSearch'), hidden=$('fr9Customer'), box=$('fr9CustomerSuggestions');
+  if(!input||!hidden||!box)return;
+  hidden.value='';
+  const q=norm(input.value);
+  if(!q){box.style.display='none';box.innerHTML='';return;}
+  const rows=receiptCustomers29().filter(c=>norm(c.name).startsWith(q)).slice(0,60);
+  box.innerHTML=rows.length
+    ? rows.map(c=>`<button type="button" class="customer-search-option29" data-id="${esc(c.id)}" data-name="${esc(c.name)}">${esc(c.name)}${c.clinic?` <small>— ${esc(c.clinic)}</small>`:''}</button>`).join('')
+    : `<div class="customer-search-empty29">${LANG==='ar'?'لا يوجد عملاء يبدأ اسمهم بهذه الحروف':'No customers start with these letters'}</div>`;
+  box.style.display='block';
+};
+
+window.financeReceiptChooseCustomer29=function(id,name){
+  const input=$('fr9CustomerSearch'), hidden=$('fr9Customer'), party=$('fr9Party'), box=$('fr9CustomerSuggestions');
+  if(hidden)hidden.value=S(id);
+  if(input)input.value=S(name);
+  if(party)party.value=S(name);
+  if(box){box.style.display='none';box.innerHTML='';}
+};
 
 window.financeReceiptPartyTypeChanged29=function(){
   const type=S(($('fr9PartyType')||{}).value)||'customer';
@@ -7436,10 +7464,10 @@ window.financeReceiptPartyTypeChanged29=function(){
 };
 
 window.financeReceiptCustomerChanged29=function(){
-  const sel=$('fr9Customer'),party=$('fr9Party');
-  if(!sel||!party)return;
-  const opt=sel.options[sel.selectedIndex];
-  party.value=opt&&opt.value?S(opt.textContent).split(' — ')[0]:'';
+  const hidden=$('fr9Customer'),party=$('fr9Party'),input=$('fr9CustomerSearch');
+  if(!hidden||!party)return;
+  const row=receiptCustomers29().find(c=>S(c.id)===S(hidden.value));
+  party.value=row?row.name:S((input||{}).value);
 };
 
 window.financeDocumentForm=function(kind){
@@ -7447,7 +7475,11 @@ window.financeDocumentForm=function(kind){
   const p='fr9';
   return `<div class="auth-grid">
     <label>${LANG==='ar'?'نوع الطرف':'Party type'}<select id="${p}PartyType" class="input" onchange="financeReceiptPartyTypeChanged29()"><option value="customer">${LANG==='ar'?'عميل':'Customer'}</option><option value="other">${LANG==='ar'?'طرف آخر':'Other party'}</option></select></label>
-    <label id="${p}CustomerBox">${LANG==='ar'?'العميل':'Customer'}<select id="${p}Customer" class="input" onchange="financeReceiptCustomerChanged29()"><option value="">--</option>${receiptCustomerOptions29()}</select></label>
+    <label id="${p}CustomerBox" style="position:relative">${LANG==='ar'?'العميل':'Customer'}
+      <input id="${p}CustomerSearch" class="input" autocomplete="off" placeholder="${LANG==='ar'?'اكتب أول حرف من اسم العميل…':'Type the first letter of the customer name…'}" oninput="financeReceiptCustomerSearch29()" onfocus="financeReceiptCustomerSearch29()">
+      <input id="${p}Customer" type="hidden">
+      <div id="${p}CustomerSuggestions" class="customer-search-list29" style="display:none"></div>
+    </label>
     <label id="${p}OtherPartyBox" style="display:none">${LANG==='ar'?'اسم الطرف':'Party name'}<input id="${p}Party" class="input"></label>
     <label>${LANG==='ar'?'التاريخ':'Date'}<input id="${p}Date" class="input" type="date" value="${todayB9()}"></label>
     <label>${LANG==='ar'?'المبلغ رقمًا':'Amount'}<input id="${p}Amount" class="input" type="number" min="0.01" step="0.01" oninput="financeAutoWords23('${p}')"></label>
@@ -7564,5 +7596,14 @@ window.submitFinanceDocument=async function(kind){
 
 })();
 </script>
+
+<style id="build29-customer-search-style">
+.customer-search-list29{position:absolute;z-index:9999;top:100%;left:0;right:0;max-height:260px;overflow:auto;background:#fff;border:1px solid #d7dce5;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:4px;margin-top:4px}
+.customer-search-option29{display:block;width:100%;text-align:right;background:#fff;border:0;border-bottom:1px solid #eef1f5;padding:10px 12px;cursor:pointer;font:inherit;color:#1f2937}
+.customer-search-option29:hover,.customer-search-option29:focus{background:#f3f6fb;outline:none}
+.customer-search-option29 small{font-size:12px;color:#6b7280}
+.customer-search-empty29{padding:10px 12px;color:#6b7280}
+</style>
+
 </body>
 </html>
