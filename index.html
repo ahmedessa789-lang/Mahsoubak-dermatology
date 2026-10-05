@@ -1179,167 +1179,7 @@ async function printCustomerStatementFinal(key){
  const c=customerByKey(key);if(!c)return;
  const s=finalCustomerStatement(c)||emptyCustomerStatementFinal(c),rows=finalCustomerStatementLines(c);
  const w=window.open('','_blank');if(!w)return;
- w.document.write(`<!doctype html><html dir="${LANG==='ar'?'rtl':'ltr'}"><head><meta charset="utf-8"><title>${esc(s.customer_name||'Statement')}</title><style>body{font-family:Arial;padding:28px}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #ddd;padding:7px}th{background:#f5f5f5}.empty{padding:18px;text-align:center;color:#666}</style></head><body><h2>${LANG==='ar'?'كشف حساب العميل':'Customer Statement'} — ${esc(s.customer_name||'-')}</h2><div>${esc(s.clinic_name||'-')} • ${esc(s.city||'-')} • ${esc(s.phone||'-')}</div><p><b>${LANG==='ar'?'الرصيد النهائي':'Final Balance'}: ${money(s.statement_balance)}</b></p>${rows.length?`<table><thead><tr><th>${T('date')}</th><th>${LANG==='ar'?'الحركة':'Type'}</th><th>${LANG==='ar'?'المستند':'Document'}</th><th>${LANG==='ar'?'البيان':'Description'}</th><th>${T('debit')}</th><th>${T('credit')}</th><th>${T('balance')}</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(S(r.transaction_date).slice(0,10))}</td><td>${esc(r.transaction_type||'-')}</td><td>${esc(r.document_number||r.source_id||'-')}</td><td>${esc(r.description||'-')}</td><td>${money(r.debit)}</td><td>${money(r.credit)}</td><td>${money(r.running_receivable_balance)}</td></tr>`).join('')}</tbody></table>`:`<div class="empty">${LANG==='ar'?'لا توجد حركات مالية على هذا العميل حتى الآن.':'No financial transactions for this customer yet.'}</div>`}<script>window.onload=()=>window.print()<\/script>
-<script id="build29-customer-linked-cash-receipt">
-(function(){
-'use strict';
-
-/* BUILD29 — Minimal UI bridge for customer-linked cash receipts.
-   Payment voucher flow and the rest of the interface remain untouched. */
-
-const oldFinanceDocumentForm29 = window.financeDocumentForm || financeDocumentForm;
-const oldSubmitFinanceDocument29 = window.submitFinanceDocument;
-
-function receiptCustomerOptions29(){
-  return A(D.customers).filter(c=>c.active!==false).map(c=>{
-    const name=S(c.name||c.customer_name||'-');
-    const clinic=S(c.clinic_name||'');
-    return `<option value="${esc(c.id)}">${esc(name)}${clinic?' — '+esc(clinic):''}</option>`;
-  }).join('');
-}
-
-window.financeReceiptPartyTypeChanged29=function(){
-  const type=S(($('fr9PartyType')||{}).value)||'customer';
-  const customerBox=$('fr9CustomerBox'),otherBox=$('fr9OtherPartyBox'),account=$('fr9Account');
-  if(customerBox)customerBox.style.display=type==='customer'?'block':'none';
-  if(otherBox)otherBox.style.display=type==='other'?'block':'none';
-  if(account){
-    if(type==='customer'){account.value='1200';account.readOnly=true}
-    else{account.value='3990';account.readOnly=false}
-  }
-};
-
-window.financeReceiptCustomerChanged29=function(){
-  const sel=$('fr9Customer'),party=$('fr9Party');
-  if(!sel||!party)return;
-  const opt=sel.options[sel.selectedIndex];
-  party.value=opt&&opt.value?S(opt.textContent).split(' — ')[0]:'';
-};
-
-window.financeDocumentForm=function(kind){
-  if(kind!=='receipt')return oldFinanceDocumentForm29(kind);
-  const p='fr9';
-  return `<div class="auth-grid">
-    <label>${LANG==='ar'?'نوع الطرف':'Party type'}<select id="${p}PartyType" class="input" onchange="financeReceiptPartyTypeChanged29()"><option value="customer">${LANG==='ar'?'عميل':'Customer'}</option><option value="other">${LANG==='ar'?'طرف آخر':'Other party'}</option></select></label>
-    <label id="${p}CustomerBox">${LANG==='ar'?'العميل':'Customer'}<select id="${p}Customer" class="input" onchange="financeReceiptCustomerChanged29()"><option value="">--</option>${receiptCustomerOptions29()}</select></label>
-    <label id="${p}OtherPartyBox" style="display:none">${LANG==='ar'?'اسم الطرف':'Party name'}<input id="${p}Party" class="input"></label>
-    <label>${LANG==='ar'?'التاريخ':'Date'}<input id="${p}Date" class="input" type="date" value="${todayB9()}"></label>
-    <label>${LANG==='ar'?'المبلغ رقمًا':'Amount'}<input id="${p}Amount" class="input" type="number" min="0.01" step="0.01" oninput="financeAutoWords23('${p}')"></label>
-    <label>${LANG==='ar'?'المبلغ كتابة':'Amount in words'}<input id="${p}Words" class="input"></label>
-    <label>${LANG==='ar'?'وذلك نظير':'Consideration'}<input id="${p}Consideration" class="input"></label>
-    <label>${LANG==='ar'?'الحساب المقابل (محاسبي)':'Counter account'}<input id="${p}Account" class="input" list="${p}Accounts" value="1200" readonly><datalist id="${p}Accounts">${accountListHtml()}</datalist></label>
-    <label>${LANG==='ar'?'الخزينة / الحساب البنكي':'Cash / bank fund'}<select id="${p}Fund" class="input" onchange="financeDocFundChanged('${p}')"><option value="">--</option>${fundOptionHtml()}</select></label>
-    <label>${LANG==='ar'?'العملة':'Currency'}<input id="${p}Currency" class="input" value="EGP" readonly></label>
-    <label>${LANG==='ar'?'معامل التحويل إلى EGP':'FX rate to EGP'}<input id="${p}Fx" class="input" type="number" min="0.000001" step="0.000001" value="1"></label>
-    <label>${LANG==='ar'?'طريقة الدفع':'Payment method'}<select id="${p}Method" class="input" onchange="financeDocMethodChanged('${p}')"><option value="CASH">${LANG==='ar'?'نقدًا':'Cash'}</option><option value="BANK">${LANG==='ar'?'بنك':'Bank'}</option><option value="CHEQUE">${LANG==='ar'?'شيك':'Cheque'}</option></select></label>
-    <div id="${p}ChequeBox" class="auth-grid" style="display:none;grid-column:1/-1">
-      <label>${LANG==='ar'?'اسم البنك':'Bank'}<input id="${p}Bank" class="input"></label>
-      <label>${LANG==='ar'?'رقم الشيك':'Cheque number'}<input id="${p}Cheque" class="input"></label>
-      <label>${LANG==='ar'?'نوع الورقة':'Paper type'}<input id="${p}Paper" class="input" value="CHEQUE"></label>
-      <label>${LANG==='ar'?'تاريخ الاستحقاق':'Due date'}<input id="${p}Due" class="input" type="date"></label>
-    </div>
-    <label>${LANG==='ar'?'اسم المستلم':'Receiver'}<input id="${p}Receiver" class="input"></label>
-    <label>${LANG==='ar'?'يعمل بقسم':'Department'}<input id="${p}Department" class="input"></label>
-    <label>${LANG==='ar'?'اعتماد مسؤول الخزينة':'Treasury approval'}<input id="${p}TreasuryApproval" class="input"></label>
-    <label>${LANG==='ar'?'اعتماد مدير القسم':'Department manager approval'}<input id="${p}ManagerApproval" class="input"></label>
-    <label>${LANG==='ar'?'مرجع':'Reference'}<input id="${p}Reference" class="input"></label>
-    <label style="grid-column:1/-1">${LANG==='ar'?'ملاحظات':'Notes'}<textarea id="${p}Notes" class="input"></textarea></label>
-    <div style="grid-column:1/-1;display:flex;justify-content:flex-end"><button id="${p}Save" class="btn ok" onclick="submitFinanceDocument('receipt')">${LANG==='ar'?'حفظ إيصال الاستلام':'Save receipt'}</button></div>
-  </div>`;
-};
-
-window.openFinanceReceiptDocument=async function(){
-  if(!requireModulePermission('accounts','add'))return;
-  await ensureFinanceDocumentSources();
-  try{D.customers=await getAllSession(V.customers)}catch(e){console.warn('BUILD29 customers',e)}
-  openModal(LANG==='ar'?'إيصال استلام نقدية':'Cash Receipt',window.financeDocumentForm('receipt'));
-  setTimeout(()=>{try{financeReceiptPartyTypeChanged29()}catch(e){}},0);
-};
-
-window.submitFinanceDocument=async function(kind){
-  if(kind!=='receipt')return oldSubmitFinanceDocument29(kind);
-  if(!requireModulePermission('accounts','add'))return;
-
-  const p='fr9';
-  const save=$(p+'Save');
-  try{
-    const partyType=S(($(p+'PartyType')||{}).value)||'customer';
-    const customerId=partyType==='customer'?S(($(p+'Customer')||{}).value):null;
-    if(partyType==='customer')financeReceiptCustomerChanged29();
-
-    const party=S(($(p+'Party')||{}).value);
-    const amount=N(($(p+'Amount')||{}).value);
-    const fundId=S(($(p+'Fund')||{}).value);
-    const date=S(($(p+'Date')||{}).value);
-    const method=S(($(p+'Method')||{}).value).toUpperCase();
-
-    if(!date||!fundId||amount<=0)throw new Error(LANG==='ar'?'أكمل التاريخ والمبلغ والخزينة/الحساب':'Complete date, amount and fund');
-    if(partyType==='customer'&&!customerId)throw new Error(LANG==='ar'?'اختر العميل':'Select customer');
-    if(partyType==='other'&&!party)throw new Error(LANG==='ar'?'اكتب اسم الطرف':'Enter party name');
-
-    if(save){save.disabled=true;save.textContent=LANG==='ar'?'جاري الحفظ…':'Saving…'}
-
-    const common={
-      p_request_id:newRequestId('finance_receipt_document_v3'),
-      p_receipt_date:date,
-      p_party_name:party||null,
-      p_amount:Number(amount.toFixed(2)),
-      p_fund_id:fundId,
-      p_fx_rate:N(($(p+'Fx')||{}).value)||1,
-      p_account_code:S(($(p+'Account')||{}).value)||(partyType==='customer'?'1200':'3990'),
-      p_reference:S(($(p+'Reference')||{}).value)||null,
-      p_notes:S(($(p+'Notes')||{}).value)||null,
-      p_amount_in_words:S(($(p+'Words')||{}).value)||null,
-      p_consideration_text:S(($(p+'Consideration')||{}).value)||null,
-      p_payment_method:method,
-      p_bank_name:S(($(p+'Bank')||{}).value)||null,
-      p_cheque_number:S(($(p+'Cheque')||{}).value)||null,
-      p_paper_type:S(($(p+'Paper')||{}).value)||null,
-      p_due_date:S(($(p+'Due')||{}).value)||null,
-      p_receiver_name:S(($(p+'Receiver')||{}).value)||null,
-      p_department_name:S(($(p+'Department')||{}).value)||null,
-      p_treasury_approval_name:S(($(p+'TreasuryApproval')||{}).value)||null,
-      p_department_manager_approval_name:S(($(p+'ManagerApproval')||{}).value)||null,
-      p_party_type:partyType,
-      p_customer_id:customerId||null
-    };
-
-    const result=await rpcAuth('mahsoubak_post_finance_receipt_document_v3',common);
-
-    await ensureFinanceDocumentSources(true);
-    try{if(typeof window.ensureModuleDataLazy27==='function')await window.ensureModuleDataLazy27('finance',true)}catch(e){}
-    closeModal();
-    renderFinanceModule();
-    updateNotificationBell();
-
-    setTimeout(()=>{
-      try{
-        if(typeof window.ensureModuleDataLazy27==='function'){
-          window.ensureModuleDataLazy27('collections',true).catch(()=>{});
-          window.ensureModuleDataLazy27('customers',true).catch(()=>{});
-          window.ensureModuleDataLazy27('dashboard',true).catch(()=>{});
-        }
-      }catch(e){}
-    },100);
-
-    alert(
-      (LANG==='ar'?'تم حفظ إيصال الاستلام بنجاح':'Receipt saved successfully')+'\n'+
-      (result?.receipt_number||'')+'\n'+
-      money(result?.amount_egp||amount)+
-      (partyType==='customer'
-        ? '\n'+(LANG==='ar'?'المطبق على المديونية: ':'Applied to debt: ')+money(result?.applied_to_invoices||0)
-        : '')
-    );
-  }catch(e){
-    alert(e.message||e);
-    if(save){save.disabled=false;save.textContent=LANG==='ar'?'حفظ إيصال الاستلام':'Save receipt'}
-  }
-};
-
-})();
-</script>
-
-</body></html>`);w.document.close();
+ w.document.write(`<!doctype html><html dir="${LANG==='ar'?'rtl':'ltr'}"><head><meta charset="utf-8"><title>${esc(s.customer_name||'Statement')}</title><style>body{font-family:Arial;padding:28px}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #ddd;padding:7px}th{background:#f5f5f5}.empty{padding:18px;text-align:center;color:#666}</style></head><body><h2>${LANG==='ar'?'كشف حساب العميل':'Customer Statement'} — ${esc(s.customer_name||'-')}</h2><div>${esc(s.clinic_name||'-')} • ${esc(s.city||'-')} • ${esc(s.phone||'-')}</div><p><b>${LANG==='ar'?'الرصيد النهائي':'Final Balance'}: ${money(s.statement_balance)}</b></p>${rows.length?`<table><thead><tr><th>${T('date')}</th><th>${LANG==='ar'?'الحركة':'Type'}</th><th>${LANG==='ar'?'المستند':'Document'}</th><th>${LANG==='ar'?'البيان':'Description'}</th><th>${T('debit')}</th><th>${T('credit')}</th><th>${T('balance')}</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(S(r.transaction_date).slice(0,10))}</td><td>${esc(r.transaction_type||'-')}</td><td>${esc(r.document_number||r.source_id||'-')}</td><td>${esc(r.description||'-')}</td><td>${money(r.debit)}</td><td>${money(r.credit)}</td><td>${money(r.running_receivable_balance)}</td></tr>`).join('')}</tbody></table>`:`<div class="empty">${LANG==='ar'?'لا توجد حركات مالية على هذا العميل حتى الآن.':'No financial transactions for this customer yet.'}</div>`}<script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();
 }
 async function openCustomerClinicsFinal(key){
  await ensureFinalCustomerParityData();
@@ -7564,6 +7404,164 @@ window.refreshCurrentScreenLazy28=async function(){
 
 // Keep legacy callers aligned with the same targeted refresh behavior.
 window.refreshCurrentModuleBuild18=window.refreshCurrentScreenLazy28;
+})();
+</script>
+<script id="build29-customer-linked-cash-receipt">
+(function(){
+'use strict';
+
+/* BUILD29 — Minimal UI bridge for customer-linked cash receipts.
+   Payment voucher flow and the rest of the interface remain untouched. */
+
+const oldFinanceDocumentForm29 = window.financeDocumentForm || financeDocumentForm;
+const oldSubmitFinanceDocument29 = window.submitFinanceDocument;
+
+function receiptCustomerOptions29(){
+  return A(D.customers).filter(c=>c.active!==false).map(c=>{
+    const name=S(c.name||c.customer_name||'-');
+    const clinic=S(c.clinic_name||'');
+    return `<option value="${esc(c.id)}">${esc(name)}${clinic?' — '+esc(clinic):''}</option>`;
+  }).join('');
+}
+
+window.financeReceiptPartyTypeChanged29=function(){
+  const type=S(($('fr9PartyType')||{}).value)||'customer';
+  const customerBox=$('fr9CustomerBox'),otherBox=$('fr9OtherPartyBox'),account=$('fr9Account');
+  if(customerBox)customerBox.style.display=type==='customer'?'block':'none';
+  if(otherBox)otherBox.style.display=type==='other'?'block':'none';
+  if(account){
+    if(type==='customer'){account.value='1200';account.readOnly=true}
+    else{account.value='3990';account.readOnly=false}
+  }
+};
+
+window.financeReceiptCustomerChanged29=function(){
+  const sel=$('fr9Customer'),party=$('fr9Party');
+  if(!sel||!party)return;
+  const opt=sel.options[sel.selectedIndex];
+  party.value=opt&&opt.value?S(opt.textContent).split(' — ')[0]:'';
+};
+
+window.financeDocumentForm=function(kind){
+  if(kind!=='receipt')return oldFinanceDocumentForm29(kind);
+  const p='fr9';
+  return `<div class="auth-grid">
+    <label>${LANG==='ar'?'نوع الطرف':'Party type'}<select id="${p}PartyType" class="input" onchange="financeReceiptPartyTypeChanged29()"><option value="customer">${LANG==='ar'?'عميل':'Customer'}</option><option value="other">${LANG==='ar'?'طرف آخر':'Other party'}</option></select></label>
+    <label id="${p}CustomerBox">${LANG==='ar'?'العميل':'Customer'}<select id="${p}Customer" class="input" onchange="financeReceiptCustomerChanged29()"><option value="">--</option>${receiptCustomerOptions29()}</select></label>
+    <label id="${p}OtherPartyBox" style="display:none">${LANG==='ar'?'اسم الطرف':'Party name'}<input id="${p}Party" class="input"></label>
+    <label>${LANG==='ar'?'التاريخ':'Date'}<input id="${p}Date" class="input" type="date" value="${todayB9()}"></label>
+    <label>${LANG==='ar'?'المبلغ رقمًا':'Amount'}<input id="${p}Amount" class="input" type="number" min="0.01" step="0.01" oninput="financeAutoWords23('${p}')"></label>
+    <label>${LANG==='ar'?'المبلغ كتابة':'Amount in words'}<input id="${p}Words" class="input"></label>
+    <label>${LANG==='ar'?'وذلك نظير':'Consideration'}<input id="${p}Consideration" class="input"></label>
+    <label>${LANG==='ar'?'الحساب المقابل (محاسبي)':'Counter account'}<input id="${p}Account" class="input" list="${p}Accounts" value="1200" readonly><datalist id="${p}Accounts">${accountListHtml()}</datalist></label>
+    <label>${LANG==='ar'?'الخزينة / الحساب البنكي':'Cash / bank fund'}<select id="${p}Fund" class="input" onchange="financeDocFundChanged('${p}')"><option value="">--</option>${fundOptionHtml()}</select></label>
+    <label>${LANG==='ar'?'العملة':'Currency'}<input id="${p}Currency" class="input" value="EGP" readonly></label>
+    <label>${LANG==='ar'?'معامل التحويل إلى EGP':'FX rate to EGP'}<input id="${p}Fx" class="input" type="number" min="0.000001" step="0.000001" value="1"></label>
+    <label>${LANG==='ar'?'طريقة الدفع':'Payment method'}<select id="${p}Method" class="input" onchange="financeDocMethodChanged('${p}')"><option value="CASH">${LANG==='ar'?'نقدًا':'Cash'}</option><option value="BANK">${LANG==='ar'?'بنك':'Bank'}</option><option value="CHEQUE">${LANG==='ar'?'شيك':'Cheque'}</option></select></label>
+    <div id="${p}ChequeBox" class="auth-grid" style="display:none;grid-column:1/-1">
+      <label>${LANG==='ar'?'اسم البنك':'Bank'}<input id="${p}Bank" class="input"></label>
+      <label>${LANG==='ar'?'رقم الشيك':'Cheque number'}<input id="${p}Cheque" class="input"></label>
+      <label>${LANG==='ar'?'نوع الورقة':'Paper type'}<input id="${p}Paper" class="input" value="CHEQUE"></label>
+      <label>${LANG==='ar'?'تاريخ الاستحقاق':'Due date'}<input id="${p}Due" class="input" type="date"></label>
+    </div>
+    <label>${LANG==='ar'?'اسم المستلم':'Receiver'}<input id="${p}Receiver" class="input"></label>
+    <label>${LANG==='ar'?'يعمل بقسم':'Department'}<input id="${p}Department" class="input"></label>
+    <label>${LANG==='ar'?'اعتماد مسؤول الخزينة':'Treasury approval'}<input id="${p}TreasuryApproval" class="input"></label>
+    <label>${LANG==='ar'?'اعتماد مدير القسم':'Department manager approval'}<input id="${p}ManagerApproval" class="input"></label>
+    <label>${LANG==='ar'?'مرجع':'Reference'}<input id="${p}Reference" class="input"></label>
+    <label style="grid-column:1/-1">${LANG==='ar'?'ملاحظات':'Notes'}<textarea id="${p}Notes" class="input"></textarea></label>
+    <div style="grid-column:1/-1;display:flex;justify-content:flex-end"><button id="${p}Save" class="btn ok" onclick="submitFinanceDocument('receipt')">${LANG==='ar'?'حفظ إيصال الاستلام':'Save receipt'}</button></div>
+  </div>`;
+};
+
+window.openFinanceReceiptDocument=async function(){
+  if(!requireModulePermission('accounts','add'))return;
+  await ensureFinanceDocumentSources();
+  try{D.customers=await getAllSession(V.customers)}catch(e){console.warn('BUILD29 customers',e)}
+  openModal(LANG==='ar'?'إيصال استلام نقدية':'Cash Receipt',window.financeDocumentForm('receipt'));
+  setTimeout(()=>{try{financeReceiptPartyTypeChanged29()}catch(e){}},0);
+};
+
+window.submitFinanceDocument=async function(kind){
+  if(kind!=='receipt')return oldSubmitFinanceDocument29(kind);
+  if(!requireModulePermission('accounts','add'))return;
+
+  const p='fr9';
+  const save=$(p+'Save');
+  try{
+    const partyType=S(($(p+'PartyType')||{}).value)||'customer';
+    const customerId=partyType==='customer'?S(($(p+'Customer')||{}).value):null;
+    if(partyType==='customer')financeReceiptCustomerChanged29();
+
+    const party=S(($(p+'Party')||{}).value);
+    const amount=N(($(p+'Amount')||{}).value);
+    const fundId=S(($(p+'Fund')||{}).value);
+    const date=S(($(p+'Date')||{}).value);
+    const method=S(($(p+'Method')||{}).value).toUpperCase();
+
+    if(!date||!fundId||amount<=0)throw new Error(LANG==='ar'?'أكمل التاريخ والمبلغ والخزينة/الحساب':'Complete date, amount and fund');
+    if(partyType==='customer'&&!customerId)throw new Error(LANG==='ar'?'اختر العميل':'Select customer');
+    if(partyType==='other'&&!party)throw new Error(LANG==='ar'?'اكتب اسم الطرف':'Enter party name');
+
+    if(save){save.disabled=true;save.textContent=LANG==='ar'?'جاري الحفظ…':'Saving…'}
+
+    const common={
+      p_request_id:newRequestId('finance_receipt_document_v3'),
+      p_receipt_date:date,
+      p_party_name:party||null,
+      p_amount:Number(amount.toFixed(2)),
+      p_fund_id:fundId,
+      p_fx_rate:N(($(p+'Fx')||{}).value)||1,
+      p_account_code:S(($(p+'Account')||{}).value)||(partyType==='customer'?'1200':'3990'),
+      p_reference:S(($(p+'Reference')||{}).value)||null,
+      p_notes:S(($(p+'Notes')||{}).value)||null,
+      p_amount_in_words:S(($(p+'Words')||{}).value)||null,
+      p_consideration_text:S(($(p+'Consideration')||{}).value)||null,
+      p_payment_method:method,
+      p_bank_name:S(($(p+'Bank')||{}).value)||null,
+      p_cheque_number:S(($(p+'Cheque')||{}).value)||null,
+      p_paper_type:S(($(p+'Paper')||{}).value)||null,
+      p_due_date:S(($(p+'Due')||{}).value)||null,
+      p_receiver_name:S(($(p+'Receiver')||{}).value)||null,
+      p_department_name:S(($(p+'Department')||{}).value)||null,
+      p_treasury_approval_name:S(($(p+'TreasuryApproval')||{}).value)||null,
+      p_department_manager_approval_name:S(($(p+'ManagerApproval')||{}).value)||null,
+      p_party_type:partyType,
+      p_customer_id:customerId||null
+    };
+
+    const result=await rpcAuth('mahsoubak_post_finance_receipt_document_v3',common);
+
+    await ensureFinanceDocumentSources(true);
+    try{if(typeof window.ensureModuleDataLazy27==='function')await window.ensureModuleDataLazy27('finance',true)}catch(e){}
+    closeModal();
+    renderFinanceModule();
+    updateNotificationBell();
+
+    setTimeout(()=>{
+      try{
+        if(typeof window.ensureModuleDataLazy27==='function'){
+          window.ensureModuleDataLazy27('collections',true).catch(()=>{});
+          window.ensureModuleDataLazy27('customers',true).catch(()=>{});
+          window.ensureModuleDataLazy27('dashboard',true).catch(()=>{});
+        }
+      }catch(e){}
+    },100);
+
+    alert(
+      (LANG==='ar'?'تم حفظ إيصال الاستلام بنجاح':'Receipt saved successfully')+'\n'+
+      (result?.receipt_number||'')+'\n'+
+      money(result?.amount_egp||amount)+
+      (partyType==='customer'
+        ? '\n'+(LANG==='ar'?'المطبق على المديونية: ':'Applied to debt: ')+money(result?.applied_to_invoices||0)
+        : '')
+    );
+  }catch(e){
+    alert(e.message||e);
+    if(save){save.disabled=false;save.textContent=LANG==='ar'?'حفظ إيصال الاستلام':'Save receipt'}
+  }
+};
+
 })();
 </script>
 </body>
