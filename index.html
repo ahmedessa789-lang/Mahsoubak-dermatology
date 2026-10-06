@@ -2294,14 +2294,49 @@ renderSalesModule=function(){
 function collectionFundForId(id){
  return A(D.cashflowDetail).find(x=>S(x.source_type)==='COLLECTION'&&S(x.source_id)===S(id))||null;
 }
+let COLLECTION_FILTER_FROM='',COLLECTION_FILTER_TO='',COLLECTION_FILTER_SEARCH='';
+
+function collectionFilteredRows(){
+ const q=norm(COLLECTION_FILTER_SEARCH);
+ return A(D.collections).filter(r=>{
+  const d=S(r.collection_date||r.date).slice(0,10);
+  if(COLLECTION_FILTER_FROM&&d<COLLECTION_FILTER_FROM)return false;
+  if(COLLECTION_FILTER_TO&&d>COLLECTION_FILTER_TO)return false;
+  if(q){
+   const hay=norm([
+    r.customer_name,r.rep_name,r.method,r.collection_id,r.id,r.notes
+   ].map(S).join(' '));
+   if(!hay.includes(q))return false;
+  }
+  return true;
+ });
+}
+function collectionFiltersChanged(){
+ COLLECTION_FILTER_FROM=S(($('collectionFrom')||{}).value);
+ COLLECTION_FILTER_TO=S(($('collectionTo')||{}).value);
+ COLLECTION_FILTER_SEARCH=S(($('collectionSearch')||{}).value);
+ renderCollectionsModule();
+}
+function resetCollectionFilters(){
+ COLLECTION_FILTER_FROM='';
+ COLLECTION_FILTER_TO='';
+ COLLECTION_FILTER_SEARCH='';
+ renderCollectionsModule();
+}
 function renderCollectionsModule(){
- const rows=A(D.collections),s=summary(),ch=collectionHealth();
+ const rows=collectionFilteredRows(),s=summary(),ch=collectionHealth();
  const cash=rows.reduce((a,r)=>a+N(r.cash_received??r.amount),0);
  const applied=rows.reduce((a,r)=>a+N(r.applied_to_invoices),0);
  const unapplied=rows.reduce((a,r)=>a+N(r.unapplied_customer_credit),0);
 
  $('view-collections').innerHTML=`<div class="module-head"><div><h3>${T('collectionsTitle')}</h3><p>${T('collectionsSub')}</p></div>
- <div class="module-tools">${authCan('collections','add')?`<button class="btn secondary" onclick="openNewCollection()">＋ ${T('newCollection')}</button>`:''}</div></div>
+ <div class="module-tools">
+  <input id="collectionSearch" class="input" value="${esc(COLLECTION_FILTER_SEARCH)}" placeholder="${LANG==='ar'?'بحث باسم العميل أو العيادة أو المندوب…':'Search customer, clinic or rep…'}" oninput="collectionFiltersChanged()">
+  <label style="display:flex;align-items:center;gap:6px">${T('fromDate')}<input id="collectionFrom" class="input" type="date" value="${esc(COLLECTION_FILTER_FROM)}" onchange="collectionFiltersChanged()"></label>
+  <label style="display:flex;align-items:center;gap:6px">${T('toDate')}<input id="collectionTo" class="input" type="date" value="${esc(COLLECTION_FILTER_TO)}" onchange="collectionFiltersChanged()"></label>
+  ${(COLLECTION_FILTER_FROM||COLLECTION_FILTER_TO||COLLECTION_FILTER_SEARCH)?`<button class="btn secondary" onclick="resetCollectionFilters()">${T('reset')}</button>`:''}
+  ${authCan('collections','add')?`<button class="btn secondary" onclick="openNewCollection()">＋ ${T('newCollection')}</button>`:''}
+ </div></div>
  <div class="c18-live"><b>${T('collectionWriteActive')}</b> — ${T('collectionLive')}<br><span class="p17-note">${T('collectionRuntimeV2')} • ${esc(ch.status||'PHASE6G4A_COLLECTION_CUTOVER_READY')}</span></div>
  <div class="module-grid">
   <div class="mini-card" onclick="openCollectionSummary('all')"><span>${T('cashReceived')}</span><b>${money(cash)}</b><small>${rows.length} ${T('collectionCount')}</small></div>
@@ -2327,7 +2362,7 @@ function collectionTableClickable(rows){
  </table></div></div>`;
 }
 function openCollectionSummary(kind){if(!requireModulePermission('collections','view'))return;
- let rows=A(D.collections);
+ let rows=collectionFilteredRows();
  if(kind==='applied')rows=rows.filter(r=>N(r.applied_to_invoices)>0);
  if(kind==='unapplied')rows=rows.filter(r=>N(r.unapplied_customer_credit)>0);
  openModal(
@@ -2459,7 +2494,11 @@ async function openNewCollection(){
 
   openModal(T('newCollection'),`<div class="c18-grid">
    <label>${T('collectionDate')}<input id="c18Date" class="input" type="date" value="${new Date().toISOString().slice(0,10)}"></label>
-   <label>${T('customer')}<select id="c18Customer" class="input" onchange="c18CustomerChanged()"><option value="">${T('selectCustomer')}</option>${activeCustomers.map(c=>`<option value="${esc(c.id)}">${esc(c.name||c.id)}${c.clinic_name?` — ${esc(c.clinic_name)}`:''}</option>`).join('')}</select></label>
+   <label>${T('customer')}
+    <input id="c18CustomerSearch" class="input" list="c18CustomerList" autocomplete="off" placeholder="${LANG==='ar'?'اكتب أول حرف من اسم العميل…':'Type the first letter of the customer…'}" oninput="c18CustomerSearchChanged()">
+    <input id="c18Customer" type="hidden" value="">
+    <datalist id="c18CustomerList">${activeCustomers.map(c=>{const label=(c.name||c.id)+(c.clinic_name?` — ${c.clinic_name}`:'');return `<option value="${esc(label)}"></option>`}).join('')}</datalist>
+   </label>
    <label>${T('collectionAmount')}<input id="c18Amount" class="input" type="number" min="0.01" step="0.01" oninput="c18Recalc()"></label>
    <label>${T('collectionFund')}<select id="c18Fund" class="input"><option value="">${T('selectFund')}</option>${c18FundOptions()}</select></label>
    <label>${T('collectorRep')}<select id="c18Rep" class="input"><option value="">—</option>${A(D.repMaster).filter(r=>r.active!==false).map(r=>`<option value="${esc(r.id)}">${esc(r.name||r.rep_name||r.id)}</option>`).join('')}</select></label>
@@ -2478,6 +2517,18 @@ async function openNewCollection(){
   <div class="p17-note" style="margin:10px 0">${T('customerCreditNote')}</div>
   <button id="c18Save" class="btn secondary" style="width:100%" onclick="submitCollection()">${T('saveCollection')}</button>`);
  }catch(e){alert(e.message)}
+}
+function c18CustomerSearchChanged(){
+ const input=S(($('c18CustomerSearch')||{}).value);
+ const q=norm(input);
+ const customers=c18SelectableCustomers();
+ let exact=customers.find(c=>norm((c.name||c.id)+(c.clinic_name?` — ${c.clinic_name}`:''))===q);
+ if(!exact){
+  const matches=customers.filter(c=>norm(c.name||'').startsWith(q)||norm(c.clinic_name||'').startsWith(q));
+  if(matches.length===1&&q.length>=2)exact=matches[0];
+ }
+ if($('c18Customer'))$('c18Customer').value=exact?S(exact.id):'';
+ c18CustomerChanged();
 }
 function c18CustomerChanged(){
  const customerId=S(($('c18Customer')||{}).value);
