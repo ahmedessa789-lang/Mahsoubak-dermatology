@@ -2359,9 +2359,42 @@ function b19CustomerProfileChanged(){
    ${detail(LANG==='ar'?'عدد العيادات':'Clinics',num(clinics.length,0))}
  </div>`;
 }
+async function ensureOrderEntrySourcesFinal(){
+ const jobs=[];
+ if(!A(D.orderProducts).length)jobs.push(getOrderProductsSafe().then(x=>D.orderProducts=x));
+ if(!A(D.dispatchLots).length)jobs.push(getDispatchLotsSafe().then(x=>D.dispatchLots=x));
+ if(!A(D.repMaster).length)jobs.push(getAllSessionSafe(V.repMaster).then(x=>D.repMaster=x));
+ if(!A(D.customers).length)jobs.push(getAllSessionSafe(V.customers).then(x=>D.customers=x));
+ if(jobs.length)await Promise.all(jobs);
+
+ // Defensive refresh if cached arrays exist but contain no usable stock.
+ const hasProducts=A(D.orderProducts).some(p=>N(p.stock_qty)>0);
+ const hasLots=A(D.dispatchLots).some(l=>N(l.available_qty)>0);
+ if(!hasProducts || !hasLots){
+   const [products,lots]=await Promise.all([getOrderProductsSafe(),getDispatchLotsSafe()]);
+   D.orderProducts=products;
+   D.dispatchLots=lots;
+ }
+ return {
+   products:A(D.orderProducts).filter(p=>N(p.stock_qty)>0),
+   lots:A(D.dispatchLots).filter(l=>N(l.available_qty)>0)
+ };
+}
 async function b19OpenNew(){
  if(!requireModulePermission('operations','add'))return;
- await Promise.all([ensurePaymentFundsFinal(),ensureFinalCustomerParityData()]);
+ const [, ,stockSources]=await Promise.all([
+   ensurePaymentFundsFinal(),
+   ensureFinalCustomerParityData(),
+   ensureOrderEntrySourcesFinal()
+ ]);
+ if(!stockSources.products.length){
+   alert(LANG==='ar'?'لا توجد منتجات متاحة للطلب أو تعذر تحميل قائمة المنتجات. اضغط تحديث وحاول مرة أخرى.':'No order products are available or the product list could not be loaded. Refresh and try again.');
+   return;
+ }
+ if(!stockSources.lots.length){
+   alert(LANG==='ar'?'لا توجد LOTs متاحة بالمخزون أو تعذر تحميل قائمة اللوطات. اضغط تحديث وحاول مرة أخرى.':'No available inventory LOTs were found or the LOT list could not be loaded. Refresh and try again.');
+   return;
+ }
  B19_LINES=[];
  const customers=A(D.customers).filter(c=>c.active!==false),reps=A(D.repMaster).filter(r=>r.active!==false);
  openModal(b19t('طلب / فاتورة جديدة متعددة الأصناف','New Multi-line Order / Invoice'),`<div class="auth-grid">
@@ -7572,7 +7605,9 @@ async function l27SalesCore(){
   await Promise.all([
     l27Assign('invoices',V.invoices,true,rows=>typeof mapInvoiceSummaryForLegacy==='function'?mapInvoiceSummaryForLegacy(rows):rows),
     l27Assign('paidInvoices',V.paidInvoices,true),
-    l27Assign('receivables',V.receivables,true)
+    l27Assign('receivables',V.receivables,true),
+    getDispatchLotsSafe().then(x=>D.dispatchLots=x),
+    getOrderProductsSafe().then(x=>D.orderProducts=x)
   ]);
 }
 async function l27DashboardExtra(){
