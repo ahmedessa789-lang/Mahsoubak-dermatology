@@ -6825,8 +6825,79 @@ async function saveManualJournalFinal(){
   finally{if(btn)btn.disabled=false}
 }
 
+ window.printFinanceReceiptDocument29=function(receiptId){
+   const r=A(D.financeReceiptsV2).find(x=>S(x.id)===S(receiptId));
+   if(!r){alert(LANG==='ar'?'تعذر العثور على الإيصال':'Receipt not found');return;}
+
+   const company=(typeof settingValue==='function'?settingValue('company','Mahsoubak Business'):'Mahsoubak Business')||'Mahsoubak Business';
+   const subtitle=(typeof settingValue==='function'?settingValue('subtitle',''):'')||'';
+   const dir=LANG==='ar'?'rtl':'ltr';
+   const title=LANG==='ar'?'إيصال استلام نقدية':'Cash Receipt';
+   const partyLabel=(String(r.party_type||'').toLowerCase()==='customer')
+     ? (LANG==='ar'?'استلمنا من العميل':'Received from customer')
+     : (LANG==='ar'?'استلمنا من':'Received from');
+   const amountWords=r.amount_in_words||'-';
+   const consideration=r.consideration_text||'-';
+   const method=String(r.payment_method||'CASH').toUpperCase();
+   const methodLabel=method==='CASH'?(LANG==='ar'?'نقدًا':'Cash'):
+                     method==='BANK'?(LANG==='ar'?'تحويل/بنك':'Bank'):
+                     method==='CHEQUE'?(LANG==='ar'?'شيك':'Cheque'):method;
+   const fundName=(LANG==='ar'?(r.fund_name_ar||r.fund_name_en):(r.fund_name_en||r.fund_name_ar))||r.fund_code||'-';
+   const w=window.open('','_blank','width=980,height=760');
+   if(!w){alert(LANG==='ar'?'اسمح بالنوافذ المنبثقة للطباعة':'Allow pop-ups to print');return;}
+
+   const h=`<!doctype html><html dir="${dir}"><head><meta charset="utf-8"><title>${esc(title)} - ${esc(r.receipt_number||'')}</title>
+   <style>
+   @page{size:A5 landscape;margin:10mm}
+   *{box-sizing:border-box}
+   body{font-family:Arial,Tahoma,sans-serif;color:#111;margin:0;background:#fff}
+   .receipt{border:2px solid #222;border-radius:12px;padding:18px 22px;min-height:175mm}
+   .head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;border-bottom:2px solid #222;padding-bottom:12px}
+   .brand h1{margin:0;font-size:24px}.brand p{margin:5px 0 0;color:#555;font-size:13px}
+   .title{text-align:center;min-width:250px}.title h2{margin:0 0 8px;font-size:24px}.docno{font-size:14px}
+   .meta{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;margin-top:18px}
+   .field{border-bottom:1px solid #777;padding:8px 4px;min-height:38px}.field b{margin-inline-end:8px}
+   .wide{grid-column:1/-1}
+   .amount{font-size:22px;font-weight:700}
+   .signs{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:32px;text-align:center}
+   .sign{padding-top:34px;border-top:1px solid #777}
+   .actions{margin-bottom:10px;text-align:${LANG==='ar'?'left':'right'}}
+   .actions button{padding:9px 16px;margin:0 4px;border:1px solid #999;border-radius:8px;background:#fff;cursor:pointer}
+   @media print{.actions{display:none}.receipt{border:2px solid #222}}
+   </style></head><body>
+   <div class="actions"><button onclick="window.print()">${LANG==='ar'?'طباعة / PDF':'Print / PDF'}</button><button onclick="window.close()">${LANG==='ar'?'إغلاق':'Close'}</button></div>
+   <section class="receipt">
+     <div class="head">
+       <div class="brand"><h1>${esc(company)}</h1>${subtitle?`<p>${esc(subtitle)}</p>`:''}</div>
+       <div class="title"><h2>${esc(title)}</h2><div class="docno">${LANG==='ar'?'رقم الإيصال':'Receipt No.'}: <b>${esc(r.receipt_number||'-')}</b></div></div>
+     </div>
+     <div class="meta">
+       <div class="field"><b>${LANG==='ar'?'التاريخ':'Date'}:</b> ${esc(S(r.receipt_date).slice(0,10)||'-')}</div>
+       <div class="field"><b>${partyLabel}:</b> ${esc(r.customer_name||r.party_name||'-')}</div>
+       <div class="field"><b>${LANG==='ar'?'المبلغ':'Amount'}:</b> <span class="amount">${esc(num(r.amount_original,2))} ${esc(r.currency||'EGP')}</span></div>
+       <div class="field"><b>${LANG==='ar'?'المعادل بالجنيه':'EGP Equivalent'}:</b> ${esc(money(r.amount_egp))}</div>
+       <div class="field wide"><b>${LANG==='ar'?'المبلغ كتابة':'Amount in words'}:</b> ${esc(amountWords)}</div>
+       <div class="field wide"><b>${LANG==='ar'?'وذلك نظير':'For'}:</b> ${esc(consideration)}</div>
+       <div class="field"><b>${LANG==='ar'?'طريقة الاستلام':'Payment method'}:</b> ${esc(methodLabel)}</div>
+       <div class="field"><b>${LANG==='ar'?'الخزينة / البنك':'Cashbox / Bank'}:</b> ${esc(fundName)}</div>
+       ${r.bank_name?`<div class="field"><b>${LANG==='ar'?'البنك':'Bank'}:</b> ${esc(r.bank_name)}</div>`:''}
+       ${r.cheque_number?`<div class="field"><b>${LANG==='ar'?'رقم الشيك':'Cheque No.'}:</b> ${esc(r.cheque_number)}</div>`:''}
+       <div class="field"><b>${LANG==='ar'?'مرجع':'Reference'}:</b> ${esc(r.reference||'-')}</div>
+       <div class="field"><b>${LANG==='ar'?'الحالة':'Status'}:</b> ${esc(r.status||'-')}</div>
+       <div class="field wide"><b>${LANG==='ar'?'ملاحظات':'Notes'}:</b> ${esc(r.notes||'-')}</div>
+     </div>
+     <div class="signs">
+       <div class="sign">${LANG==='ar'?'المستلم':'Receiver'}${r.receiver_name?`<br><b>${esc(r.receiver_name)}</b>`:''}</div>
+       <div class="sign">${LANG==='ar'?'مسؤول الخزينة':'Treasury Approval'}${r.treasury_approval_name?`<br><b>${esc(r.treasury_approval_name)}</b>`:''}</div>
+       <div class="sign">${LANG==='ar'?'اعتماد مدير القسم':'Department Manager'}${r.department_manager_approval_name?`<br><b>${esc(r.department_manager_approval_name)}</b>`:''}</div>
+     </div>
+   </section>
+   </body></html>`;
+   w.document.open();w.document.write(h);w.document.close();
+ };
+
  function financeDocsTable(rows,isReceipt){
-   return table([
+   const cols=[
      [LANG==='ar'?'رقم المستند':'Document',r=>esc(isReceipt?r.receipt_number:r.payment_number)],
      [T('date'),r=>esc(isReceipt?r.receipt_date:r.payment_date)],
      [LANG==='ar'?'الطرف':'Party',r=>esc(r.party_name||'-')],
@@ -6835,7 +6906,9 @@ async function saveManualJournalFinal(){
      [LANG==='ar'?'المعادل EGP':'EGP equivalent',r=>money(r.amount_egp)],
      [LANG==='ar'?'الطريقة':'Method',r=>esc(r.payment_method||'-')],
      [T('status'),r=>esc(r.status||'-')]
-   ],rows);
+   ];
+   if(isReceipt)cols.push([LANG==='ar'?'طباعة':'Print',r=>`<button class="btn secondary" onclick="printFinanceReceiptDocument29('${esc(r.id)}')">🖨 ${LANG==='ar'?'طباعة':'Print'}</button>`]);
+   return table(cols,rows);
  }
  const renderFinanceBeforeB9=window.renderFinanceModule;
  window.renderFinanceModule=function(){
