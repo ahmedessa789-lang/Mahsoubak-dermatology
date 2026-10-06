@@ -905,9 +905,9 @@ function closeModal(){$('modal').classList.remove('show')}
 function stockStatus(r){const qty=N(r.current_stock_qty),min=N(r.min_stock_qty??r.min_stock??r.reorder_level);if(qty<=0)return [T('out'),'zero'];if(min>0&&qty<=min)return [T('low'),'low'];return [T('available'),'ok']}
 function productRows(){const text=S(($('productSearch')||{}).value).toLowerCase(),filter=S(($('stockFilter')||{}).value||'all');return A(D.inventory).filter(r=>{const hay=(S(r.product_name)+' '+S(r.product_code)+' '+S(r.lot_number)).toLowerCase();if(text&&!hay.includes(text))return false;const st=stockStatus(r)[1];if(filter==='low'&&st!=='low')return false;if(filter==='zero'&&st!=='zero')return false;if(filter==='available'&&st!=='ok')return false;return true})}
 function renderProducts(){
- const rows=A(D.inventory),totalQty=rows.reduce((a,r)=>a+N(r.current_stock_qty),0),totalValue=rows.reduce((a,r)=>a+N(r.ending_inventory_value),0),low=rows.filter(r=>stockStatus(r)[1]==='low').length,zero=rows.filter(r=>stockStatus(r)[1]==='zero').length;
+ const rows=A(D.inventory),costRows=A(D.inventoryCostSummary),totalQty=rows.reduce((a,r)=>a+N(r.current_stock_qty),0),totalValue=costRows.length?costRows.reduce((a,r)=>a+N(r.adjusted_inventory_value),0):rows.reduce((a,r)=>a+N(r.ending_inventory_value),0),low=rows.filter(r=>stockStatus(r)[1]==='low').length,zero=rows.filter(r=>stockStatus(r)[1]==='zero').length;
  $('view-products').innerHTML=`<div class="module-head"><div><h3>${T('productsTitle')}</h3><p>${T('productsSource')}</p></div><div class="module-tools"><input id="productSearch" class="input" placeholder="${T('searchProduct')}" oninput="renderProductTable()"><select id="stockFilter" class="select" onchange="renderProductTable()"><option value="all">${T('allProducts')}</option><option value="available">${T('available')}</option><option value="low">${T('low')}</option><option value="zero">${T('out')}</option></select></div></div>
- <div class="module-grid"><div class="mini-card" onclick="openInventorySummary('value')"><span>${T('inventoryValue')}</span><b>${money(totalValue)}</b></div><div class="mini-card" onclick="openInventorySummary('qty')"><span>${T('totalQty')}</span><b>${num(totalQty,2)}</b></div><div class="mini-card" onclick="setStockFilter('low')"><span>${T('low')}</span><b>${num(low,0)}</b></div><div class="mini-card" onclick="setStockFilter('zero')"><span>${T('out')}</span><b>${num(zero,0)}</b></div></div><div class="table-card"><div id="productTableWrap" class="table-wrap"></div></div>`;
+ <div class="module-grid"><div class="mini-card" onclick="openInventorySummary('value')"><span>${LANG==='ar'?'قيمة المخزون بعد المصروفات':'Inventory value after expenses'}</span><b>${money(totalValue)}</b></div><div class="mini-card" onclick="openInventorySummary('qty')"><span>${T('totalQty')}</span><b>${num(totalQty,2)}</b></div><div class="mini-card" onclick="setStockFilter('low')"><span>${T('low')}</span><b>${num(low,0)}</b></div><div class="mini-card" onclick="setStockFilter('zero')"><span>${T('out')}</span><b>${num(zero,0)}</b></div></div><div class="table-card"><div id="productTableWrap" class="table-wrap"></div></div>`;
  renderProductTable();
 }
 function finalInventoryCostRow(r){
@@ -921,7 +921,7 @@ function renderProductTable(){
  <th>${T('product')}</th><th>${T('code')}</th><th>${T('balance')}</th>
  <th>${LANG==='ar'?'التكلفة الأساسية':'Base Cost'}</th><th>${LANG==='ar'?'التكلفة المعدلة':'Adjusted Cost'}</th>
  <th>${T('inventoryValue')}</th><th>${T('opening')}</th><th>${T('sold')}</th><th>${T('status')}</th>
- </tr></thead><tbody>${PRODUCT_VIEW_ROWS.map(r=>{const st=stockStatus(r),x=finalInventoryCostRow(r),base=N(r.canonical_unit_cost||r.unit_cost||r.cost),adjusted=x?N(x.weighted_adjusted_unit_cost):base,value=x?N(x.adjusted_inventory_value):N(r.ending_inventory_value);return `<tr><td class="product-name">${esc(r.product_name||'-')}</td><td>${esc(r.product_code||r.code||'-')}</td><td>${num(r.current_stock_qty,2)}</td><td>${money(base)}</td><td><b>${money(adjusted)}</b></td><td>${money(value)}</td><td>${num(r.opening_qty,2)}</td><td>${num(r.sold_qty,2)}</td><td><span class="pill ${st[1]}">${st[0]}</span></td></tr>`}).join('')}</tbody></table>`;
+ </tr></thead><tbody>${PRODUCT_VIEW_ROWS.map(r=>{const st=stockStatus(r),x=finalInventoryCostRow(r),base=x?N(x.weighted_base_unit_cost):N(r.canonical_unit_cost||r.unit_cost||r.cost),expense=x?N(x.weighted_expense_per_unit):0,adjusted=x?N(x.weighted_adjusted_unit_cost):base,value=x?N(x.adjusted_inventory_value):N(r.ending_inventory_value);return `<tr><td class="product-name">${esc(r.product_name||'-')}</td><td>${esc(r.product_code||r.code||'-')}</td><td>${num(r.current_stock_qty,2)}</td><td>${money(base)}</td><td><b>${money(adjusted)}</b>${expense?`<div class="muted" style="font-size:11px;margin-top:3px">+ ${money(expense)} ${LANG==='ar'?'مصروفات/وحدة':'expense/unit'}</div>`:''}</td><td>${money(value)}</td><td>${num(r.opening_qty,2)}</td><td>${num(r.sold_qty,2)}</td><td><span class="pill ${st[1]}">${st[0]}</span></td></tr>`}).join('')}</tbody></table>`;
 }
 
 
@@ -936,8 +936,10 @@ function openInventorySummary(kind){if(!requireModulePermission('products','view
  const body=table([
   [T('product'),r=>`<b>${esc(r.product_name||'-')}</b>`],
   [T('balance'),r=>num(r.current_stock_qty,2)],
-  [T('unitCost'),r=>money(r.canonical_unit_cost||r.unit_cost||r.cost)],
-  [T('inventoryValue'),r=>money(r.ending_inventory_value)],
+  [LANG==='ar'?'التكلفة الأساسية':'Base Cost',r=>{const x=finalInventoryCostRow(r);return money(x?x.weighted_base_unit_cost:(r.canonical_unit_cost||r.unit_cost||r.cost))}],
+  [LANG==='ar'?'المصروفات / وحدة':'Expense / Unit',r=>{const x=finalInventoryCostRow(r);return money(x?x.weighted_expense_per_unit:0)}],
+  [LANG==='ar'?'التكلفة المعدلة':'Adjusted Cost',r=>{const x=finalInventoryCostRow(r);return money(x?x.weighted_adjusted_unit_cost:(r.canonical_unit_cost||r.unit_cost||r.cost))}],
+  [LANG==='ar'?'قيمة المخزون بعد المصروفات':'Inventory value after expenses',r=>{const x=finalInventoryCostRow(r);return money(x?x.adjusted_inventory_value:r.ending_inventory_value)}],
   [T('sold'),r=>num(r.sold_qty,2)]
  ],rows);
  openModal(kind==='value'?T('inventoryValue'):T('totalQty'),body);
