@@ -3970,6 +3970,9 @@ async function renderCashFlowModule(force=false){
 
 /* Sales Target */
 function isTargetQtyRow(r){const t=norm(r.order_type||r.sale_type||r.type);return !/bonus|بونص|display|sample|عين|free|مجاني/.test(t)}
+function isBonusQtyRow(r){const t=norm(r.order_type||r.sale_type||r.type);return /bonus|بونص/.test(t)}
+function bonusQtyRows(rows){return A(rows).filter(isBonusQtyRow)}
+function bonusQtyTotal(rows){return bonusQtyRows(rows).reduce((a,r)=>a+N(r.allocated_qty),0)}
 function repTargetValue(rep){return N(rep.target_qty??rep.target??rep.sales_target)}
 function achievedForRep(rep){
  const id=S(rep.id),name=norm(rep.name||rep.rep_name);
@@ -3993,7 +3996,7 @@ function renderSalesTarget(){
  const month=new Date().toISOString().slice(0,7);
  const comm=A(D.repCommission).filter(x=>S(x.month_start).slice(0,7)===month);
  $('view-reps').innerHTML=`<div class="rep-report-tile"><div><h3>${T('targetModuleTitle')}</h3><p>${T('targetModuleSub')}</p></div><div class="doc-actions">${authCan('reps','add')?`<button id="b18AddRep" class="btn secondary" onclick="openNewRepBuild18()">＋ ${LANG==='ar'?'إضافة مندوب':'Add Rep'}</button>`:''}<button class="btn blue" onclick="show('rep_reports')">${T('openReport')}</button></div></div>
- <div class="table-card"><div class="table-wrap"><table class="data-table"><thead><tr><th>${T('rep')}</th><th>${T('region')}</th><th>${T('target')}</th><th>${T('achieved')}</th><th>${T('targetRemaining')}</th><th>${T('achievement')}</th><th>${T('salesAmount')}</th></tr></thead><tbody>${reps.map(rep=>{const target=repTargetValue(rep),ach=achievedForRep(rep),left=Math.max(0,target-ach),pct=target?ach/target*100:0;const rs=A(D.repSales).find(x=>S(x.rep_id)===S(rep.id)||norm(x.rep_name)===norm(rep.name||rep.rep_name))||{};return `<tr class="customer-row" onclick="openRepFromTarget('${esc(rep.id)}')"><td><b>${esc(rep.name||rep.rep_name)}</b></td><td>${esc(rep.region_code||rep.territory_code||'-')}</td><td>${target?num(target,2):`<span class="pill warn">${T('notSet')}</span>`}</td><td>${num(ach,2)}</td><td>${num(left,2)}</td><td>${target?pct.toFixed(1)+'%':'-'}${target?`<div class="progress"><i style="width:${Math.min(100,Math.max(0,pct))}%"></i></div>`:''}</td><td>${money(rs.sales)}</td></tr>`}).join('')}</tbody></table></div></div>
+ <div class="table-card"><div class="table-wrap"><table class="data-table"><thead><tr><th>${T('rep')}</th><th>${T('region')}</th><th>${T('target')}</th><th>${T('achieved')}</th><th>${LANG==='ar'?'Bonus Qty':'Bonus Qty'}</th><th>${T('targetRemaining')}</th><th>${T('achievement')}</th><th>${T('salesAmount')}</th></tr></thead><tbody>${reps.map(rep=>{const target=repTargetValue(rep),ach=achievedForRep(rep),repRows=A(D.allocations).filter(r=>S(r.rep_id)===S(rep.id)||norm(r.rep_name)===norm(rep.name||rep.rep_name)),bonusQty=bonusQtyTotal(repRows),left=Math.max(0,target-ach),pct=target?ach/target*100:0;const rs=A(D.repSales).find(x=>S(x.rep_id)===S(rep.id)||norm(x.rep_name)===norm(rep.name||rep.rep_name))||{};return `<tr class="customer-row" onclick="openRepFromTarget('${esc(rep.id)}')"><td><b>${esc(rep.name||rep.rep_name)}</b></td><td>${esc(rep.region_code||rep.territory_code||'-')}</td><td>${target?num(target,2):`<span class="pill warn">${T('notSet')}</span>`}</td><td>${num(ach,2)}</td><td><b>${num(bonusQty,2)}</b></td><td>${num(left,2)}</td><td>${target?pct.toFixed(1)+'%':'-'}${target?`<div class="progress"><i style="width:${Math.min(100,Math.max(0,pct))}%"></i></div>`:''}</td><td>${money(rs.sales)}</td></tr>`}).join('')}</tbody></table></div></div>
  <div class="report-section"><h4>${LANG==='ar'?'حافز تحقيق التارجت الشهري':'Monthly Target Incentive'}</h4>${table([
  [T('rep'),r=>`<b>${esc(r.rep_name||'-')}</b>`],
  [T('target'),r=>N(r.target_qty)>0?num(r.target_qty,2):`<span class="pill warn">${T('notSet')}</span>`],
@@ -4097,17 +4100,17 @@ function companyQtyTarget(){
 }
 function companyRows(from='',to=''){return allocationRowsForRef('all',from,to)}
 function companyStats(from='',to=''){
- const rows=companyRows(from,to),sales=rows.reduce((a,r)=>a+N(r.allocated_total),0),qty=reportAchieved(rows);
+ const rows=companyRows(from,to),sales=rows.reduce((a,r)=>a+N(r.allocated_total),0),qty=reportAchieved(rows),bonusQty=bonusQtyTotal(rows);
  const qtyTarget=companyQtyTarget(),qtyRemaining=Math.max(0,qtyTarget-qty),qtyPct=qtyTarget?qty/qtyTarget*100:0;
  const moneyTarget=moneyTargetValue('company','company');
  const moneyRemaining=moneyTarget===null?null:Math.max(0,moneyTarget-sales),moneyPct=moneyTarget? sales/moneyTarget*100 : 0;
- return {rows,sales,qty,qtyTarget,qtyRemaining,qtyPct,moneyTarget,moneyRemaining,moneyPct};
+ return {rows,sales,qty,bonusQty,qtyTarget,qtyRemaining,qtyPct,moneyTarget,moneyRemaining,moneyPct};
 }
 function companyGroupStats(group,from='',to=''){
  const rows=allocationRowsForRef(group,from,to),sales=rows.reduce((a,r)=>a+N(r.allocated_total),0),remaining=rows.reduce((a,r)=>a+N(r.allocated_remaining),0);
- const qty=reportAchieved(rows),reps=repsForRef(group,rows),qtyTarget=reps.reduce((a,r)=>a+repTargetValue(r),0),qtyPct=qtyTarget?qty/qtyTarget*100:0;
+ const qty=reportAchieved(rows),bonusQty=bonusQtyTotal(rows),reps=repsForRef(group,rows),qtyTarget=reps.reduce((a,r)=>a+repTargetValue(r),0),qtyPct=qtyTarget?qty/qtyTarget*100:0;
  const invoices=groupInvoices(rows).length,mTarget=moneyTargetValue('group',group);
- return {group,rows,sales,remaining,qty,qtyTarget,qtyPct,invoices,mTarget,mPct:mTarget?sales/mTarget*100:0};
+ return {group,rows,sales,remaining,qty,bonusQty,qtyTarget,qtyPct,invoices,mTarget,mPct:mTarget?sales/mTarget*100:0};
 }
 function metricValue(v,type='number'){
  if(v===null||v===undefined)return `<span class="not-set">${T('notSet')}</span>`;
@@ -4120,6 +4123,7 @@ function companySalesHero(from='',to=''){
    <div class="company-target-grid">
     <div class="company-target-cell" onclick="event.stopPropagation();openCompanySalesAnalytics('qty')"><span>${T('qtyTarget')}</span><b>${num(c.qtyTarget,2)}</b></div>
     <div class="company-target-cell" onclick="event.stopPropagation();openCompanySalesAnalytics('qty')"><span>${T('qtyAchieved')}</span><b>${num(c.qty,2)}</b></div>
+    <div class="company-target-cell" onclick="event.stopPropagation();openReportKpi('bonus')"><span>${LANG==='ar'?'Bonus Qty':'Bonus Qty'}</span><b>${num(c.bonusQty,2)}</b></div>
     <div class="company-target-cell" onclick="event.stopPropagation();openCompanySalesAnalytics('qty')"><span>${T('qtyRemaining')}</span><b>${num(c.qtyRemaining,2)}</b></div>
     <div class="company-target-cell" onclick="event.stopPropagation();openCompanySalesAnalytics('qty')"><span>${T('qtyAchievement')}</span><b>${c.qtyPct.toFixed(1)}%</b></div>
     <div class="company-target-cell" onclick="event.stopPropagation();openCompanySalesAnalytics('money')"><span>${T('moneyTarget')}</span><b>${metricValue(c.moneyTarget,'money')}</b></div>
@@ -4135,6 +4139,7 @@ function companyBreakdownHtml(from='',to=''){
    <h5>${esc(refLabel(g.group))}</h5>
    <p>${T('salesAmount')}: <b>${money(g.sales)}</b></p>
    <p>${T('qty')}: <b>${num(g.qty,2)}</b></p>
+   <p>${LANG==='ar'?'Bonus Qty':'Bonus Qty'}: <b>${num(g.bonusQty,2)}</b></p>
    <p>${T('invoiceCount')}: <b>${num(g.invoices,0)}</b></p>
    <p>${T('target')}: <b>${num(g.qtyTarget,2)}</b></p>
    <p>${T('achievement')}: <b>${g.qtyPct.toFixed(1)}%</b></p>
@@ -4147,6 +4152,7 @@ function openCompanySalesAnalytics(kind='overview'){if(!requireModulePermission(
    [T('region'),r=>`<b>${esc(refLabel(r.group))}</b>`],
    [T('salesAmount'),r=>money(r.sales)],
    [T('qty'),r=>num(r.qty,2)],
+   [LANG==='ar'?'Bonus Qty':'Bonus Qty',r=>num(r.bonusQty,2)],
    [T('invoiceCount'),r=>num(r.invoices,0)],
    [T('target'),r=>num(r.qtyTarget,2)],
    [T('achievement'),r=>r.qtyPct.toFixed(1)+'%'],
@@ -4156,6 +4162,7 @@ function openCompanySalesAnalytics(kind='overview'){if(!requireModulePermission(
    ${detailClick(T('salesAmount'),money(c.sales),"openReportKpi('sales')")}
    ${detailClick(T('qtyTarget'),num(c.qtyTarget,2),"openCompanySalesAnalytics('qty')")}
    ${detailClick(T('qtyAchieved'),num(c.qty,2),"openReportKpi('qty')")}
+   ${detailClick(LANG==='ar'?'Bonus Qty':'Bonus Qty',num(c.bonusQty,2),"openReportKpi('bonus')")}
    ${detailClick(T('qtyRemaining'),num(c.qtyRemaining,2),"openCompanySalesAnalytics('qty')")}
    ${detailClick(T('qtyAchievement'),c.qtyPct.toFixed(1)+'%',"openCompanySalesAnalytics('qty')")}
    ${detailClick(T('moneyTarget'),c.moneyTarget===null?T('notSet'):money(c.moneyTarget),"openReportKpi('money_target')")}
@@ -4172,7 +4179,7 @@ function reportCardHtml(ref,from='',to=''){
  REPORT_STATE={ref,from,to};
  const rows=allocationRowsForRef(ref,from,to),collections=collectionRowsForRef(ref,from,to),invoices=groupInvoices(rows),customers=customerSummary(rows),regions=regionSummary(rows);
  const sales=rows.reduce((a,r)=>a+N(r.allocated_total),0),remaining=rows.reduce((a,r)=>a+N(r.allocated_remaining),0),paid=sales-remaining;
- const target=reportTarget(ref,rows),ach=reportAchieved(rows),left=Math.max(0,target-ach),pct=target?ach/target*100:0;
+ const target=reportTarget(ref,rows),ach=reportAchieved(rows),bonusQty=bonusQtyTotal(rows),left=Math.max(0,target-ach),pct=target?ach/target*100:0;
  const collectionCash=collections.reduce((a,r)=>a+N(r.cash_received??r.amount),0);
  return `
  ${companySalesHero(from,to)}
@@ -4182,7 +4189,8 @@ function reportCardHtml(ref,from='',to=''){
   <div class="report-kpi" onclick="openReportKpi('remaining')" title="${T('clickForDetails')}"><span>${T('remaining')}</span><b>${money(remaining)}</b></div>
   <div class="report-kpi" onclick="openReportKpi('invoices')" title="${T('clickForDetails')}"><span>${T('invoiceCount')}</span><b>${num(invoices.length,0)}</b></div>
   <div class="report-kpi" onclick="openReportKpi('collections')" title="${T('clickForDetails')}"><span>${T('collectionsDirect')}</span><b>${money(collectionCash)}</b></div>
-  <div class="report-kpi" onclick="openReportKpi('qty')" title="${T('clickForDetails')}"><span>${T('qty')}</span><b>${num(rows.reduce((a,r)=>a+N(r.allocated_qty),0),2)}</b></div>
+  <div class="report-kpi" onclick="openReportKpi('qty')" title="${T('clickForDetails')}"><span>${LANG==='ar'?'كمية البيع المحتسبة':'Counted Sale Qty'}</span><b>${num(ach,2)}</b></div>
+  <div class="report-kpi" onclick="openReportKpi('bonus')" title="${T('clickForDetails')}"><span>${LANG==='ar'?'Bonus Qty':'Bonus Qty'}</span><b>${num(bonusQty,2)}</b></div>
  </div>
  <div class="report-kpis">
   <div class="report-kpi" onclick="openReportKpi('target')" title="${T('clickForDetails')}"><span>${T('target')}</span><b>${num(target,2)}</b></div>
@@ -4209,7 +4217,7 @@ function reportTargetBreakdown(){
  return reps.map(rep=>{
   const repRows=rows.filter(r=>S(r.rep_id)===S(rep.id)||norm(r.rep_name)===norm(rep.name||rep.rep_name));
   const target=repTargetValue(rep),ach=reportAchieved(repRows),left=Math.max(0,target-ach),pct=target?ach/target*100:0;
-  return {name:S(rep.name||rep.rep_name),region:S(rep.region_code||rep.territory_code||'-'),target,ach,left,pct,sales:repRows.reduce((a,r)=>a+N(r.allocated_total),0),remaining:repRows.reduce((a,r)=>a+N(r.allocated_remaining),0)};
+  return {name:S(rep.name||rep.rep_name),region:S(rep.region_code||rep.territory_code||'-'),target,ach,bonusQty:bonusQtyTotal(repRows),left,pct,sales:repRows.reduce((a,r)=>a+N(r.allocated_total),0),remaining:repRows.reduce((a,r)=>a+N(r.allocated_remaining),0)};
  });
 }
 function openReportKpi(kind){if(!requireModulePermission('reps','view'))return;
@@ -4233,7 +4241,7 @@ function openReportKpi(kind){if(!requireModulePermission('reps','view'))return;
  const targetRows=reportTargetBreakdown();
  const targetTable=table([
   [T('rep'),r=>`<b>${esc(r.name)}</b>`],[T('region'),r=>esc(r.region)],[T('target'),r=>num(r.target,2)],
-  [T('achieved'),r=>num(r.ach,2)],[T('targetRemaining'),r=>num(r.left,2)],[T('achievement'),r=>r.pct.toFixed(1)+'%'],
+  [T('achieved'),r=>num(r.ach,2)],[LANG==='ar'?'Bonus Qty':'Bonus Qty',r=>num(r.bonusQty,2)],[T('targetRemaining'),r=>num(r.left,2)],[T('achievement'),r=>r.pct.toFixed(1)+'%'],
   [T('salesAmount'),r=>money(r.sales)],[T('remaining'),r=>money(r.remaining)]
  ],targetRows);
 
@@ -4245,14 +4253,36 @@ function openReportKpi(kind){if(!requireModulePermission('reps','view'))return;
    [T('date'),r=>esc(r.collection_date||r.date)],[T('customer'),r=>esc(r.customer_name)],[T('rep'),r=>esc(r.rep_name||'-')],
    [T('collection'),r=>money(r.cash_received??r.amount)],[T('method'),r=>esc(r.method||'-')],[T('notes'),r=>esc(r.notes||'-')]
  ],collections));return}
- if(kind==='qty'){openModal(T('quantityDetails')+' — '+refLabel(ref),salesLines);return}
+ if(kind==='qty'){
+   const qtyRows=rows.filter(isTargetQtyRow);
+   openModal(T('quantityDetails')+' — '+refLabel(ref),table([
+    [T('date'),r=>esc(S(r.sale_date||r.date).slice(0,10))],
+    [T('invoice'),r=>esc(r.invoice_key||r.invoice_number||r.invoice_no||r.sale_id)],
+    [T('customer'),r=>esc(r.customer_name)],
+    [T('rep'),r=>esc(r.rep_name)],
+    [T('product'),r=>esc(r.product_name||'-')],
+    [T('qty'),r=>num(r.allocated_qty,2)]
+   ],qtyRows));return
+ }
+ if(kind==='bonus'){
+   const bonusRows=rows.filter(isBonusQtyRow);
+   openModal((LANG==='ar'?'تفاصيل Bonus Qty':'Bonus Qty Details')+' — '+refLabel(ref),table([
+    [T('date'),r=>esc(S(r.sale_date||r.date).slice(0,10))],
+    [T('invoice'),r=>esc(r.invoice_key||r.invoice_number||r.invoice_no||r.sale_id)],
+    [T('customer'),r=>esc(r.customer_name)],
+    [T('rep'),r=>esc(r.rep_name)],
+    [T('region'),r=>esc(r.territory_code||'-')],
+    [T('product'),r=>esc(r.product_name||'-')],
+    [LANG==='ar'?'Bonus Qty':'Bonus Qty',r=>`<b>${num(r.allocated_qty,2)}</b>`]
+   ],bonusRows));return
+ }
  if(kind==='target'||kind==='target_remaining'){openModal(T('targetDetails')+' — '+refLabel(ref),targetTable);return}
  if(kind==='achieved'||kind==='achievement'){openModal(T('achievementDetails')+' — '+refLabel(ref),targetTable);return}
  if(kind==='money_target'){const mt=moneyTargetForRef(ref),sales=rows.reduce((a,r)=>a+N(r.allocated_total),0),rem=mt===null?null:Math.max(0,mt-sales),pct=mt?sales/mt*100:0;openModal(T('moneyTarget')+' — '+refLabel(ref),`<div class="detail-grid">${detail(T('moneyTarget'),mt===null?T('notSet'):money(mt))}${detail(T('moneyAchieved'),money(sales))}${detail(T('moneyRemaining'),rem===null?T('notSet'):money(rem))}${detail(T('moneyAchievement'),mt?pct.toFixed(1)+'%':T('notSet'))}</div>`);return}
 }
 function refCard(ref){
- const rows=allocationRowsForRef(ref),sales=rows.reduce((a,r)=>a+N(r.allocated_total),0),remaining=rows.reduce((a,r)=>a+N(r.allocated_remaining),0);
- return `<div class="rep-card ${selectedRepRef===ref?'active':''}" onclick="selectRepRef('${esc(ref)}')"><b>${esc(refLabel(ref))}</b><span>${T('salesAmount')}: ${money(sales)}</span><span>${T('remaining')}: ${money(remaining)}</span></div>`;
+ const rows=allocationRowsForRef(ref),sales=rows.reduce((a,r)=>a+N(r.allocated_total),0),remaining=rows.reduce((a,r)=>a+N(r.allocated_remaining),0),bonusQty=bonusQtyTotal(rows);
+ return `<div class="rep-card ${selectedRepRef===ref?'active':''}" onclick="selectRepRef('${esc(ref)}')"><b>${esc(refLabel(ref))}</b><span>${T('salesAmount')}: ${money(sales)}</span><span>${LANG==='ar'?'Bonus Qty':'Bonus Qty'}: ${num(bonusQty,2)}</span><span>${T('remaining')}: ${money(remaining)}</span></div>`;
 }
 function renderRepReports(){
  const refs=reportRefs();
