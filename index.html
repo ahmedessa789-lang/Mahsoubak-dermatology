@@ -1228,6 +1228,10 @@ async function openCustomerStatementMetricFinal(key,kind){
  let rows=all,title='';
  if(kind==='opening'){
    rows=all.filter(r=>S(r.transaction_type)==='OPENING_BALANCE');
+   if(!rows.length){
+     openCustomerOpeningBalanceFinal(key);
+     return;
+   }
    title=LANG==='ar'?'تفاصيل الرصيد الافتتاحي':'Opening Balance Details';
  }else if(kind==='invoices'){
    rows=all.filter(r=>S(r.transaction_type)==='INVOICE');
@@ -1261,6 +1265,7 @@ async function openCustomerStatementMetricFinal(key,kind){
    [T('balance'),r=>`<b>${money(r.running_balance??r.running_receivable_balance)}</b>`]
   ],rows):`<div class="empty">${LANG==='ar'?'لا توجد حركات لهذا الكارت.':'No movements for this card.'}</div>`}
   <div class="doc-actions">
+   ${kind==='opening'?`<button class="btn secondary" onclick="openCustomerOpeningBalanceFinal('${esc(key)}')">✏️ ${LANG==='ar'?'تعديل الرصيد الافتتاحي':'Edit Opening Balance'}</button>`:''}
    <button class="btn secondary" onclick="openCustomerStatementFinal('${esc(key)}')">${LANG==='ar'?'العودة لكشف الحساب':'Back to Statement'}</button>
   </div>`);
 }
