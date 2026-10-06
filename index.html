@@ -540,8 +540,9 @@ const V={
  usernameAuthSetup:'mahsoubak_app_username_auth_setup',
 
  /* FINAL CONSOLIDATED BACKEND CONTRACTS */
- customerStatementSummary:'mahsoubak_app_customer_statement_summary_v3',
- customerStatementLines:'mahsoubak_app_customer_statement_lines_v3',
+ customerStatementSummary:'mahsoubak_app_customer_statement_summary_identity_ob_20261006',
+ customerStatementLines:'mahsoubak_app_customer_statement_lines_identity_ob_20261006',
+ customerOpeningBalances:'mahsoubak_customer_opening_balances',
  customerInvoiceProfile:'mahsoubak_app_customer_invoice_profile_v2',
  customerClinics:'mahsoubak_app_customer_clinics_v1',
  customerCashback:'mahsoubak_app_customer_cashback_v1',
@@ -985,7 +986,8 @@ async function ensureFinalCustomerParityData(force=false){
      getAllSessionSafe(V.customerInvoiceProfile),
      getAllSessionSafe(V.customerClinics),
      getAllSessionSafe(V.customerCashback),
-     getAllSessionSafe(V.customerSplitHealth)
+     getAllSessionSafe(V.customerSplitHealth),
+     getAllSessionSafe(V.customerOpeningBalances)
    ]);
    const val=i=>rr[i].status==='fulfilled'?rr[i].value:[];
    Object.assign(D,{
@@ -994,7 +996,8 @@ async function ensureFinalCustomerParityData(force=false){
      customerInvoiceProfiles:val(2),
      customerClinics:val(3),
      customerCashback:val(4),
-     customerSplitHealth:val(5)
+     customerSplitHealth:val(5),
+     customerOpeningBalances:val(6)
    });
    rr.forEach((x,i)=>{if(x.status==='rejected')console.warn('Customer parity source failed',i,x.reason)});
    return true;
@@ -1029,8 +1032,36 @@ function finalCustomerStatement(c){
 }
 function finalCustomerStatementLines(c){
  const s=finalCustomerStatement(c);if(!s)return [];
- return A(D.customerStatementLines).filter(x=>S(x.canonical_customer_id)===S(s.customer_id)||norm(x.canonical_customer_name)===norm(s.customer_name))
-  .sort((a,b)=>(S(a.transaction_date)+S(a.source_id)).localeCompare(S(b.transaction_date)+S(b.source_id)));
+ const identity=S(s.identity_key);
+ return A(D.customerStatementLines).filter(x=>
+   (identity&&S(x.identity_key)===identity) ||
+   S(x.source_customer_id)===S(c?.id||c?.customer_id) ||
+   norm(x.source_customer_name)===norm(customerName(c||{}))
+ ).sort((a,b)=>(S(a.transaction_date)+S(a.source_id)).localeCompare(S(b.transaction_date)+S(b.source_id)));
+}
+function customerOpeningIdentityRows(c){
+ const s=finalCustomerStatement(c),identity=S(s?.identity_key),name=norm(customerName(c||{}));
+ return A(D.customerOpeningBalances).filter(ob=>{
+   const oc=A(D.customers).find(x=>S(x.id||x.customer_id)===S(ob.customer_id));
+   const os=oc?finalCustomerStatement(oc):null;
+   return (identity&&S(os?.identity_key)===identity)||norm(customerName(oc||{}))===name;
+ });
+}
+function customerOpeningInfo(c){
+ const rows=customerOpeningIdentityRows(c);
+ return {
+   rows,
+   amount:rows.reduce((a,r)=>a+N(r.opening_balance),0),
+   date:rows.map(r=>S(r.opening_date)).filter(Boolean).sort()[0]||''
+ };
+}
+function uniqueCustomerStatementSummaries(){
+ const m=new Map();
+ A(D.customerStatementSummary).forEach(r=>{
+   const k=S(r.identity_key)||norm(r.customer_name)||S(r.customer_id);
+   if(!m.has(k))m.set(k,r);
+ });
+ return [...m.values()];
 }
 function finalCustomerCashback(c){
  const id=S(c?.id||c?.customer_id),name=norm(customerName(c||{}));
@@ -1050,12 +1081,17 @@ function renderCustomers(){
    if(!search)return true;
    return (customerName(c)+' '+S(c.clinic_name)+' '+S(c.phone)+' '+customerArea(c)).toLowerCase().includes(search);
  });
- const debtRows=A(D.agingSummary).filter(r=>N(r.total_outstanding)>0);
- const debtTotal=debtRows.reduce((a,r)=>a+N(r.total_outstanding),0);
+ const statementRows=uniqueCustomerStatementSummaries();
+ const debtRows=statementRows.filter(r=>N(r.statement_balance)>0);
+ const debtTotal=debtRows.reduce((a,r)=>a+N(r.statement_balance),0);
  const blockers=A(D.customerSplitHealth).filter(r=>S(r.status)!=='MATCH');
+ const searchOptions=[...new Set(all.flatMap(c=>[
+   customerName(c),
+   S(c.clinic_name)
+ ]).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
  $('view-customers').innerHTML=`<div class="module-head">
    <div><h3>${T('customersTitle')}</h3><p>${T('customersSub')}</p></div>
-   <div class="module-tools">${authCan('customers','add')?`<button id="b18AddCustomer" class="btn secondary" onclick="openNewCustomerBuild18()">＋ ${LANG==='ar'?'إضافة عميل':'Add Customer'}</button>`:''}<input id="customerSearch" class="input" value="${esc(search)}" placeholder="${T('searchCustomer')}" oninput="renderCustomers()"></div>
+   <div class="module-tools">${authCan('customers','add')?`<button id="b18AddCustomer" class="btn secondary" onclick="openNewCustomerBuild18()">＋ ${LANG==='ar'?'إضافة عميل':'Add Customer'}</button>`:''}<input id="customerSearch" class="input" list="customerSearchSuggestions" value="${esc(search)}" placeholder="${LANG==='ar'?'اكتب اسم العميل أو العيادة…':'Type customer or clinic…'}" oninput="renderCustomers()"><datalist id="customerSearchSuggestions">${searchOptions.map(x=>`<option value="${esc(x)}"></option>`).join('')}</datalist></div>
  </div>
  <div class="module-grid">
    <div class="mini-card" onclick="openCustomerSummary('all')"><span>${T('totalCustomers')}</span><b>${num(all.length,0)}</b></div>
@@ -1079,15 +1115,15 @@ function openCustomerSummary(kind){if(!requireModulePermission('customers','view
    ],A(D.customers)));return;
  }
  if(kind==='debt'||kind==='receivables'){
-   const rows=A(D.agingSummary).filter(r=>N(r.total_outstanding)>0);
+   const rows=uniqueCustomerStatementSummaries().filter(r=>N(r.statement_balance)>0);
    openModal(T('debt'),table([
     [T('customer'),r=>`<b>${esc(r.customer_name||'-')}</b>`],
-    [T('invoiceCount'),r=>num(r.open_invoice_count,0)],
-    [T('remaining'),r=>money(r.total_outstanding)],
-    [LANG==='ar'?'0–30 يوم':'0–30 days',r=>money(r.bucket_0_30)],
-    [LANG==='ar'?'31–60 يوم':'31–60 days',r=>money(r.bucket_31_60)],
-    [LANG==='ar'?'61–90 يوم':'61–90 days',r=>money(r.bucket_61_90)],
-    [LANG==='ar'?'+90 يوم':'+90 days',r=>money(r.bucket_90_plus)]
+    [T('clinic'),r=>esc(r.clinic_name||'-')],
+    [LANG==='ar'?'الرصيد الافتتاحي':'Opening Balance',r=>{
+      const c=A(D.customers).find(x=>S(x.id||x.customer_id)===S(r.customer_id));
+      return money(customerOpeningInfo(c||{}).amount)
+    }],
+    [T('remaining'),r=>`<b>${money(r.statement_balance)}</b>`]
    ],rows));return;
  }
  if(kind==='splits'){
@@ -1118,6 +1154,7 @@ async function openCustomerByKey(key){if(!requireModulePermission('customers','v
  const territoryText=territories.length?[...new Set(territories)].join(' / '):(p.area||customerArea(c)||'-');
  const groupText=groups.length?[...new Set(groups)].join(' / '):'-';
  const cashbackText=cb?(cb.eligible?`${LANG==='ar'?'مستحق':'Eligible'} • ${money(cb.remaining_amount)}`:`${LANG==='ar'?'متبقي للحد':'To threshold'} ${money(cb.amount_to_threshold)}`):'-';
+ const opening=customerOpeningInfo(c);
 
  openModal(T('customerDetails')+' — '+customerName(c),`
  <div class="detail-grid">
@@ -1131,6 +1168,8 @@ async function openCustomerByKey(key){if(!requireModulePermission('customers','v
    ${detail(LANG==='ar'?'العنوان':'Address',esc(p.address||c.address||'-'))}
    ${detail(LANG==='ar'?'المندوب الحالي':'Current Rep',esc(repText))}
    ${detail(LANG==='ar'?'نسبة التوزيع':'Split %',spl.length?splitPct.toFixed(2)+'%':'-')}
+   ${detail(LANG==='ar'?'الرصيد الافتتاحي':'Opening Balance',money(opening.amount))}
+   ${detail(LANG==='ar'?'تاريخ الرصيد الافتتاحي':'Opening Date',esc(opening.date||'-'))}
    ${detail(LANG==='ar'?'المديونية الحالية':'Current Receivable',money(s.statement_balance))}
    ${detail('Cashback',esc(cashbackText))}
    ${detail(LANG==='ar'?'عدد العيادات':'Clinics',num(clinics.length,0))}
@@ -1142,6 +1181,8 @@ async function openCustomerByKey(key){if(!requireModulePermission('customers','v
    <button class="btn secondary" onclick="openCustomerStatementFinal('${esc(key)}')">${LANG==='ar'?'كشف الحساب':'Customer Statement'}</button>
    <button class="btn secondary" onclick="openCustomerClinicsFinal('${esc(key)}')">${LANG==='ar'?'العيادات والعناوين':'Clinics & Addresses'}</button>
    <button class="btn secondary" onclick="openCustomerCashbackFinal('${esc(key)}')">Cashback</button>
+   ${authCan('customers','edit')?`<button class="btn secondary" onclick="openEditCustomerFinal('${esc(key)}')">✏️ ${LANG==='ar'?'تعديل بيانات العميل':'Edit Customer'}</button>`:''}
+   ${authCan('accounts','add')?`<button class="btn secondary" onclick="openCustomerOpeningBalanceFinal('${esc(key)}')">⚖️ ${LANG==='ar'?'الرصيد الافتتاحي':'Opening Balance'}</button>`:''}
    ${authCan('customers','edit')?`<button class="btn secondary" onclick="openCustomerSplit23('${esc(S(c.id||c.customer_id))}')">${LANG==='ar'?'تعديل توزيع العميل':'Edit Customer Distribution'}</button>`:''}
  </div>
  <div style="margin-top:12px">${table([
@@ -1157,12 +1198,15 @@ async function openCustomerStatementFinal(key){
  if(!c){alert(LANG==='ar'?'تعذر العثور على العميل.':'Customer not found.');return}
  const s=finalCustomerStatement(c)||emptyCustomerStatementFinal(c);
  const rows=finalCustomerStatementLines(c);
+ const opening=rows.filter(r=>S(r.transaction_type)==='OPENING_BALANCE').reduce((a,r)=>a+N(r.debit)-N(r.credit),0);
+ const invoices=rows.filter(r=>S(r.transaction_type)==='INVOICE').reduce((a,r)=>a+N(r.debit),0);
+ const collections=rows.filter(r=>S(r.transaction_type)==='COLLECTION').reduce((a,r)=>a+N(r.credit),0);
  const noRows=rows.length===0?`<div class="empty">${LANG==='ar'?'لا توجد حركات مالية على هذا العميل حتى الآن.':'No financial transactions for this customer yet.'}</div>`:'';
  openModal((LANG==='ar'?'كشف حساب — ':'Customer Statement — ')+(s.customer_name||customerName(c)),`
  <div class="detail-grid">
- ${detail(LANG==='ar'?'إجمالي الفواتير':'Invoices',money(s.statement_debits))}
- ${detail(LANG==='ar'?'إجمالي الأرصدة الدائنة':'Credits',money(s.statement_credits))}
- ${detail(LANG==='ar'?'المتبقي على الفواتير':'Outstanding',money(s.invoice_outstanding))}
+ ${detail(LANG==='ar'?'الرصيد الافتتاحي':'Opening Balance',money(opening))}
+ ${detail(LANG==='ar'?'إجمالي الفواتير':'Invoices',money(invoices))}
+ ${detail(LANG==='ar'?'إجمالي التحصيلات':'Collections',money(collections))}
  ${detail(LANG==='ar'?'رصيد دائن غير موزع':'Unapplied Credit',money(s.unapplied_customer_credit))}
  ${detail(LANG==='ar'?'الرصيد النهائي':'Final Balance',money(s.statement_balance))}
  </div>
@@ -1173,7 +1217,7 @@ async function openCustomerStatementFinal(key){
   [LANG==='ar'?'الحركة':'Type',r=>esc(r.transaction_type||'-')],
   [LANG==='ar'?'المستند':'Document',r=>esc(r.document_number||r.source_id||'-')],
   [LANG==='ar'?'البيان':'Description',r=>esc(r.description||'-')],
-  [T('debit'),r=>money(r.debit)],[T('credit'),r=>money(r.credit)],[T('balance'),r=>`<b>${money(r.running_receivable_balance)}</b>`]
+  [T('debit'),r=>money(r.debit)],[T('credit'),r=>money(r.credit)],[T('balance'),r=>`<b>${money(r.running_balance??r.running_receivable_balance)}</b>`]
  ],rows):''}`);
 }
 async function printCustomerStatementFinal(key){
@@ -1181,8 +1225,87 @@ async function printCustomerStatementFinal(key){
  const c=customerByKey(key);if(!c)return;
  const s=finalCustomerStatement(c)||emptyCustomerStatementFinal(c),rows=finalCustomerStatementLines(c);
  const w=window.open('','_blank');if(!w)return;
- w.document.write(`<!doctype html><html dir="${LANG==='ar'?'rtl':'ltr'}"><head><meta charset="utf-8"><title>${esc(s.customer_name||'Statement')}</title><style>body{font-family:Arial;padding:28px}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #ddd;padding:7px}th{background:#f5f5f5}.empty{padding:18px;text-align:center;color:#666}</style></head><body><h2>${LANG==='ar'?'كشف حساب العميل':'Customer Statement'} — ${esc(s.customer_name||'-')}</h2><div>${esc(s.clinic_name||'-')} • ${esc(s.city||'-')} • ${esc(s.phone||'-')}</div><p><b>${LANG==='ar'?'الرصيد النهائي':'Final Balance'}: ${money(s.statement_balance)}</b></p>${rows.length?`<table><thead><tr><th>${T('date')}</th><th>${LANG==='ar'?'الحركة':'Type'}</th><th>${LANG==='ar'?'المستند':'Document'}</th><th>${LANG==='ar'?'البيان':'Description'}</th><th>${T('debit')}</th><th>${T('credit')}</th><th>${T('balance')}</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(S(r.transaction_date).slice(0,10))}</td><td>${esc(r.transaction_type||'-')}</td><td>${esc(r.document_number||r.source_id||'-')}</td><td>${esc(r.description||'-')}</td><td>${money(r.debit)}</td><td>${money(r.credit)}</td><td>${money(r.running_receivable_balance)}</td></tr>`).join('')}</tbody></table>`:`<div class="empty">${LANG==='ar'?'لا توجد حركات مالية على هذا العميل حتى الآن.':'No financial transactions for this customer yet.'}</div>`}<script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();
+ w.document.write(`<!doctype html><html dir="${LANG==='ar'?'rtl':'ltr'}"><head><meta charset="utf-8"><title>${esc(s.customer_name||'Statement')}</title><style>body{font-family:Arial;padding:28px}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #ddd;padding:7px}th{background:#f5f5f5}.empty{padding:18px;text-align:center;color:#666}</style></head><body><h2>${LANG==='ar'?'كشف حساب العميل':'Customer Statement'} — ${esc(s.customer_name||'-')}</h2><div>${esc(s.clinic_name||'-')} • ${esc(s.city||'-')} • ${esc(s.phone||'-')}</div><p><b>${LANG==='ar'?'الرصيد النهائي':'Final Balance'}: ${money(s.statement_balance)}</b></p>${rows.length?`<table><thead><tr><th>${T('date')}</th><th>${LANG==='ar'?'الحركة':'Type'}</th><th>${LANG==='ar'?'المستند':'Document'}</th><th>${LANG==='ar'?'البيان':'Description'}</th><th>${T('debit')}</th><th>${T('credit')}</th><th>${T('balance')}</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(S(r.transaction_date).slice(0,10))}</td><td>${esc(r.transaction_type||'-')}</td><td>${esc(r.document_number||r.source_id||'-')}</td><td>${esc(r.description||'-')}</td><td>${money(r.debit)}</td><td>${money(r.credit)}</td><td>${money(r.running_balance??r.running_receivable_balance)}</td></tr>`).join('')}</tbody></table>`:`<div class="empty">${LANG==='ar'?'لا توجد حركات مالية على هذا العميل حتى الآن.':'No financial transactions for this customer yet.'}</div>`}<script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();
 }
+function openEditCustomerFinal(key){
+ if(!requireModulePermission('customers','edit'))return;
+ const c=customerByKey(key);if(!c)return;
+ const p=finalCustomerProfile(c)||c;
+ openModal((LANG==='ar'?'تعديل بيانات العميل — ':'Edit Customer — ')+customerName(c),`
+  <div class="auth-grid">
+   <label>${LANG==='ar'?'اسم العميل':'Customer name'}<input id="cef_name" class="input" value="${esc(p.customer_name||customerName(c))}"></label>
+   <label>${T('clinic')}<input id="cef_clinic" class="input" value="${esc(p.clinic_name||c.clinic_name||'')}"></label>
+   <label>${LANG==='ar'?'المدينة':'City'}<input id="cef_city" class="input" value="${esc(p.city||c.city||'')}"></label>
+   <label>${LANG==='ar'?'المنطقة':'Area'}<input id="cef_area" class="input" value="${esc(p.area||c.area||'')}"></label>
+   <label>${T('phone')}<input id="cef_phone" class="input" value="${esc(p.phone||c.phone||'')}"></label>
+   <label>${T('email')}<input id="cef_email" class="input" value="${esc(p.email||c.email||'')}"></label>
+   <label class="full">${LANG==='ar'?'العنوان':'Address'}<input id="cef_address" class="input" value="${esc(p.address||c.address||'')}"></label>
+   <button class="btn secondary full" onclick="saveEditCustomerFinal('${esc(key)}')">${T('save')}</button>
+  </div>`);
+}
+async function saveEditCustomerFinal(key){
+ try{
+  const c=customerByKey(key);if(!c)throw new Error('CUSTOMER_NOT_FOUND');
+  const name=S(($('cef_name')||{}).value),clinic=S(($('cef_clinic')||{}).value);
+  if(!name&&!clinic)throw new Error(T('requiredField'));
+  await rpcAuth('mahsoubak_upsert_customer_secured_v2',{
+   p_customer_id:S(c.id||c.customer_id),
+   p_name:name||clinic,
+   p_clinic_name:clinic||null,
+   p_city:S(($('cef_city')||{}).value)||null,
+   p_area:S(($('cef_area')||{}).value)||null,
+   p_phone:S(($('cef_phone')||{}).value)||null,
+   p_email:S(($('cef_email')||{}).value)||null,
+   p_address:S(($('cef_address')||{}).value)||null,
+   p_active:true,
+   p_payload:{source:'CUSTOMER_EDIT_FINAL'}
+  });
+  closeModal();
+  if(window.ensureModuleDataLazy27)await ensureModuleDataLazy27('customers',true);
+  await ensureFinalCustomerParityData(true);
+  renderCustomers();
+ }catch(e){alert(e.message||e)}
+}
+function openCustomerOpeningBalanceFinal(key){
+ if(!authCan('accounts','add')){alert(T('permissionDenied'));return}
+ const c=customerByKey(key);if(!c)return;
+ const info=customerOpeningInfo(c);
+ const existing=info.rows[0]||null;
+ openModal((LANG==='ar'?'الرصيد الافتتاحي — ':'Opening Balance — ')+customerName(c),`
+  <div class="auth-grid">
+   <div class="auth-note full">${LANG==='ar'?'القيمة الموجبة تعني مديونية على العميل، والقيمة السالبة تعني رصيدًا دائنًا للعميل. أي تعديل لاحق يُرحّل فرق التعديل فقط.':'Positive means the customer owes the company; negative means customer credit. Later edits post only the difference.'}</div>
+   <label>${LANG==='ar'?'التاريخ':'Date'}<input id="cob_date" class="input" type="date" value="${esc(existing?.opening_date||new Date().toISOString().slice(0,10))}"></label>
+   <label>${LANG==='ar'?'الرصيد الافتتاحي':'Opening Balance'}<input id="cob_amount" class="input" type="number" step="0.01" value="${N(info.amount)}"></label>
+   <label class="full">${LANG==='ar'?'ملاحظات':'Notes'}<input id="cob_notes" class="input" value="${esc(existing?.notes||'')}"></label>
+   <button class="btn secondary full" onclick="saveCustomerOpeningBalanceFinal('${esc(key)}')">${T('save')}</button>
+  </div>`);
+}
+async function saveCustomerOpeningBalanceFinal(key){
+ try{
+  const c=customerByKey(key);if(!c)throw new Error('CUSTOMER_NOT_FOUND');
+  const info=customerOpeningInfo(c);
+  const existing=info.rows[0]||null;
+  const targetCustomerId=S(existing?.customer_id||c.id||c.customer_id);
+  const d=S(($('cob_date')||{}).value),amount=N(($('cob_amount')||{}).value);
+  if(!d)throw new Error('OPENING_DATE_REQUIRED');
+  await rpcAuth('mahsoubak_set_customer_opening_balance_v1',{
+   p_customer_id:targetCustomerId,
+   p_opening_date:d,
+   p_opening_balance:amount,
+   p_notes:S(($('cob_notes')||{}).value)||null
+  });
+  closeModal();
+  if(window.ensureModuleDataLazy27)await ensureModuleDataLazy27('customers',true);
+  await ensureFinalCustomerParityData(true);
+  renderCustomers();
+  alert(LANG==='ar'?'تم حفظ الرصيد الافتتاحي وتحديث كشف الحساب.':'Opening balance saved and statement updated.');
+ }catch(e){alert(e.message||e)}
+}
+window.openEditCustomerFinal=openEditCustomerFinal;
+window.saveEditCustomerFinal=saveEditCustomerFinal;
+window.openCustomerOpeningBalanceFinal=openCustomerOpeningBalanceFinal;
+window.saveCustomerOpeningBalanceFinal=saveCustomerOpeningBalanceFinal;
+
 async function openCustomerClinicsFinal(key){
  await ensureFinalCustomerParityData();
  const c=customerByKey(key);if(!c)return;
@@ -7424,7 +7547,12 @@ window.ensureModuleDataLazy27=async function(id,force=false){
             l27Assign('receivables',V.receivables,true),
             l27Assign('splits',V.splits,true),
             l27Assign('customerSplitHealth',V.customerSplitHealth,true),
-            l27Assign('customerClinics',V.customerClinics,true)
+            l27Assign('customerClinics',V.customerClinics,true),
+            l27Assign('customerStatementSummary',V.customerStatementSummary,true),
+            l27Assign('customerStatementLines',V.customerStatementLines,true),
+            l27Assign('customerInvoiceProfiles',V.customerInvoiceProfile,true),
+            l27Assign('customerCashback',V.customerCashback,true),
+            l27Assign('customerOpeningBalances',V.customerOpeningBalances,true)
           ]);
           try{renderCustomers()}catch(e){}
           break;
