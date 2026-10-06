@@ -6530,14 +6530,7 @@ function financeDocumentForm(kind){
  window.openFinanceReceiptDocument=async function(){if(!requireModulePermission('accounts','add'))return;await ensureFinanceDocumentSources();openModal(LANG==='ar'?'إيصال استلام نقدية':'Cash Receipt',financeDocumentForm('receipt'));}
  window.openFinancePaymentDocument=async function(){if(!requireModulePermission('accounts','add'))return;await ensureFinanceDocumentSources();openModal(LANG==='ar'?'إيصال صرف نقدية':'Cash Payment Voucher',financeDocumentForm('payment'));}
 
- document.addEventListener('click',function(e){
-  const b=e.target.closest&&e.target.closest('.customer-search-option29');
-  if(b){e.preventDefault();financeReceiptChooseCustomer29(b.dataset.id,b.dataset.name);return;}
-  const box=$('fr9CustomerSuggestions');
-  if(box && !e.target.closest('#fr9CustomerBox')){box.style.display='none';}
-});
-
-window.submitFinanceDocument=async function(kind){
+ window.submitFinanceDocument=async function(kind){
    if(!requireModulePermission('accounts','add'))return;
    const isReceipt=kind==='receipt',p=isReceipt?'fr9':'fp9';
    try{
@@ -7432,24 +7425,44 @@ function receiptCustomers29(){
 }
 
 window.financeReceiptCustomerSearch29=function(){
-  const input=$('fr9CustomerSearch'), hidden=$('fr9Customer'), box=$('fr9CustomerSuggestions');
-  if(!input||!hidden||!box)return;
+  const input=$('fr9CustomerSearch'), hidden=$('fr9Customer'), results=$('fr9CustomerResults');
+  if(!input||!hidden||!results)return;
   hidden.value='';
-  const q=norm(input.value);
-  if(!q){box.style.display='none';box.innerHTML='';return;}
-  const rows=receiptCustomers29().filter(c=>norm(c.name).startsWith(q)).slice(0,60);
-  box.innerHTML=rows.length
-    ? rows.map(c=>`<button type="button" class="customer-search-option29" data-id="${esc(c.id)}" data-name="${esc(c.name)}">${esc(c.name)}${c.clinic?` <small>— ${esc(c.clinic)}</small>`:''}</button>`).join('')
-    : `<div class="customer-search-empty29">${LANG==='ar'?'لا يوجد عملاء يبدأ اسمهم بهذه الحروف':'No customers start with these letters'}</div>`;
-  box.style.display='block';
+  const q=norm(input.value).trim();
+
+  if(!q){
+    results.style.display='none';
+    results.innerHTML='';
+    return;
+  }
+
+  const rows=receiptCustomers29()
+    .filter(c=>norm(c.name).startsWith(q))
+    .slice(0,100);
+
+  results.innerHTML=rows.map(c=>
+    `<option value="${esc(c.id)}" data-name="${esc(c.name)}">${esc(c.name)}${c.clinic?' — '+esc(c.clinic):''}</option>`
+  ).join('');
+
+  if(!rows.length){
+    results.innerHTML=`<option value="">${LANG==='ar'?'لا يوجد عملاء يبدأ اسمهم بهذه الحروف':'No customers start with these letters'}</option>`;
+  }
+
+  results.size=Math.min(Math.max(rows.length,1),7);
+  results.style.display='block';
 };
 
-window.financeReceiptChooseCustomer29=function(id,name){
-  const input=$('fr9CustomerSearch'), hidden=$('fr9Customer'), party=$('fr9Party'), box=$('fr9CustomerSuggestions');
-  if(hidden)hidden.value=S(id);
-  if(input)input.value=S(name);
-  if(party)party.value=S(name);
-  if(box){box.style.display='none';box.innerHTML='';}
+window.financeReceiptChooseCustomer29=function(){
+  const results=$('fr9CustomerResults'), input=$('fr9CustomerSearch'),
+        hidden=$('fr9Customer'), party=$('fr9Party');
+  if(!results||!hidden)return;
+  const opt=results.options[results.selectedIndex];
+  if(!opt||!opt.value)return;
+  const name=S(opt.dataset.name||opt.textContent).split(' — ')[0];
+  hidden.value=S(opt.value);
+  if(input)input.value=name;
+  if(party)party.value=name;
+  results.style.display='none';
 };
 
 window.financeReceiptPartyTypeChanged29=function(){
@@ -7475,10 +7488,10 @@ window.financeDocumentForm=function(kind){
   const p='fr9';
   return `<div class="auth-grid">
     <label>${LANG==='ar'?'نوع الطرف':'Party type'}<select id="${p}PartyType" class="input" onchange="financeReceiptPartyTypeChanged29()"><option value="customer">${LANG==='ar'?'عميل':'Customer'}</option><option value="other">${LANG==='ar'?'طرف آخر':'Other party'}</option></select></label>
-    <label id="${p}CustomerBox" style="position:relative">${LANG==='ar'?'العميل':'Customer'}
+    <label id="${p}CustomerBox">${LANG==='ar'?'العميل':'Customer'}
       <input id="${p}CustomerSearch" class="input" autocomplete="off" placeholder="${LANG==='ar'?'اكتب أول حرف من اسم العميل…':'Type the first letter of the customer name…'}" oninput="financeReceiptCustomerSearch29()" onfocus="financeReceiptCustomerSearch29()">
       <input id="${p}Customer" type="hidden">
-      <div id="${p}CustomerSuggestions" class="customer-search-list29" style="display:none"></div>
+      <select id="${p}CustomerResults" class="input customer-search-results29" size="6" style="display:none;margin-top:6px" onchange="financeReceiptChooseCustomer29()" ondblclick="financeReceiptChooseCustomer29()"></select>
     </label>
     <label id="${p}OtherPartyBox" style="display:none">${LANG==='ar'?'اسم الطرف':'Party name'}<input id="${p}Party" class="input"></label>
     <label>${LANG==='ar'?'التاريخ':'Date'}<input id="${p}Date" class="input" type="date" value="${todayB9()}"></label>
@@ -7509,7 +7522,10 @@ window.financeDocumentForm=function(kind){
 window.openFinanceReceiptDocument=async function(){
   if(!requireModulePermission('accounts','add'))return;
   await ensureFinanceDocumentSources();
-  try{D.customers=await getAllSession(V.customers)}catch(e){console.warn('BUILD29 customers',e)}
+  try{
+    D.customers=await getAllSession('mahsoubak_customers');
+    if(!A(D.customers).length)D.customers=await getAllSession(V.customers);
+  }catch(e){console.warn('BUILD29 customers',e)}
   openModal(LANG==='ar'?'إيصال استلام نقدية':'Cash Receipt',window.financeDocumentForm('receipt'));
   setTimeout(()=>{try{financeReceiptPartyTypeChanged29()}catch(e){}},0);
 };
@@ -7598,11 +7614,8 @@ window.submitFinanceDocument=async function(kind){
 </script>
 
 <style id="build29-customer-search-style">
-.customer-search-list29{position:absolute;z-index:9999;top:100%;left:0;right:0;max-height:260px;overflow:auto;background:#fff;border:1px solid #d7dce5;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:4px;margin-top:4px}
-.customer-search-option29{display:block;width:100%;text-align:right;background:#fff;border:0;border-bottom:1px solid #eef1f5;padding:10px 12px;cursor:pointer;font:inherit;color:#1f2937}
-.customer-search-option29:hover,.customer-search-option29:focus{background:#f3f6fb;outline:none}
-.customer-search-option29 small{font-size:12px;color:#6b7280}
-.customer-search-empty29{padding:10px 12px;color:#6b7280}
+.customer-search-results29{width:100%;min-height:44px;background:#fff}
+.customer-search-results29 option{padding:8px 10px}
 </style>
 
 </body>
