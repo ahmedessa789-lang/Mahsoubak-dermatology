@@ -1158,22 +1158,22 @@ async function openCustomerByKey(key){if(!requireModulePermission('customers','v
 
  openModal(T('customerDetails')+' — '+customerName(c),`
  <div class="detail-grid">
-   ${detail(T('customer'),esc(p.customer_name||customerName(c)))}
-   ${detail(T('clinic'),esc(p.clinic_name||c.clinic_name||'-'))}
-   ${detail(T('phone'),esc(p.phone||c.phone||'-'))}
-   ${detail(LANG==='ar'?'البريد الإلكتروني':'Email',esc(p.email||c.email||'-'))}
-   ${detail(LANG==='ar'?'المدينة':'City',esc(p.city||c.city||'-'))}
-   ${detail(LANG==='ar'?'المنطقة':'Territory',esc(territoryText))}
-   ${detail(LANG==='ar'?'المجموعة':'Territory Group',esc(groupText))}
-   ${detail(LANG==='ar'?'العنوان':'Address',esc(p.address||c.address||'-'))}
-   ${detail(LANG==='ar'?'المندوب الحالي':'Current Rep',esc(repText))}
-   ${detail(LANG==='ar'?'نسبة التوزيع':'Split %',spl.length?splitPct.toFixed(2)+'%':'-')}
-   ${detail(LANG==='ar'?'الرصيد الافتتاحي':'Opening Balance',money(opening.amount))}
-   ${detail(LANG==='ar'?'تاريخ الرصيد الافتتاحي':'Opening Date',esc(opening.date||'-'))}
-   ${detail(LANG==='ar'?'المديونية الحالية':'Current Receivable',money(s.statement_balance))}
-   ${detail('Cashback',esc(cashbackText))}
-   ${detail(LANG==='ar'?'عدد العيادات':'Clinics',num(clinics.length,0))}
-   ${detail(LANG==='ar'?'حالة التوزيع':'Split Status',esc(splitStatus))}
+   ${authCan('customers','edit')?detailClick(T('customer'),esc(p.customer_name||customerName(c)),`openEditCustomerFinal('${esc(key)}')`):detail(T('customer'),esc(p.customer_name||customerName(c)))}
+   ${authCan('customers','edit')?detailClick(T('clinic'),esc(p.clinic_name||c.clinic_name||'-'),`openEditCustomerFinal('${esc(key)}')`):detail(T('clinic'),esc(p.clinic_name||c.clinic_name||'-'))}
+   ${authCan('customers','edit')?detailClick(T('phone'),esc(p.phone||c.phone||'-'),`openEditCustomerFinal('${esc(key)}')`):detail(T('phone'),esc(p.phone||c.phone||'-'))}
+   ${authCan('customers','edit')?detailClick(LANG==='ar'?'البريد الإلكتروني':'Email',esc(p.email||c.email||'-'),`openEditCustomerFinal('${esc(key)}')`):detail(LANG==='ar'?'البريد الإلكتروني':'Email',esc(p.email||c.email||'-'))}
+   ${authCan('customers','edit')?detailClick(LANG==='ar'?'المدينة':'City',esc(p.city||c.city||'-'),`openEditCustomerFinal('${esc(key)}')`):detail(LANG==='ar'?'المدينة':'City',esc(p.city||c.city||'-'))}
+   ${detailClick(LANG==='ar'?'المنطقة':'Territory',esc(territoryText),`openCustomerDrill('${esc(key)}','splits')`)}
+   ${detailClick(LANG==='ar'?'المجموعة':'Territory Group',esc(groupText),`openCustomerDrill('${esc(key)}','splits')`)}
+   ${authCan('customers','edit')?detailClick(LANG==='ar'?'العنوان':'Address',esc(p.address||c.address||'-'),`openEditCustomerFinal('${esc(key)}')`):detail(LANG==='ar'?'العنوان':'Address',esc(p.address||c.address||'-'))}
+   ${detailClick(LANG==='ar'?'المندوب الحالي':'Current Rep',esc(repText),`openCustomerDrill('${esc(key)}','splits')`)}
+   ${detailClick(LANG==='ar'?'نسبة التوزيع':'Split %',spl.length?splitPct.toFixed(2)+'%':'-',`openCustomerDrill('${esc(key)}','splits')`)}
+   ${detailClick(LANG==='ar'?'الرصيد الافتتاحي':'Opening Balance',money(opening.amount),`openCustomerOpeningBalanceFinal('${esc(key)}')`)}
+   ${detailClick(LANG==='ar'?'تاريخ الرصيد الافتتاحي':'Opening Date',esc(opening.date||'-'),`openCustomerOpeningBalanceFinal('${esc(key)}')`)}
+   ${detailClick(LANG==='ar'?'المديونية الحالية':'Current Receivable',money(s.statement_balance),`openCustomerStatementFinal('${esc(key)}')`)}
+   ${detailClick('Cashback',esc(cashbackText),`openCustomerCashbackFinal('${esc(key)}')`)}
+   ${detailClick(LANG==='ar'?'عدد العيادات':'Clinics',num(clinics.length,0),`openCustomerClinicsFinal('${esc(key)}')`)}
+   ${detailClick(LANG==='ar'?'حالة التوزيع':'Split Status',esc(splitStatus),`openCustomerDrill('${esc(key)}','splits')`)}
    ${detail(LANG==='ar'?'رقم العميل':'Customer ID',`<span style="font-size:11px">${esc(S(c.id||c.customer_id)||'-')}</span>`)}
  </div>
  ${splitStatus!=='MATCH'?`<div class="parity-note">${LANG==='ar'?'العميل يحتاج تعيين توزيع مندوب.':'Customer needs a rep split assignment.'}</div>`:''}
@@ -1204,11 +1204,11 @@ async function openCustomerStatementFinal(key){
  const noRows=rows.length===0?`<div class="empty">${LANG==='ar'?'لا توجد حركات مالية على هذا العميل حتى الآن.':'No financial transactions for this customer yet.'}</div>`:'';
  openModal((LANG==='ar'?'كشف حساب — ':'Customer Statement — ')+(s.customer_name||customerName(c)),`
  <div class="detail-grid">
- ${detail(LANG==='ar'?'الرصيد الافتتاحي':'Opening Balance',money(opening))}
- ${detail(LANG==='ar'?'إجمالي الفواتير':'Invoices',money(invoices))}
- ${detail(LANG==='ar'?'إجمالي التحصيلات':'Collections',money(collections))}
- ${detail(LANG==='ar'?'رصيد دائن غير موزع':'Unapplied Credit',money(s.unapplied_customer_credit))}
- ${detail(LANG==='ar'?'الرصيد النهائي':'Final Balance',money(s.statement_balance))}
+ ${detailClick(LANG==='ar'?'الرصيد الافتتاحي':'Opening Balance',money(opening),`openCustomerStatementMetricFinal('${esc(key)}','opening')`)}
+ ${detailClick(LANG==='ar'?'إجمالي الفواتير':'Invoices',money(invoices),`openCustomerStatementMetricFinal('${esc(key)}','invoices')`)}
+ ${detailClick(LANG==='ar'?'إجمالي التحصيلات':'Collections',money(collections),`openCustomerStatementMetricFinal('${esc(key)}','collections')`)}
+ ${detailClick(LANG==='ar'?'رصيد دائن غير موزع':'Unapplied Credit',money(s.unapplied_customer_credit),`openCustomerStatementMetricFinal('${esc(key)}','unapplied')`)}
+ ${detailClick(LANG==='ar'?'الرصيد النهائي':'Final Balance',money(s.statement_balance),`openCustomerStatementMetricFinal('${esc(key)}','balance')`)}
  </div>
  <div class="doc-actions"><button class="btn secondary" onclick="printCustomerStatementFinal('${esc(key)}')">${T('print')}</button></div>
  ${noRows}
@@ -1220,6 +1220,52 @@ async function openCustomerStatementFinal(key){
   [T('debit'),r=>money(r.debit)],[T('credit'),r=>money(r.credit)],[T('balance'),r=>`<b>${money(r.running_balance??r.running_receivable_balance)}</b>`]
  ],rows):''}`);
 }
+async function openCustomerStatementMetricFinal(key,kind){
+ await ensureFinalCustomerParityData();
+ const c=customerByKey(key);if(!c)return;
+ const s=finalCustomerStatement(c)||emptyCustomerStatementFinal(c);
+ const all=finalCustomerStatementLines(c);
+ let rows=all,title='';
+ if(kind==='opening'){
+   rows=all.filter(r=>S(r.transaction_type)==='OPENING_BALANCE');
+   title=LANG==='ar'?'تفاصيل الرصيد الافتتاحي':'Opening Balance Details';
+ }else if(kind==='invoices'){
+   rows=all.filter(r=>S(r.transaction_type)==='INVOICE');
+   title=LANG==='ar'?'تفاصيل الفواتير':'Invoice Details';
+ }else if(kind==='collections'){
+   rows=all.filter(r=>S(r.transaction_type)==='COLLECTION');
+   title=LANG==='ar'?'تفاصيل التحصيلات':'Collection Details';
+ }else if(kind==='unapplied'){
+   rows=all.filter(r=>S(r.transaction_type)==='COLLECTION'&&N(r.collection_unapplied)>0);
+   title=LANG==='ar'?'تفاصيل الرصيد الدائن غير الموزع':'Unapplied Credit Details';
+ }else{
+   rows=all;
+   title=LANG==='ar'?'تفاصيل الرصيد النهائي':'Final Balance Details';
+ }
+ const totalDebit=rows.reduce((a,r)=>a+N(r.debit),0);
+ const totalCredit=rows.reduce((a,r)=>a+N(r.credit),0);
+ openModal(title+' — '+(s.customer_name||customerName(c)),`
+  <div class="detail-grid">
+   ${detail(LANG==='ar'?'مدين':'Debit',money(totalDebit))}
+   ${detail(LANG==='ar'?'دائن':'Credit',money(totalCredit))}
+   ${detail(LANG==='ar'?'صافي الحركة':'Net Movement',money(totalDebit-totalCredit))}
+   ${detail(LANG==='ar'?'الرصيد الحالي للعميل':'Current Customer Balance',money(s.statement_balance))}
+  </div>
+  ${rows.length?table([
+   [T('date'),r=>esc(S(r.transaction_date).slice(0,10))],
+   [LANG==='ar'?'الحركة':'Type',r=>esc(r.transaction_type||'-')],
+   [LANG==='ar'?'المستند':'Document',r=>esc(r.document_number||r.source_id||'-')],
+   [LANG==='ar'?'البيان':'Description',r=>esc(r.description||'-')],
+   [T('debit'),r=>money(r.debit)],
+   [T('credit'),r=>money(r.credit)],
+   [T('balance'),r=>`<b>${money(r.running_balance??r.running_receivable_balance)}</b>`]
+  ],rows):`<div class="empty">${LANG==='ar'?'لا توجد حركات لهذا الكارت.':'No movements for this card.'}</div>`}
+  <div class="doc-actions">
+   <button class="btn secondary" onclick="openCustomerStatementFinal('${esc(key)}')">${LANG==='ar'?'العودة لكشف الحساب':'Back to Statement'}</button>
+  </div>`);
+}
+window.openCustomerStatementMetricFinal=openCustomerStatementMetricFinal;
+
 async function printCustomerStatementFinal(key){
  await ensureFinalCustomerParityData();
  const c=customerByKey(key);if(!c)return;
