@@ -904,9 +904,34 @@ function closeModal(){$('modal').classList.remove('show')}
 
 /* Products */
 function stockStatus(r){const qty=N(r.current_stock_qty),min=N(r.min_stock_qty??r.min_stock??r.reorder_level);if(qty<=0)return [T('out'),'zero'];if(min>0&&qty<=min)return [T('low'),'low'];return [T('available'),'ok']}
-function productRows(){const text=S(($('productSearch')||{}).value).toLowerCase(),filter=S(($('stockFilter')||{}).value||'all');return A(D.inventory).filter(r=>{const hay=(S(r.product_name)+' '+S(r.product_code)+' '+S(r.lot_number)).toLowerCase();if(text&&!hay.includes(text))return false;const st=stockStatus(r)[1];if(filter==='low'&&st!=='low')return false;if(filter==='zero'&&st!=='zero')return false;if(filter==='available'&&st!=='ok')return false;return true})}
+function allProductDisplayRows(){
+ const inv=A(D.inventory);
+ const byId=new Map(inv.map(r=>[S(r.product_id),r]));
+ const byName=new Map(inv.map(r=>[norm(r.product_name),r]));
+ const out=[...inv];
+ A(D.productsMaster).forEach(p=>{
+   const id=S(p.id),name=S(p.name||p.product_name);
+   if((id&&byId.has(id)) || (name&&byName.has(norm(name))))return;
+   out.push({
+     product_id:id,
+     product_name:name||'-',
+     product_code:S(p.code),
+     current_stock_qty:0,
+     opening_qty:0,
+     sold_qty:0,
+     ending_inventory_value:0,
+     canonical_unit_cost:N(p.purchase),
+     unit_cost:N(p.purchase),
+     cost:N(p.purchase),
+     lot_number:S(p.lot_number),
+     min_stock_qty:N(p.min_stock_qty??p.min_stock??p.reorder_level)
+   });
+ });
+ return out;
+}
+function productRows(){const text=S(($('productSearch')||{}).value).toLowerCase(),filter=S(($('stockFilter')||{}).value||'all');return allProductDisplayRows().filter(r=>{const hay=(S(r.product_name)+' '+S(r.product_code)+' '+S(r.lot_number)).toLowerCase();if(text&&!hay.includes(text))return false;const st=stockStatus(r)[1];if(filter==='low'&&st!=='low')return false;if(filter==='zero'&&st!=='zero')return false;if(filter==='available'&&st!=='ok')return false;return true})}
 function renderProducts(){
- const rows=A(D.inventory),costRows=A(D.inventoryCostSummary),totalQty=rows.reduce((a,r)=>a+N(r.current_stock_qty),0),totalValue=costRows.length?costRows.reduce((a,r)=>a+N(r.adjusted_inventory_value),0):rows.reduce((a,r)=>a+N(r.ending_inventory_value),0),low=rows.filter(r=>stockStatus(r)[1]==='low').length,zero=rows.filter(r=>stockStatus(r)[1]==='zero').length;
+ const rows=allProductDisplayRows(),costRows=A(D.inventoryCostSummary),totalQty=rows.reduce((a,r)=>a+N(r.current_stock_qty),0),totalValue=costRows.length?costRows.reduce((a,r)=>a+N(r.adjusted_inventory_value),0):rows.reduce((a,r)=>a+N(r.ending_inventory_value),0),low=rows.filter(r=>stockStatus(r)[1]==='low').length,zero=rows.filter(r=>stockStatus(r)[1]==='zero').length;
  $('view-products').innerHTML=`<div class="module-head"><div><h3>${T('productsTitle')}</h3><p>${T('productsSource')}</p></div><div class="module-tools"><input id="productSearch" class="input" placeholder="${T('searchProduct')}" oninput="renderProductTable()"><select id="stockFilter" class="select" onchange="renderProductTable()"><option value="all">${T('allProducts')}</option><option value="available">${T('available')}</option><option value="low">${T('low')}</option><option value="zero">${T('out')}</option></select></div></div>
  <div class="module-grid"><div class="mini-card" onclick="openInventorySummary('value')"><span>${LANG==='ar'?'قيمة المخزون بعد المصروفات':'Inventory value after expenses'}</span><b>${money(totalValue)}</b></div><div class="mini-card" onclick="openInventorySummary('qty')"><span>${T('totalQty')}</span><b>${num(totalQty,2)}</b></div><div class="mini-card" onclick="setStockFilter('low')"><span>${T('low')}</span><b>${num(low,0)}</b></div><div class="mini-card" onclick="setStockFilter('zero')"><span>${T('out')}</span><b>${num(zero,0)}</b></div></div><div class="table-card"><div id="productTableWrap" class="table-wrap"></div></div>`;
  renderProductTable();
@@ -919,7 +944,7 @@ function renderProductTable(){
  PRODUCT_VIEW_ROWS=productRows();const w=$('productTableWrap');if(!w)return;
  if(!PRODUCT_VIEW_ROWS.length){w.innerHTML=`<div class="empty">${T('noProducts')}</div>`;return}
  w.innerHTML=`<table class="data-table"><thead><tr>
- <th>${T('product')}</th><th>${T('code')}</th><th>${T('balance')}</th>
+ <th>${T('product')}</th><th>${T('code')}</th><th>${LANG==='ar'?'المخزون':'Stock'}</th>
  <th>${LANG==='ar'?'التكلفة الأساسية':'Base Cost'}</th><th>${LANG==='ar'?'التكلفة المعدلة':'Adjusted Cost'}</th>
  <th>${T('inventoryValue')}</th><th>${T('opening')}</th><th>${T('sold')}</th><th>${T('status')}</th>
  </tr></thead><tbody>${PRODUCT_VIEW_ROWS.map(r=>{const st=stockStatus(r),x=finalInventoryCostRow(r),base=x?N(x.weighted_base_unit_cost):N(r.canonical_unit_cost||r.unit_cost||r.cost),expense=x?N(x.weighted_expense_per_unit):0,adjusted=x?N(x.weighted_adjusted_unit_cost):base,value=x?N(x.adjusted_inventory_value):N(r.ending_inventory_value);return `<tr><td class="product-name">${esc(r.product_name||'-')}</td><td>${esc(r.product_code||r.code||'-')}</td><td>${num(r.current_stock_qty,2)}</td><td>${money(base)}</td><td><b>${money(adjusted)}</b>${expense?`<div class="muted" style="font-size:11px;margin-top:3px">+ ${money(expense)} ${LANG==='ar'?'مصروفات/وحدة':'expense/unit'}</div>`:''}</td><td>${money(value)}</td><td>${num(r.opening_qty,2)}</td><td>${num(r.sold_qty,2)}</td><td><span class="pill ${st[1]}">${st[0]}</span></td></tr>`}).join('')}</tbody></table>`;
@@ -933,10 +958,10 @@ function setStockFilter(v){
  $('productTableWrap')?.scrollIntoView({behavior:'smooth',block:'start'});
 }
 function openInventorySummary(kind){if(!requireModulePermission('products','view'))return;
- const rows=A(D.inventory);
+ const rows=allProductDisplayRows();
  const body=table([
   [T('product'),r=>`<b>${esc(r.product_name||'-')}</b>`],
-  [T('balance'),r=>num(r.current_stock_qty,2)],
+  [LANG==='ar'?'المخزون':'Stock',r=>num(r.current_stock_qty,2)],
   [LANG==='ar'?'التكلفة الأساسية':'Base Cost',r=>{const x=finalInventoryCostRow(r);return money(x?x.weighted_base_unit_cost:(r.canonical_unit_cost||r.unit_cost||r.cost))}],
   [LANG==='ar'?'المصروفات / وحدة':'Expense / Unit',r=>{const x=finalInventoryCostRow(r);return money(x?x.weighted_expense_per_unit:0)}],
   [LANG==='ar'?'التكلفة المعدلة':'Adjusted Cost',r=>{const x=finalInventoryCostRow(r);return money(x?x.weighted_adjusted_unit_cost:(r.canonical_unit_cost||r.unit_cost||r.cost))}],
@@ -1202,7 +1227,8 @@ async function openCustomerStatementFinal(key){
  const invoices=rows.filter(r=>S(r.transaction_type)==='INVOICE').reduce((a,r)=>a+N(r.debit),0);
  const collections=rows.filter(r=>S(r.transaction_type)==='COLLECTION').reduce((a,r)=>a+N(r.credit),0);
  const noRows=rows.length===0?`<div class="empty">${LANG==='ar'?'لا توجد حركات مالية على هذا العميل حتى الآن.':'No financial transactions for this customer yet.'}</div>`:'';
- openModal((LANG==='ar'?'كشف حساب — ':'Customer Statement — ')+(s.customer_name||customerName(c)),`
+ const statementCustomerName=S(c.name||c.customer_name||s.customer_name||'-');
+ openModal((LANG==='ar'?'كشف حساب — ':'Customer Statement — ')+statementCustomerName,`
  <div class="detail-grid">
  ${detailClick(LANG==='ar'?'الرصيد الافتتاحي':'Opening Balance',money(opening),`openCustomerStatementMetricFinal('${esc(key)}','opening')`)}
  ${detailClick(LANG==='ar'?'إجمالي الفواتير':'Invoices',money(invoices),`openCustomerStatementMetricFinal('${esc(key)}','invoices')`)}
@@ -1210,7 +1236,7 @@ async function openCustomerStatementFinal(key){
  ${detailClick(LANG==='ar'?'رصيد دائن غير موزع':'Unapplied Credit',money(s.unapplied_customer_credit),`openCustomerStatementMetricFinal('${esc(key)}','unapplied')`)}
  ${detailClick(LANG==='ar'?'الرصيد النهائي':'Final Balance',money(s.statement_balance),`openCustomerStatementMetricFinal('${esc(key)}','balance')`)}
  </div>
- <div class="doc-actions"><button class="btn secondary" onclick="printCustomerStatementFinal('${esc(key)}')">${T('print')}</button></div>
+ <div class="doc-actions"><button class="btn secondary" onclick="printCustomerStatementFinal('${esc(key)}')">🧾 ${LANG==='ar'?'طباعة صيغة كشف الحساب':'Print Statement Format'}</button></div>
  ${noRows}
  ${rows.length?table([
   [T('date'),r=>esc(S(r.transaction_date).slice(0,10))],
@@ -1248,7 +1274,8 @@ async function openCustomerStatementMetricFinal(key,kind){
  }
  const totalDebit=rows.reduce((a,r)=>a+N(r.debit),0);
  const totalCredit=rows.reduce((a,r)=>a+N(r.credit),0);
- openModal(title+' — '+(s.customer_name||customerName(c)),`
+ const statementCustomerName=S(c.name||c.customer_name||s.customer_name||'-');
+ openModal(title+' — '+statementCustomerName,`
   <div class="detail-grid">
    ${detail(LANG==='ar'?'مدين':'Debit',money(totalDebit))}
    ${detail(LANG==='ar'?'دائن':'Credit',money(totalCredit))}
@@ -1274,10 +1301,88 @@ window.openCustomerStatementMetricFinal=openCustomerStatementMetricFinal;
 async function printCustomerStatementFinal(key){
  await ensureFinalCustomerParityData();
  const c=customerByKey(key);if(!c)return;
- const s=finalCustomerStatement(c)||emptyCustomerStatementFinal(c),rows=finalCustomerStatementLines(c);
+ const s=finalCustomerStatement(c)||emptyCustomerStatementFinal(c);
+ const rows=finalCustomerStatementLines(c);
+ const opening=rows.filter(r=>S(r.transaction_type)==='OPENING_BALANCE').reduce((a,r)=>a+N(r.debit)-N(r.credit),0);
+ const invoices=rows.filter(r=>S(r.transaction_type)==='INVOICE').reduce((a,r)=>a+N(r.debit),0);
+ const collections=rows.filter(r=>S(r.transaction_type)==='COLLECTION').reduce((a,r)=>a+N(r.credit),0);
+ const totalDebit=rows.reduce((a,r)=>a+N(r.debit),0);
+ const totalCredit=rows.reduce((a,r)=>a+N(r.credit),0);
+ const dir=LANG==='ar'?'rtl':'ltr';
+ const align=LANG==='ar'?'right':'left';
  const w=window.open('','_blank');if(!w)return;
- w.document.write(`<!doctype html><html dir="${LANG==='ar'?'rtl':'ltr'}"><head><meta charset="utf-8"><title>${esc(s.customer_name||'Statement')}</title><style>body{font-family:Arial;padding:28px}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #ddd;padding:7px}th{background:#f5f5f5}.empty{padding:18px;text-align:center;color:#666}</style></head><body><h2>${LANG==='ar'?'كشف حساب العميل':'Customer Statement'} — ${esc(s.customer_name||'-')}</h2><div>${esc(s.clinic_name||'-')} • ${esc(s.city||'-')} • ${esc(s.phone||'-')}</div><p><b>${LANG==='ar'?'الرصيد النهائي':'Final Balance'}: ${money(s.statement_balance)}</b></p>${rows.length?`<table><thead><tr><th>${T('date')}</th><th>${LANG==='ar'?'الحركة':'Type'}</th><th>${LANG==='ar'?'المستند':'Document'}</th><th>${LANG==='ar'?'البيان':'Description'}</th><th>${T('debit')}</th><th>${T('credit')}</th><th>${T('balance')}</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(S(r.transaction_date).slice(0,10))}</td><td>${esc(r.transaction_type||'-')}</td><td>${esc(r.document_number||r.source_id||'-')}</td><td>${esc(r.description||'-')}</td><td>${money(r.debit)}</td><td>${money(r.credit)}</td><td>${money(r.running_balance??r.running_receivable_balance)}</td></tr>`).join('')}</tbody></table>`:`<div class="empty">${LANG==='ar'?'لا توجد حركات مالية على هذا العميل حتى الآن.':'No financial transactions for this customer yet.'}</div>`}<script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();
+ const title=LANG==='ar'?'كشف حساب عميل':'Customer Statement';
+ const customer=S(c.name||c.customer_name||s.customer_name||'-');
+ const clinic=S(c.clinic_name||s.clinic_name||'-');
+ const phone=S(s.phone||c.phone||'-');
+ const city=S(s.city||c.city||'-');
+ const address=S(s.address||c.address||'-');
+ const html=`<!doctype html><html dir="${dir}"><head><meta charset="utf-8"><title>${esc(title)} - ${esc(customer)}</title>
+ <style>
+ @page{size:A4;margin:12mm}
+ *{box-sizing:border-box}
+ body{font-family:Arial,Tahoma,sans-serif;color:#111827;margin:0;background:#fff}
+ .sheet{border:1px solid #d1d5db;border-radius:14px;overflow:hidden}
+ .head{padding:18px 22px;border-bottom:3px solid #111827;display:flex;justify-content:space-between;gap:20px;align-items:flex-start}
+ .brand{font-weight:900;font-size:22px}.sub{font-size:12px;color:#6b7280;margin-top:4px}
+ h1{margin:0;font-size:24px}.date{font-size:12px;color:#4b5563;margin-top:6px}
+ .info{display:grid;grid-template-columns:1fr 1fr;gap:8px 18px;padding:16px 22px;background:#f9fafb;border-bottom:1px solid #e5e7eb}
+ .field{font-size:13px}.field b{display:inline-block;min-width:110px}
+ .summary{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;padding:14px 22px}
+ .card{border:1px solid #d1d5db;border-radius:10px;padding:10px;text-align:center;background:#fff}
+ .card span{display:block;color:#6b7280;font-size:11px;margin-bottom:5px}.card b{font-size:16px}
+ table{width:100%;border-collapse:collapse;margin:0}
+ th,td{border:1px solid #d1d5db;padding:7px 6px;font-size:11px;text-align:${align}}
+ th{background:#f3f4f6;font-weight:800}
+ .totals{display:flex;justify-content:flex-end;padding:14px 22px}
+ .totals table{width:330px}.totals td{font-size:12px}.totals .final{font-weight:900;font-size:14px}
+ .foot{display:grid;grid-template-columns:1fr 1fr;gap:80px;padding:32px 22px 22px;margin-top:10px}
+ .sig{border-top:1px solid #6b7280;padding-top:7px;text-align:center;font-size:12px}
+ .empty{padding:30px;text-align:center;color:#6b7280}
+ @media print{.sheet{border:0}.head{padding-top:0}}
+ </style></head><body>
+ <section class="sheet">
+  <div class="head">
+   <div><div class="brand">Mahsoubak Business</div><div class="sub">${LANG==='ar'?'نظام توزيع منتجات الجلدية':'Dermatology Distribution System'}</div></div>
+   <div><h1>${esc(title)}</h1><div class="date">${LANG==='ar'?'تاريخ الطباعة':'Print date'}: ${new Date().toLocaleDateString(LANG==='ar'?'ar-EG':'en-GB')}</div></div>
+  </div>
+  <div class="info">
+   <div class="field"><b>${LANG==='ar'?'العميل':'Customer'}:</b> ${esc(customer)}</div>
+   <div class="field"><b>${LANG==='ar'?'العيادة':'Clinic'}:</b> ${esc(clinic)}</div>
+   <div class="field"><b>${LANG==='ar'?'الهاتف':'Phone'}:</b> ${esc(phone)}</div>
+   <div class="field"><b>${LANG==='ar'?'المدينة':'City'}:</b> ${esc(city)}</div>
+   <div class="field" style="grid-column:1/-1"><b>${LANG==='ar'?'العنوان':'Address'}:</b> ${esc(address)}</div>
+  </div>
+  <div class="summary">
+   <div class="card"><span>${LANG==='ar'?'الرصيد الافتتاحي':'Opening Balance'}</span><b>${money(opening)}</b></div>
+   <div class="card"><span>${LANG==='ar'?'إجمالي الفواتير':'Invoices'}</span><b>${money(invoices)}</b></div>
+   <div class="card"><span>${LANG==='ar'?'إجمالي التحصيلات':'Collections'}</span><b>${money(collections)}</b></div>
+   <div class="card"><span>${LANG==='ar'?'إجمالي المدين':'Total Debit'}</span><b>${money(totalDebit)}</b></div>
+   <div class="card"><span>${LANG==='ar'?'الرصيد النهائي':'Final Balance'}</span><b>${money(s.statement_balance)}</b></div>
+  </div>
+  ${rows.length?`<table><thead><tr>
+   <th>${T('date')}</th><th>${LANG==='ar'?'الحركة':'Type'}</th><th>${LANG==='ar'?'المستند':'Document'}</th>
+   <th>${LANG==='ar'?'البيان':'Description'}</th><th>${T('debit')}</th><th>${T('credit')}</th><th>${LANG==='ar'?'الرصيد':'Balance'}</th>
+  </tr></thead><tbody>${rows.map(r=>`<tr>
+   <td>${esc(S(r.transaction_date).slice(0,10))}</td>
+   <td>${esc(r.transaction_type||'-')}</td>
+   <td>${esc(r.document_number||r.source_id||'-')}</td>
+   <td>${esc(r.description||'-')}</td>
+   <td>${money(r.debit)}</td>
+   <td>${money(r.credit)}</td>
+   <td><b>${money(r.running_balance??r.running_receivable_balance)}</b></td>
+  </tr>`).join('')}</tbody></table>`:`<div class="empty">${LANG==='ar'?'لا توجد حركات مالية على هذا العميل حتى الآن.':'No financial transactions for this customer yet.'}</div>`}
+  <div class="totals"><table>
+   <tr><td>${LANG==='ar'?'إجمالي المدين':'Total Debit'}</td><td>${money(totalDebit)}</td></tr>
+   <tr><td>${LANG==='ar'?'إجمالي الدائن':'Total Credit'}</td><td>${money(totalCredit)}</td></tr>
+   <tr class="final"><td>${LANG==='ar'?'الرصيد النهائي':'Final Balance'}</td><td>${money(s.statement_balance)}</td></tr>
+  </table></div>
+  <div class="foot"><div class="sig">${LANG==='ar'?'مسؤول الحسابات':'Accounts Officer'}</div><div class="sig">${LANG==='ar'?'اعتماد العميل':'Customer Approval'}</div></div>
+ </section>
+ <script>window.onload=()=>window.print()<\/script></body></html>`;
+ w.document.write(html);w.document.close();
 }
+
 function openEditCustomerFinal(key){
  if(!requireModulePermission('customers','edit'))return;
  const c=customerByKey(key);if(!c)return;
@@ -6105,7 +6210,19 @@ async function saveNewProductBuild18(){
       p_expiry:S(($('b18_prod_expiry')||{}).value)||null,
       p_payload:{source:'FINAL_CONSOLIDATED_UI'}
     });
-    closeModal(); await refreshAfterWriteBuild18('products');
+    const [master,inventory,orderProducts,lots]=await Promise.all([
+      getAllSession(V.productsMaster),
+      getAllSession(V.inventory),
+      getOrderProductsSafe(),
+      getDispatchLotsSafe()
+    ]);
+    D.productsMaster=master;
+    D.inventory=inventory;
+    D.orderProducts=orderProducts;
+    D.dispatchLots=lots;
+    closeModal();
+    renderProducts();
+    alert(LANG==='ar'?'تمت إضافة المنتج بنجاح. سيظهر بمخزون صفر حتى يتم توريد كمية عليه.':'Product added successfully. It will show with zero stock until quantity is received.');
   }catch(e){alert(e.message||e)}
 }
 window.openNewProductBuild18=openNewProductBuild18;
