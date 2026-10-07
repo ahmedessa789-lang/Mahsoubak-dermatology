@@ -1,8 +1,9 @@
-<!doctype html>
-<html lang="ar" dir="rtl">
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1" name="viewport"/>
 <title>Mahsoubak Business</title>
 <style>
 *{box-sizing:border-box}
@@ -338,7 +339,6 @@ body.secure-locked #loading{display:none!important}
 @media(max-width:900px){.liq-grid{grid-template-columns:1fr}.liq-arrow{transform:rotate(90deg)}.statement-grid{grid-template-columns:1fr}}
 
 </style>
-
 <style id="build05-parity24-style">
 .parity24-note{background:#eef6ff;border:1px solid #bfdbfe;color:#1e3a8a;border-radius:14px;padding:12px 14px;font-size:12px;font-weight:800;line-height:1.7;margin:12px 0}
 .parity24-grid{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:10px;margin:12px 0}
@@ -350,7 +350,6 @@ body.secure-locked #loading{display:none!important}
 .parity24-badge.high{background:#fee2e2;color:#991b1b}.parity24-badge.medium{background:#fef3c7;color:#92400e}.parity24-badge.low{background:#dcfce7;color:#166534}
 @media(max-width:1000px){.parity24-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:650px){.parity24-grid{grid-template-columns:1fr}}
 </style>
-
 <style id="build22-final-client-clean">
 body,.main{background:#f1f4f8!important}
 
@@ -387,71 +386,64 @@ body,.main{background:#f1f4f8!important}
 .canonical-kpi:nth-child(6n+5):before{background:#ef4444}
 .canonical-kpi:nth-child(6n+6):before{background:#14b8a6}
 </style>
-<meta name="mahsoubak-build" content="FINAL_CONSOLIDATED_CLEAN_V4_FULL_REVIEW_2026_09_24">
-
+<meta content="FINAL_CONSOLIDATED_CLEAN_V4_FULL_REVIEW_2026_09_24" name="mahsoubak-build"/>
 <style id="rc24-clickable-kpi-style">
 .clickable-kpi{cursor:pointer;transition:transform .12s ease,box-shadow .12s ease}
 .clickable-kpi:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(15,23,42,.10)}
 .clickable-kpi small{display:block;margin-top:6px;color:#64748b;font-size:11px}
 .ga24-section{margin-bottom:16px}
 </style>
-
-
 <style id="final-client-clean-css">
 .module-head p,.summary-note,.liq-source,.b19-warn,.b19-live,.auth-note{display:none!important}
 .card,.mini-card,.parity24-kpi,.canonical-kpi{background:#fff;border:1px solid #d7dce3;box-shadow:0 7px 20px rgba(15,23,42,.08)}
 .mini-card,.parity24-kpi,.canonical-kpi{cursor:pointer}
 </style>
-
 <style id="final-consolidated-clean-v1">
 /* LAZY FAST BUILD27 • PRINT + DISPATCH SAFE */
 .parity-note{border-radius:12px}
 </style>
 </head>
 <body>
-<div id="loading" class="loading"><div id="loadingText">Loading…</div></div>
+<div class="loading" id="loading"><div id="loadingText">Loading…</div></div>
 <div id="secureGate"></div>
 <div class="app">
 <aside class="side">
-  <div class="brand"><h1>Mahsoubak Business</h1><p id="brandSub">Dermatology Distribution System</p><button id="langBtn" class="lang-btn" onclick="toggleLang()">English</button></div>
-  <div id="nav" class="nav"></div>
-  <div id="status" class="status">Connecting…</div>
+<div class="brand"><h1>Mahsoubak Business</h1><p id="brandSub">Dermatology Distribution System</p><button class="lang-btn" id="langBtn" onclick="toggleLang()">English</button></div>
+<div class="nav" id="nav"></div>
+<div class="status" id="status">Connecting…</div>
 </aside>
 <main class="main">
-  <div class="top">
-    <div><h2 id="pageTitle"></h2><p id="pageSub"></p></div>
-    <div class="actions"><button id="notificationBell" class="btn secondary notification-bell" onclick="openNotifications()" title="Notifications">🔔<span id="notificationBadge" class="notification-badge zero">0</span></button><button id="authBtn" class="btn secondary" onclick="openAuthPanel()">🔐 Login</button><button id="refreshBtn" class="btn secondary" onclick="refreshCurrentScreenLazy28()"></button></div>
-  </div>
-  <div id="error" class="error"></div>
-  <div class="health"><span id="healthDot" class="dot"></span><span id="healthText">Checking…</span></div>
-
-  <section id="view-dashboard" class="section active"><div id="dashboard" class="grid"></div></section>
-  <section id="view-products" class="section"></section>
-  <section id="view-customers" class="section"></section>
-  <section id="view-suppliers" class="section"></section>
-  <section id="view-reps" class="section"></section>
-  <section id="view-rep_reports" class="section"></section>
-  <section id="view-operations" class="section"></section>
-  <section id="view-purchases" class="section"></section>
-  <section id="view-sales" class="section"></section>
-  <section id="view-collections" class="section"></section>
-  <section id="view-reports" class="section"></section>
-  <section id="view-finance" class="section"></section>
-  <section id="view-trial" class="section"></section>
-  <section id="view-regions" class="section"></section>
-  <section id="view-users" class="section"></section>
-  <section id="view-cashflow" class="section"></section>
-  <section id="view-settings" class="section"></section>
+<div class="top">
+<div><h2 id="pageTitle"></h2><p id="pageSub"></p></div>
+<div class="actions"><button class="btn secondary notification-bell" id="notificationBell" onclick="openNotifications()" title="Notifications">🔔<span class="notification-badge zero" id="notificationBadge">0</span></button><button class="btn secondary" id="authBtn" onclick="openAuthPanel()">🔐 Login</button><button class="btn secondary" id="refreshBtn" onclick="refreshCurrentScreenLazy28()"></button></div>
+</div>
+<div class="error" id="error"></div>
+<div class="health"><span class="dot" id="healthDot"></span><span id="healthText">Checking…</span></div>
+<section class="section active" id="view-dashboard"><div class="grid" id="dashboard"></div></section>
+<section class="section" id="view-products"></section>
+<section class="section" id="view-customers"></section>
+<section class="section" id="view-suppliers"></section>
+<section class="section" id="view-reps"></section>
+<section class="section" id="view-rep_reports"></section>
+<section class="section" id="view-operations"></section>
+<section class="section" id="view-purchases"></section>
+<section class="section" id="view-sales"></section>
+<section class="section" id="view-collections"></section>
+<section class="section" id="view-reports"></section>
+<section class="section" id="view-finance"></section>
+<section class="section" id="view-trial"></section>
+<section class="section" id="view-regions"></section>
+<section class="section" id="view-users"></section>
+<section class="section" id="view-cashflow"></section>
+<section class="section" id="view-settings"></section>
 </main>
 </div>
-
-<div id="modal" class="modal" onclick="if(event.target===this)closeModal()">
-  <div class="panel">
-    <div class="panel-head"><b id="modalTitle"></b><button id="modalClose" class="btn secondary" onclick="closeModal()"></button></div>
-    <div id="modalBody" class="panel-body"></div>
-  </div>
+<div class="modal" id="modal" onclick="if(event.target===this)closeModal()">
+<div class="panel">
+<div class="panel-head"><b id="modalTitle"></b><button class="btn secondary" id="modalClose" onclick="closeModal()"></button></div>
+<div class="panel-body" id="modalBody"></div>
 </div>
-
+</div>
 <script>
 'use strict';
 /* MAHSOUBAK FINAL CLEAN BUILD 01 — canonical source map 2026-09-21 */
@@ -1100,6 +1092,33 @@ function finalCustomerSplitHealth(c){
  const id=S(c?.id||c?.customer_id),name=norm(customerName(c||{}));
  return A(D.customerSplitHealth).find(x=>S(x.customer_id)===id)||A(D.customerSplitHealth).find(x=>norm(x.customer_name)===name)||null;
 }
+
+function restoreSearchFocusFinal(id,value,pos){
+ requestAnimationFrame(()=>{
+   const el=$(id);
+   if(!el)return;
+   el.focus({preventScroll:true});
+   const p=Math.max(0,Math.min(Number.isFinite(pos)?pos:S(value).length,S(value).length));
+   try{el.setSelectionRange(p,p)}catch(e){}
+ });
+}
+function customerSearchInputFinal(el){
+ const value=S(el?.value),pos=Number.isFinite(el?.selectionStart)?el.selectionStart:value.length;
+ renderCustomers();
+ const next=$('customerSearch');
+ if(next)next.value=value;
+ restoreSearchFocusFinal('customerSearch',value,pos);
+}
+function supplierSearchInputFinal(el){
+ const value=S(el?.value),pos=Number.isFinite(el?.selectionStart)?el.selectionStart:value.length;
+ renderSuppliers();
+ const next=$('supplierSearch');
+ if(next)next.value=value;
+ restoreSearchFocusFinal('supplierSearch',value,pos);
+}
+window.customerSearchInputFinal=customerSearchInputFinal;
+window.supplierSearchInputFinal=supplierSearchInputFinal;
+
 function renderCustomers(){
  const search=S(($('customerSearch')||{}).value).toLowerCase();
  const all=A(D.customers),filtered=all.filter(c=>{
@@ -1116,7 +1135,7 @@ function renderCustomers(){
  ]).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
  $('view-customers').innerHTML=`<div class="module-head">
    <div><h3>${T('customersTitle')}</h3><p>${T('customersSub')}</p></div>
-   <div class="module-tools">${authCan('customers','add')?`<button id="b18AddCustomer" class="btn secondary" onclick="openNewCustomerBuild18()">＋ ${LANG==='ar'?'إضافة عميل':'Add Customer'}</button>`:''}<input id="customerSearch" class="input" list="customerSearchSuggestions" value="${esc(search)}" placeholder="${LANG==='ar'?'اكتب اسم العميل أو العيادة…':'Type customer or clinic…'}" oninput="renderCustomers()"><datalist id="customerSearchSuggestions">${searchOptions.map(x=>`<option value="${esc(x)}"></option>`).join('')}</datalist></div>
+   <div class="module-tools">${authCan('customers','add')?`<button id="b18AddCustomer" class="btn secondary" onclick="openNewCustomerBuild18()">＋ ${LANG==='ar'?'إضافة عميل':'Add Customer'}</button>`:''}<input id="customerSearch" class="input" list="customerSearchSuggestions" value="${esc(search)}" placeholder="${LANG==='ar'?'اكتب اسم العميل أو العيادة…':'Type customer or clinic…'}" oninput="customerSearchInputFinal(this)"><datalist id="customerSearchSuggestions">${searchOptions.map(x=>`<option value="${esc(x)}"></option>`).join('')}</datalist></div>
  </div>
  <div class="module-grid">
    <div class="mini-card" onclick="openCustomerSummary('all')"><span>${T('totalCustomers')}</span><b>${num(all.length,0)}</b></div>
@@ -1586,7 +1605,7 @@ function renderSuppliers(){
 
  $('view-suppliers').innerHTML=`<div class="module-head">
    <div><h3>${T('suppliersTitle')}</h3><p>${T('suppliersSub')}</p></div>
-   <div class="module-tools">${authCan('suppliers','add')?`<button class="btn secondary" onclick="openNewSupplier()">＋ ${T('newSupplier')}</button>`:''}<input id="supplierSearch" class="input" value="${esc(search)}" placeholder="${T('searchCustomer')}" oninput="renderSuppliers()"></div>
+   <div class="module-tools">${authCan('suppliers','add')?`<button class="btn secondary" onclick="openNewSupplier()">＋ ${T('newSupplier')}</button>`:''}<input id="supplierSearch" class="input" value="${esc(search)}" placeholder="${T('searchCustomer')}" oninput="supplierSearchInputFinal(this)"></div>
  </div>
  <div class="module-grid">
    <div class="mini-card" onclick="openSupplierSummary('all')"><span>${T('totalSuppliers')}</span><b>${num(all.length,0)}</b></div>
@@ -6663,7 +6682,6 @@ window.refreshCurrentModuleBuild18=async function(){
 
 startSecureApp();
 </script>
-
 <script id="build07-fix1-lazy-finance">
 (function(){
   let financeRuntimeLoading=null;
@@ -6696,7 +6714,6 @@ startSecureApp();
   try{show=window.show}catch(e){}
 })();
 </script>
-
 <script id="build09-backend-contract-finance">
 (function(){
  'use strict';
@@ -7462,7 +7479,6 @@ async function saveManualJournalFinal(){
 
 })();
 </script>
-
 <script id="build10-customer360-lazy">
 (function(){
  'use strict';
@@ -7511,7 +7527,6 @@ async function saveManualJournalFinal(){
  try{openDashboardCard=window.openDashboardCard}catch(e){}
 })();
 </script>
-
 <script id="build22-final-overrides">
 (function(){
 'use strict';
@@ -7680,9 +7695,40 @@ setTimeout(function(){
 
 })();
 </script>
-
 <div id="cleanBuildId" style="position:fixed;bottom:8px;right:10px;z-index:99999;background:#111827;color:#fff;padding:4px 8px;border-radius:8px;font:700 10px Arial;opacity:.75;pointer-events:none">LAZY FAST BUILD27 • PRINT + DISPATCH SAFE</div>
-\n<script id="build25-lazy-liquidity-detail">\n(function(){\n  'use strict';\n  let liquidityDetailLoading=null;\n\n  window.ensureLiquidityDetailLoaded=async function(force=false){\n    if(!force && Array.isArray(D.liquidityDetail) && D.liquidityDetail.length)return true;\n    if(liquidityDetailLoading)return liquidityDetailLoading;\n    liquidityDetailLoading=(async function(){\n      try{\n        const rows=await getAllSessionSafe(V.liquidityDetail);\n        D.liquidityDetail=Array.isArray(rows)?rows:[];\n        return true;\n      }catch(e){\n        console.warn('Liquidity detail lazy load failed:',e);\n        return false;\n      }finally{\n        liquidityDetailLoading=null;\n      }\n    })();\n    return liquidityDetailLoading;\n  };\n\n  const priorShow=window.show;\n  window.show=async function(id){\n    if(id==='cashflow' || id==='finance'){\n      await window.ensureLiquidityDetailLoaded(false);\n    }\n    return priorShow.apply(this,arguments);\n  };\n  try{show=window.show}catch(e){}\n})();\n</script>\n
+\n<script id="build25-lazy-liquidity-detail">
+(function(){
+  'use strict';
+  let liquidityDetailLoading=null;
+
+  window.ensureLiquidityDetailLoaded=async function(force=false){
+    if(!force && Array.isArray(D.liquidityDetail) && D.liquidityDetail.length)return true;
+    if(liquidityDetailLoading)return liquidityDetailLoading;
+    liquidityDetailLoading=(async function(){
+      try{
+        const rows=await getAllSessionSafe(V.liquidityDetail);
+        D.liquidityDetail=Array.isArray(rows)?rows:[];
+        return true;
+      }catch(e){
+        console.warn('Liquidity detail lazy load failed:',e);
+        return false;
+      }finally{
+        liquidityDetailLoading=null;
+      }
+    })();
+    return liquidityDetailLoading;
+  };
+
+  const priorShow=window.show;
+  window.show=async function(id){
+    if(id==='cashflow' || id==='finance'){
+      await window.ensureLiquidityDetailLoaded(false);
+    }
+    return priorShow.apply(this,arguments);
+  };
+  try{show=window.show}catch(e){}
+})();
+</script>\n
 <script id="build27-project-wide-lazy-loader">
 (function(){
 'use strict';
@@ -7962,7 +8008,6 @@ try{show=window.show}catch(e){}
 window.mahsoubakLazyLoader27={version:'BUILD27_PROJECT_WIDE_LAZY',state:L27};
 })();
 </script>
-
 <script id="build28-refresh-safe">
 (function(){
 'use strict';
