@@ -1255,7 +1255,7 @@ async function openCustomerStatementFinal(key){
  ${detailClick(LANG==='ar'?'رصيد دائن غير موزع':'Unapplied Credit',money(s.unapplied_customer_credit),`openCustomerStatementMetricFinal('${esc(key)}','unapplied')`)}
  ${detailClick(LANG==='ar'?'الرصيد النهائي':'Final Balance',money(s.statement_balance),`openCustomerStatementMetricFinal('${esc(key)}','balance')`)}
  </div>
- <div class="doc-actions"><button class="btn secondary" onclick="printCustomerStatementFinal('${esc(key)}')">🧾 ${LANG==='ar'?'طباعة صيغة كشف الحساب':'Print Statement Format'}</button></div>
+ <div class="doc-actions"><button class="btn secondary" onclick="printCustomerStatementFinal('${esc(key)}')">🧾 ${LANG==='ar'?'طباعة':'Print'}</button></div>
  ${noRows}
  ${rows.length?table([
   [T('date'),r=>esc(S(r.transaction_date).slice(0,10))],
